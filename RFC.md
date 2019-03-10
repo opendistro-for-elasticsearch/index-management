@@ -74,4 +74,4 @@ After building Index State Management API, we will build an administrative panel
 
 ## Providing Feedback
 
-If you have comments or feedback on our plans for Index Management, please comment on [the RFC Github issue](https://github.com/mauve-hedgehog/index-management/issues/1) in this project to discuss.
+If you have comments or feedback on our plans for Index Management, please comment on [the RFC Github issue](../../issues/1) in this project to discuss.

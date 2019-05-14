@@ -1,0 +1,77 @@
+buildscript {
+    ext {
+        es_version = System.getProperty("es.version", "6.7.1")
+        kotlin_version = System.getProperty("kotlin.version", "1.3.31")
+    }
+
+    repositories {
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+
+    dependencies {
+        classpath "org.elasticsearch.gradle:build-tools:${es_version}"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
+    }
+}
+
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'org.jetbrains.kotlin.jvm' version '1.3.31'
+}
+
+apply plugin: 'elasticsearch.esplugin'
+
+esplugin {
+    name 'opendistro-index-state-management'
+    description 'Open Distro Index State Management Plugin'
+    classname 'com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin'
+}
+
+dependencies {
+    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
+    compile "org.jetbrains:annotations:13.0"
+
+    testImplementation "org.elasticsearch.test:framework:${es_version}"
+    testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    projectSubstitutions = [:]
+    opendistroVersion = '0.9.0'
+    licenseFile = rootProject.file('LICENSE')
+    noticeFile = rootProject.file('NOTICE')
+}
+
+group = "com.amazon.opendistroforelasticsearch"
+version = "${opendistroVersion}.0"
+sourceCompatibility = targetCompatibility = "1.8"
+compileKotlin.kotlinOptions.jvmTarget = compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
+
+javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
+licenseHeaders.enabled = true
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
+
+unitTest {
+    systemProperty 'tests.security.manager', 'false'
+}
+
+integTestRunner {
+    systemProperty 'tests.security.manager', 'false'
+}
+
+integTestCluster {
+    distribution = "oss-zip"
+}
+
+run {
+    distribution = "oss-zip"
+}

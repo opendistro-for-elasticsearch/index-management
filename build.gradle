@@ -22,6 +22,7 @@ buildscript {
     repositories {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
+        jcenter()
     }
 
     dependencies {
@@ -44,6 +45,10 @@ esplugin {
     classname 'com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin'
 }
 
+configurations {
+    ktlint
+}
+
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
@@ -52,10 +57,13 @@ dependencies {
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+
+    ktlint "com.pinterest:ktlint:0.32.0"
 }
 
 repositories {
     mavenCentral()
+    jcenter()
 }
 
 ext {
@@ -67,8 +75,12 @@ ext {
 
 group = "com.amazon.opendistroforelasticsearch"
 version = "${opendistroVersion}.0"
-sourceCompatibility = targetCompatibility = "1.8"
-compileKotlin.kotlinOptions.jvmTarget = compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
+plugins.withId('java') {
+    sourceCompatibility = targetCompatibility = "1.8"
+}
+plugins.withId('org.jetbrains.kotlin.jvm') {
+    compileKotlin.kotlinOptions.jvmTarget = compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
+}
 
 javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
 licenseHeaders.enabled = true
@@ -85,4 +97,22 @@ integTestCluster {
 
 run {
     distribution = "oss-zip"
+}
+
+task ktlint(type: JavaExec, group: "verification") {
+    description = "Check Kotlin code style."
+    main = "com.pinterest.ktlint.Main"
+    classpath = configurations.ktlint
+    args "src/**/*.kt"
+    // to generate report in checkstyle format prepend following args:
+    // "--reporter=plain", "--reporter=checkstyle,output=${buildDir}/ktlint.xml"
+    // see https://github.com/pinterest/ktlint#usage for more
+}
+check.dependsOn ktlint
+
+task ktlintFormat(type: JavaExec, group: "formatting") {
+    description = "Fix Kotlin code style deviations."
+    main = "com.pinterest.ktlint.Main"
+    classpath = configurations.ktlint
+    args "-F", "src/**/*.kt"
 }

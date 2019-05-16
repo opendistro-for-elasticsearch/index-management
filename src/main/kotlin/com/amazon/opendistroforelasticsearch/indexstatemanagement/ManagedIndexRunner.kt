@@ -15,11 +15,20 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
-import org.elasticsearch.test.ESTestCase
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
+import org.apache.logging.log4j.LogManager
 
-class ManagedIndexTests : ESTestCase() {
+class ManagedIndexRunner : ScheduledJobRunner {
 
-    fun `test nothing`() {
-        assertTrue(true)
+    private val logger = LogManager.getLogger(javaClass)
+
+    companion object {
+        val instance = ManagedIndexRunner()
+    }
+
+    override fun runJob(job: ScheduledJobParameter, context: JobExecutionContext) {
+        logger.info("runJob for ${job.name}")
     }
 }

@@ -14,3 +14,6 @@
  */
 
 rootProject.name = 'opendistro-for-elasticsearch-index-state-management'
+
+// Temporary until job-scheduler is published to Maven
+includeBuild("../job-scheduler")

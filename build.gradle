@@ -43,6 +43,7 @@ esplugin {
     name 'opendistro-index-state-management'
     description 'Open Distro Index State Management Plugin'
     classname 'com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin'
+    extendedPlugins = ['opendistro-job-scheduler']
 }
 
 configurations {
@@ -51,9 +52,10 @@ configurations {
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
-    compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
-    compile "org.jetbrains:annotations:13.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
+    implementation "org.jetbrains:annotations:13.0"
 
     testImplementation "org.elasticsearch.test:framework:${es_version}"
     testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
@@ -93,10 +95,35 @@ integTestRunner {
 
 integTestCluster {
     distribution = "oss-zip"
+    // Temporary until job-scheduler is published to Maven
+    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
+            "file://${pathToJobScheduler}")
 }
+
 
 run {
     distribution = "oss-zip"
+    // Temporary until job-scheduler is published to Maven
+    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
+            "file://${pathToJobScheduler}")
+}
+
+afterEvaluate {
+    project.tasks.getByName("run#installOpendistroForElasticsearchIndexStateManagementPlugin").dependsOn("run#installPlugin")
+    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroForElasticsearchIndexStateManagementPlugin"))
+    project.tasks.getByName("run#installPlugin").dependsOn("run#copyPlugins")
+    project.tasks.getByName("run#start").dependsOn.remove(project.tasks.getByName("run#installPlugin"))
+    project.tasks.getByName("run#start").dependsOn("run#installOpendistroForElasticsearchIndexStateManagementPlugin")
+}
+
+tasks.whenTaskAdded { task ->
+    if (task.name == "integTestCluster#wait") {
+        project.tasks.getByName("integTestCluster#installOpendistroForElasticsearchIndexStateManagementPlugin").dependsOn("integTestCluster#installPlugin")
+        project.tasks.getByName("integTestCluster#installPlugin").dependsOn.remove(project.tasks.getByName("integTestCluster#installOpendistroForElasticsearchIndexStateManagementPlugin"))
+        project.tasks.getByName("integTestCluster#installPlugin").dependsOn("integTestCluster#copyPlugins")
+        project.tasks.getByName("integTestCluster#start").dependsOn.remove(project.tasks.getByName("integTestCluster#installPlugin"))
+        project.tasks.getByName("integTestCluster#start").dependsOn("integTestCluster#installOpendistroForElasticsearchIndexStateManagementPlugin")
+    }
 }
 
 task ktlint(type: JavaExec, group: "verification") {

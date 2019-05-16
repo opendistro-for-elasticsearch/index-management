@@ -15,10 +15,55 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
+import org.apache.logging.log4j.LogManager
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.plugins.Plugin
 
-internal class IndexStateManagementPlugin: Plugin() {
+internal class IndexStateManagementPlugin : JobSchedulerExtension, Plugin() {
+
+    private val logger = LogManager.getLogger(javaClass)
+
     companion object {
         const val PLUGIN_NAME = "opendistro-ism"
+        const val POLICY_BASE_URI = "/_opendistro/_ism/policies"
+        const val INDEX_STATE_MANAGEMENT_INDEX = ".opendistro-ism-config"
+        const val INDEX_STATE_MANAGEMENT_TYPE = "_doc"
+    }
+
+    override fun getJobIndex(): String {
+        return INDEX_STATE_MANAGEMENT_INDEX
+    }
+
+    override fun getJobType(): String {
+        return INDEX_STATE_MANAGEMENT_TYPE
+    }
+
+    override fun getJobRunner(): ScheduledJobRunner {
+        return ManagedIndexRunner.instance
+    }
+
+    override fun getJobParser(): ScheduledJobParser {
+        return ScheduledJobParser { xcp, id, version ->
+            var job: ScheduledJobParameter? = null
+            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
+
+                when (fieldName) {
+                    ManagedIndex.MANAGED_INDEX_TYPE -> job = ManagedIndex.parse(xcp, id, version)
+                    else -> {
+                        logger.info("Unsupported document was indexed in $INDEX_STATE_MANAGEMENT_INDEX")
+                    }
+                }
+            }
+            job
+        }
     }
 }

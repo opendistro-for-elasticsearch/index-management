@@ -20,6 +20,98 @@
             "type": "date",
             "format": "strict_date_time||epoch_millis"
           },
+          "default_notification": {
+            "properties": {
+              "destination": {
+                "properties": {
+                  "name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "type": {
+                    "type": "keyword"
+                  },
+                  "last_update_time": {
+                    "type": "date",
+                    "format": "strict_date_time||epoch_millis"
+                  },
+                  "chime": {
+                    "properties": {
+                      "url": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "slack": {
+                    "properties": {
+                      "url": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "custom_webhook": {
+                    "properties": {
+                      "url": {
+                        "type": "text",
+                        "fields": {
+                          "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                          }
+                        }
+                      },
+                      "scheme": {
+                        "type": "keyword"
+                      },
+                      "host": {
+                        "type": "text"
+                      },
+                      "port": {
+                        "type": "integer"
+                      },
+                      "path": {
+                        "type": "keyword"
+                      },
+                      "query_params": {
+                        "type": "object",
+                        "enabled": false
+                      },
+                      "header_params": {
+                        "type": "object",
+                        "enabled": false
+                      },
+                      "username": {
+                        "type": "text"
+                      },
+                      "password": {
+                        "type": "text"
+                      }
+                    }
+                  }
+                }
+              },
+              "message": {
+                "type": "text"
+              }
+            }
+          },
           "default_state": {
             "type": "keyword"
           },
@@ -33,7 +125,7 @@
                 "type": "nested",
                 "properties": {
                   "timeout": {
-                    "type": "text"
+                    "type": "keyword"
                   },
                   "retry": {
                     "properties": {
@@ -44,7 +136,7 @@
                         "type": "keyword"
                       },
                       "delay": {
-                        "type": "text"
+                        "type": "keyword"
                       }
                     }
                   },
@@ -99,13 +191,13 @@
                   "rollover": {
                     "properties": {
                       "min_size": {
-                        "type": "text"
+                        "type": "keyword"
                       },
                       "min_index_age": {
-                        "type": "text"
+                        "type": "keyword"
                       },
                       "min_doc_count": {
-                        "type": "long"
+                        "type": "keyword"
                       }
                     }
                   },
@@ -210,18 +302,18 @@
                     "type": "keyword"
                   },
                   "index_age": {
-                    "type": "text"
+                    "type": "keyword"
                   },
                   "doc_count": {
                     "type": "long"
                   },
                   "size":  {
-                    "type": "text"
+                    "type": "keyword"
                   },
                   "cron": {
                     "properties": {
                       "expression": {
-                        "type": "text"
+                        "type": "keyword"
                       },
                       "timezone": {
                         "type": "keyword"
@@ -236,6 +328,15 @@
       },
       "managed_index": {
         "properties": {
+          "name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
           "enabled": {
             "type": "boolean"
           },
@@ -249,15 +350,6 @@
           "last_updated_time": {
             "type": "date",
             "format": "strict_date_time||epoch_millis"
-          },
-          "name": {
-            "type": "text",
-            "fields": {
-              "keyword": {
-                "type": "keyword",
-                "ignore_above": 256
-              }
-            }
           },
           "policy_version": {
             "type": "long"
@@ -276,13 +368,6 @@
               },
               "state": {
                 "type": "keyword"
-              },
-              "include": {
-                "properties": {
-                  "state": {
-                    "type": "keyword"
-                  }
-                }
               }
             }
           },
@@ -305,7 +390,7 @@
               "cron": {
                 "properties": {
                   "expression": {
-                    "type": "text"
+                    "type": "keyword"
                   },
                   "timezone": {
                     "type": "keyword"

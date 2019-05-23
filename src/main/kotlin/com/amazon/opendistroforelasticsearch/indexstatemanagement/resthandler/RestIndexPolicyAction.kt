@@ -20,6 +20,10 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.REFRESH
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -63,8 +67,6 @@ class RestIndexPolicyAction(
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        logger.info("prepare request called")
-
         val id = request.param("policyID", Policy.NO_ID)
         if (Policy.NO_ID == id) {
             throw IllegalArgumentException("Missing policy ID")
@@ -73,8 +75,8 @@ class RestIndexPolicyAction(
         val xcp = request.contentParser()
         val policy = Policy.parseWithType(xcp, id).copy(lastUpdatedTime = Instant.now())
         val policyVersion = RestActions.parseVersion(request)
-        val refreshPolicy = if (request.hasParam("refresh")) {
-            WriteRequest.RefreshPolicy.parse(request.param("refresh"))
+        val refreshPolicy = if (request.hasParam(REFRESH)) {
+            WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
@@ -93,7 +95,6 @@ class RestIndexPolicyAction(
     ) : AsyncActionHandler(client, channel) {
         fun start() {
             if (!ismIndices.indexStateManagementIndexExists()) {
-                logger.info("Creating ISM index")
                 ismIndices.initIndexStateManagementIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
             } else {
                 putPolicy()
@@ -139,9 +140,9 @@ class RestIndexPolicyAction(
 
                     val builder = channel.newBuilder()
                             .startObject()
-                            .field("_id", response.id)
-                            .field("_version", response.version)
-                            .field("policy", newPolicy)
+                            .field(_ID, response.id)
+                            .field(_VERSION, response.version)
+                            .field(POLICY_TYPE, newPolicy)
                             .endObject()
 
                     val restResponse = BytesRestResponse(response.status(), builder)

@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
 import org.elasticsearch.action.get.GetRequest
@@ -81,7 +82,7 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
                     XContentHelper.createParser(channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                             response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
                         val policy = Policy.parseWithType(xcp, response.id, response.version)
-                        builder.field("policy", policy)
+                        builder.field(POLICY_TYPE, policy)
                     }
                 }
                 builder.endObject()

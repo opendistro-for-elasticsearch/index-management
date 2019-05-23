@@ -1,7 +1,7 @@
 {
   "_doc": {
+    "dynamic": "strict",
     "properties": {
-      "dynamic": "strict",
       "policy": {
         "properties": {
           "name": {

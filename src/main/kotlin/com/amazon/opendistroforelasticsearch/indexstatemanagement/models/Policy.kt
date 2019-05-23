@@ -102,8 +102,6 @@ data class Policy(
                 }
             }
 
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-
             return Policy(
                 id,
                 version,
@@ -123,7 +121,9 @@ data class Policy(
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            return parse(xcp, id, version)
+            val policy = parse(xcp, id, version)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            return policy
         }
     }
 }

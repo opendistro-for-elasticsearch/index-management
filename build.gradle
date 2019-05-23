@@ -54,12 +54,12 @@ configurations {
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
-    implementation "org.jetbrains:annotations:13.0"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
+    compile "org.jetbrains:annotations:13.0"
 
-    testImplementation "org.elasticsearch.test:framework:${es_version}"
-    testImplementation "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+    testCompile "org.elasticsearch.test:framework:${es_version}"
+    testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
 
     ktlint "com.pinterest:ktlint:0.32.0"
 }
@@ -98,7 +98,7 @@ integTestCluster {
     distribution = "oss-zip"
     // Temporary until job-scheduler is published to Maven
     setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${pathToJobScheduler}")
+            "file://${findProperty('pathToJobSchedulerZip')}")
 }
 
 
@@ -106,7 +106,7 @@ run {
     distribution = "oss-zip"
     // Temporary until job-scheduler is published to Maven
     setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${pathToJobScheduler}")
+            "file://${findProperty('pathToJobSchedulerZip')}")
 }
 
 afterEvaluate {

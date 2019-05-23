@@ -53,6 +53,7 @@ class RestIndexPolicyAction(
     controller: RestController,
     indexStateManagementIndices: IndexStateManagementIndices
 ) : BaseRestHandler(settings) {
+
     private var ismIndices = indexStateManagementIndices
 
     init {
@@ -93,6 +94,7 @@ class RestIndexPolicyAction(
         private val refreshPolicy: WriteRequest.RefreshPolicy,
         private var newPolicy: Policy
     ) : AsyncActionHandler(client, channel) {
+
         fun start() {
             if (!ismIndices.indexStateManagementIndexExists()) {
                 ismIndices.initIndexStateManagementIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))

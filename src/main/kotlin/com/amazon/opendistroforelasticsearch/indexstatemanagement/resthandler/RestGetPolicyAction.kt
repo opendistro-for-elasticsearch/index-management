@@ -79,8 +79,12 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
                         .field(_ID, response.id)
                         .field(_VERSION, response.version)
                 if (!response.isSourceEmpty) {
-                    XContentHelper.createParser(channel.request().xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                            response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
+                    XContentHelper.createParser(
+                        channel.request().xContentRegistry,
+                        LoggingDeprecationHandler.INSTANCE,
+                        response.sourceAsBytesRef,
+                        XContentType.JSON
+                    ).use { xcp ->
                         val policy = Policy.parseWithType(xcp, response.id, response.version)
                         builder.field(POLICY_TYPE, policy)
                     }

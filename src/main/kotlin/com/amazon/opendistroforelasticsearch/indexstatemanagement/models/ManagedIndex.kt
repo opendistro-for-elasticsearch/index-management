@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParame
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -42,9 +43,6 @@ data class ManagedIndex(
     val jobEnabledTime: Instant?
 ) : ScheduledJobParameter {
 
-    private val type =
-            MANAGED_INDEX_TYPE
-
     override fun isEnabled() = enabled
 
     override fun getName() = jobName
@@ -56,30 +54,29 @@ data class ManagedIndex(
     override fun getLastUpdateTime() = jobLastUpdateTime
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject()
+        builder
+            .startObject()
                 .startObject(MANAGED_INDEX_TYPE)
-                .field(TYPE_FIELD, type)
-                .field(NAME_FIELD, jobName)
-                .field(ENABLED_FIELD, enabled)
-                .field(INDEX_FIELD, index)
-                .field(SCHEDULE_FIELD, jobSchedule)
-                .optionalTimeField(LAST_UPDATE_TIME_FIELD, jobLastUpdateTime)
-                .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
+                    .field(NAME_FIELD, jobName)
+                    .field(ENABLED_FIELD, enabled)
+                    .field(INDEX_FIELD, index)
+                    .field(SCHEDULE_FIELD, jobSchedule)
+                    .optionalTimeField(LAST_UPDATE_TIME_FIELD, jobLastUpdateTime)
+                    .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
                 .endObject()
-                .endObject()
+            .endObject()
         return builder
     }
 
     companion object {
         const val MANAGED_INDEX_TYPE = "managed_index"
         const val NO_ID = ""
-        const val NO_VERSION = 1L
+        const val NO_VERSION = Versions.NOT_FOUND
         const val NAME_FIELD = "name"
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
         const val LAST_UPDATE_TIME_FIELD = "last_update_time"
         const val ENABLED_TIME_FIELD = "enabled_time"
-        const val TYPE_FIELD = "type"
         const val INDEX_FIELD = "index"
 
         val logger = LogManager.getLogger(ManagedIndex::class.java)

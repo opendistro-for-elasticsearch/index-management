@@ -1,0 +1,110 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
+package com.amazon.opendistroforelasticsearch.indexstatemanagement
+
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
+import org.apache.http.HttpEntity
+import org.apache.http.HttpHeaders
+import org.apache.http.entity.ContentType
+import org.apache.http.entity.StringEntity
+import org.apache.http.message.BasicHeader
+import org.elasticsearch.client.Response
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.common.xcontent.json.JsonXContent
+import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.test.rest.ESRestTestCase
+import org.junit.rules.DisableOnDebug
+
+abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
+
+    private val isDebuggingTest = DisableOnDebug(null).isDebugging
+    private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
+
+    fun Response.asMap(): Map<String, Any> {
+        return entityAsMap(this)
+    }
+
+    protected fun createPolicy(policy: Policy, policyId: String = ESTestCase.randomAlphaOfLength(10), refresh: Boolean = true): Policy {
+        val response = client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId?refresh=$refresh", emptyMap(),
+                policy.toHttpEntity())
+        assertEquals("Unable to create a new policy", RestStatus.CREATED, response.restStatus())
+
+        val policyJson = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
+                response.entity.content).map()
+        val createdId = policyJson["_id"] as String
+        assertEquals("policy ids are not the same", policyId, createdId)
+        return policy.copy(id = createdId, version = (policyJson["_version"] as Int).toLong())
+    }
+
+    protected fun createRandomPolicy(refresh: Boolean = false): Policy {
+        val policy = randomPolicy()
+        val policyId = createPolicy(policy, refresh = refresh).id
+        return getPolicy(policyId = policyId)
+    }
+
+    protected fun getPolicy(policyId: String, header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")): Policy {
+        val response = client().makeRequest("GET", "$POLICY_BASE_URI/$policyId", null, header)
+        assertEquals("Unable to get policy $policyId", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        ensureExpectedToken(Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+
+        lateinit var id: String
+        var version: Long = 0
+        lateinit var policy: Policy
+
+        while (parser.nextToken() != Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                _ID -> id = parser.text()
+                _VERSION -> version = parser.longValue()
+                POLICY_TYPE -> policy = Policy.parse(parser)
+            }
+        }
+        return policy.copy(id = id, version = version)
+    }
+
+    protected fun Response.restStatus(): RestStatus {
+        return RestStatus.fromCode(this.statusLine.statusCode)
+    }
+
+    protected fun Policy.toHttpEntity(): HttpEntity {
+        return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
+    }
+
+    // Useful settings when debugging to prevent timeouts
+    override fun restClientSettings(): Settings {
+        return if (isDebuggingTest || isDebuggingRemoteCluster) {
+            Settings.builder()
+                    .put(CLIENT_SOCKET_TIMEOUT, TimeValue.timeValueMinutes(10))
+                    .build()
+        } else {
+            super.restClientSettings()
+        }
+    }
+}

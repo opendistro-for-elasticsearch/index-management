@@ -55,7 +55,7 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val policyId = request.param("policyID")
         if (policyId == null || policyId.isEmpty()) {
-            throw IllegalArgumentException("missing id")
+            throw IllegalArgumentException("Missing policy ID")
         }
         val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, INDEX_STATE_MANAGEMENT_TYPE, policyId)
                 .version(RestActions.parseVersion(request))

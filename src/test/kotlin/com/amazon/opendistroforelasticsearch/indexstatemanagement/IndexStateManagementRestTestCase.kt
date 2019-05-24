@@ -44,9 +44,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
 
-    fun Response.asMap(): Map<String, Any> {
-        return entityAsMap(this)
-    }
+    fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
     protected fun createPolicy(policy: Policy, policyId: String = ESTestCase.randomAlphaOfLength(10), refresh: Boolean = true): Policy {
         val response = client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId?refresh=$refresh", emptyMap(),
@@ -89,13 +87,9 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return policy.copy(id = id, version = version)
     }
 
-    protected fun Response.restStatus(): RestStatus {
-        return RestStatus.fromCode(this.statusLine.statusCode)
-    }
+    protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)
 
-    protected fun Policy.toHttpEntity(): HttpEntity {
-        return StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
-    }
+    protected fun Policy.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
 
     // Useful settings when debugging to prevent timeouts
     override fun restClientSettings(): Settings {

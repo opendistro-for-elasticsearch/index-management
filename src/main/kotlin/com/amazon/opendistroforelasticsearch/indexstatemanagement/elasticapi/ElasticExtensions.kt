@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 
+import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
@@ -37,3 +38,8 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
     }
     return this.timeField(name, name, instant.toEpochMilli())
 }
+
+/**
+ * Extension function for ES 6.3 and above that duplicates the ES 6.2 XContentBuilder.string() method.
+ */
+fun XContentBuilder.string(): String = BytesReference.bytes(this).utf8ToString()

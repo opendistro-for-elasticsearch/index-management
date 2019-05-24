@@ -54,7 +54,7 @@ fun Policy.toJsonString(): String {
 * a single place to suppress deprecation warnings. This will probably need further work when the API is removed entirely
 * but that's an exercise for another day.
 */
-@Suppress("DEPRECATION")
+
 fun RestClient.makeRequest(
     method: String,
     endpoint: String,
@@ -78,7 +78,7 @@ fun RestClient.makeRequest(
  * a single place to suppress deprecation warnings. This will probably need further work when the API is removed entirely
  * but that's an exercise for another day.
  */
-@Suppress("DEPRECATION")
+
 fun RestClient.makeRequest(
     method: String,
     endpoint: String,

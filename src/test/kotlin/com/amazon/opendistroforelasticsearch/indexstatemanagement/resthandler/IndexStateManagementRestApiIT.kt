@@ -33,6 +33,7 @@ import org.elasticsearch.test.junit.annotations.TestLogging
 @Suppress("UNCHECKED_CAST")
 class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 
+    @Throws(Exception::class)
     fun `test plugins are loaded`() {
         val response = entityAsMap(client().makeRequest("GET", "_nodes/plugins"))
         val nodesInfo = response["nodes"] as Map<String, Map<String, Any>>
@@ -73,6 +74,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         assertEquals("Incorrect Location header", "$POLICY_BASE_URI/$createdId", createResponse.getHeader("Location"))
     }
 
+    @Throws(Exception::class)
     fun `test creating a policy with no id fails`() {
         try {
             val policy = randomPolicy()
@@ -83,6 +85,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         }
     }
 
+    @Throws(Exception::class)
     fun `test creating a policy with POST fails`() {
         try {
             val policy = randomPolicy()
@@ -93,6 +96,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         }
     }
 
+    @Throws(Exception::class)
     fun `test mappings after policy creation`() {
         createRandomPolicy(refresh = true)
 
@@ -107,6 +111,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         assertEquals("Mappings are different", expectedMap, mappingsMap)
     }
 
+    @Throws(Exception::class)
     fun `test update policy with wrong version`() {
         val policy = createRandomPolicy(refresh = true)
 
@@ -119,6 +124,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         }
     }
 
+    @Throws(Exception::class)
     fun `test update policy with correct version`() {
         val policy = createRandomPolicy(refresh = true)
         val updateResponse = client().makeRequest("PUT", "$POLICY_BASE_URI/${policy.id}?refresh=true&version=${policy.version}",
@@ -131,5 +137,60 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         assertNotEquals("response is missing Id", Policy.NO_ID, updatedId)
         assertEquals("not same id", policy.id, updatedId)
         assertEquals("incorrect version", policy.version + 1, updatedVersion)
+    }
+
+    @Throws(Exception::class)
+    fun `test deleting a policy`() {
+        val policy = createRandomPolicy()
+
+        val deleteResponse = client().makeRequest("DELETE", "$POLICY_BASE_URI/${policy.id}?refresh=true")
+        assertEquals("Delete failed", RestStatus.OK, deleteResponse.restStatus())
+
+        val getResponse = client().makeRequest("HEAD", "$POLICY_BASE_URI/${policy.id}")
+        assertEquals("Deleted policy still exists", RestStatus.NOT_FOUND, getResponse.restStatus())
+    }
+
+    @Throws(Exception::class)
+    fun `test deleting a policy that doesn't exist`() {
+        try {
+            client().makeRequest("DELETE", "$POLICY_BASE_URI/foobarbaz")
+            fail("expected 404 ResponseException")
+        } catch (e: ResponseException) {
+            assertEquals(RestStatus.NOT_FOUND, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test getting a policy`() {
+        val policy = createRandomPolicy()
+
+        val indexedPolicy = getPolicy(policy.id)
+
+        assertEquals("Indexed and retrieved policy differ", policy, indexedPolicy)
+    }
+
+    @Throws(Exception::class)
+    fun `test getting a policy that doesn't exist`() {
+        try {
+            getPolicy(randomAlphaOfLength(20))
+            fail("expected response exception")
+        } catch (e: ResponseException) {
+            assertEquals(RestStatus.NOT_FOUND, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test checking if a policy exists`() {
+        val policy = createRandomPolicy()
+
+        val headResponse = client().makeRequest("HEAD", "$POLICY_BASE_URI/${policy.id}")
+        assertEquals("Unable to HEAD policy", RestStatus.OK, headResponse.restStatus())
+        assertNull("Response contains unexpected body", headResponse.entity)
+    }
+
+    @Throws(Exception::class)
+    fun `test checking if a non-existent policy exists`() {
+        val headResponse = client().makeRequest("HEAD", "$POLICY_BASE_URI/foobarbaz")
+        assertEquals("Unexpected status", RestStatus.NOT_FOUND, headResponse.restStatus())
     }
 }

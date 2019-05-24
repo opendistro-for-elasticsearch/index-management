@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestDeletePolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestGetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestIndexPolicyAction
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
@@ -100,7 +101,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     ): List<RestHandler> {
         return listOf(
             RestIndexPolicyAction(settings, restController, indexStateManagementIndices),
-            RestGetPolicyAction(settings, restController)
+            RestGetPolicyAction(settings, restController),
+            RestDeletePolicyAction(settings, restController)
         )
     }
 

@@ -31,7 +31,7 @@ import org.elasticsearch.test.junit.annotations.TestLogging
 
 @TestLogging("level:DEBUG")
 @Suppress("UNCHECKED_CAST")
-class IndexStateManagementRestAPiIT : IndexStateManagementRestTestCase() {
+class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 
     fun `test plugins are loaded`() {
         val response = entityAsMap(client().makeRequest("GET", "_nodes/plugins"))

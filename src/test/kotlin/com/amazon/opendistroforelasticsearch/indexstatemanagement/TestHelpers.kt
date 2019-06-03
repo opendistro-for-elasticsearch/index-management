@@ -42,11 +42,11 @@ fun randomPolicy(
 }
 
 fun randomState(
-    stateName: String = ESRestTestCase.randomAlphaOfLength(10),
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
     actions: List<Map<String, Any>> = listOf(), // TODO: List<Action>
     transitions: List<Map<String, Any>> = listOf() // TODO: List<Transition>
 ): State {
-    return State(stateName = stateName, actions = actions, transitions = transitions)
+    return State(name = name, actions = actions, transitions = transitions)
 }
 
 fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class

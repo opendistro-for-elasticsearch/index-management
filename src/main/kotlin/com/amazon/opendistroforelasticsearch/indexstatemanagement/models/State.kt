@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
 
-import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -24,20 +23,15 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class State(
-    val id: String = NO_ID,
-    val version: Long = NO_VERSION,
-    val stateName: String,
+    val name: String,
     val actions: List<Map<String, Any>>, // TODO: Implement List<Action>
     val transitions: List<Map<String, Any>> // TODO: Implement List<Transition>
 ) : ToXContent {
 
-    fun toXContent(builder: XContentBuilder): XContentBuilder =
-        toXContent(builder, ToXContent.EMPTY_PARAMS)
-
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
             .startObject()
-                .field(NAME_FIELD, stateName)
+                .field(NAME_FIELD, name)
                 .field(ACTIONS_FIELD, actions.toTypedArray())
                 .field(TRANSITIONS_FIELD, transitions.toTypedArray())
             .endObject()
@@ -45,16 +39,13 @@ data class State(
     }
 
     companion object {
-        const val NO_ID = ""
-        const val NO_VERSION = Versions.NOT_FOUND
         const val NAME_FIELD = "state"
         const val ACTIONS_FIELD = "actions"
         const val TRANSITIONS_FIELD = "transitions"
 
         @JvmStatic
-        @JvmOverloads
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): State {
+        fun parse(xcp: XContentParser): State {
             lateinit var name: String
             val actions: MutableList<Map<String, Any>> = mutableListOf() // TODO: Implement List<Action>
             val transitions: MutableList<Map<String, Any>> = mutableListOf() // TODO: Implement List<Transition>
@@ -82,11 +73,9 @@ data class State(
             }
 
             return State(
-                id,
-                version,
-                stateName = requireNotNull(name) { "State name is null" },
-                actions = requireNotNull(actions) { "State actions are null" },
-                transitions = requireNotNull(transitions) { "State transitions are null" }
+                name = requireNotNull(name) { "State name is null" },
+                actions = actions.toList(),
+                transitions = transitions.toList()
             )
         }
     }

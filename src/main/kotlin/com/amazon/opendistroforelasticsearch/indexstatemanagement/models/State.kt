@@ -39,7 +39,7 @@ data class State(
     }
 
     companion object {
-        const val NAME_FIELD = "state"
+        const val NAME_FIELD = "name"
         const val ACTIONS_FIELD = "actions"
         const val TRANSITIONS_FIELD = "transitions"
 

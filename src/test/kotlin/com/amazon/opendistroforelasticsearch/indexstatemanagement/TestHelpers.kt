@@ -24,6 +24,7 @@ import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
@@ -60,7 +61,7 @@ fun Policy.toJsonString(): String {
 
 fun State.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
-    return this.toXContent(builder).string()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
 /**

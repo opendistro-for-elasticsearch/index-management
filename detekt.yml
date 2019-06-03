@@ -1,2 +1,6 @@
 autoCorrect: false
 failFast: false
+
+style:
+  ForbiddenComment:
+    active: false

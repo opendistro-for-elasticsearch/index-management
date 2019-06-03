@@ -36,7 +36,7 @@ fun randomPolicy(
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
     defaultState: String = ESRestTestCase.randomAlphaOfLength(10),
-    states: List<Map<String, Any>> = listOf() // TODO: List<State>
+    states: List<State> = listOf()
 ): Policy {
     return Policy(name = name, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
             defaultNotification = defaultNotification, defaultState = defaultState, states = states)

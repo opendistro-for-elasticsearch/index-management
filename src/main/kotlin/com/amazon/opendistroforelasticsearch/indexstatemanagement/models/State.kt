@@ -82,11 +82,11 @@ data class State(
             }
 
             return State(
-                    id,
-                    version,
-                    stateName = requireNotNull(name) { "State name is null" },
-                    actions = requireNotNull(actions) { "State actions are null" },
-                    transitions = requireNotNull(transitions) { "State transitions are null" }
+                id,
+                version,
+                stateName = requireNotNull(name) { "State name is null" },
+                actions = requireNotNull(actions) { "State actions are null" },
+                transitions = requireNotNull(transitions) { "State transitions are null" }
             )
         }
     }

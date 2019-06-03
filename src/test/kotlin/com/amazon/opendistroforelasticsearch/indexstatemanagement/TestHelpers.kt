@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
@@ -40,11 +41,24 @@ fun randomPolicy(
             defaultNotification = defaultNotification, defaultState = defaultState, states = states)
 }
 
+fun randomState(
+    stateName: String = ESRestTestCase.randomAlphaOfLength(10),
+    actions: List<Map<String, Any>> = listOf(), // TODO: List<Action>
+    transitions: List<Map<String, Any>> = listOf() // TODO: List<Transition>
+): State {
+    return State(stateName = stateName, actions = actions, transitions = transitions)
+}
+
 fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class
     return null // TODO: random DefaultNotification
 }
 
 fun Policy.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder).string()
+}
+
+fun State.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder).string()
 }

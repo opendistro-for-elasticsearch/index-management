@@ -20,8 +20,10 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangeP
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
@@ -30,7 +32,6 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -40,7 +41,7 @@ fun randomPolicy(
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
-    states: List<State> = (1..randomInt(10)).map { randomState() }
+    states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
 ): Policy {
     return Policy(name = name, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
             defaultNotification = defaultNotification, defaultState = states[0].name, states = states)
@@ -52,6 +53,16 @@ fun randomState(
     transitions: List<Map<String, Any>> = listOf() // TODO: List<Transition>
 ): State {
     return State(name = name, actions = actions, transitions = transitions)
+}
+
+fun randomTransition(
+        stateName: String = ESRestTestCase.randomAlphaOfLength(10),
+        indexAge: String? = null,
+        docCount: Long? = null,
+        size: String? = null,
+        cron: CronSchedule? = null
+) : Transition {
+    return Transition(stateName = stateName, indexAge = indexAge, docCount = docCount, size = size, cron = cron)
 }
 
 fun randomChangePolicy(
@@ -96,6 +107,11 @@ fun Policy.toJsonString(): String {
 }
 
 fun State.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun Transition.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

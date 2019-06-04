@@ -25,7 +25,7 @@ import java.io.IOException
 data class State(
     val name: String,
     val actions: List<Map<String, Any>>, // TODO: Implement List<Action>
-    val transitions: List<Map<String, Any>> // TODO: Implement List<Transition>
+    val transitions: List<Transition>
 ) : ToXContent {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -48,7 +48,7 @@ data class State(
         fun parse(xcp: XContentParser): State {
             lateinit var name: String
             val actions: MutableList<Map<String, Any>> = mutableListOf() // TODO: Implement List<Action>
-            val transitions: MutableList<Map<String, Any>> = mutableListOf() // TODO: Implement List<Transition>
+            val transitions: MutableList<Transition> = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -66,7 +66,7 @@ data class State(
                     TRANSITIONS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
-                            // transitions.add(Transition.parse(xcp)) // TODO: Implement Transition.parse()
+                            transitions.add(Transition.parse(xcp))
                         }
                     }
                 }

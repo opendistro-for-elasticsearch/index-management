@@ -50,7 +50,7 @@ fun randomPolicy(
 fun randomState(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     actions: List<Map<String, Any>> = listOf(), // TODO: List<Action>
-    transitions: List<Map<String, Any>> = listOf() // TODO: List<Transition>
+    transitions: List<Transition> = listOf()
 ): State {
     return State(name = name, actions = actions, transitions = transitions)
 }

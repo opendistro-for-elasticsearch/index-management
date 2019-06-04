@@ -26,6 +26,7 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -35,11 +36,10 @@ fun randomPolicy(
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
-    defaultState: String = ESRestTestCase.randomAlphaOfLength(10),
-    states: List<State> = listOf()
+    states: List<State> = (1..randomInt(10)).map { randomState() }
 ): Policy {
     return Policy(name = name, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            defaultNotification = defaultNotification, defaultState = defaultState, states = states)
+            defaultNotification = defaultNotification, defaultState = states[0].name, states = states)
 }
 
 fun randomState(

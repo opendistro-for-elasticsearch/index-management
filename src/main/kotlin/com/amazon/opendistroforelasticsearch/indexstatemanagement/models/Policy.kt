@@ -39,6 +39,11 @@ data class Policy(
     val states: List<State>
 ) : ToXContentObject {
 
+    init {
+        require(states.isNotEmpty()) { "Policy must contain at least one State" }
+        requireNotNull(states.find { it.name == defaultState }) { "Policy must have a valid default state" }
+    }
+
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
     }

@@ -51,6 +51,11 @@ configurations {
     ktlint
 }
 
+detekt {
+    config = files("detekt.yml")
+    buildUponDefaultConfig = true
+}
+
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi"

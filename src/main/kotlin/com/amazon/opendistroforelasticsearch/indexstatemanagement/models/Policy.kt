@@ -36,8 +36,13 @@ data class Policy(
     // TODO: Implement DefaultNotification(destination, message)
     val defaultNotification: Map<String, Any>?,
     val defaultState: String,
-    val states: List<Map<String, Any>> // TODO: Implement List<State>
+    val states: List<State>
 ) : ToXContentObject {
+
+    init {
+        require(states.isNotEmpty()) { "Policy must contain at least one State" }
+        requireNotNull(states.find { it.name == defaultState }) { "Policy must have a valid default state" }
+    }
 
     fun toXContent(builder: XContentBuilder): XContentBuilder {
         return toXContent(builder, ToXContent.EMPTY_PARAMS)
@@ -79,7 +84,7 @@ data class Policy(
             var defaultNotification: Map<String, Any>? = null
             var lastUpdatedTime: Instant? = null
             var schemaVersion: Long = 1
-            val states: MutableList<Map<String, Any>> = mutableListOf() // TODO: MutableList<State>
+            val states: MutableList<State> = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -96,7 +101,7 @@ data class Policy(
                     STATES_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
-                            // TODO: states.add(State.parse(xcp))
+                            states.add(State.parse(xcp))
                         }
                     }
                 }

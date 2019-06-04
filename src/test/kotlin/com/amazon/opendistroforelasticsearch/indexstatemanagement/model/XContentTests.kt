@@ -16,7 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.toJsonString
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser
@@ -24,6 +26,14 @@ import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.test.ESTestCase
 
 class XContentTests : ESTestCase() {
+
+    fun `test state parsing`() {
+        val state = randomState()
+
+        val stateString = state.toJsonString()
+        val parsedState = State.parse(parser(stateString))
+        assertEquals("Round tripping State doesn't work", state, parsedState)
+    }
 
     fun `test policy parsing`() {
         val policy = randomPolicy()

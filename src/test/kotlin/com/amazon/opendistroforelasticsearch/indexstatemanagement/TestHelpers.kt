@@ -17,13 +17,16 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -33,11 +36,18 @@ fun randomPolicy(
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
-    defaultState: String = ESRestTestCase.randomAlphaOfLength(10),
-    states: List<Map<String, Any>> = listOf() // TODO: List<State>
+    states: List<State> = (1..randomInt(10)).map { randomState() }
 ): Policy {
     return Policy(name = name, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            defaultNotification = defaultNotification, defaultState = defaultState, states = states)
+            defaultNotification = defaultNotification, defaultState = states[0].name, states = states)
+}
+
+fun randomState(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    actions: List<Map<String, Any>> = listOf(), // TODO: List<Action>
+    transitions: List<Map<String, Any>> = listOf() // TODO: List<Transition>
+): State {
+    return State(name = name, actions = actions, transitions = transitions)
 }
 
 fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class
@@ -47,6 +57,11 @@ fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotificatio
 fun Policy.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder).string()
+}
+
+fun State.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
 /**

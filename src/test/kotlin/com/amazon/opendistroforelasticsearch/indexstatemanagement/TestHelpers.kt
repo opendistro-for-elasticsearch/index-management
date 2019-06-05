@@ -16,8 +16,12 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
@@ -50,8 +54,40 @@ fun randomState(
     return State(name = name, actions = actions, transitions = transitions)
 }
 
+fun randomChangePolicy(
+    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    state: String? = if (ESRestTestCase.randomBoolean()) ESRestTestCase.randomAlphaOfLength(10) else null
+): ChangePolicy {
+    return ChangePolicy(policyName, state)
+}
+
 fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class
     return null // TODO: random DefaultNotification
+}
+
+fun randomManagedIndex(
+    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    index: String = ESRestTestCase.randomAlphaOfLength(10),
+    enabled: Boolean = ESRestTestCase.randomBoolean(),
+    schedule: Schedule = IntervalSchedule(Instant.now(), 5, ChronoUnit.MINUTES),
+    lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+    enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
+    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    policy: Policy? = randomPolicy(),
+    changePolicy: ChangePolicy? = null
+): ManagedIndex {
+    return ManagedIndex(
+        jobName = name,
+        index = index,
+        enabled = enabled,
+        jobSchedule = schedule,
+        jobLastUpdatedTime = lastUpdatedTime,
+        jobEnabledTime = enabledTime,
+        policyName = policy?.name ?: policyName,
+        policyVersion = policy?.version,
+        policy = policy,
+        changePolicy = changePolicy
+    )
 }
 
 fun Policy.toJsonString(): String {
@@ -60,6 +96,16 @@ fun Policy.toJsonString(): String {
 }
 
 fun State.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun ChangePolicy.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun ManagedIndex.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

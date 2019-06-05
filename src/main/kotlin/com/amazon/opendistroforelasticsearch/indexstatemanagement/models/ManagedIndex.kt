@@ -39,9 +39,21 @@ data class ManagedIndex(
     val index: String,
     val enabled: Boolean,
     val jobSchedule: Schedule,
-    val jobLastUpdateTime: Instant,
-    val jobEnabledTime: Instant?
+    val jobLastUpdatedTime: Instant,
+    val jobEnabledTime: Instant?,
+    val policyName: String,
+    val policyVersion: Long?,
+    val policy: Policy?,
+    val changePolicy: ChangePolicy?
 ) : ScheduledJobParameter {
+
+    init {
+        if (enabled) {
+            requireNotNull(jobEnabledTime)
+        } else {
+            require(jobEnabledTime == null)
+        }
+    }
 
     override fun isEnabled() = enabled
 
@@ -51,7 +63,7 @@ data class ManagedIndex(
 
     override fun getSchedule() = jobSchedule
 
-    override fun getLastUpdateTime() = jobLastUpdateTime
+    override fun getLastUpdateTime() = jobLastUpdatedTime
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
@@ -61,8 +73,12 @@ data class ManagedIndex(
                     .field(ENABLED_FIELD, enabled)
                     .field(INDEX_FIELD, index)
                     .field(SCHEDULE_FIELD, jobSchedule)
-                    .optionalTimeField(LAST_UPDATE_TIME_FIELD, jobLastUpdateTime)
+                    .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
                     .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
+                    .field(POLICY_NAME_FIELD, policyName)
+                    .field(POLICY_VERSION_FIELD, policyVersion)
+                    .field(POLICY_FIELD, policy, ToXContent.MapParams(mapOf("with_type" to "false")))
+                    .field(CHANGE_POLICY_FIELD, changePolicy)
                 .endObject()
             .endObject()
         return builder
@@ -75,22 +91,30 @@ data class ManagedIndex(
         const val NAME_FIELD = "name"
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
-        const val LAST_UPDATE_TIME_FIELD = "last_update_time"
+        const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
         const val ENABLED_TIME_FIELD = "enabled_time"
         const val INDEX_FIELD = "index"
+        const val POLICY_NAME_FIELD = "policy_name"
+        const val POLICY_FIELD = "policy"
+        const val POLICY_VERSION_FIELD = "policy_version"
+        const val CHANGE_POLICY_FIELD = "change_policy"
 
         val logger = LogManager.getLogger(ManagedIndex::class.java)
 
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ScheduledJobParameter {
+        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndex {
             lateinit var name: String
             lateinit var index: String
             lateinit var schedule: Schedule
-            var lastUpdateTime: Instant? = null
+            lateinit var policyName: String
+            var policy: Policy? = null
+            var changePolicy: ChangePolicy? = null
+            var lastUpdatedTime: Instant? = null
             var enabledTime: Instant? = null
             var enabled = true
+            var policyVersion = NO_VERSION
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -103,10 +127,12 @@ data class ManagedIndex(
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = ScheduleParser.parse(xcp)
                     ENABLED_TIME_FIELD -> enabledTime = xcp.instant()
-                    LAST_UPDATE_TIME_FIELD -> lastUpdateTime = xcp.instant()
-                    else -> {
-                        xcp.skipChildren()
-                    }
+                    LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
+                    POLICY_NAME_FIELD -> policyName = xcp.text()
+                    POLICY_VERSION_FIELD -> policyVersion = xcp.longValue()
+                    POLICY_FIELD -> policy = if (xcp.currentToken() == Token.VALUE_NULL) null else Policy.parse(xcp)
+                    CHANGE_POLICY_FIELD -> changePolicy = if (xcp.currentToken() == Token.VALUE_NULL) null else ChangePolicy.parse(xcp)
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ManagedIndex.")
                 }
             }
 
@@ -117,15 +143,31 @@ data class ManagedIndex(
             }
 
             return ManagedIndex(
-                    id,
-                    version,
-                    index = requireNotNull(index) { "Managed Index index is null" },
-                    jobName = requireNotNull(name) { "Managed Index name is null" },
-                    enabled = enabled,
-                    jobSchedule = requireNotNull(schedule) { "Managed Index schedule is null" },
-                    jobLastUpdateTime = requireNotNull(lastUpdateTime) { "Managed Index Last update time is null" },
-                    jobEnabledTime = enabledTime
+                id,
+                version,
+                index = requireNotNull(index) { "Managed Index index is null" },
+                jobName = requireNotNull(name) { "Managed Index name is null" },
+                enabled = enabled,
+                jobSchedule = requireNotNull(schedule) { "Managed Index schedule is null" },
+                jobLastUpdatedTime = requireNotNull(lastUpdatedTime) { "Managed Index Last updated time is null" },
+                jobEnabledTime = enabledTime,
+                policyName = requireNotNull(policyName) { "Managed index policy name is null" },
+                policyVersion = policyVersion,
+                policy = policy,
+                changePolicy = changePolicy
             )
+        }
+
+        @JvmStatic
+        @JvmOverloads
+        @Throws(IOException::class)
+        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndex {
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            val managedIndex = parse(xcp, id, version)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            return managedIndex
         }
     }
 }

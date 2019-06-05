@@ -27,6 +27,7 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
@@ -86,7 +87,7 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
                         XContentType.JSON
                     ).use { xcp ->
                         val policy = Policy.parseWithType(xcp, response.id, response.version)
-                        builder.field(POLICY_TYPE, policy)
+                        builder.field(POLICY_TYPE, policy, ToXContent.MapParams(mapOf("with_type" to "false")))
                     }
                 }
                 builder.endObject()

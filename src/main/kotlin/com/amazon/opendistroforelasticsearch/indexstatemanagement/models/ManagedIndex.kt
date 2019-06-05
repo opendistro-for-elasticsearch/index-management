@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
@@ -77,7 +78,7 @@ data class ManagedIndex(
                     .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
                     .field(POLICY_NAME_FIELD, policyName)
                     .field(POLICY_VERSION_FIELD, policyVersion)
-                    .field(POLICY_FIELD, policy, ToXContent.MapParams(mapOf("with_type" to "false")))
+                    .field(POLICY_FIELD, policy, XCONTENT_WITHOUT_TYPE)
                     .field(CHANGE_POLICY_FIELD, changePolicy)
                 .endObject()
             .endObject()

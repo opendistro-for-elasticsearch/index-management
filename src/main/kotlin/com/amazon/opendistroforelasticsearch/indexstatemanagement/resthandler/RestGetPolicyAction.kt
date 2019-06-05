@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
 import org.elasticsearch.action.get.GetRequest
@@ -87,7 +88,7 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
                         XContentType.JSON
                     ).use { xcp ->
                         val policy = Policy.parseWithType(xcp, response.id, response.version)
-                        builder.field(POLICY_TYPE, policy, ToXContent.MapParams(mapOf("with_type" to "false")))
+                        builder.field(POLICY_TYPE, policy, XCONTENT_WITHOUT_TYPE)
                     }
                 }
                 builder.endObject()

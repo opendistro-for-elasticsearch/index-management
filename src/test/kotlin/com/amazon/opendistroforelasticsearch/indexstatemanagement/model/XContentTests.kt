@@ -15,8 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.toJsonString
@@ -39,13 +41,25 @@ class XContentTests : ESTestCase() {
         val policy = randomPolicy()
 
         val policyString = policy.toJsonString()
-        val parsedPolicy = Policy.parse(parser(policyString))
+        val parsedPolicy = Policy.parseWithType(parserWithType(policyString))
         assertEquals("Round tripping Policy doesn't work", policy, parsedPolicy)
+    }
+
+    fun `test change policy parsing`() {
+        val changePolicy = randomChangePolicy()
+
+        val changePolicyString = changePolicy.toJsonString()
+        val parsedChangePolicy = ChangePolicy.parse(parser(changePolicyString))
+        assertEquals("Round tripping ChangePolicy doesn't work", changePolicy, parsedChangePolicy)
     }
 
     private fun parser(xc: String): XContentParser {
         val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
         parser.nextToken()
         return parser
+    }
+
+    private fun parserWithType(xc: String): XContentParser {
+        return XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, xc)
     }
 }

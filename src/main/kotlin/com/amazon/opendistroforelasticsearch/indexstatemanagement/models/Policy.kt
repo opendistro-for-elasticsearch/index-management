@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.WITH_TYPE
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
@@ -49,18 +50,16 @@ data class Policy(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder
-            .startObject()
-                .startObject(POLICY_TYPE)
-                    .field(NAME_FIELD, name)
-                    .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
-                    .field(SCHEMA_VERSION_FIELD, schemaVersion)
-                    .field(DEFAULT_NOTIFICATION_FIELD, defaultNotification)
-                    .field(DEFAULT_STATE_FIELD, defaultState)
-                    .field(STATES_FIELD, states.toTypedArray())
-                .endObject()
-            .endObject()
-        return builder
+        builder.startObject()
+        if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(POLICY_TYPE)
+        builder.field(NAME_FIELD, name)
+            .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
+            .field(SCHEMA_VERSION_FIELD, schemaVersion)
+            .field(DEFAULT_NOTIFICATION_FIELD, defaultNotification)
+            .field(DEFAULT_STATE_FIELD, defaultState)
+            .field(STATES_FIELD, states.toTypedArray())
+        if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
+        return builder.endObject()
     }
 
     companion object {
@@ -104,6 +103,7 @@ data class Policy(
                             states.add(State.parse(xcp))
                         }
                     }
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Policy.")
                 }
             }
 

@@ -146,13 +146,13 @@ data class ManagedIndex(
             return ManagedIndex(
                 id,
                 version,
-                index = requireNotNull(index) { "Managed Index index is null" },
-                jobName = requireNotNull(name) { "Managed Index name is null" },
+                index = requireNotNull(index) { "ManagedIndex index is null" },
+                jobName = requireNotNull(name) { "ManagedIndex name is null" },
                 enabled = enabled,
-                jobSchedule = requireNotNull(schedule) { "Managed Index schedule is null" },
-                jobLastUpdatedTime = requireNotNull(lastUpdatedTime) { "Managed Index Last updated time is null" },
+                jobSchedule = requireNotNull(schedule) { "ManagedIndex schedule is null" },
+                jobLastUpdatedTime = requireNotNull(lastUpdatedTime) { "ManagedIndex last updated time is null" },
                 jobEnabledTime = enabledTime,
-                policyName = requireNotNull(policyName) { "Managed index policy name is null" },
+                policyName = requireNotNull(policyName) { "ManagedIndex policy name is null" },
                 policyVersion = policyVersion,
                 policy = policy,
                 changePolicy = changePolicy

@@ -55,7 +55,7 @@ data class Transition(
     }
 
     companion object {
-        const val STATE_FIELD = "state"
+        const val STATE_FIELD = "state_name"
         const val INDEX_AGE_FIELD = "index_age"
         const val DOC_COUNT_FIELD = "doc_count"
         const val SIZE_FIELD = "size"

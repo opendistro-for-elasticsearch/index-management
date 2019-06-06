@@ -298,7 +298,7 @@
               "transitions": {
                 "type": "nested",
                 "properties": {
-                  "state": {
+                  "state_name": {
                     "type": "keyword"
                   },
                   "index_age": {

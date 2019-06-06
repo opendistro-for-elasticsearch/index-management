@@ -301,24 +301,9 @@
                   "state_name": {
                     "type": "keyword"
                   },
-                  "index_age": {
-                    "type": "keyword"
-                  },
-                  "doc_count": {
-                    "type": "long"
-                  },
-                  "size":  {
-                    "type": "keyword"
-                  },
-                  "cron": {
-                    "properties": {
-                      "expression": {
-                        "type": "keyword"
-                      },
-                      "timezone": {
-                        "type": "keyword"
-                      }
-                    }
+                  "conditions": {
+                    "type": "object",
+                    "enabled": false
                   }
                 }
               }

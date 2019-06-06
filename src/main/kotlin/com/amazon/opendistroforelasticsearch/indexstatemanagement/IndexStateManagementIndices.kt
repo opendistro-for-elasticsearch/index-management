@@ -25,6 +25,7 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.XContentType
 
 // TODO: Handle updating mappings on newer versions
+// TODO: Handle Auditing indices
 
 class IndexStateManagementIndices(
     private val client: IndicesAdminClient,

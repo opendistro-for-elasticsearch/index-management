@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestDeletePolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestGetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestIndexPolicyAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
@@ -32,11 +33,12 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry
 import org.elasticsearch.common.settings.ClusterSettings
 import org.elasticsearch.common.settings.IndexScopedSettings
+import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
 import org.elasticsearch.plugins.ActionPlugin
@@ -75,8 +77,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     override fun getJobParser(): ScheduledJobParser {
         return ScheduledJobParser { xcp, id, version ->
             var job: ScheduledJobParameter? = null
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 
@@ -121,6 +123,17 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     ): Collection<Any> {
         val managedIndexRunner = ManagedIndexRunner.instance
         indexStateManagementIndices = IndexStateManagementIndices(client.admin().indices(), clusterService)
-        return listOf(managedIndexRunner, indexStateManagementIndices)
+        val managedIndexSweeper = ManagedIndexSweeper(environment.settings(),
+                client, clusterService, threadPool, indexStateManagementIndices)
+
+        return listOf(managedIndexRunner, indexStateManagementIndices, managedIndexSweeper)
+    }
+
+    override fun getSettings(): List<Setting<*>> {
+        return listOf(
+            ManagedIndexSettings.POLICY_NAME,
+            ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
+            ManagedIndexSettings.SWEEP_PERIOD
+        )
     }
 }

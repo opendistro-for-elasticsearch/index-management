@@ -30,7 +30,6 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.test.ESTestCase.randomInt
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -40,7 +39,7 @@ fun randomPolicy(
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
-    states: List<State> = (1..randomInt(10)).map { randomState() }
+    states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
 ): Policy {
     return Policy(name = name, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
             defaultNotification = defaultNotification, defaultState = states[0].name, states = states)
@@ -68,6 +67,7 @@ fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotificatio
 fun randomManagedIndex(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     index: String = ESRestTestCase.randomAlphaOfLength(10),
+    uuid: String = ESRestTestCase.randomAlphaOfLength(20),
     enabled: Boolean = ESRestTestCase.randomBoolean(),
     schedule: Schedule = IntervalSchedule(Instant.now(), 5, ChronoUnit.MINUTES),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
@@ -79,6 +79,7 @@ fun randomManagedIndex(
     return ManagedIndex(
         jobName = name,
         index = index,
+        indexUuid = uuid,
         enabled = enabled,
         jobSchedule = schedule,
         jobLastUpdatedTime = lastUpdatedTime,

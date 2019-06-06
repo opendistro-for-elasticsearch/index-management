@@ -59,7 +59,6 @@ class RestIndexPolicyAction(
     init {
         controller.registerHandler(PUT, POLICY_BASE_URI, this)
         controller.registerHandler(PUT, "$POLICY_BASE_URI/{policyID}", this)
-        ismIndices = indexStateManagementIndices
     }
 
     override fun getName(): String {

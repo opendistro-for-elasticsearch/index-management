@@ -15,11 +15,16 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 
+import org.elasticsearch.action.ActionListener
+import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import java.time.Instant
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 fun XContentParser.instant(): Instant? {
     return when {
@@ -43,3 +48,17 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
  * Extension function for ES 6.3 and above that duplicates the ES 6.2 XContentBuilder.string() method.
  */
 fun XContentBuilder.string(): String = BytesReference.bytes(this).utf8ToString()
+
+/**
+ * Converts [ElasticsearchClient] methods that take a callback into a kotlin suspending function.
+ *
+ * @param block - a block of code that is passed an [ActionListener] that should be passed to the ES client API.
+ */
+suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener<T>) -> Unit): T =
+        suspendCoroutine { cont ->
+            block(object : ActionListener<T> {
+                override fun onResponse(response: T) = cont.resume(response)
+
+                override fun onFailure(e: Exception) = cont.resumeWithException(e)
+            })
+        }

@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.XCONTENT_
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
-import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -38,6 +37,7 @@ data class ManagedIndex(
     val version: Long = NO_VERSION,
     val jobName: String,
     val index: String,
+    val indexUuid: String,
     val enabled: Boolean,
     val jobSchedule: Schedule,
     val jobLastUpdatedTime: Instant,
@@ -73,6 +73,7 @@ data class ManagedIndex(
                     .field(NAME_FIELD, jobName)
                     .field(ENABLED_FIELD, enabled)
                     .field(INDEX_FIELD, index)
+                    .field(INDEX_UUID_FIELD, indexUuid)
                     .field(SCHEDULE_FIELD, jobSchedule)
                     .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
                     .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
@@ -95,12 +96,11 @@ data class ManagedIndex(
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
         const val ENABLED_TIME_FIELD = "enabled_time"
         const val INDEX_FIELD = "index"
+        const val INDEX_UUID_FIELD = "index_uuid"
         const val POLICY_NAME_FIELD = "policy_name"
         const val POLICY_FIELD = "policy"
         const val POLICY_VERSION_FIELD = "policy_version"
         const val CHANGE_POLICY_FIELD = "change_policy"
-
-        val logger = LogManager.getLogger(ManagedIndex::class.java)
 
         @JvmStatic
         @JvmOverloads
@@ -108,6 +108,7 @@ data class ManagedIndex(
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndex {
             lateinit var name: String
             lateinit var index: String
+            lateinit var indexUuid: String
             lateinit var schedule: Schedule
             lateinit var policyName: String
             var policy: Policy? = null
@@ -115,7 +116,7 @@ data class ManagedIndex(
             var lastUpdatedTime: Instant? = null
             var enabledTime: Instant? = null
             var enabled = true
-            var policyVersion = NO_VERSION
+            var policyVersion: Long? = NO_VERSION
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -125,14 +126,21 @@ data class ManagedIndex(
                 when (fieldName) {
                     NAME_FIELD -> name = xcp.text()
                     INDEX_FIELD -> index = xcp.text()
+                    INDEX_UUID_FIELD -> indexUuid = xcp.text()
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = ScheduleParser.parse(xcp)
                     ENABLED_TIME_FIELD -> enabledTime = xcp.instant()
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
                     POLICY_NAME_FIELD -> policyName = xcp.text()
-                    POLICY_VERSION_FIELD -> policyVersion = xcp.longValue()
-                    POLICY_FIELD -> policy = if (xcp.currentToken() == Token.VALUE_NULL) null else Policy.parse(xcp)
-                    CHANGE_POLICY_FIELD -> changePolicy = if (xcp.currentToken() == Token.VALUE_NULL) null else ChangePolicy.parse(xcp)
+                    POLICY_VERSION_FIELD -> {
+                        policyVersion = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
+                    }
+                    POLICY_FIELD -> {
+                        policy = if (xcp.currentToken() == Token.VALUE_NULL) null else Policy.parse(xcp)
+                    }
+                    CHANGE_POLICY_FIELD -> {
+                        changePolicy = if (xcp.currentToken() == Token.VALUE_NULL) null else ChangePolicy.parse(xcp)
+                    }
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ManagedIndex.")
                 }
             }
@@ -147,6 +155,7 @@ data class ManagedIndex(
                 id,
                 version,
                 index = requireNotNull(index) { "ManagedIndex index is null" },
+                indexUuid = requireNotNull(indexUuid) { "ManagedIndex index uuid is null" },
                 jobName = requireNotNull(name) { "ManagedIndex name is null" },
                 enabled = enabled,
                 jobSchedule = requireNotNull(schedule) { "ManagedIndex schedule is null" },

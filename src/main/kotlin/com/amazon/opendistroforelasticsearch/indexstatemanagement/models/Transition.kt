@@ -26,6 +26,49 @@ import java.io.IOException
 
 data class Transition(
     val stateName: String,
+    val conditions: Conditions?
+) : ToXContent {
+
+    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        builder
+            .startObject()
+                .field(STATE_FIELD, stateName)
+                .field(CONDITIONS_FIELD, conditions)
+            .endObject()
+        return builder
+    }
+
+    companion object {
+        const val STATE_FIELD = "state_name"
+        const val CONDITIONS_FIELD = "conditions"
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun parse(xcp: XContentParser): Transition {
+            lateinit var name: String
+            var conditions: Conditions? = null
+
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            while (xcp.nextToken() != Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
+
+                when (fieldName) {
+                    STATE_FIELD -> name = xcp.text()
+                    CONDITIONS_FIELD -> conditions = Conditions.parse(xcp)
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Transition.")
+                }
+            }
+
+            return Transition(
+                stateName = requireNotNull(name) { "Transition state name is null" },
+                conditions = conditions
+            )
+        }
+    }
+}
+
+data class Conditions(
     val indexAge: String?,
     val docCount: Long?,
     val size: String?,
@@ -45,7 +88,6 @@ data class Transition(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
             .startObject()
-                .field(STATE_FIELD, stateName)
                 .field(INDEX_AGE_FIELD, indexAge)
                 .field(DOC_COUNT_FIELD, docCount)
                 .field(SIZE_FIELD, size)
@@ -55,7 +97,6 @@ data class Transition(
     }
 
     companion object {
-        const val STATE_FIELD = "state_name"
         const val INDEX_AGE_FIELD = "index_age"
         const val DOC_COUNT_FIELD = "doc_count"
         const val SIZE_FIELD = "size"
@@ -63,8 +104,7 @@ data class Transition(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): Transition {
-            lateinit var name: String
+        fun parse(xcp: XContentParser): Conditions {
             var indexAge: String? = null
             var docCount: Long? = null
             var size: String? = null
@@ -76,21 +116,15 @@ data class Transition(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    STATE_FIELD -> name = xcp.text()
                     INDEX_AGE_FIELD -> indexAge = xcp.text()
                     DOC_COUNT_FIELD -> docCount = xcp.longValue()
                     SIZE_FIELD -> size = xcp.text()
                     CRON_FIELD -> cron = ScheduleParser.parse(xcp) as? CronSchedule
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Conditions.")
                 }
             }
 
-            return Transition(
-                stateName = requireNotNull(name) { "Transition state name is null" },
-                indexAge = indexAge,
-                docCount = docCount,
-                size = size,
-                cron = cron
-            )
+            return Conditions(indexAge, docCount, size, cron)
         }
     }
 }

@@ -17,13 +17,13 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Conditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import org.apache.http.Header
 import org.apache.http.HttpEntity
 import org.elasticsearch.client.Request
@@ -57,12 +57,9 @@ fun randomState(
 
 fun randomTransition(
         stateName: String = ESRestTestCase.randomAlphaOfLength(10),
-        indexAge: String? = null,
-        docCount: Long? = null,
-        size: String? = null,
-        cron: CronSchedule? = null
+        conditions: Conditions? = null
 ) : Transition {
-    return Transition(stateName = stateName, indexAge = indexAge, docCount = docCount, size = size, cron = cron)
+    return Transition(stateName = stateName, conditions = conditions)
 }
 
 fun randomChangePolicy(

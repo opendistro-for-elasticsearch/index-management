@@ -69,6 +69,7 @@ data class State(
                             transitions.add(Transition.parse(xcp))
                         }
                     }
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in State.")
                 }
             }
 

@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_DOC_TYPE
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -35,7 +35,7 @@ class IndexStateManagementIndices(
     fun initIndexStateManagementIndex(actionListener: ActionListener<CreateIndexResponse>) {
         if (!indexStateManagementIndexExists()) {
             val indexRequest = CreateIndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
-                    .mapping(INDEX_STATE_MANAGEMENT_TYPE, indexStateManagementMappings(), XContentType.JSON)
+                    .mapping(INDEX_STATE_MANAGEMENT_DOC_TYPE, indexStateManagementMappings(), XContentType.JSON)
             client.create(indexRequest, actionListener)
         }
     }

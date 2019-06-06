@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Managed
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.index.seqno.SequenceNumbers
 import java.time.Instant
 
 /**
@@ -31,6 +32,8 @@ import java.time.Instant
  */
 data class ClusterStateManagedIndex(
     val index: String,
+    val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     val uuid: String,
     val policyName: String
 ) : ToXContentObject {

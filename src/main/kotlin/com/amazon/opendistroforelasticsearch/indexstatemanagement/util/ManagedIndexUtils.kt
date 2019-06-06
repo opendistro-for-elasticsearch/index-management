@@ -43,7 +43,7 @@ fun createManagedIndexRequest(index: String, uuid: String, policyName: String): 
     )
 
     return IndexRequest(IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX,
-            IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_TYPE)
+            IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_DOC_TYPE)
             .id(uuid)
             .create(true)
             .source(managedIndex.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
@@ -51,11 +51,13 @@ fun createManagedIndexRequest(index: String, uuid: String, policyName: String): 
 
 fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
     return DeleteRequest(IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX,
-            IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_TYPE, uuid)
+            IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_DOC_TYPE, uuid)
 }
 
 fun updateManagedIndexRequest(clusterStateManagedIndex: ClusterStateManagedIndex): UpdateRequest {
     return UpdateRequest(IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX,
-            IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_TYPE, clusterStateManagedIndex.uuid)
+            IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_DOC_TYPE, clusterStateManagedIndex.uuid)
+            .setIfPrimaryTerm(clusterStateManagedIndex.primaryTerm)
+            .setIfSeqNo(clusterStateManagedIndex.seqNo)
             .doc(clusterStateManagedIndex.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }

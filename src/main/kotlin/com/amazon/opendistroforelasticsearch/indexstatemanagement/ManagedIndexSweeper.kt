@@ -179,14 +179,22 @@ class ManagedIndexSweeper(
         // Updating existing ManagedIndex jobs
         // Both sets have index but policy names are different, ensure that the existing managed
         // index job does not have the new policy in change_policy already
-        val currentManagedIndicesToUpdate = managedIndices.filter { (uuid, clusterStateManagedIndex) ->
-                // Verify the ManagedIndex exists in the current managed indices
-                currentManagedIndices[uuid] != null &&
-                    // Verify they have different policy names which means we should update it
-                    currentManagedIndices[uuid]?.policyName != clusterStateManagedIndex.policyName &&
-                    // Verify it is not already being updated
-                    currentManagedIndices[uuid]?.changePolicy?.policyName != clusterStateManagedIndex.policyName
-        }.values.toList()
+        val currentManagedIndicesToUpdate = managedIndices.asSequence()
+                .filter {(uuid, clusterStateManagedIndex) ->
+                    currentManagedIndices[uuid] != null &&
+                            // Verify they have different policy names which means we should update it
+                            currentManagedIndices[uuid]?.policyName != clusterStateManagedIndex.policyName &&
+                            // Verify it is not already being updated
+                            currentManagedIndices[uuid]?.changePolicy?.policyName != clusterStateManagedIndex.policyName
+                }
+                .map {
+                    val currentManagedIndex = currentManagedIndices[it.key]
+                    if (currentManagedIndex == null) {
+                        it.value
+                    } else {
+                        it.value.copy(seqNo = currentManagedIndex.seqNo, primaryTerm = currentManagedIndex.primaryTerm)
+                    }
+                }.toList()
 
         if (currentManagedIndicesToUpdate.isNotEmpty()) {
             updateCurrentManagedIndices(currentManagedIndicesToUpdate)
@@ -217,7 +225,7 @@ class ManagedIndexSweeper(
         val sweptManagedIndices = mutableMapOf<String, SweptManagedIndex>()
 
         response.hits.forEach {
-            val sweptManagedIndex = SweptManagedIndex.parseWithType(SweptManagedIndex.parser(it.sourceRef))
+            val sweptManagedIndex = SweptManagedIndex.parseWithType(SweptManagedIndex.parser(it.sourceRef), it.seqNo, it.primaryTerm)
             sweptManagedIndices[sweptManagedIndex.uuid] = sweptManagedIndex
         }
 
@@ -231,7 +239,7 @@ class ManagedIndexSweeper(
             if (!policyName.isNullOrBlank()) {
                 val index = it.value.index.name
                 val uuid = it.value.index.uuid
-                clusterStateManagedIndices[uuid] = ClusterStateManagedIndex(index, uuid, policyName)
+                clusterStateManagedIndices[uuid] = ClusterStateManagedIndex(index = index, uuid = uuid, policyName = policyName)
             }
         }
         return clusterStateManagedIndices.toMap()

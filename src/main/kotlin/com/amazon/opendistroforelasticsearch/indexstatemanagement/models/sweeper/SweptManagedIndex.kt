@@ -35,6 +35,8 @@ import java.io.IOException
  */
 data class SweptManagedIndex(
     val index: String,
+    val seqNo: Long,
+    val primaryTerm: Long,
     val uuid: String,
     val policyName: String,
     val changePolicy: ChangePolicy?
@@ -43,7 +45,7 @@ data class SweptManagedIndex(
     companion object {
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): SweptManagedIndex {
+        fun parse(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndex {
             lateinit var index: String
             lateinit var uuid: String
             lateinit var policyName: String
@@ -66,6 +68,8 @@ data class SweptManagedIndex(
 
             return SweptManagedIndex(
                     requireNotNull(index) { "SweptManagedIndex index is null" },
+                    seqNo,
+                    primaryTerm,
                     requireNotNull(uuid) { "SweptManagedIndex uuid is null" },
                     requireNotNull(policyName) { "SweptManagedIndex policy name is null" },
                     changePolicy
@@ -74,11 +78,11 @@ data class SweptManagedIndex(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser): SweptManagedIndex {
+        fun parseWithType(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndex {
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val sweptManagedIndex = parse(xcp)
+            val sweptManagedIndex = parse(xcp, seqNo, primaryTerm)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return sweptManagedIndex
         }

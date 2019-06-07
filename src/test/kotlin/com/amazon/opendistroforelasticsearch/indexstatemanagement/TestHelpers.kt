@@ -56,8 +56,8 @@ fun randomState(
 }
 
 fun randomTransition(
-        stateName: String = ESRestTestCase.randomAlphaOfLength(10),
-        conditions: Conditions? = null
+    stateName: String = ESRestTestCase.randomAlphaOfLength(10),
+    conditions: Conditions? = null
 ) : Transition {
     return Transition(stateName = stateName, conditions = conditions)
 }

@@ -17,7 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
 
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -27,7 +29,7 @@ import java.io.IOException
 data class Transition(
     val stateName: String,
     val conditions: Conditions?
-) : ToXContent {
+) : ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
@@ -73,16 +75,21 @@ data class Conditions(
     val docCount: Long?,
     val size: String?,
     val cron: CronSchedule?
-) : ToXContent {
+) : ToXContentObject {
 
     init {
-        var conditionsSet = 0
-        if (indexAge != null) conditionsSet++
-        if (docCount != null) conditionsSet++
-        if (size != null) conditionsSet++
-        if (cron != null) conditionsSet++
+        val conditionsList = listOf(indexAge, docCount, size, cron)
+        require(conditionsList.filterNotNull().size < 2) { "Cannot provide more than one Transition condition" }
 
-        require(conditionsSet < 2) { "Cannot provide more than one Transition condition" }
+        // Validate indexAge condition
+        try {
+            TimeValue.parseTimeValue(indexAge, "")
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("Must have a valid index age Transition condition")
+        }
+
+        // Validate size condition
+        requireNotNull(size?.toIntOrNull()) { "Must have a valid size Transition condition" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

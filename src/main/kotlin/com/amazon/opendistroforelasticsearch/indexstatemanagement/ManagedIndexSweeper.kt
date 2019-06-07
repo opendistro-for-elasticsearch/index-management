@@ -30,6 +30,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ResourceAlreadyExistsException
+import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
@@ -48,6 +50,15 @@ import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
 import kotlin.coroutines.CoroutineContext
 
+/**
+ * Sweeps the cluster state and [INDEX_STATE_MANAGEMENT_INDEX] for [ManagedIndex].
+ *
+ * This class sets up a background process that sweeps the cluster state for [ClusterStateManagedIndex]
+ * and the [INDEX_STATE_MANAGEMENT_INDEX] for [SweptManagedIndex]. It will then compare these
+ * ManagedIndices to appropriately create, delete, or update each [ManagedIndex]. Each node that has
+ * the [IndexStateManagementPlugin] installed will have an instance of this class, but only the elected
+ * master node will actually set up the background sweep process.
+ */
 class ManagedIndexSweeper(
     settings: Settings,
     private val client: Client,
@@ -115,6 +126,12 @@ class ManagedIndexSweeper(
 
     private fun isIndexStateManagementEnabled(): Boolean = indexStateManagementEnabled == true
 
+    /**
+     * Background sweep process that periodically sweeps for updates to ManagedIndices
+     *
+     * This background sweep will only be initialized if the local node is the elected master node.
+     * Creates a runnable that is executed as a coroutine in the shared pool of threads on JVM.
+     */
     private fun initBackgroundSweep() {
         // If ISM is disabled return early
         // TODO: Should we have separate ISM-enabled and Sweeper-enabled flags?
@@ -149,58 +166,49 @@ class ManagedIndexSweeper(
         scheduledFullSweep = threadPool.scheduleWithFixedDelay(scheduledSweep, sweepPeriod, ThreadPool.Names.SAME)
     }
 
+    private fun getFullSweepElapsedTime(): TimeValue =
+            TimeValue.timeValueNanos(System.nanoTime() - lastFullSweepTimeNano)
+
+    /**
+     * Sweeps the [INDEX_STATE_MANAGEMENT_INDEX] and cluster state.
+     *
+     * Sweeps the [INDEX_STATE_MANAGEMENT_INDEX] and cluster state for any [DocWriteRequest] that need to happen
+     * and executes them in batch as a bulk request.
+     */
     private suspend fun sweep() {
         // TODO: Cleanup ManagedIndexMetaData for non-existing indices once ManagedIndexMetaData is implemented
-        // TODO: Can do create/delete/update actions in parallel
 
         val currentManagedIndices = sweepManagedIndexJobs()
-        val managedIndices = sweepClusterState()
+        val clusterStateManagedIndices = sweepClusterState()
 
-        // Creating new ManagedIndex jobs
-        // Find indices that have no ManagedIndex jobs and create new ManagedIndex jobs
-        val managedIndicesToCreate = managedIndices.filter { (uuid) ->
-            !currentManagedIndices.containsKey(uuid)
-        }.values.toList()
+        val createManagedIndexRequests =
+                getCreateManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
 
-        if (managedIndicesToCreate.isNotEmpty()) {
-            attemptCreateManagedIndices(managedIndicesToCreate)
+        val deleteManagedIndexRequests =
+                getDeleteManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
+
+        val updateManagedIndexRequests =
+                getUpdateManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
+
+        if (createManagedIndexRequests.isNotEmpty()) {
+            val created = attemptInitStateManagementIndex()
+            if (!created) {
+                logger.debug("Failed to create $INDEX_STATE_MANAGEMENT_INDEX")
+                return
+            }
         }
 
-        // Deleting existing ManagedIndex jobs
-        // Any current ManagedIndex job that does not exist in the managedIndices from cluster state should be deleted
-        val currentManagedIndicesToDelete = currentManagedIndices.filter { (uuid) ->
-            !managedIndices.containsKey(uuid)
-        }.values.toList()
-
-        if (currentManagedIndicesToDelete.isNotEmpty()) {
-            deleteCurrentManagedIndices(currentManagedIndicesToDelete)
-        }
-
-        // Updating existing ManagedIndex jobs
-        // Both sets have index but policy names are different, ensure that the existing managed
-        // index job does not have the new policy in change_policy already
-        val currentManagedIndicesToUpdate = managedIndices.asSequence()
-                .filter {(uuid, clusterStateManagedIndex) ->
-                    currentManagedIndices[uuid] != null &&
-                            // Verify they have different policy names which means we should update it
-                            currentManagedIndices[uuid]?.policyName != clusterStateManagedIndex.policyName &&
-                            // Verify it is not already being updated
-                            currentManagedIndices[uuid]?.changePolicy?.policyName != clusterStateManagedIndex.policyName
-                }
-                .map {
-                    val currentManagedIndex = currentManagedIndices[it.key]
-                    if (currentManagedIndex == null) {
-                        it.value
-                    } else {
-                        it.value.copy(seqNo = currentManagedIndex.seqNo, primaryTerm = currentManagedIndex.primaryTerm)
-                    }
-                }.toList()
-
-        if (currentManagedIndicesToUpdate.isNotEmpty()) {
-            updateCurrentManagedIndices(currentManagedIndicesToUpdate)
-        }
+        doBulkRequests(createManagedIndexRequests + deleteManagedIndexRequests + updateManagedIndexRequests)
     }
 
+    /**
+     * Sweeps the [INDEX_STATE_MANAGEMENT_INDEX] for ManagedIndices.
+     *
+     * Sweeps the [INDEX_STATE_MANAGEMENT_INDEX] for ManagedIndices and only fetches the index, index_uuid,
+     * policy_name, and change_policy fields to convert into a [SweptManagedIndex].
+     *
+     * @return map of IndexUuid to [SweptManagedIndex].
+     */
     private suspend fun sweepManagedIndexJobs(): Map<String, SweptManagedIndex> {
         if (!ismIndices.indexStateManagementIndexExists()) return mapOf()
 
@@ -211,13 +219,13 @@ class ManagedIndexSweeper(
                         // TODO: Get all ManagedIndices at once or split into searchAfter queries?
                         .size(MAX_HITS)
                         .fetchSource(
-                            arrayOf(
-                                "${ManagedIndex.MANAGED_INDEX_TYPE}.${ManagedIndex.INDEX_FIELD}",
-                                "${ManagedIndex.MANAGED_INDEX_TYPE}.${ManagedIndex.INDEX_UUID_FIELD}",
-                                "${ManagedIndex.MANAGED_INDEX_TYPE}.${ManagedIndex.POLICY_NAME_FIELD}",
-                                "${ManagedIndex.MANAGED_INDEX_TYPE}.${ManagedIndex.CHANGE_POLICY_FIELD}"
-                            ),
-                            emptyArray()
+                                arrayOf(
+                                        "${ManagedIndex.MANAGED_INDEX_TYPE}.${ManagedIndex.INDEX_FIELD}",
+                                        "${ManagedIndex.MANAGED_INDEX_TYPE}.${ManagedIndex.INDEX_UUID_FIELD}",
+                                        "${ManagedIndex.MANAGED_INDEX_TYPE}.${ManagedIndex.POLICY_NAME_FIELD}",
+                                        "${ManagedIndex.MANAGED_INDEX_TYPE}.${ManagedIndex.CHANGE_POLICY_FIELD}"
+                                ),
+                                emptyArray()
                         )
                         .query(boolQueryBuilder))
 
@@ -225,13 +233,22 @@ class ManagedIndexSweeper(
         val sweptManagedIndices = mutableMapOf<String, SweptManagedIndex>()
 
         response.hits.forEach {
-            val sweptManagedIndex = SweptManagedIndex.parseWithType(SweptManagedIndex.parser(it.sourceRef), it.seqNo, it.primaryTerm)
+            val sweptManagedIndex =
+                    SweptManagedIndex.parseWithType(SweptManagedIndex.parser(it.sourceRef), it.seqNo, it.primaryTerm)
             sweptManagedIndices[sweptManagedIndex.uuid] = sweptManagedIndex
         }
 
         return sweptManagedIndices
     }
 
+    /**
+     * Sweeps the cluster state for ManagedIndices.
+     *
+     * Sweeps the cluster state for ManagedIndices by checking for the [POLICY_NAME] in the index settings.
+     * If the [POLICY_NAME] is null or blank it's treated as not existing.
+     *
+     * @return map of IndexUuid to [ClusterStateManagedIndex].
+     */
     private fun sweepClusterState(): Map<String, ClusterStateManagedIndex> {
         val clusterStateManagedIndices = mutableMapOf<String, ClusterStateManagedIndex>()
         clusterService.state().metaData().indices().values().forEach {
@@ -239,48 +256,109 @@ class ManagedIndexSweeper(
             if (!policyName.isNullOrBlank()) {
                 val index = it.value.index.name
                 val uuid = it.value.index.uuid
-                clusterStateManagedIndices[uuid] = ClusterStateManagedIndex(index = index, uuid = uuid, policyName = policyName)
+                clusterStateManagedIndices[uuid] =
+                        ClusterStateManagedIndex(index = index, uuid = uuid, policyName = policyName)
             }
         }
         return clusterStateManagedIndices.toMap()
     }
 
-    private fun getFullSweepElapsedTime(): TimeValue {
-        return TimeValue.timeValueNanos(System.nanoTime() - lastFullSweepTimeNano)
+    /**
+     * Creates IndexRequests for ManagedIndices.
+     *
+     * Finds ManagedIndices that exist in the cluster state that do not yet exist in [INDEX_STATE_MANAGEMENT_INDEX]
+     * which means we need to create the [ManagedIndex].
+     *
+     * @param clusterStateManagedIndices map of IndexUuid to [ClusterStateManagedIndex].
+     * @param currentManagedIndices map of IndexUuid to [SweptManagedIndex].
+     * @return list of [DocWriteRequest].
+     */
+    private fun getCreateManagedIndexRequests(
+        clusterStateManagedIndices: Map<String, ClusterStateManagedIndex>,
+        currentManagedIndices: Map<String, SweptManagedIndex>
+    ): List<DocWriteRequest<*>> {
+        return clusterStateManagedIndices.filter { (uuid) ->
+            !currentManagedIndices.containsKey(uuid)
+        }.map { createManagedIndexRequest(it.value.index, it.value.uuid, it.value.policyName) }
     }
 
-    private suspend fun attemptCreateManagedIndices(managedIndices: List<ClusterStateManagedIndex>) {
-        if (!ismIndices.indexStateManagementIndexExists()) {
+    /**
+     * Creates DeleteRequests for ManagedIndices.
+     *
+     * Finds ManagedIndices that exist in [INDEX_STATE_MANAGEMENT_INDEX] that do not exist in the cluster state
+     * anymore which means we need to delete the [ManagedIndex].
+     *
+     * @param clusterStateManagedIndices map of IndexUuid to [ClusterStateManagedIndex].
+     * @param currentManagedIndices map of IndexUuid to [SweptManagedIndex].
+     * @return list of [DocWriteRequest].
+     */
+    private fun getDeleteManagedIndexRequests(
+        clusterStateManagedIndices: Map<String, ClusterStateManagedIndex>,
+        currentManagedIndices: Map<String, SweptManagedIndex>
+    ): List<DocWriteRequest<*>> {
+        return currentManagedIndices.filter { (uuid) ->
+            !clusterStateManagedIndices.containsKey(uuid)
+        }.map { deleteManagedIndexRequest(it.value.uuid) }
+    }
+
+    /**
+     * Creates UpdateRequests for ManagedIndices.
+     *
+     * Finds ManagedIndices that exist both in cluster state and in [INDEX_STATE_MANAGEMENT_INDEX] that
+     * need to be updated. We know a [ManagedIndex] needs to be updated when the policyName differs between
+     * the [ClusterStateManagedIndex] and the [SweptManagedIndex]. And we know a [ManagedIndex] has not yet
+     * been updated if it's ChangePolicy does not match the new policyName.
+     *
+     * @param clusterStateManagedIndices map of IndexUuid to [ClusterStateManagedIndex].
+     * @param currentManagedIndices map of IndexUuid to [SweptManagedIndex].
+     * @return list of [DocWriteRequest].
+     */
+    private fun getUpdateManagedIndexRequests(
+        clusterStateManagedIndices: Map<String, ClusterStateManagedIndex>,
+        currentManagedIndices: Map<String, SweptManagedIndex>
+    ): List<DocWriteRequest<*>> {
+        return clusterStateManagedIndices.asSequence()
+                .filter { (uuid, clusterStateManagedIndex) ->
+                    currentManagedIndices[uuid] != null &&
+                            // Verify they have different policy names which means we should update it
+                            currentManagedIndices[uuid]?.policyName != clusterStateManagedIndex.policyName &&
+                            // Verify it is not already being updated
+                            currentManagedIndices[uuid]?.changePolicy?.policyName != clusterStateManagedIndex.policyName
+                }
+                .map {
+                    val currentManagedIndex = currentManagedIndices[it.key]
+                    if (currentManagedIndex == null) {
+                        updateManagedIndexRequest(it.value)
+                    } else {
+                        updateManagedIndexRequest(
+                            it.value.copy(seqNo = currentManagedIndex.seqNo, primaryTerm = currentManagedIndex.primaryTerm)
+                        )
+                    }
+                }.toList()
+    }
+
+    /**
+     * Attempt to create [INDEX_STATE_MANAGEMENT_INDEX] and return whether it exists
+     */
+    private suspend fun attemptInitStateManagementIndex(): Boolean {
+        if (ismIndices.indexStateManagementIndexExists()) return true
+
+        return try {
             val response: CreateIndexResponse = client.suspendUntil { ismIndices.initIndexStateManagementIndex(it) }
-            if (!response.isAcknowledged) {
-                logger.error("Create $INDEX_STATE_MANAGEMENT_INDEX mappings call not acknowledged.")
-                return
-            }
-            logger.info("Created $INDEX_STATE_MANAGEMENT_INDEX with mappings.")
+            return response.isAcknowledged
+        } catch (e: ResourceAlreadyExistsException) {
+            true
+        } catch (e: Exception) {
+            false
         }
-        createManagedIndices(managedIndices)
     }
 
-    private suspend fun createManagedIndices(managedIndices: List<ClusterStateManagedIndex>) {
-        if (managedIndices.isEmpty()) return
-        val indexRequests = managedIndices.map { createManagedIndexRequest(it.index, it.uuid, it.policyName) }
-        val bulkRequest = BulkRequest().add(indexRequests)
-        val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
-        // TODO: handle failures
-    }
-
-    private suspend fun deleteCurrentManagedIndices(currentManagedIndices: List<SweptManagedIndex>) {
-        if (currentManagedIndices.isEmpty()) return
-        val deleteRequests = currentManagedIndices.map { deleteManagedIndexRequest(it.uuid) }
-        val bulkRequest = BulkRequest().add(deleteRequests)
-        val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
-        // TODO: handle failures
-    }
-
-    private suspend fun updateCurrentManagedIndices(managedIndices: List<ClusterStateManagedIndex>) {
-        if (managedIndices.isEmpty()) return
-        val updateRequests = managedIndices.map { updateManagedIndexRequest(it) }
-        val bulkRequest = BulkRequest().add(updateRequests)
+    /**
+     * Executes [requests] in single bulk request
+     */
+    private suspend fun doBulkRequests(requests: List<DocWriteRequest<*>>) {
+        if (requests.isEmpty()) return
+        val bulkRequest = BulkRequest().add(requests)
         val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
         // TODO: handle failures
     }

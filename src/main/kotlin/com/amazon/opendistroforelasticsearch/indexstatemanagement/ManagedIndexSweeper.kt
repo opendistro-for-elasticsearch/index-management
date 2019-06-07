@@ -194,11 +194,13 @@ class ManagedIndexSweeper(
             val created = attemptInitStateManagementIndex()
             if (!created) {
                 logger.debug("Failed to create $INDEX_STATE_MANAGEMENT_INDEX")
+                lastFullSweepTimeNano = System.nanoTime()
                 return
             }
         }
 
         doBulkRequests(createManagedIndexRequests + deleteManagedIndexRequests + updateManagedIndexRequests)
+        lastFullSweepTimeNano = System.nanoTime()
     }
 
     /**

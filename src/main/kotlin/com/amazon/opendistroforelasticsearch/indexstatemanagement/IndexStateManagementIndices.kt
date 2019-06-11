@@ -17,20 +17,27 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_DOC_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
+import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
+import org.elasticsearch.client.Client
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.XContentType
 
 // TODO: Handle updating mappings on newer versions
 // TODO: Handle Auditing indices
-
+@OpenForTesting
 class IndexStateManagementIndices(
     private val client: IndicesAdminClient,
     private val clusterService: ClusterService
 ) {
+
+    private val logger = LogManager.getLogger(javaClass)
 
     fun initIndexStateManagementIndex(actionListener: ActionListener<CreateIndexResponse>) {
         if (!indexStateManagementIndexExists()) {
@@ -46,5 +53,27 @@ class IndexStateManagementIndices(
 
     private fun indexStateManagementMappings(): String {
         return javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText()
+    }
+
+    /**
+     * Attempt to create [INDEX_STATE_MANAGEMENT_INDEX] and return whether it exists
+     */
+    @Suppress("ReturnCount")
+    suspend fun attemptInitStateManagementIndex(client: Client): Boolean {
+        if (indexStateManagementIndexExists()) return true
+
+        return try {
+            val response: CreateIndexResponse = client.suspendUntil { initIndexStateManagementIndex(it) }
+            if (response.isAcknowledged) {
+                return true
+            }
+            logger.error("Creating $INDEX_STATE_MANAGEMENT_INDEX with mappings NOT acknowledged")
+            return false
+        } catch (e: ResourceAlreadyExistsException) {
+            true
+        } catch (e: Exception) {
+            logger.error("Error trying to create $INDEX_STATE_MANAGEMENT_INDEX", e)
+            false
+        }
     }
 }

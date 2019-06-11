@@ -13,10 +13,11 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.sweeper
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -26,11 +27,11 @@ import java.time.Instant
 /**
  * Data class to hold index metadata from cluster state.
  *
- * This data class is used in the [com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexSweeper]
+ * This data class is used in the [com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator]
  * when reading in index metadata from cluster state and implements [ToXContentObject] for partial updates
- * of the [ManagedIndex] job document.
+ * of the [ManagedIndexConfig] job document.
  */
-data class ClusterStateManagedIndex(
+data class ClusterStateManagedIndexConfig(
     val index: String,
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
@@ -40,14 +41,14 @@ data class ClusterStateManagedIndex(
 
     /**
      * Used in the partial update of ManagedIndices when picking up changes
-     * from [com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexSweeper]
+     * from [com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator]
      */
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
             .startObject()
-                .startObject(ManagedIndex.MANAGED_INDEX_TYPE)
-                .field(ManagedIndex.LAST_UPDATED_TIME_FIELD, Instant.now())
-                .field(ManagedIndex.CHANGE_POLICY_FIELD, ChangePolicy(policyName, null))
+                .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
+                .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
+                .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, ChangePolicy(policyName, null))
                 .endObject()
             .endObject()
         return builder

@@ -30,9 +30,9 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 import java.time.Instant
 
-// TODO: This is an unfinished ManagedIndex data class; just needed for the jobParser
+// TODO: This is an unfinished ManagedIndexConfig data class; just needed for the jobParser
 
-data class ManagedIndex(
+data class ManagedIndexConfig(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,
     val jobName: String,
@@ -102,10 +102,11 @@ data class ManagedIndex(
         const val POLICY_VERSION_FIELD = "policy_version"
         const val CHANGE_POLICY_FIELD = "change_policy"
 
+        @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndex {
+        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndexConfig {
             lateinit var name: String
             lateinit var index: String
             lateinit var indexUuid: String
@@ -141,7 +142,7 @@ data class ManagedIndex(
                     CHANGE_POLICY_FIELD -> {
                         changePolicy = if (xcp.currentToken() == Token.VALUE_NULL) null else ChangePolicy.parse(xcp)
                     }
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ManagedIndex.")
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ManagedIndexConfig.")
                 }
             }
 
@@ -151,17 +152,17 @@ data class ManagedIndex(
                 enabledTime = null
             }
 
-            return ManagedIndex(
+            return ManagedIndexConfig(
                 id,
                 version,
-                index = requireNotNull(index) { "ManagedIndex index is null" },
-                indexUuid = requireNotNull(indexUuid) { "ManagedIndex index uuid is null" },
-                jobName = requireNotNull(name) { "ManagedIndex name is null" },
+                index = requireNotNull(index) { "ManagedIndexConfig index is null" },
+                indexUuid = requireNotNull(indexUuid) { "ManagedIndexConfig index uuid is null" },
+                jobName = requireNotNull(name) { "ManagedIndexConfig name is null" },
                 enabled = enabled,
-                jobSchedule = requireNotNull(schedule) { "ManagedIndex schedule is null" },
-                jobLastUpdatedTime = requireNotNull(lastUpdatedTime) { "ManagedIndex last updated time is null" },
+                jobSchedule = requireNotNull(schedule) { "ManagedIndexConfig schedule is null" },
+                jobLastUpdatedTime = requireNotNull(lastUpdatedTime) { "ManagedIndexConfig last updated time is null" },
                 jobEnabledTime = enabledTime,
-                policyName = requireNotNull(policyName) { "ManagedIndex policy name is null" },
+                policyName = requireNotNull(policyName) { "ManagedIndexConfig policy name is null" },
                 policyVersion = policyVersion,
                 policy = policy,
                 changePolicy = changePolicy
@@ -171,13 +172,13 @@ data class ManagedIndex(
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndex {
+        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndexConfig {
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val managedIndex = parse(xcp, id, version)
+            val managedIndexConfig = parse(xcp, id, version)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            return managedIndex
+            return managedIndexConfig
         }
     }
 }

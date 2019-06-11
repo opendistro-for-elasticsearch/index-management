@@ -35,7 +35,7 @@ class ManagedIndexSettings {
 
         // TODO: Change this to a higher value after development is finished
         val SWEEP_PERIOD = Setting.positiveTimeSetting(
-            "opendistro.index_state_management.sweeper.period",
+            "opendistro.index_state_management.coordinator.sweep_period",
             TimeValue.timeValueMinutes(1),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic

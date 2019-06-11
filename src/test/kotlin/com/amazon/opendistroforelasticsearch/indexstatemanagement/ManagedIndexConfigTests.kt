@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import org.elasticsearch.test.ESTestCase
 
-class ManagedIndexTests : ESTestCase() {
+class ManagedIndexConfigTests : ESTestCase() {
 
     fun `test nothing`() {
         assertTrue(true)

@@ -13,10 +13,10 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.sweeper
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -28,12 +28,12 @@ import org.elasticsearch.common.xcontent.XContentType
 import java.io.IOException
 
 /**
- * Data class to hold partial [ManagedIndex] data.
+ * Data class to hold partial [ManagedIndexConfig] data.
  *
- * This data class is used in the [com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexSweeper]
- * to hold partial data when reading in the [ManagedIndex] document from the index.
+ * This data class is used in the [com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator]
+ * to hold partial data when reading in the [ManagedIndexConfig] document from the index.
  */
-data class SweptManagedIndex(
+data class SweptManagedIndexConfig(
     val index: String,
     val seqNo: Long,
     val primaryTerm: Long,
@@ -45,7 +45,7 @@ data class SweptManagedIndex(
     companion object {
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndex {
+        fun parse(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndexConfig {
             lateinit var index: String
             lateinit var uuid: String
             lateinit var policyName: String
@@ -57,28 +57,28 @@ data class SweptManagedIndex(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ManagedIndex.INDEX_FIELD -> index = xcp.text()
-                    ManagedIndex.INDEX_UUID_FIELD -> uuid = xcp.text()
-                    ManagedIndex.POLICY_NAME_FIELD -> policyName = xcp.text()
-                    ManagedIndex.CHANGE_POLICY_FIELD -> {
+                    ManagedIndexConfig.INDEX_FIELD -> index = xcp.text()
+                    ManagedIndexConfig.INDEX_UUID_FIELD -> uuid = xcp.text()
+                    ManagedIndexConfig.POLICY_NAME_FIELD -> policyName = xcp.text()
+                    ManagedIndexConfig.CHANGE_POLICY_FIELD -> {
                         changePolicy = if (xcp.currentToken() == Token.VALUE_NULL) null else ChangePolicy.parse(xcp)
                     }
                 }
             }
 
-            return SweptManagedIndex(
-                    requireNotNull(index) { "SweptManagedIndex index is null" },
+            return SweptManagedIndexConfig(
+                    requireNotNull(index) { "SweptManagedIndexConfig index is null" },
                     seqNo,
                     primaryTerm,
-                    requireNotNull(uuid) { "SweptManagedIndex uuid is null" },
-                    requireNotNull(policyName) { "SweptManagedIndex policy name is null" },
+                    requireNotNull(uuid) { "SweptManagedIndexConfig uuid is null" },
+                    requireNotNull(policyName) { "SweptManagedIndexConfig policy name is null" },
                     changePolicy
             )
         }
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndex {
+        fun parseWithType(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndexConfig {
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)

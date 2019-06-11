@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestDeletePolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestGetPolicyAction
@@ -84,7 +84,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ManagedIndex.MANAGED_INDEX_TYPE -> job = ManagedIndex.parse(xcp, id, version)
+                    ManagedIndexConfig.MANAGED_INDEX_TYPE -> job = ManagedIndexConfig.parse(xcp, id, version)
                     Policy.POLICY_TYPE -> job = null
                     else -> {
                         logger.info("Unsupported document was indexed in $INDEX_STATE_MANAGEMENT_INDEX")
@@ -124,10 +124,10 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     ): Collection<Any> {
         val managedIndexRunner = ManagedIndexRunner.instance
         indexStateManagementIndices = IndexStateManagementIndices(client.admin().indices(), clusterService)
-        val managedIndexSweeper = ManagedIndexSweeper(environment.settings(),
+        val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
                 client, clusterService, threadPool, indexStateManagementIndices)
 
-        return listOf(managedIndexRunner, indexStateManagementIndices, managedIndexSweeper)
+        return listOf(managedIndexRunner, indexStateManagementIndices, managedIndexCoordinator)
     }
 
     override fun getSettings(): List<Setting<*>> {

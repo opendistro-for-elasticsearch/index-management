@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
@@ -64,7 +64,7 @@ fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotificatio
     return null // TODO: random DefaultNotification
 }
 
-fun randomManagedIndex(
+fun randomManagedIndexConfig(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     index: String = ESRestTestCase.randomAlphaOfLength(10),
     uuid: String = ESRestTestCase.randomAlphaOfLength(20),
@@ -75,8 +75,8 @@ fun randomManagedIndex(
     policyName: String = ESRestTestCase.randomAlphaOfLength(10),
     policy: Policy? = randomPolicy(),
     changePolicy: ChangePolicy? = null
-): ManagedIndex {
-    return ManagedIndex(
+): ManagedIndexConfig {
+    return ManagedIndexConfig(
         jobName = name,
         index = index,
         indexUuid = uuid,
@@ -106,7 +106,7 @@ fun ChangePolicy.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
-fun ManagedIndex.toJsonString(): String {
+fun ManagedIndexConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

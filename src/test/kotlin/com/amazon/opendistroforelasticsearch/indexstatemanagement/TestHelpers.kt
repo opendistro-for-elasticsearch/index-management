@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangeP
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import org.apache.http.Header
@@ -30,6 +32,7 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -87,6 +90,40 @@ fun randomManagedIndexConfig(
         policyName = policy?.name ?: policyName,
         policyVersion = policy?.version,
         policy = policy,
+        changePolicy = changePolicy
+    )
+}
+
+fun randomClusterStateManagedIndexConfig(
+    index: String = ESRestTestCase.randomAlphaOfLength(10),
+    uuid: String = ESRestTestCase.randomAlphaOfLength(20),
+    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+): ClusterStateManagedIndexConfig {
+    return ClusterStateManagedIndexConfig(
+        index = index,
+        uuid = uuid,
+        policyName = policyName,
+        seqNo = seqNo,
+        primaryTerm = primaryTerm
+    )
+}
+
+fun randomSweptManagedIndexConfig(
+    index: String = ESRestTestCase.randomAlphaOfLength(10),
+    uuid: String = ESRestTestCase.randomAlphaOfLength(20),
+    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
+    changePolicy: ChangePolicy? = null
+): SweptManagedIndexConfig {
+    return SweptManagedIndexConfig(
+        index = index,
+        uuid = uuid,
+        policyName = policyName,
+        seqNo = seqNo,
+        primaryTerm = primaryTerm,
         changePolicy = changePolicy
     )
 }

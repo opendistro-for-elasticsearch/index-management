@@ -17,14 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordi
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
-import org.elasticsearch.common.bytes.BytesReference
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
-import org.elasticsearch.common.xcontent.XContentType
 import java.io.IOException
 
 /**

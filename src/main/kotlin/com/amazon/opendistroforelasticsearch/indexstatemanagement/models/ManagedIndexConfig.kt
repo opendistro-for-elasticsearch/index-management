@@ -30,8 +30,6 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 import java.time.Instant
 
-// TODO: This is an unfinished ManagedIndexConfig data class; just needed for the jobParser
-
 data class ManagedIndexConfig(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,

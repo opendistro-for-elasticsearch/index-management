@@ -86,10 +86,5 @@ data class SweptManagedIndexConfig(
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return sweptManagedIndex
         }
-
-        fun parser(bytesReference: BytesReference): XContentParser {
-            return XContentHelper.createParser(NamedXContentRegistry.EMPTY,
-                    LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
-        }
     }
 }

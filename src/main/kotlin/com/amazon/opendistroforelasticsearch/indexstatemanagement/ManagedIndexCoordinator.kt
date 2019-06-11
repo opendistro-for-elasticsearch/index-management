@@ -51,9 +51,15 @@ import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.LocalNodeMasterListener
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.LifecycleListener
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
 
@@ -286,9 +292,14 @@ class ManagedIndexCoordinator(
         val managedIndexSearchRequest = getSweptManagedIndexSearchRequest()
         val response: SearchResponse = client.suspendUntil { search(managedIndexSearchRequest, it) }
         return response.hits.map {
-            it.id to SweptManagedIndexConfig.parseWithType(SweptManagedIndexConfig.parser(it.sourceRef),
+            it.id to SweptManagedIndexConfig.parseWithType(contentParser(it.sourceRef),
                     it.seqNo, it.primaryTerm)
         }.toMap()
+    }
+
+    private fun contentParser(bytesReference: BytesReference): XContentParser {
+        return XContentHelper.createParser(NamedXContentRegistry.EMPTY,
+                LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
     }
 
     /**

@@ -15,8 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.client.ElasticsearchClient
+import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -62,3 +65,72 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
                 override fun onFailure(e: Exception) = cont.resumeWithException(e)
             })
         }
+
+/**
+ * Compares current and previous IndexMetaData to determine if we should create [ManagedIndexConfig].
+ *
+ * If [getPolicyName] returns null then we should not create a [ManagedIndexConfig].
+ * Else if the previous IndexMetaData is null then it means this is a newly created index that should be managed.
+ * Else if the previous IndexMetaData's [getPolicyName] is null then this is an existing index that had
+ * a policy_name added to it.
+ *
+ * @param previousIndexMetaData the previous [IndexMetaData].
+ * @return whether a [ManagedIndexConfig] should be created.
+ */
+fun IndexMetaData.shouldCreateManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
+    if (this.getPolicyName() == null) return false
+
+    return previousIndexMetaData?.getPolicyName() == null
+}
+
+/**
+ * Compares current and previous IndexMetaData to determine if we should delete [ManagedIndexConfig].
+ *
+ * If the previous IndexMetaData is null or its [getPolicyName] returns null then there should
+ * be no [ManagedIndexConfig] to delete. Else if the current [getPolicyName] returns null
+ * then it means we should delete the existing [ManagedIndexConfig].
+ *
+ * @param previousIndexMetaData the previous [IndexMetaData].
+ * @return whether a [ManagedIndexConfig] should be deleted.
+ */
+fun IndexMetaData.shouldDeleteManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
+    if (previousIndexMetaData?.getPolicyName() == null) return false
+
+    return this.getPolicyName() == null
+}
+
+/**
+ * Compares current and previous IndexMetaData to determine if we should update [ManagedIndexConfig].
+ *
+ * If [getPolicyName] returns null, the previous IndexMetaData does not exist, or the previous IndexMetaData's
+ * [getPolicyName] returns null then we should not update the [ManagedIndexConfig].
+ * Else compare the policy_names and if they are different then we should update.
+ *
+ * @param previousIndexMetaData the previous [IndexMetaData].
+ * @return whether a [ManagedIndexConfig] should be updated.
+ */
+fun IndexMetaData.shouldUpdateManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
+    if (this.getPolicyName() == null || previousIndexMetaData?.getPolicyName() == null) return false
+
+    return this.getPolicyName() != previousIndexMetaData.getPolicyName()
+}
+
+/**
+ * Returns the current policy_name if it exists and is valid otherwise returns null.
+ * */
+fun IndexMetaData.getPolicyName(): String? {
+    if (!this.settings.hasValue(ManagedIndexSettings.POLICY_NAME.key)) return null
+    if (this.settings.get(ManagedIndexSettings.POLICY_NAME.key).isNullOrBlank()) return null
+
+    return this.settings.get(ManagedIndexSettings.POLICY_NAME.key)
+}
+
+fun IndexMetaData.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexConfig? {
+    val index = this.index.name
+    val uuid = this.index.uuid
+    val policyName = this.getPolicyName()
+
+    if (policyName == null) return null
+
+    return ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyName = policyName)
+}

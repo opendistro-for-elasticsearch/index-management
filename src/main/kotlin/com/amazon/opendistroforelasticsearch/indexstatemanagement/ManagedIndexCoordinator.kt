@@ -174,22 +174,17 @@ class ManagedIndexCoordinator(
         val requests: List<DocWriteRequest<*>> = event.state().metaData().indices().mapNotNull {
             val previousIndexMetaData = event.previousState().metaData().index(it.value.index)
             val policyName = it.value.getPolicyName()
-            var request: DocWriteRequest<*>? = null
-
-            if (it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyName != null) {
-                request = createManagedIndexRequest(it.value.index.name, it.value.indexUUID, policyName)
+            // TODO: Hard delete (unsafe) vs delayed delete (safe, but index is still managed)
+            val request: DocWriteRequest<*>? = when {
+                it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyName != null ->
+                    createManagedIndexRequest(it.value.index.name, it.value.indexUUID, policyName)
+                it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
+                    deleteManagedIndexRequest(it.value.indexUUID)
+                it.value.shouldUpdateManagedIndexConfig(previousIndexMetaData) && policyName != null ->
+                    updateManagedIndexRequest(ClusterStateManagedIndexConfig(index = it.value.index.name,
+                            uuid = it.value.indexUUID, policyName = policyName))
+                else -> null
             }
-
-            if (it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData)) {
-                // TODO: Hard delete (unsafe) vs delayed delete (safe, but index is still managed)
-                request = deleteManagedIndexRequest(it.value.indexUUID)
-            }
-
-            if (it.value.shouldUpdateManagedIndexConfig(previousIndexMetaData) && policyName != null) {
-                request = updateManagedIndexRequest(ClusterStateManagedIndexConfig(index = it.value.index.name,
-                        uuid = it.value.indexUUID, policyName = policyName))
-            }
-
             request
         }
 

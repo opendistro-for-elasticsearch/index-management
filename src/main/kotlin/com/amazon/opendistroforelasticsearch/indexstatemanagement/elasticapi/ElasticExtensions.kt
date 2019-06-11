@@ -119,7 +119,6 @@ fun IndexMetaData.shouldUpdateManagedIndexConfig(previousIndexMetaData: IndexMet
  * Returns the current policy_name if it exists and is valid otherwise returns null.
  * */
 fun IndexMetaData.getPolicyName(): String? {
-    if (!this.settings.hasValue(ManagedIndexSettings.POLICY_NAME.key)) return null
     if (this.settings.get(ManagedIndexSettings.POLICY_NAME.key).isNullOrBlank()) return null
 
     return this.settings.get(ManagedIndexSettings.POLICY_NAME.key)

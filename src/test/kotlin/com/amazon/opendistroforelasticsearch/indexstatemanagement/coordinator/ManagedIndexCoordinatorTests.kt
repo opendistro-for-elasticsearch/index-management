@@ -71,6 +71,8 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         settingSet.addAll(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
         settingSet.add(ManagedIndexSettings.SWEEP_PERIOD)
         settingSet.add(ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED)
+        settingSet.add(ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT)
+        settingSet.add(ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS)
 
         val clusterSettings = ClusterSettings(settings, settingSet)
         val originClusterService: ClusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings)

@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyName
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldDeleteManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldUpdateManagedIndexConfig
@@ -25,6 +26,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.sus
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_COUNT
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.POLICY_NAME
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
@@ -41,7 +44,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
+import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.search.SearchResponse
@@ -60,6 +65,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
 
@@ -92,6 +98,8 @@ class ManagedIndexCoordinator(
     @Volatile private var lastFullSweepTimeNano = System.nanoTime()
     @Volatile private var indexStateManagementEnabled = INDEX_STATE_MANAGEMENT_ENABLED.get(settings)
     @Volatile private var sweepPeriod = SWEEP_PERIOD.get(settings)
+    @Volatile private var retryPolicy =
+            BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings), COORDINATOR_BACKOFF_COUNT.get(settings))
 
     init {
         clusterService.addListener(this)
@@ -104,6 +112,9 @@ class ManagedIndexCoordinator(
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_STATE_MANAGEMENT_ENABLED) {
             indexStateManagementEnabled = it
             if (!indexStateManagementEnabled) disable() else enable()
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
+            millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
         }
     }
 
@@ -188,7 +199,7 @@ class ManagedIndexCoordinator(
             request
         }
 
-        doBulkRequests(requests + indicesDeletedRequests)
+        updateManagedIndices(requests + indicesDeletedRequests)
     }
 
     /**
@@ -265,7 +276,7 @@ class ManagedIndexCoordinator(
             }
         }
 
-        doBulkRequests(createManagedIndexRequests + deleteManagedIndexRequests + updateManagedIndexRequests)
+        updateManagedIndices(createManagedIndexRequests + deleteManagedIndexRequests + updateManagedIndexRequests)
         lastFullSweepTimeNano = System.nanoTime()
     }
 
@@ -316,14 +327,22 @@ class ManagedIndexCoordinator(
         }.toMap()
     }
 
-    /**
-     * Executes [requests] in single bulk request
-     */
-    private suspend fun doBulkRequests(requests: List<DocWriteRequest<*>>) {
-        if (requests.isEmpty()) return
-        val bulkRequest = BulkRequest().add(requests)
-        val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
-        // TODO: handle failures
+    private suspend fun updateManagedIndices(requests: List<DocWriteRequest<*>>) {
+        var requestsToRetry = requests
+        if (requestsToRetry.isEmpty()) return
+
+        retryPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
+            val bulkRequest = BulkRequest().add(requestsToRetry)
+            val bulkResponse: BulkResponse = client.suspendUntil { client.bulk(bulkRequest, it) }
+            val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
+            requestsToRetry = failedResponses.filter { it.status() == RestStatus.TOO_MANY_REQUESTS }
+                    .map { bulkRequest.requests()[it.itemId] }
+
+            if (requestsToRetry.isNotEmpty()) {
+                val retryCause = failedResponses.first { it.status() == RestStatus.TOO_MANY_REQUESTS }.failure.cause
+                throw ExceptionsHelper.convertToElastic(retryCause)
+            }
+        }
     }
 
     companion object {

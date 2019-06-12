@@ -40,5 +40,19 @@ class ManagedIndexSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
+
+        val COORDINATOR_BACKOFF_MILLIS = Setting.positiveTimeSetting(
+            "opendistro.index_state_management.coordinator.backoff_millis",
+            TimeValue.timeValueMillis(50),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val COORDINATOR_BACKOFF_COUNT = Setting.intSetting(
+            "opendistro.index_state_management.coordinator.backoff_count",
+            2,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
     }
 }

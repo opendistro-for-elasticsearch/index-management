@@ -134,7 +134,9 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         return listOf(
             ManagedIndexSettings.POLICY_NAME,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
-            ManagedIndexSettings.SWEEP_PERIOD
+            ManagedIndexSettings.SWEEP_PERIOD,
+            ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
+            ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS
         )
     }
 }

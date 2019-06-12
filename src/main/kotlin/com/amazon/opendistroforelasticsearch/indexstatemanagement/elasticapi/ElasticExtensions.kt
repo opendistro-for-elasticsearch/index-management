@@ -17,13 +17,18 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import kotlinx.coroutines.delay
+import org.apache.logging.log4j.Logger
+import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.action.ActionListener
+import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -45,6 +50,47 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
         return nullField(name)
     }
     return this.timeField(name, name, instant.toEpochMilli())
+}
+
+/**
+ * Retries the given [block] of code as specified by the receiver [BackoffPolicy], if [block] throws an [ElasticsearchException]
+ * that is retriable (502, 503, 504).
+ *
+ * If all retries fail the final exception will be rethrown. Exceptions caught during intermediate retries are
+ * logged as warnings to [logger]. Similar to [org.elasticsearch.action.bulk.Retry], except this retries on
+ * 502, 503, 504 error codes as well as 429.
+ *
+ * @param logger - logger used to log intermediate failures
+ * @param retryOn - any additional [RestStatus] values that should be retried
+ * @param block - the block of code to retry. This should be a suspend function.
+ */
+suspend fun <T> BackoffPolicy.retry(
+    logger: Logger,
+    retryOn: List<RestStatus> = emptyList(),
+    block: suspend () -> T
+): T {
+    val iter = iterator()
+    do {
+        try {
+            return block()
+        } catch (e: ElasticsearchException) {
+            if (iter.hasNext() && (e.isRetryable() || retryOn.contains(e.status()))) {
+                val backoff = iter.next()
+                logger.warn("Operation failed. Retrying in $backoff.", e)
+                delay(backoff.millis)
+            } else {
+                throw e
+            }
+        }
+    } while (true)
+}
+
+/**
+ * Retries on 502, 503 and 504 per elastic client's behavior: https://github.com/elastic/elasticsearch-net/issues/2061
+ * 429 must be retried manually as it's not clear if it's ok to retry for requests other than Bulk requests.
+ */
+fun ElasticsearchException.isRetryable(): Boolean {
+    return (status() in listOf(RestStatus.BAD_GATEWAY, RestStatus.SERVICE_UNAVAILABLE, RestStatus.GATEWAY_TIMEOUT))
 }
 
 /**

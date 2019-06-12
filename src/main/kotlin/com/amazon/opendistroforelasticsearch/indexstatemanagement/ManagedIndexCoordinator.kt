@@ -99,7 +99,8 @@ class ManagedIndexCoordinator(
     @Volatile private var indexStateManagementEnabled = INDEX_STATE_MANAGEMENT_ENABLED.get(settings)
     @Volatile private var sweepPeriod = SWEEP_PERIOD.get(settings)
     @Volatile private var retryPolicy =
-            BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings), COORDINATOR_BACKOFF_COUNT.get(settings))
+            BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings),
+                    COORDINATOR_BACKOFF_COUNT.get(settings))
 
     init {
         clusterService.addListener(this)
@@ -113,9 +114,10 @@ class ManagedIndexCoordinator(
             indexStateManagementEnabled = it
             if (!indexStateManagementEnabled) disable() else enable()
         }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
-            millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
-        }
+        clusterService.clusterSettings
+                .addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
+                    millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
+                }
     }
 
     override fun onMaster() {

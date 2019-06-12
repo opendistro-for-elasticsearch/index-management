@@ -13,6 +13,8 @@
  * permissions and limitations under the License.
  */
 
+@file:Suppress("TooManyFunctions")
+
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
@@ -53,8 +55,8 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
 }
 
 /**
- * Retries the given [block] of code as specified by the receiver [BackoffPolicy], if [block] throws an [ElasticsearchException]
- * that is retriable (502, 503, 504).
+ * Retries the given [block] of code as specified by the receiver [BackoffPolicy],
+ * if [block] throws an [ElasticsearchException] that is retriable (502, 503, 504).
  *
  * If all retries fail the final exception will be rethrown. Exceptions caught during intermediate retries are
  * logged as warnings to [logger]. Similar to [org.elasticsearch.action.bulk.Retry], except this retries on

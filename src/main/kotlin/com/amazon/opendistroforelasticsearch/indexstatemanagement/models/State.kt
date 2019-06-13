@@ -46,7 +46,7 @@ data class State(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): State {
-            lateinit var name: String
+            var name: String? = null
             val actions: MutableList<Map<String, Any>> = mutableListOf() // TODO: Implement List<Action>
             val transitions: MutableList<Transition> = mutableListOf()
 

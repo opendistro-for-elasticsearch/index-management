@@ -106,10 +106,10 @@ data class ManagedIndex(
         @JvmOverloads
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndex {
-            lateinit var name: String
-            lateinit var index: String
-            lateinit var schedule: Schedule
-            lateinit var policyName: String
+            var name: String? = null
+            var index: String? = null
+            var schedule: Schedule? = null
+            var policyName: String? = null
             var policy: Policy? = null
             var changePolicy: ChangePolicy? = null
             var lastUpdatedTime: Instant? = null

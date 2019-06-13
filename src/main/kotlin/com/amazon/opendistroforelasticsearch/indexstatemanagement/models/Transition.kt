@@ -47,7 +47,7 @@ data class Transition(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Transition {
-            lateinit var name: String
+            var name: String? = null
             var conditions: Conditions? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)

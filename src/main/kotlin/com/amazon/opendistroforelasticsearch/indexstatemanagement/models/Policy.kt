@@ -77,8 +77,8 @@ data class Policy(
         @JvmOverloads
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Policy {
-            lateinit var name: String
-            lateinit var defaultState: String
+            var name: String? = null
+            var defaultState: String? = null
             // TODO Implement DefaultNotification(destination, message)
             var defaultNotification: Map<String, Any>? = null
             var lastUpdatedTime: Instant? = null

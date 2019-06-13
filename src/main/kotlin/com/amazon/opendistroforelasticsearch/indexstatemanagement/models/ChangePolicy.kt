@@ -44,7 +44,7 @@ data class ChangePolicy(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): ChangePolicy {
-            lateinit var policyName: String
+            var policyName: String? = null
             var state: String? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)

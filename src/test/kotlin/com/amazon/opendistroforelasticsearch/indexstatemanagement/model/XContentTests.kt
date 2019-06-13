@@ -16,9 +16,13 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Conditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomAge
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomByteSizeValue
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
@@ -53,6 +57,35 @@ class XContentTests : ESTestCase() {
         val transitionString = transition.toJsonString()
         val parsedTransition = Transition.parse(parser(transitionString))
         assertEquals("Round tripping Transition doesn't work", transition, parsedTransition)
+    }
+
+    fun `test conditions parsing`() {
+        val conditions = nonNullRandomConditions()
+
+        val conditionsString = conditions.toJsonString()
+        val parsedConditions = Conditions.parse(parser(conditionsString))
+        assertEquals("Round tripping Conditions doesn't work", conditions, parsedConditions)
+    }
+
+    fun `test supplying more than one transition condition fails`() {
+        try {
+            val conditions = Conditions(indexAge = randomAge(), size = randomByteSizeValue())
+            fail("Supplying multiple Transition conditions did not fail")
+        } catch (ignore: IllegalArgumentException) {}
+    }
+
+    fun `test invalid index age condition fails`() {
+        try {
+            val conditions = Conditions(indexAge = "invalidIndexAge")
+            fail("Giving an invalid index age Transition condition did not fail")
+        } catch (ignore: IllegalArgumentException) {}
+    }
+
+    fun `test invalid size condition fails`() {
+        try {
+            val conditions = Conditions(size = "tenMegabytes")
+            fail("Giving an invalid size Transition condition did not fail")
+        } catch (ignore: IllegalArgumentException) {}
     }
 
     fun `test change policy parsing`() {

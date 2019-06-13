@@ -17,6 +17,8 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
 
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
+import org.elasticsearch.ElasticsearchParseException
+import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
@@ -32,12 +34,10 @@ data class Transition(
 ) : ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder
-            .startObject()
-                .field(STATE_FIELD, stateName)
-                .field(CONDITIONS_FIELD, conditions)
-            .endObject()
-        return builder
+        builder.startObject()
+            .field(STATE_FIELD, stateName)
+        if (conditions != null) builder.field(CONDITIONS_FIELD, conditions)
+        return builder.endObject()
     }
 
     companion object {
@@ -71,36 +71,47 @@ data class Transition(
 }
 
 data class Conditions(
-    val indexAge: String?,
-    val docCount: Long?,
-    val size: String?,
-    val cron: CronSchedule?
+    val indexAge: String? = null,
+    val docCount: Long? = null,
+    val size: String? = null,
+    val cron: CronSchedule? = null
 ) : ToXContentObject {
 
     init {
         val conditionsList = listOf(indexAge, docCount, size, cron)
-        require(conditionsList.filterNotNull().size < 2) { "Cannot provide more than one Transition condition" }
+        require(conditionsList.filterNotNull().size == 1) { "Cannot provide more than one Transition condition" }
 
         // Validate indexAge condition
-        try {
-            TimeValue.parseTimeValue(indexAge, "")
-        } catch (e: IllegalArgumentException) {
-            throw IllegalArgumentException("Must have a valid index age Transition condition")
+        if (indexAge != null) {
+            try {
+                TimeValue.parseTimeValue(indexAge, "")
+            } catch (e: IllegalArgumentException) {
+                throw IllegalArgumentException("Must have a valid index age Transition condition")
+            }
         }
 
         // Validate size condition
-        requireNotNull(size?.toIntOrNull()) { "Must have a valid size Transition condition" }
+        if (size != null) {
+            try {
+                ByteSizeValue.parseBytesSizeValue(size, "")
+            } catch (e: ElasticsearchParseException) {
+                throw IllegalArgumentException("Must have a valid size Transition condition")
+            }
+        }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder
-            .startObject()
-                .field(INDEX_AGE_FIELD, indexAge)
-                .field(DOC_COUNT_FIELD, docCount)
-                .field(SIZE_FIELD, size)
-                .field(CRON_FIELD, cron)
-            .endObject()
-        return builder
+        val conditions: Map<String, Any?> =
+            mapOf(
+                INDEX_AGE_FIELD to indexAge,
+                DOC_COUNT_FIELD to docCount,
+                SIZE_FIELD to size,
+                CRON_FIELD to cron
+            )
+
+        builder.startObject()
+        for ((k, v) in conditions) if (v != null) builder.field(k, v)
+        return builder.endObject()
     }
 
     companion object {

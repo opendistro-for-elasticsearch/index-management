@@ -17,9 +17,11 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import org.apache.http.Header
@@ -30,7 +32,7 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.test.ESTestCase.randomInt
+import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -40,7 +42,7 @@ fun randomPolicy(
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
-    states: List<State> = (1..randomInt(10)).map { randomState() }
+    states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
 ): Policy {
     return Policy(name = name, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
             defaultNotification = defaultNotification, defaultState = states[0].name, states = states)
@@ -65,20 +67,22 @@ fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotificatio
     return null // TODO: random DefaultNotification
 }
 
-fun randomManagedIndex(
+fun randomManagedIndexConfig(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     index: String = ESRestTestCase.randomAlphaOfLength(10),
+    uuid: String = ESRestTestCase.randomAlphaOfLength(20),
     enabled: Boolean = ESRestTestCase.randomBoolean(),
-    schedule: Schedule = IntervalSchedule(Instant.now(), 5, ChronoUnit.MINUTES),
+    schedule: Schedule = IntervalSchedule(Instant.ofEpochMilli(Instant.now().toEpochMilli()), 5, ChronoUnit.MINUTES),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
     policyName: String = ESRestTestCase.randomAlphaOfLength(10),
     policy: Policy? = randomPolicy(),
-    changePolicy: ChangePolicy? = null
-): ManagedIndex {
-    return ManagedIndex(
+    changePolicy: ChangePolicy? = randomChangePolicy()
+): ManagedIndexConfig {
+    return ManagedIndexConfig(
         jobName = name,
         index = index,
+        indexUuid = uuid,
         enabled = enabled,
         jobSchedule = schedule,
         jobLastUpdatedTime = lastUpdatedTime,
@@ -86,6 +90,40 @@ fun randomManagedIndex(
         policyName = policy?.name ?: policyName,
         policyVersion = policy?.version,
         policy = policy,
+        changePolicy = changePolicy
+    )
+}
+
+fun randomClusterStateManagedIndexConfig(
+    index: String = ESRestTestCase.randomAlphaOfLength(10),
+    uuid: String = ESRestTestCase.randomAlphaOfLength(20),
+    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+): ClusterStateManagedIndexConfig {
+    return ClusterStateManagedIndexConfig(
+        index = index,
+        uuid = uuid,
+        policyName = policyName,
+        seqNo = seqNo,
+        primaryTerm = primaryTerm
+    )
+}
+
+fun randomSweptManagedIndexConfig(
+    index: String = ESRestTestCase.randomAlphaOfLength(10),
+    uuid: String = ESRestTestCase.randomAlphaOfLength(20),
+    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
+    changePolicy: ChangePolicy? = null
+): SweptManagedIndexConfig {
+    return SweptManagedIndexConfig(
+        index = index,
+        uuid = uuid,
+        policyName = policyName,
+        seqNo = seqNo,
+        primaryTerm = primaryTerm,
         changePolicy = changePolicy
     )
 }
@@ -105,7 +143,7 @@ fun ChangePolicy.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
-fun ManagedIndex.toJsonString(): String {
+fun ManagedIndexConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

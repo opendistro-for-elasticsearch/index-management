@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_DOC_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
@@ -59,7 +59,6 @@ class RestIndexPolicyAction(
     init {
         controller.registerHandler(PUT, POLICY_BASE_URI, this)
         controller.registerHandler(PUT, "$POLICY_BASE_URI/{policyID}", this)
-        ismIndices = indexStateManagementIndices
     }
 
     override fun getName(): String {
@@ -118,7 +117,7 @@ class RestIndexPolicyAction(
         }
 
         private fun putPolicy() {
-            val indexRequest = IndexRequest(INDEX_STATE_MANAGEMENT_INDEX, INDEX_STATE_MANAGEMENT_TYPE)
+            val indexRequest = IndexRequest(INDEX_STATE_MANAGEMENT_INDEX, INDEX_STATE_MANAGEMENT_DOC_TYPE)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newPolicy.toXContent(channel.newBuilder()))
                     .id(policyId)

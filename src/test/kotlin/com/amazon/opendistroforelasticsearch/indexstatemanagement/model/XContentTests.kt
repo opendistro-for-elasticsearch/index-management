@@ -16,9 +16,11 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.toJsonString
@@ -43,6 +45,24 @@ class XContentTests : ESTestCase() {
         val policyString = policy.toJsonString()
         val parsedPolicy = Policy.parseWithType(parserWithType(policyString))
         assertEquals("Round tripping Policy doesn't work", policy, parsedPolicy)
+    }
+
+    fun `test managed index config parsing`() {
+        val config = randomManagedIndexConfig()
+        val configTwo = config.copy(changePolicy = null)
+        var configThree = config.copy()
+
+        val configString = config.toJsonString()
+        val configTwoString = configTwo.toJsonString()
+        val configThreeString = configThree.toJsonString()
+        val parsedConfig = ManagedIndexConfig.parseWithType(parserWithType(configString))
+        val parsedConfigTwo = ManagedIndexConfig.parseWithType(parserWithType(configTwoString))
+        configThree = configThree.copy(id = "some_doc_id", version = 17)
+        val parsedConfigThree = ManagedIndexConfig.parseWithType(parserWithType(configThreeString), configThree.id, configThree.version)
+
+        assertEquals("Round tripping ManagedIndexConfig doesn't work", config, parsedConfig)
+        assertEquals("Round tripping ManagedIndexConfig doesn't work with null change policy", configTwo, parsedConfigTwo)
+        assertEquals("Round tripping ManagedIndexConfig doesn't work with id and version", configThree, parsedConfigThree)
     }
 
     fun `test change policy parsing`() {

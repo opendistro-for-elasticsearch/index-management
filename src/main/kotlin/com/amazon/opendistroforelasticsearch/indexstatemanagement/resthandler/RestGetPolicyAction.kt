@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_DOC_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
@@ -28,7 +28,6 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
@@ -59,7 +58,7 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
         if (policyId == null || policyId.isEmpty()) {
             throw IllegalArgumentException("Missing policy ID")
         }
-        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, INDEX_STATE_MANAGEMENT_TYPE, policyId)
+        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, INDEX_STATE_MANAGEMENT_DOC_TYPE, policyId)
                 .version(RestActions.parseVersion(request))
 
         if (request.method() == RestRequest.Method.HEAD) {

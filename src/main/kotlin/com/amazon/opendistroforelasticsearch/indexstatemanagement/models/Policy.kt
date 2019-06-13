@@ -73,6 +73,7 @@ data class Policy(
         const val DEFAULT_STATE_FIELD = "default_state"
         const val STATES_FIELD = "states"
 
+        @Suppress("ComplexMethod")
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)

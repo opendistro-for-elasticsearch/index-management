@@ -347,6 +347,9 @@
           "index" : {
             "type" : "keyword"
           },
+          "index_uuid" : {
+            "type" : "keyword"
+          },
           "last_updated_time": {
             "type": "date",
             "format": "strict_date_time||epoch_millis"

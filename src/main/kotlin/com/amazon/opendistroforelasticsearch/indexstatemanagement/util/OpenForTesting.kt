@@ -13,13 +13,6 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
-import org.elasticsearch.test.ESTestCase
-
-class ManagedIndexTests : ESTestCase() {
-
-    fun `test nothing`() {
-        assertTrue(true)
-    }
-}
+annotation class OpenForTesting

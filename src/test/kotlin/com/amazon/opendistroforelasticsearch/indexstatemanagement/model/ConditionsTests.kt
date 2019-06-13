@@ -46,4 +46,12 @@ class ConditionsTests : ESTestCase() {
             Conditions(indexAge = "invalidIndexAge")
         }
     }
+
+    fun `test size condition of zero fails`() {
+        assertFailsWith(
+            IllegalArgumentException::class,
+            "Expected IllegalArgumentException for size condition less than 1") {
+            Conditions(size = "0")
+        }
+    }
 }

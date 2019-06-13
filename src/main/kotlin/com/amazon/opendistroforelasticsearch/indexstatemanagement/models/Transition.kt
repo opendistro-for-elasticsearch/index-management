@@ -93,7 +93,9 @@ data class Conditions(
         // Validate size condition
         if (size != null) {
             try {
-                ByteSizeValue.parseBytesSizeValue(size, "")
+                val byteSizeValue = ByteSizeValue.parseBytesSizeValue(size, "")
+                // ByteSizeValue supports special unit-less values "0" and "1" which will not be supported by Conditions
+                require(byteSizeValue.bytes > 0) { "Transition size condition must be greater than 0" }
             } catch (e: ElasticsearchParseException) {
                 throw IllegalArgumentException("Must have a valid size Transition condition")
             }

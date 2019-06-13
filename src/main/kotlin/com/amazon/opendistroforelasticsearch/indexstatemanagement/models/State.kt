@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
 
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -26,7 +27,7 @@ data class State(
     val name: String,
     val actions: List<Map<String, Any>>, // TODO: Implement List<Action>
     val transitions: List<Transition>
-) : ToXContent {
+) : ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder

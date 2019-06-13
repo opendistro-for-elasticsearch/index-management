@@ -15,16 +15,20 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
-import org.apache.http.entity.ContentType
+import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Response
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -34,10 +38,12 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.common.xcontent.json.JsonXContent
+import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.rules.DisableOnDebug
+import java.util.*
 
 abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
@@ -87,9 +93,48 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return policy.copy(id = id, version = version)
     }
 
+    protected fun createIndex(
+        index: String = ESTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
+        policyName: String? = ESTestCase.randomAlphaOfLength(10)
+    ): Pair<String, String?> {
+        val settings = Settings.builder().let {
+            if (policyName == null) {
+                it.putNull(ManagedIndexSettings.POLICY_NAME.key)
+            } else {
+                it.put(ManagedIndexSettings.POLICY_NAME.key, policyName)
+            }
+        }.build()
+        createIndex(index, settings)
+        return index to policyName
+    }
+
+    protected fun getManagedIndexConfig(index: String): ManagedIndexConfig? {
+        val params = mapOf("version" to "true")
+        val request = """
+            {
+                "version": true,
+                "query": {
+                    "term": {
+                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}": "$index"
+                    }
+                }
+            }
+        """.trimIndent()
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_search", params,
+                StringEntity(request, APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+        val searchResponse = SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
+        assertTrue("Found more than one managed index config", searchResponse.hits.hits.size < 2)
+        val hit = searchResponse.hits.hits.firstOrNull()
+        return hit?.run {
+            val xcp = createParser(jsonXContent, this.sourceRef)
+            ManagedIndexConfig.parseWithType(xcp)
+        }
+    }
+
     protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)
 
-    protected fun Policy.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), ContentType.APPLICATION_JSON)
+    protected fun Policy.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
 
     // Useful settings when debugging to prevent timeouts
     override fun restClientSettings(): Settings {

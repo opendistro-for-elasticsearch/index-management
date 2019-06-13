@@ -81,6 +81,7 @@ import org.elasticsearch.threadpool.ThreadPool
  * master node will set up the background sweep process and listen for [ClusterChangedEvent].
  */
 @Suppress("TooManyFunctions")
+@OpenForTesting
 class ManagedIndexCoordinator(
     settings: Settings,
     private val client: Client,
@@ -184,13 +185,16 @@ class ManagedIndexCoordinator(
         * addPolicy/removePolicy API usage for existing indices and let the background sweep pick up
         * any changes from users that ignore and use the ES settings API
         * */
+        var hasCreateRequests = false
         val requests: List<DocWriteRequest<*>> = event.state().metaData().indices().mapNotNull {
             val previousIndexMetaData = event.previousState().metaData().index(it.value.index)
             val policyName = it.value.getPolicyName()
             // TODO: Hard delete (unsafe) vs delayed delete (safe, but index is still managed)
             val request: DocWriteRequest<*>? = when {
-                it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyName != null ->
+                it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyName != null -> {
+                    hasCreateRequests = true
                     createManagedIndexRequest(it.value.index.name, it.value.indexUUID, policyName)
+                }
                 it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
                     deleteManagedIndexRequest(it.value.indexUUID)
                 it.value.shouldUpdateManagedIndexConfig(previousIndexMetaData) && policyName != null ->
@@ -201,7 +205,7 @@ class ManagedIndexCoordinator(
             request
         }
 
-        updateManagedIndices(requests + indicesDeletedRequests)
+        updateManagedIndices(requests + indicesDeletedRequests, hasCreateRequests)
     }
 
     /**
@@ -269,16 +273,8 @@ class ManagedIndexCoordinator(
         val updateManagedIndexRequests =
                 getUpdateManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
 
-        if (createManagedIndexRequests.isNotEmpty()) {
-            val created = ismIndices.attemptInitStateManagementIndex(client)
-            if (!created) {
-                logger.error("Failed to create $INDEX_STATE_MANAGEMENT_INDEX")
-                lastFullSweepTimeNano = System.nanoTime()
-                return
-            }
-        }
-
-        updateManagedIndices(createManagedIndexRequests + deleteManagedIndexRequests + updateManagedIndexRequests)
+        val requests = createManagedIndexRequests + deleteManagedIndexRequests + updateManagedIndexRequests
+        updateManagedIndices(requests, createManagedIndexRequests.isNotEmpty())
         lastFullSweepTimeNano = System.nanoTime()
     }
 
@@ -329,9 +325,19 @@ class ManagedIndexCoordinator(
         }.toMap()
     }
 
-    private suspend fun updateManagedIndices(requests: List<DocWriteRequest<*>>) {
+    @OpenForTesting
+    suspend fun updateManagedIndices(requests: List<DocWriteRequest<*>>, hasCreateRequests: Boolean = false) {
+        // TODO: Deleting ISM index causes index to be recreated with new jobs which will have version conflict in MetaData
         var requestsToRetry = requests
         if (requestsToRetry.isEmpty()) return
+
+        if (hasCreateRequests) {
+            val created = ismIndices.attemptInitStateManagementIndex(client)
+            if (!created) {
+                logger.error("Failed to create $INDEX_STATE_MANAGEMENT_INDEX")
+                return
+            }
+        }
 
         retryPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
             val bulkRequest = BulkRequest().add(requestsToRetry)

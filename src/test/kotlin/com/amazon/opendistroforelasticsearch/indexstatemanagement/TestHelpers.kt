@@ -72,12 +72,12 @@ fun randomManagedIndexConfig(
     index: String = ESRestTestCase.randomAlphaOfLength(10),
     uuid: String = ESRestTestCase.randomAlphaOfLength(20),
     enabled: Boolean = ESRestTestCase.randomBoolean(),
-    schedule: Schedule = IntervalSchedule(Instant.now(), 5, ChronoUnit.MINUTES),
+    schedule: Schedule = IntervalSchedule(Instant.ofEpochMilli(Instant.now().toEpochMilli()), 5, ChronoUnit.MINUTES),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
     policyName: String = ESRestTestCase.randomAlphaOfLength(10),
     policy: Policy? = randomPolicy(),
-    changePolicy: ChangePolicy? = null
+    changePolicy: ChangePolicy? = randomChangePolicy()
 ): ManagedIndexConfig {
     return ManagedIndexConfig(
         jobName = name,

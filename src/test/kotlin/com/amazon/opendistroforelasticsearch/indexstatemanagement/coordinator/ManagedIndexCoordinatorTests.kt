@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.coordinator
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import kotlinx.coroutines.runBlocking
 import org.elasticsearch.Version
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterName
@@ -148,6 +149,14 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         assertFalse("Swept index with blank policy_name", results.values.any { it.index == "index-with-blank-policy" })
     }
 
+    fun `test sweep`() {
+        runBlocking {
+            val testCoordinator = Mockito.spy(coordinator)
+            testCoordinator.sweep()
+            Mockito.verify(testCoordinator, Mockito.times(1)).sweepClusterState(any())
+        }
+    }
+
     private fun createIndexMetaData(indexName: String, replicaNumber: Int, shardNumber: Int, policyName: String?): IndexMetaData.Builder {
         val defaultSettings = Settings.builder()
                 .put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT)
@@ -159,4 +168,12 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
                 .numberOfReplicas(replicaNumber)
                 .numberOfShards(shardNumber)
     }
+
+    private fun <T> any(): T {
+        Mockito.any<T>()
+        return uninitialized()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> uninitialized(): T = null as T
 }

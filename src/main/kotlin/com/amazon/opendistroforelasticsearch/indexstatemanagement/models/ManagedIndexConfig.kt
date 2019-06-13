@@ -30,6 +30,8 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 import java.time.Instant
 
+// data class IntervalSchedule(val startTime: Instant, val intervalISM: Int, val unitISM: ChronoUnit) : IntervalSchedule(startTime, intervalISM, unitISM)
+
 data class ManagedIndexConfig(
     val id: String = NO_ID,
     val version: Long = NO_VERSION,
@@ -105,11 +107,11 @@ data class ManagedIndexConfig(
         @JvmOverloads
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndexConfig {
-            lateinit var name: String
-            lateinit var index: String
-            lateinit var indexUuid: String
-            lateinit var schedule: Schedule
-            lateinit var policyName: String
+            var name: String? = null
+            var index: String? = null
+            var indexUuid: String? = null
+            var schedule: Schedule? = null
+            var policyName: String? = null
             var policy: Policy? = null
             var changePolicy: ChangePolicy? = null
             var lastUpdatedTime: Instant? = null
@@ -149,7 +151,6 @@ data class ManagedIndexConfig(
             } else if (!enabled) {
                 enabledTime = null
             }
-
             return ManagedIndexConfig(
                 id,
                 version,

@@ -16,12 +16,13 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_DOC_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
@@ -58,7 +59,7 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
         if (policyId == null || policyId.isEmpty()) {
             throw IllegalArgumentException("Missing policy ID")
         }
-        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, INDEX_STATE_MANAGEMENT_DOC_TYPE, policyId)
+        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyId)
                 .version(RestActions.parseVersion(request))
 
         if (request.method() == RestRequest.Method.HEAD) {
@@ -79,6 +80,8 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
                         .startObject()
                         .field(_ID, response.id)
                         .field(_VERSION, response.version)
+                        .field(_SEQ_NO, response.seqNo)
+                        .field(_PRIMARY_TERM, response.primaryTerm)
                 if (!response.isSourceEmpty) {
                     XContentHelper.createParser(
                         channel.request().xContentRegistry,
@@ -86,7 +89,7 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
                         response.sourceAsBytesRef,
                         XContentType.JSON
                     ).use { xcp ->
-                        val policy = Policy.parseWithType(xcp, response.id, response.version)
+                        val policy = Policy.parseWithType(xcp, response.id, response.seqNo, response.primaryTerm)
                         builder.field(POLICY_TYPE, policy, XCONTENT_WITHOUT_TYPE)
                     }
                 }

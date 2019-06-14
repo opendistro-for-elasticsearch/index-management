@@ -16,7 +16,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_DOC_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
@@ -47,24 +46,24 @@ fun createManagedIndexRequest(index: String, uuid: String, policyName: String): 
         jobEnabledTime = Instant.now(),
         policyName = policyName,
         policy = null,
-        policyVersion = null,
+        policySeqNo = null,
+        policyPrimaryTerm = null,
         changePolicy = null
     )
 
-    return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX, INDEX_STATE_MANAGEMENT_DOC_TYPE)
+    return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
             .id(uuid)
             .create(true)
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
 fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
-    return DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX,
-            INDEX_STATE_MANAGEMENT_DOC_TYPE, uuid)
+    return DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, uuid)
 }
 
 fun updateManagedIndexRequest(clusterStateManagedIndexConfig: ClusterStateManagedIndexConfig): UpdateRequest {
     return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX,
-            INDEX_STATE_MANAGEMENT_DOC_TYPE, clusterStateManagedIndexConfig.uuid)
+            clusterStateManagedIndexConfig.uuid)
             .setIfPrimaryTerm(clusterStateManagedIndexConfig.primaryTerm)
             .setIfSeqNo(clusterStateManagedIndexConfig.seqNo)
             .doc(clusterStateManagedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))

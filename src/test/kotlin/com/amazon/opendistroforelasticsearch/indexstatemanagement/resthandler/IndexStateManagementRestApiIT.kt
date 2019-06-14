@@ -22,7 +22,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
@@ -67,10 +68,13 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         assertEquals("Create policy failed", RestStatus.CREATED, createResponse.restStatus())
         val responseBody = createResponse.asMap()
         val createdId = responseBody["_id"] as String
-        val createdVersion = responseBody["_version"] as Int
+        val createdSeqNo = responseBody[_SEQ_NO] as Int
+        val createdPrimaryTerm = responseBody[_PRIMARY_TERM] as Int
         assertNotEquals("response is missing Id", Policy.NO_ID, createdId)
         assertEquals("not same id", policyId, createdId)
-        assertTrue("incorrect version", createdVersion > 0)
+        assertEquals("incorrect seqNo", 0, createdSeqNo)
+        assertEquals("incorrect primaryTerm", 1, createdPrimaryTerm)
+
         assertEquals("Incorrect Location header", "$POLICY_BASE_URI/$createdId", createResponse.getHeader("Location"))
     }
 
@@ -112,11 +116,12 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
     }
 
     @Throws(Exception::class)
-    fun `test update policy with wrong version`() {
+    fun `test update policy with wrong seq_no and primary_term`() {
         val policy = createRandomPolicy(refresh = true)
 
         try {
-            client().makeRequest("PUT", "$POLICY_BASE_URI/${policy.id}?refresh=true&version=10251989",
+            client().makeRequest("PUT",
+                    "$POLICY_BASE_URI/${policy.id}?refresh=true&if_seq_no=10251989&if_primary_term=2342",
                     emptyMap(), policy.toHttpEntity())
             fail("expected 409 ResponseException")
         } catch (e: ResponseException) {
@@ -125,18 +130,19 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
     }
 
     @Throws(Exception::class)
-    fun `test update policy with correct version`() {
+    fun `test update policy with correct seq_no and primary_term`() {
         val policy = createRandomPolicy(refresh = true)
-        val updateResponse = client().makeRequest("PUT", "$POLICY_BASE_URI/${policy.id}?refresh=true&version=${policy.version}",
-                    emptyMap(), policy.toHttpEntity())
+        val updateResponse = client().makeRequest("PUT",
+                "$POLICY_BASE_URI/${policy.id}?refresh=true&if_seq_no=${policy.seqNo}&if_primary_term=${policy.primaryTerm}",
+                emptyMap(), policy.toHttpEntity())
 
         assertEquals("Update policy failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
         val updatedId = responseBody[_ID] as String
-        val updatedVersion = (responseBody[_VERSION] as Int).toLong()
+        val updatedSeqNo = (responseBody[_SEQ_NO] as Int).toLong()
         assertNotEquals("response is missing Id", Policy.NO_ID, updatedId)
         assertEquals("not same id", policy.id, updatedId)
-        assertEquals("incorrect version", policy.version + 1, updatedVersion)
+        assertEquals("incorrect seqNo", policy.seqNo + 1, updatedSeqNo)
     }
 
     @Throws(Exception::class)

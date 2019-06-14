@@ -15,7 +15,7 @@
 
 buildscript {
     ext {
-        es_version = System.getProperty("es.version", "6.7.1")
+        es_version = System.getProperty("es.version", "7.0.1")
         kotlin_version = System.getProperty("kotlin.version", "1.3.31")
     }
 
@@ -97,7 +97,7 @@ repositories {
 
 ext {
     projectSubstitutions = [:]
-    opendistroVersion = '0.9.0'
+    opendistroVersion = '1.0.0'
     licenseFile = rootProject.file('LICENSE')
     noticeFile = rootProject.file('NOTICE')
 }
@@ -119,7 +119,7 @@ thirdPartyAudit.enabled = false
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
 
-unitTest {
+test {
     systemProperty 'tests.security.manager', 'false'
 }
 
@@ -132,7 +132,7 @@ integTestRunner {
 
     // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
-        jvmArg '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }
 }
 

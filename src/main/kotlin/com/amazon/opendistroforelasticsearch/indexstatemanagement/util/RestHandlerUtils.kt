@@ -19,6 +19,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
 import org.elasticsearch.common.xcontent.ToXContent
 
+const val _DOC = "_doc"
 const val _ID = "_id"
 const val _VERSION = "_version"
 const val _SEQ_NO = "_seq_no"

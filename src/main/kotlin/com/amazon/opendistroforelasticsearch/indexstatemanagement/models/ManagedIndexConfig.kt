@@ -27,10 +27,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.index.seqno.SequenceNumbers
 import java.io.IOException
 import java.time.Instant
-
-// data class IntervalSchedule(val startTime: Instant, val intervalISM: Int, val unitISM: ChronoUnit) : IntervalSchedule(startTime, intervalISM, unitISM)
 
 data class ManagedIndexConfig(
     val id: String = NO_ID,
@@ -43,7 +42,8 @@ data class ManagedIndexConfig(
     val jobLastUpdatedTime: Instant,
     val jobEnabledTime: Instant?,
     val policyName: String,
-    val policyVersion: Long?,
+    val policySeqNo: Long?,
+    val policyPrimaryTerm: Long?,
     val policy: Policy?,
     val changePolicy: ChangePolicy?
 ) : ScheduledJobParameter {
@@ -78,7 +78,8 @@ data class ManagedIndexConfig(
                     .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
                     .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
                     .field(POLICY_NAME_FIELD, policyName)
-                    .field(POLICY_VERSION_FIELD, policyVersion)
+                    .field(POLICY_SEQ_NO_FIELD, policySeqNo)
+                    .field(POLICY_PRIMARY_TERM_FIELD, policyPrimaryTerm)
                     .field(POLICY_FIELD, policy, XCONTENT_WITHOUT_TYPE)
                     .field(CHANGE_POLICY_FIELD, changePolicy)
                 .endObject()
@@ -99,7 +100,8 @@ data class ManagedIndexConfig(
         const val INDEX_UUID_FIELD = "index_uuid"
         const val POLICY_NAME_FIELD = "policy_name"
         const val POLICY_FIELD = "policy"
-        const val POLICY_VERSION_FIELD = "policy_version"
+        const val POLICY_SEQ_NO_FIELD = "policy_seq_no"
+        const val POLICY_PRIMARY_TERM_FIELD = "policy_primary_term"
         const val CHANGE_POLICY_FIELD = "change_policy"
 
         @Suppress("ComplexMethod", "LongMethod")
@@ -117,7 +119,8 @@ data class ManagedIndexConfig(
             var lastUpdatedTime: Instant? = null
             var enabledTime: Instant? = null
             var enabled = true
-            var policyVersion: Long? = NO_VERSION
+            var policyPrimaryTerm: Long? = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+            var policySeqNo: Long? = SequenceNumbers.UNASSIGNED_SEQ_NO
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -133,8 +136,11 @@ data class ManagedIndexConfig(
                     ENABLED_TIME_FIELD -> enabledTime = xcp.instant()
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
                     POLICY_NAME_FIELD -> policyName = xcp.text()
-                    POLICY_VERSION_FIELD -> {
-                        policyVersion = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
+                    POLICY_SEQ_NO_FIELD -> {
+                        policySeqNo = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
+                    }
+                    POLICY_PRIMARY_TERM_FIELD -> {
+                        policyPrimaryTerm = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
                     }
                     POLICY_FIELD -> {
                         policy = if (xcp.currentToken() == Token.VALUE_NULL) null else Policy.parse(xcp)
@@ -162,7 +168,8 @@ data class ManagedIndexConfig(
                 jobLastUpdatedTime = requireNotNull(lastUpdatedTime) { "ManagedIndexConfig last updated time is null" },
                 jobEnabledTime = enabledTime,
                 policyName = requireNotNull(policyName) { "ManagedIndexConfig policy name is null" },
-                policyVersion = policyVersion,
+                policySeqNo = policySeqNo,
+                policyPrimaryTerm = policyPrimaryTerm,
                 policy = policy,
                 changePolicy = changePolicy
             )

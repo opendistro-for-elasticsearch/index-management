@@ -17,13 +17,17 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_DOC_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IF_PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.REFRESH
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
@@ -31,9 +35,9 @@ import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
@@ -43,7 +47,6 @@ import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.PUT
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 import java.time.Instant
@@ -54,6 +57,7 @@ class RestIndexPolicyAction(
     indexStateManagementIndices: IndexStateManagementIndices
 ) : BaseRestHandler(settings) {
 
+    private val log = LogManager.getLogger(javaClass)
     private var ismIndices = indexStateManagementIndices
 
     init {
@@ -74,14 +78,15 @@ class RestIndexPolicyAction(
 
         val xcp = request.contentParser()
         val policy = Policy.parseWithType(xcp, id).copy(lastUpdatedTime = Instant.now())
-        val policyVersion = RestActions.parseVersion(request)
+        val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
+        val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val refreshPolicy = if (request.hasParam(REFRESH)) {
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
         return RestChannelConsumer { channel ->
-            IndexPolicyHandler(client, channel, id, policyVersion, refreshPolicy, policy).start()
+            IndexPolicyHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, policy).start()
         }
     }
 
@@ -89,7 +94,8 @@ class RestIndexPolicyAction(
         client: NodeClient,
         channel: RestChannel,
         private val policyId: String,
-        private val policyVersion: Long,
+        private val seqNo: Long,
+        private val primaryTerm: Long,
         private val refreshPolicy: WriteRequest.RefreshPolicy,
         private var newPolicy: Policy
     ) : AsyncActionHandler(client, channel) {
@@ -104,10 +110,10 @@ class RestIndexPolicyAction(
 
         private fun onCreateMappingsResponse(response: CreateIndexResponse) {
             if (response.isAcknowledged) {
-                logger.info("Created $INDEX_STATE_MANAGEMENT_INDEX with mappings.")
+                log.info("Created $INDEX_STATE_MANAGEMENT_INDEX with mappings.")
                 putPolicy()
             } else {
-                logger.error("Create $INDEX_STATE_MANAGEMENT_INDEX mappings call not acknowledged.")
+                log.error("Create $INDEX_STATE_MANAGEMENT_INDEX mappings call not acknowledged.")
                 channel.sendResponse(
                         BytesRestResponse(
                                 RestStatus.INTERNAL_SERVER_ERROR,
@@ -117,15 +123,16 @@ class RestIndexPolicyAction(
         }
 
         private fun putPolicy() {
-            val indexRequest = IndexRequest(INDEX_STATE_MANAGEMENT_INDEX, INDEX_STATE_MANAGEMENT_DOC_TYPE)
+            val indexRequest = IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newPolicy.toXContent(channel.newBuilder()))
                     .id(policyId)
                     .timeout(IndexRequest.DEFAULT_TIMEOUT)
-            if (policyVersion == Versions.MATCH_ANY) {
+            if (seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO || primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
                 indexRequest.opType(DocWriteRequest.OpType.CREATE)
             } else {
-                indexRequest.version(policyVersion)
+                indexRequest.setIfSeqNo(seqNo)
+                        .setIfPrimaryTerm(primaryTerm)
             }
             client.index(indexRequest, indexPolicyResponse())
         }
@@ -143,6 +150,8 @@ class RestIndexPolicyAction(
                             .startObject()
                             .field(_ID, response.id)
                             .field(_VERSION, response.version)
+                            .field(_PRIMARY_TERM, response.primaryTerm)
+                            .field(_SEQ_NO, response.seqNo)
                             .field(POLICY_TYPE, newPolicy)
                             .endObject()
 

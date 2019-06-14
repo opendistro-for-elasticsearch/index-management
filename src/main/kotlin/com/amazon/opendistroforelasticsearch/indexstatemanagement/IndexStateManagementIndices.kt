@@ -16,9 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_DOC_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.ActionListener
@@ -42,7 +42,7 @@ class IndexStateManagementIndices(
     fun initIndexStateManagementIndex(actionListener: ActionListener<CreateIndexResponse>) {
         if (!indexStateManagementIndexExists()) {
             val indexRequest = CreateIndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
-                    .mapping(INDEX_STATE_MANAGEMENT_DOC_TYPE, indexStateManagementMappings(), XContentType.JSON)
+                    .mapping(_DOC, indexStateManagementMappings(), XContentType.JSON)
             client.create(indexRequest, actionListener)
         }
     }

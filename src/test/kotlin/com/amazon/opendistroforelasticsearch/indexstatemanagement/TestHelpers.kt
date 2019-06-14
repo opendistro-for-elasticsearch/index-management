@@ -88,7 +88,8 @@ fun randomManagedIndexConfig(
         jobLastUpdatedTime = lastUpdatedTime,
         jobEnabledTime = enabledTime,
         policyName = policy?.name ?: policyName,
-        policyVersion = policy?.version,
+        policySeqNo = policy?.seqNo,
+        policyPrimaryTerm = policy?.primaryTerm,
         policy = policy,
         changePolicy = changePolicy
     )

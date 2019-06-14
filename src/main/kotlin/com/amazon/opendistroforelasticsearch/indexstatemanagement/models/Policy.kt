@@ -25,12 +25,14 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.index.seqno.SequenceNumbers
 import java.io.IOException
 import java.time.Instant
 
 data class Policy(
     val id: String = NO_ID,
-    val version: Long = NO_VERSION,
+    val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     val name: String,
     val schemaVersion: Long,
     val lastUpdatedTime: Instant,
@@ -77,7 +79,12 @@ data class Policy(
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Policy {
+        fun parse(
+            xcp: XContentParser,
+            id: String = NO_ID,
+            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        ): Policy {
             lateinit var name: String
             lateinit var defaultState: String
             // TODO Implement DefaultNotification(destination, message)
@@ -110,7 +117,8 @@ data class Policy(
 
             return Policy(
                 id,
-                version,
+                seqNo,
+                primaryTerm,
                 requireNotNull(name) { "Policy name is null" },
                 schemaVersion,
                 lastUpdatedTime ?: Instant.now(),
@@ -123,11 +131,16 @@ data class Policy(
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): Policy {
+        fun parseWithType(
+            xcp: XContentParser,
+            id: String = NO_ID,
+            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        ): Policy {
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val policy = parse(xcp, id, version)
+            val policy = parse(xcp, id, seqNo, primaryTerm)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return policy
         }

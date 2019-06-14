@@ -17,11 +17,14 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Conditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import org.apache.http.Header
@@ -35,6 +38,7 @@ import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 fun randomPolicy(
@@ -51,10 +55,60 @@ fun randomPolicy(
 fun randomState(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
     actions: List<Map<String, Any>> = listOf(), // TODO: List<Action>
-    transitions: List<Map<String, Any>> = listOf() // TODO: List<Transition>
+    transitions: List<Transition> = listOf()
 ): State {
     return State(name = name, actions = actions, transitions = transitions)
 }
+
+fun randomTransition(
+    stateName: String = ESRestTestCase.randomAlphaOfLength(10),
+    conditions: Conditions? = randomConditions()
+): Transition {
+    return Transition(stateName = stateName, conditions = conditions)
+}
+
+/**
+ * TODO: Excluded randomCronSchedule being included in randomConditions as two issues need to be resolved first:
+ *   1. Job Scheduler needs to be published to maven central as there is an issue retrieving dependencies for SPI
+ *   2. CronSchedule in Job Scheduler needs to implement equals/hash methods so assertEquals compares two CronSchedule
+ *      objects properly when doing roundtrip parsing tests
+ */
+fun randomConditions(
+    condition: Pair<String, Any>? =
+        ESRestTestCase.randomFrom(listOf(randomIndexAge(), randomDocCount(), randomSize(), null))
+): Conditions? {
+
+    if (condition == null) return null
+
+    val type = condition.first
+    val value = condition.second
+
+    return when (type) {
+        Conditions.INDEX_AGE_FIELD -> Conditions(indexAge = value as String)
+        Conditions.DOC_COUNT_FIELD -> Conditions(docCount = value as Long)
+        Conditions.SIZE_FIELD -> Conditions(size = value as String)
+//        Conditions.CRON_FIELD -> Conditions(cron = value as CronSchedule) // TODO: Uncomment after issues are fixed
+        else -> throw IllegalArgumentException("Invalid field: [$type] given for random Conditions.")
+    }
+}
+
+fun nonNullRandomConditions(): Conditions =
+        randomConditions(ESRestTestCase.randomFrom(listOf(randomIndexAge(), randomDocCount(), randomSize())))!!
+
+fun randomIndexAge(indexAge: String = randomAge()) = Conditions.INDEX_AGE_FIELD to indexAge
+
+fun randomDocCount(docCount: Long = ESRestTestCase.randomLong()) = Conditions.DOC_COUNT_FIELD to docCount
+
+fun randomSize(size: String = randomByteSizeValue()) = Conditions.SIZE_FIELD to size
+
+fun randomCronSchedule(cron: CronSchedule = CronSchedule("0 * * * *", ZoneId.of("UTC"))) =
+    Conditions.CRON_FIELD to cron
+
+fun randomAge() =
+    ESRestTestCase.randomIntBetween(1, 30).toString() + ESRestTestCase.randomFrom(listOf("s", "m", "h", "d"))
+
+fun randomByteSizeValue() =
+    ESRestTestCase.randomIntBetween(1, 1000).toString() + ESRestTestCase.randomFrom(listOf("b", "kb", "mb", "gb"))
 
 fun randomChangePolicy(
     policyName: String = ESRestTestCase.randomAlphaOfLength(10),
@@ -135,6 +189,16 @@ fun Policy.toJsonString(): String {
 }
 
 fun State.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun Transition.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun Conditions.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

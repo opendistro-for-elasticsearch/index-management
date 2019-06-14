@@ -16,13 +16,17 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Conditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.toJsonString
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser
@@ -30,6 +34,14 @@ import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.test.ESTestCase
 
 class XContentTests : ESTestCase() {
+
+    fun `test policy parsing`() {
+        val policy = randomPolicy()
+
+        val policyString = policy.toJsonString()
+        val parsedPolicy = Policy.parseWithType(parserWithType(policyString))
+        assertEquals("Round tripping Policy doesn't work", policy, parsedPolicy)
+    }
 
     fun `test state parsing`() {
         val state = randomState()
@@ -39,12 +51,20 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping State doesn't work", state, parsedState)
     }
 
-    fun `test policy parsing`() {
-        val policy = randomPolicy()
+    fun `test transition parsing`() {
+        val transition = randomTransition()
 
-        val policyString = policy.toJsonString()
-        val parsedPolicy = Policy.parseWithType(parserWithType(policyString))
-        assertEquals("Round tripping Policy doesn't work", policy, parsedPolicy)
+        val transitionString = transition.toJsonString()
+        val parsedTransition = Transition.parse(parser(transitionString))
+        assertEquals("Round tripping Transition doesn't work", transition, parsedTransition)
+    }
+
+    fun `test conditions parsing`() {
+        val conditions = nonNullRandomConditions()
+
+        val conditionsString = conditions.toJsonString()
+        val parsedConditions = Conditions.parse(parser(conditionsString))
+        assertEquals("Round tripping Conditions doesn't work", conditions, parsedConditions)
     }
 
     fun `test managed index config parsing`() {

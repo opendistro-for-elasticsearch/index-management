@@ -85,8 +85,8 @@ data class Policy(
             seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
             primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
         ): Policy {
-            lateinit var name: String
-            lateinit var defaultState: String
+            var name: String? = null
+            var defaultState: String? = null
             // TODO Implement DefaultNotification(destination, message)
             var defaultNotification: Map<String, Any>? = null
             var lastUpdatedTime: Instant? = null

@@ -22,7 +22,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy.Companion.POLICY_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
@@ -39,6 +40,7 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
+import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -61,7 +63,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
                 response.entity.content).map()
         val createdId = policyJson["_id"] as String
         assertEquals("policy ids are not the same", policyId, createdId)
-        return policy.copy(id = createdId, version = (policyJson["_version"] as Int).toLong())
+        return policy.copy(id = createdId, seqNo = (policyJson["_seq_no"] as Int).toLong(), primaryTerm = (policyJson["_primary_term"] as Int).toLong())
     }
 
     protected fun createRandomPolicy(refresh: Boolean = false): Policy {
@@ -78,7 +80,8 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         ensureExpectedToken(Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
 
         lateinit var id: String
-        var version: Long = 0
+        var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
         lateinit var policy: Policy
 
         while (parser.nextToken() != Token.END_OBJECT) {
@@ -86,11 +89,12 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
             when (parser.currentName()) {
                 _ID -> id = parser.text()
-                _VERSION -> version = parser.longValue()
+                _SEQ_NO -> seqNo = parser.longValue()
+                _PRIMARY_TERM -> primaryTerm = parser.longValue()
                 POLICY_TYPE -> policy = Policy.parse(parser)
             }
         }
-        return policy.copy(id = id, version = version)
+        return policy.copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
     }
 
     protected fun createIndex(

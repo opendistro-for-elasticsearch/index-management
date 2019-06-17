@@ -22,6 +22,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Managed
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
@@ -95,6 +97,16 @@ fun randomConditions(
 fun nonNullRandomConditions(): Conditions =
         randomConditions(ESRestTestCase.randomFrom(listOf(randomIndexAge(), randomDocCount(), randomSize())))!!
 
+fun randomDeleteActionConfig(
+    timeout: String = randomAge(),
+    retry: ActionRetry = ActionRetry(count = ESRestTestCase.randomLongBetween(1, 10), delay = randomAge())
+): DeleteActionConfig {
+    return DeleteActionConfig(timeout = timeout, retry = retry)
+}
+
+/**
+ * Helper functions for creating a random Conditions object
+ */
 fun randomIndexAge(indexAge: String = randomAge()) = Conditions.INDEX_AGE_FIELD to indexAge
 
 fun randomDocCount(docCount: Long = ESRestTestCase.randomLong()) = Conditions.DOC_COUNT_FIELD to docCount
@@ -109,6 +121,9 @@ fun randomAge() =
 
 fun randomByteSizeValue() =
     ESRestTestCase.randomIntBetween(1, 1000).toString() + ESRestTestCase.randomFrom(listOf("b", "kb", "mb", "gb"))
+/**
+ * End - Conditions helper functions
+ */
 
 fun randomChangePolicy(
     policyName: String = ESRestTestCase.randomAlphaOfLength(10),
@@ -199,6 +214,11 @@ fun Transition.toJsonString(): String {
 }
 
 fun Conditions.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun DeleteActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

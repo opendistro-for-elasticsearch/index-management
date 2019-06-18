@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.WITH_TYPE
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
@@ -27,7 +26,7 @@ import java.io.IOException
 
 data class DeleteActionConfig(
     val timeout: String?,
-    val retry: ActionRetry? // TODO: Specify default ActionRetry for delete action
+    val retry: ActionRetry?
 ) : ToXContentObject {
 
     init {
@@ -41,11 +40,10 @@ data class DeleteActionConfig(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject()
-        if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(DELETE_ACTION_TYPE)
+        builder.startObject().startObject(DELETE_ACTION_TYPE)
         if (timeout != null) builder.field(TIMEOUT_FIELD, timeout)
         if (retry != null) builder.field(RETRY_FIELD, retry)
-        if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
+        builder.endObject()
         return builder.endObject()
     }
 
@@ -74,17 +72,6 @@ data class DeleteActionConfig(
             }
 
             return DeleteActionConfig(timeout, retry)
-        }
-
-        @JvmStatic
-        @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser): DeleteActionConfig {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val deleteActionConfig = parse(xcp)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            return deleteActionConfig
         }
     }
 }

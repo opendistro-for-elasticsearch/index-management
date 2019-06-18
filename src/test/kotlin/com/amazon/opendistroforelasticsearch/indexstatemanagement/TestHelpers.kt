@@ -37,6 +37,9 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
@@ -231,6 +234,15 @@ fun ChangePolicy.toJsonString(): String {
 fun ManagedIndexConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun parseDeleteActionWithType(xcp: XContentParser): DeleteActionConfig {
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    val deleteActionConfig = DeleteActionConfig.parse(xcp)
+    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    return deleteActionConfig
 }
 
 /**

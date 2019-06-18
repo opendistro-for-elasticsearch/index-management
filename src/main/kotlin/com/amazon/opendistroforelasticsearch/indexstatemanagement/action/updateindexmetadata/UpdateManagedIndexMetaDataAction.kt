@@ -13,12 +13,18 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata
 
-import org.elasticsearch.test.ESIntegTestCase
+import org.elasticsearch.action.Action
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 
-class ManagedIndexRunnerIT : ESIntegTestCase() {
-    fun `test nothing`() {
-        assertTrue(true)
+class UpdateManagedIndexMetaDataAction : Action<AcknowledgedResponse>(NAME) {
+    companion object {
+        val INSTANCE = UpdateManagedIndexMetaDataAction()
+        const val NAME = "cluster:admin/ism/update/managedindexmetadata"
+    }
+
+    override fun newResponse(): AcknowledgedResponse {
+        return AcknowledgedResponse()
     }
 }

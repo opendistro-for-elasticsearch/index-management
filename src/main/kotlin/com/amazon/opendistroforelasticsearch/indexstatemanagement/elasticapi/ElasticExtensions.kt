@@ -17,6 +17,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import kotlinx.coroutines.delay
@@ -180,4 +181,18 @@ fun IndexMetaData.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexC
     if (policyName == null) return null
 
     return ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyName = policyName)
+}
+
+fun IndexMetaData.getIndexMetadata(): ManagedIndexMetaData? {
+    val existingMetadataMap = this.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+
+    if (existingMetadataMap != null) {
+        val existingMetadata = ManagedIndexMetaData.fromMap(
+            this.index.name,
+            this.index.uuid,
+            existingMetadataMap
+        )
+        return existingMetadata
+    }
+    return null
 }

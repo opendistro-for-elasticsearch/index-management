@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
@@ -98,14 +99,18 @@ fun randomConditions(
 }
 
 fun nonNullRandomConditions(): Conditions =
-        randomConditions(ESRestTestCase.randomFrom(listOf(randomIndexAge(), randomDocCount(), randomSize())))!!
+    randomConditions(ESRestTestCase.randomFrom(listOf(randomIndexAge(), randomDocCount(), randomSize())))!!
 
 fun randomDeleteActionConfig(
-    timeout: String = randomAge(),
-    retry: ActionRetry = ActionRetry(count = ESRestTestCase.randomLongBetween(1, 10), delay = randomAge())
+    timeout: ActionTimeout = randomActionTimeout(),
+    retry: ActionRetry = randomActionRetry()
 ): DeleteActionConfig {
     return DeleteActionConfig(timeout = timeout, retry = retry)
 }
+
+fun randomActionTimeout() = ActionTimeout(randomAge())
+
+fun randomActionRetry() = ActionRetry(count = ESRestTestCase.randomLongBetween(1, 10), delay = randomAge())
 
 /**
  * Helper functions for creating a random Conditions object

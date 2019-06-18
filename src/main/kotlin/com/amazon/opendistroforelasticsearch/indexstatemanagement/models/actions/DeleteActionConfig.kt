@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions
 
-import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -25,38 +24,26 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class DeleteActionConfig(
-    val timeout: String?,
+    val timeout: ActionTimeout?,
     val retry: ActionRetry?
 ) : ToXContentObject {
 
-    init {
-        if (timeout != null) {
-            try {
-                TimeValue.parseTimeValue(timeout, "")
-            } catch (e: IllegalArgumentException) {
-                throw IllegalArgumentException("Must have a valid timeout for DeleteActionConfig")
-            }
-        }
-    }
-
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject().startObject(DELETE_ACTION_TYPE)
-        if (timeout != null) builder.field(TIMEOUT_FIELD, timeout)
+        timeout?.toXContent(builder, params)
         if (retry != null) builder.field(RETRY_FIELD, retry)
-        builder.endObject()
-        return builder.endObject()
+        return builder.endObject().endObject()
     }
 
     companion object {
         const val DELETE_ACTION_TYPE = "delete"
 
-        const val TIMEOUT_FIELD = "timeout"
         const val RETRY_FIELD = "retry"
 
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): DeleteActionConfig {
-            var timeout: String? = null
+            var timeout: ActionTimeout? = null
             var retry: ActionRetry? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -65,7 +52,7 @@ data class DeleteActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    TIMEOUT_FIELD -> timeout = xcp.text()
+                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
                     RETRY_FIELD -> retry = ActionRetry.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in DeleteActionConfig.")
                 }

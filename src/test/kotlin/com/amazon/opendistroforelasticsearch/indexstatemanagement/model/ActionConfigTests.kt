@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionTimeout
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 
@@ -26,7 +26,7 @@ class ActionConfigTests : ESTestCase() {
         assertFailsWith(
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for invalid timeout") {
-            randomDeleteActionConfig(timeout = "invalidTimeout")
+            ActionTimeout(timeout = "invalidTimeout")
         }
     }
 

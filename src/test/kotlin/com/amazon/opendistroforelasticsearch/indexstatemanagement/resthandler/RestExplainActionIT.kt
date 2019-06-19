@@ -96,9 +96,9 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getManagedIndexConfig(policyIndexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
         val update = managedIndexConfig!!.copy(jobEnabledTime = Instant.now().minusSeconds(57))
+        updateManagedIndexConfigEnabledTime(update)
 
-        // TODO Find way to update the ManagedIndexConfig so Job can run faster.
-        Thread.sleep(65000)
+        Thread.sleep(3000)
 
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
         assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
@@ -106,7 +106,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val expected = mapOf(
             policyIndexName to mapOf<String, String?>(
                 "index.opendistro.index_state_management.policy_name" to policy.name,
-                ManagedIndexMetaData.INDEX_UUID to "some_uuid",
+                ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid,
                 ManagedIndexMetaData.POLICY_NAME to "${policyIndexName}_POLICY_NAME",
                 ManagedIndexMetaData.POLICY_VERSION to "${policyIndexName}_POLICY_VERSION",
                 ManagedIndexMetaData.STATE to "${policyIndexName}_STATE",
@@ -135,12 +135,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     private fun assertMetaDataEntries(expected: Map<String, String?>, actual: Map<String, String?>) {
         assertEquals("MetaDataSize are not the same", expected.size, actual.size)
         for (entry in expected) {
-            if (ManagedIndexMetaData.INDEX_UUID == entry.key) {
-                // There is no way to get actual UUID of an index. Make sure the UUID is not null and is of type String.
-                assertTrue(actual[entry.key] is String)
-            } else {
-                assertEquals("Expected and actual values does not match.", entry.value, actual[entry.key])
-            }
+            assertEquals("Expected and actual values does not match.", entry.value, actual[entry.key])
         }
     }
 }

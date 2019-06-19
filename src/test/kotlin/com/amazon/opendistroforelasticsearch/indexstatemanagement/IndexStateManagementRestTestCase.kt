@@ -31,13 +31,10 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Response
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
@@ -48,7 +45,8 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.rules.DisableOnDebug
-import java.util.*
+import java.time.Instant
+import java.util.Locale
 
 abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
@@ -135,19 +133,19 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val hit = searchResponse.hits.hits.firstOrNull()
         return hit?.run {
             val xcp = createParser(jsonXContent, this.sourceRef)
-            ManagedIndexConfig.parseWithType(xcp)
+            ManagedIndexConfig.parseWithType(xcp, id, seqNo, primaryTerm)
         }
     }
 
     protected fun updateManagedIndexConfigEnabledTime(update: ManagedIndexConfig) {
-        // TODO need to find correct way to update the EnabledTime for the IntegTest.
-        val builder = update.toXContent(JsonXContent.contentBuilder(), ToXContent.EMPTY_PARAMS)
-        val body = XContentHelper.convertToJson(BytesReference.bytes(builder), false, XContentType.JSON)
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
+            StringEntity(
+                "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
+                    "\"${Instant.now().minusSeconds(58).toEpochMilli()}\"}}}}}",
+                APPLICATION_JSON
+            ))
 
-        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_doc/${update.id}",
-            StringEntity(body, APPLICATION_JSON))
-
-        assertEquals("Request failed", RestStatus.CREATED, response.restStatus())
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
     protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)

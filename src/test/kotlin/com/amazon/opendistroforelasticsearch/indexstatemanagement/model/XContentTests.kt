@@ -77,8 +77,9 @@ class XContentTests : ESTestCase() {
         val configThreeString = configThree.toJsonString()
         val parsedConfig = ManagedIndexConfig.parseWithType(parserWithType(configString))
         val parsedConfigTwo = ManagedIndexConfig.parseWithType(parserWithType(configTwoString))
-        configThree = configThree.copy(id = "some_doc_id", version = 17)
-        val parsedConfigThree = ManagedIndexConfig.parseWithType(parserWithType(configThreeString), configThree.id, configThree.version)
+        configThree = configThree.copy(id = "some_doc_id", seqNo = 17, primaryTerm = 1)
+        val parsedConfigThree =
+            ManagedIndexConfig.parseWithType(parserWithType(configThreeString), configThree.id, configThree.seqNo, configThree.primaryTerm)
 
         assertEquals("Round tripping ManagedIndexConfig doesn't work", config, parsedConfig)
         assertEquals("Round tripping ManagedIndexConfig doesn't work with null change policy", configTwo, parsedConfigTwo)

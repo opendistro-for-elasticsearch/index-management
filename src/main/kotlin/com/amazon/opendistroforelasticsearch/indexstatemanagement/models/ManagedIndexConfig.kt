@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.XCONTENT_
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
-import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -33,7 +32,8 @@ import java.time.Instant
 
 data class ManagedIndexConfig(
     val id: String = NO_ID,
-    val version: Long = NO_VERSION,
+    val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     val jobName: String,
     val index: String,
     val indexUuid: String,
@@ -69,20 +69,20 @@ data class ManagedIndexConfig(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
             .startObject()
-                .startObject(MANAGED_INDEX_TYPE)
-                    .field(NAME_FIELD, jobName)
-                    .field(ENABLED_FIELD, enabled)
-                    .field(INDEX_FIELD, index)
-                    .field(INDEX_UUID_FIELD, indexUuid)
-                    .field(SCHEDULE_FIELD, jobSchedule)
-                    .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
-                    .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
-                    .field(POLICY_NAME_FIELD, policyName)
-                    .field(POLICY_SEQ_NO_FIELD, policySeqNo)
-                    .field(POLICY_PRIMARY_TERM_FIELD, policyPrimaryTerm)
-                    .field(POLICY_FIELD, policy, XCONTENT_WITHOUT_TYPE)
-                    .field(CHANGE_POLICY_FIELD, changePolicy)
-                .endObject()
+            .startObject(MANAGED_INDEX_TYPE)
+            .field(NAME_FIELD, jobName)
+            .field(ENABLED_FIELD, enabled)
+            .field(INDEX_FIELD, index)
+            .field(INDEX_UUID_FIELD, indexUuid)
+            .field(SCHEDULE_FIELD, jobSchedule)
+            .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
+            .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
+            .field(POLICY_NAME_FIELD, policyName)
+            .field(POLICY_SEQ_NO_FIELD, policySeqNo)
+            .field(POLICY_PRIMARY_TERM_FIELD, policyPrimaryTerm)
+            .field(POLICY_FIELD, policy, XCONTENT_WITHOUT_TYPE)
+            .field(CHANGE_POLICY_FIELD, changePolicy)
+            .endObject()
             .endObject()
         return builder
     }
@@ -90,7 +90,6 @@ data class ManagedIndexConfig(
     companion object {
         const val MANAGED_INDEX_TYPE = "managed_index"
         const val NO_ID = ""
-        const val NO_VERSION = Versions.NOT_FOUND
         const val NAME_FIELD = "name"
         const val ENABLED_FIELD = "enabled"
         const val SCHEDULE_FIELD = "schedule"
@@ -108,7 +107,12 @@ data class ManagedIndexConfig(
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndexConfig {
+        fun parse(
+            xcp: XContentParser,
+            id: String = NO_ID,
+            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        ): ManagedIndexConfig {
             var name: String? = null
             var index: String? = null
             var indexUuid: String? = null
@@ -159,7 +163,8 @@ data class ManagedIndexConfig(
             }
             return ManagedIndexConfig(
                 id,
-                version,
+                seqNo,
+                primaryTerm,
                 index = requireNotNull(index) { "ManagedIndexConfig index is null" },
                 indexUuid = requireNotNull(indexUuid) { "ManagedIndexConfig index uuid is null" },
                 jobName = requireNotNull(name) { "ManagedIndexConfig name is null" },
@@ -178,11 +183,16 @@ data class ManagedIndexConfig(
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser, id: String = NO_ID, version: Long = NO_VERSION): ManagedIndexConfig {
+        fun parseWithType(
+            xcp: XContentParser,
+            id: String = NO_ID,
+            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        ): ManagedIndexConfig {
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val managedIndexConfig = parse(xcp, id, version)
+            val managedIndexConfig = parse(xcp, id, seqNo, primaryTerm)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return managedIndexConfig
         }

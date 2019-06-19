@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.action
 
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.ToXContentObject
+import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -28,7 +28,7 @@ data class ActionRetry(
     val count: Long,
     val backoff: String = DEFAULT_BACKOFF,
     val delay: String? = null
-) : ToXContentObject {
+) : ToXContentFragment {
 
     init {
         require(count > 0) { "Count for ActionRetry must be greater than 0" }
@@ -44,7 +44,7 @@ data class ActionRetry(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
-            .startObject()
+            .startObject(RETRY_FIELD)
                 .field(COUNT_FIELD, count)
                 .field(BACKOFF_FIELD, backoff)
                 .field(DELAY_FIELD, delay)
@@ -55,6 +55,7 @@ data class ActionRetry(
     companion object {
         const val DEFAULT_BACKOFF = "exponential"
 
+        const val RETRY_FIELD = "retry"
         const val COUNT_FIELD = "count"
         const val BACKOFF_FIELD = "backoff"
         const val DELAY_FIELD = "delay"

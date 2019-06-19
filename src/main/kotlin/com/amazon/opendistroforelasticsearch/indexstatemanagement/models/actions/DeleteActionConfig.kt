@@ -31,14 +31,12 @@ data class DeleteActionConfig(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject().startObject(DELETE_ACTION_TYPE)
         timeout?.toXContent(builder, params)
-        if (retry != null) builder.field(RETRY_FIELD, retry)
+        retry?.toXContent(builder, params)
         return builder.endObject().endObject()
     }
 
     companion object {
         const val DELETE_ACTION_TYPE = "delete"
-
-        const val RETRY_FIELD = "retry"
 
         @JvmStatic
         @Throws(IOException::class)
@@ -53,7 +51,7 @@ data class DeleteActionConfig(
 
                 when (fieldName) {
                     ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
-                    RETRY_FIELD -> retry = ActionRetry.parse(xcp)
+                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in DeleteActionConfig.")
                 }
             }

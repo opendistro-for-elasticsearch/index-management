@@ -25,13 +25,13 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class ActionRetry(
-    val count: Long? = null,
+    val count: Long,
     val backoff: String = DEFAULT_BACKOFF,
     val delay: String? = null
 ) : ToXContentObject {
 
     init {
-        if (count != null) require(count > 0) { "Count for ActionRetry must be greater than 0" }
+        require(count > 0) { "Count for ActionRetry must be greater than 0" }
 
         if (delay != null) {
             try {
@@ -78,7 +78,11 @@ data class ActionRetry(
                 }
             }
 
-            return ActionRetry(count, backoff, delay)
+            return ActionRetry(
+                count = requireNotNull(count) { "ActionRetry count is null" },
+                backoff = backoff,
+                delay = delay
+            )
         }
     }
 }

@@ -42,7 +42,7 @@ class ActionConfigTests : ESTestCase() {
         assertFailsWith(
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for invalid action retry delay") {
-            ActionRetry(delay = "invalidDelay")
+            ActionRetry(count = 3, delay = "invalidDelay")
         }
     }
 }

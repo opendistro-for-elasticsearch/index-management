@@ -44,7 +44,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         actionFilters: ActionFilters,
         indexNameExpressionResolver: IndexNameExpressionResolver
     ) : super(
-        UpdateManagedIndexMetaDataAction.NAME,
+        UPDATE_MANAGED_INDEX_METADATA_ACTION_NAME,
         transportService,
         clusterService,
         threadPool,
@@ -63,13 +63,13 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         listener: ActionListener<AcknowledgedResponse>
     ) {
         clusterService.submitStateUpdateTask(
-            "${IndexStateManagementPlugin.PLUGIN_NAME}-${request.index!!.name}-${request.index!!.uuid}",
+            "${IndexStateManagementPlugin.PLUGIN_NAME}-${request.index.name}-${request.index.uuid}",
             object : AckedClusterStateUpdateTask<AcknowledgedResponse>(request, listener) {
                 override fun execute(currentState: ClusterState): ClusterState {
                     return ClusterState.builder(currentState).metaData(
                         MetaData.builder(currentState.metaData).put(
                             IndexMetaData.builder(currentState.metaData.index(request.index))
-                                .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, request.managedIndexMetaData!!.toMap())
+                                .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, request.managedIndexMetaData.toMap())
                         )
                     )
                         .build()

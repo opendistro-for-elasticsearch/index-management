@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getIndexMetadata
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
@@ -67,16 +67,16 @@ object ManagedIndexRunner : ScheduledJobRunner {
     private fun managedIndexRun(job: ScheduledJobParameter, context: JobExecutionContext) {
         context.expectedExecutionTime
         if (job !is ManagedIndexConfig) {
-            logger.info("Cannot run job for none ManagedIndexConfig")
+            logger.error("Run job must be of type ManagedIndexConfig")
+            // TODO maybe throw an exception?
+            return
         }
 
-        val managedIndexJob = job as ManagedIndexConfig
-
         // TODO This runner implementation is just temporary. This is example to show how to read and write the IndexMetadata.
-        val index = Index(managedIndexJob.index, managedIndexJob.indexUuid)
+        val index = Index(job.index, job.indexUuid)
         val indexMetaData = clusterService.state().metaData().index(index)
 
-        val existingManagedMetadata = indexMetaData.getIndexMetadata()
+        val existingManagedMetadata = indexMetaData.getManagedIndexMetaData()
 
         if (existingManagedMetadata != null) {
             logger.info("Start from where we left off. $existingManagedMetadata")
@@ -101,6 +101,6 @@ object ManagedIndexRunner : ScheduledJobRunner {
         )
 
         val request = UpdateManagedIndexMetaDataRequest(index, updateMetadata)
-        client.execute(UpdateManagedIndexMetaDataAction.INSTANCE, request).actionGet()
+        client.execute(UpdateManagedIndexMetaDataAction, request).actionGet()
     }
 }

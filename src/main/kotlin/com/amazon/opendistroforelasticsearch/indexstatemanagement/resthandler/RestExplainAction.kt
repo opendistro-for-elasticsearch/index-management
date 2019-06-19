@@ -42,7 +42,7 @@ class RestExplainAction(
 ) : BaseRestHandler(settings) {
 
     companion object {
-        const val EXPLAIN_BASE_URI = "${IndexStateManagementPlugin.ISM_BASE_URI}/explain"
+        const val EXPLAIN_BASE_URI = "${IndexStateManagementPlugin.ISM_BASE_URI}/_explain"
     }
 
     init {

@@ -34,7 +34,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         createIndex("other_index", null)
     }
 
-    fun `test missing Indices`() {
+    fun `test missing indices`() {
         try {
             client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
             fail("Excepted a failure.")
@@ -95,8 +95,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
         val managedIndexConfig = getManagedIndexConfig(policyIndexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
-        val update = managedIndexConfig!!.copy(jobEnabledTime = Instant.now().minusSeconds(57))
-        updateManagedIndexConfigEnabledTime(update)
+        // change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
 
         Thread.sleep(3000)
 

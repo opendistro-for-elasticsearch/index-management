@@ -24,9 +24,9 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.index.Index
 
 class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndexMetaDataRequest> {
-    var index: Index? = null
+    lateinit var index: Index
         private set
-    var managedIndexMetaData: ManagedIndexMetaData? = null
+    lateinit var managedIndexMetaData: ManagedIndexMetaData
         private set
 
     constructor()
@@ -38,9 +38,9 @@ class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndex
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (index == null) {
+        if (!this::index.isInitialized) {
             validationException = addValidationError("must specify index for UpdateManagedIndexMetaData", validationException)
-        } else if (managedIndexMetaData == null) {
+        } else if (!this::managedIndexMetaData.isInitialized) {
             validationException = addValidationError("must specify managedIndexMetaData for UpdateManagedIndexMetaData", validationException)
         }
         return validationException
@@ -48,8 +48,8 @@ class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndex
 
     override fun writeTo(streamOutput: StreamOutput) {
         super.writeTo(streamOutput)
-        index!!.writeTo(streamOutput)
-        managedIndexMetaData!!.writeTo(streamOutput)
+        index.writeTo(streamOutput)
+        managedIndexMetaData.writeTo(streamOutput)
     }
 
     override fun readFrom(streamInput: StreamInput) {

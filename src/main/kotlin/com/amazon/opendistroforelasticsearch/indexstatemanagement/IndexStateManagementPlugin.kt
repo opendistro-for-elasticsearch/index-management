@@ -15,9 +15,12 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata.TransportUpdateManagedIndexMetaDataAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestDeletePolicyAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestGetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestIndexPolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
@@ -26,6 +29,8 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParame
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.ActionRequest
+import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
@@ -57,7 +62,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
 
     companion object {
         const val PLUGIN_NAME = "opendistro-ism"
-        const val POLICY_BASE_URI = "/_opendistro/_ism/policies"
+        const val ISM_BASE_URI = "/_opendistro/_ism"
+        const val POLICY_BASE_URI = "$ISM_BASE_URI/policies"
         const val INDEX_STATE_MANAGEMENT_INDEX = ".opendistro-ism-config"
         const val INDEX_STATE_MANAGEMENT_JOB_TYPE = "opendistro-managed-index"
     }
@@ -71,7 +77,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     }
 
     override fun getJobRunner(): ScheduledJobRunner {
-        return ManagedIndexRunner.instance
+        return ManagedIndexRunner
     }
 
     override fun getJobParser(): ScheduledJobParser {
@@ -106,7 +112,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         return listOf(
             RestIndexPolicyAction(settings, restController, indexStateManagementIndices),
             RestGetPolicyAction(settings, restController),
-            RestDeletePolicyAction(settings, restController)
+            RestDeletePolicyAction(settings, restController),
+            RestExplainAction(settings, restController)
         )
     }
 
@@ -121,7 +128,11 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         nodeEnvironment: NodeEnvironment,
         namedWriteableRegistry: NamedWriteableRegistry
     ): Collection<Any> {
-        val managedIndexRunner = ManagedIndexRunner.instance
+        val managedIndexRunner = ManagedIndexRunner
+            .registerClient(client)
+            .registerClusterService(clusterService)
+            .registerThreadPool(threadPool)
+
         indexStateManagementIndices = IndexStateManagementIndices(client.admin().indices(), clusterService)
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
                 client, clusterService, threadPool, indexStateManagementIndices)
@@ -136,6 +147,15 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
             ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS
+        )
+    }
+
+    override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
+        return listOf(
+            ActionPlugin.ActionHandler(
+                UpdateManagedIndexMetaDataAction,
+                TransportUpdateManagedIndexMetaDataAction::class.java
+            )
         )
     }
 }

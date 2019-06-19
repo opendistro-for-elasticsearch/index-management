@@ -2,5 +2,7 @@
 build/
 out/
 .idea/
+*.ipr
+*.iws
 .DS_Store
 *.log

@@ -45,7 +45,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.rules.DisableOnDebug
-import java.util.*
+import java.util.Locale
 
 abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
@@ -132,8 +132,19 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val hit = searchResponse.hits.hits.firstOrNull()
         return hit?.run {
             val xcp = createParser(jsonXContent, this.sourceRef)
-            ManagedIndexConfig.parseWithType(xcp)
+            ManagedIndexConfig.parseWithType(xcp, id, seqNo, primaryTerm)
         }
+    }
+
+    protected fun updateManagedIndexConfigStartTime(update: ManagedIndexConfig, desiredStartTimeMillis: Long) {
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
+            StringEntity(
+                "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
+                    "\"$desiredStartTimeMillis\"}}}}}",
+                APPLICATION_JSON
+            ))
+
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
     protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)

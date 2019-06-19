@@ -1,0 +1,9 @@
+# config for Pinterest ktlint. https://github.com/pinterest/ktlint
+
+root = true
+
+[*.{kt,kts}]
+# we have detekt also checking for max line length. Disable the linter and use only one tool to check for max line length.
+
+# See https://github.com/arturbosch/detekt
+max_line_length=off

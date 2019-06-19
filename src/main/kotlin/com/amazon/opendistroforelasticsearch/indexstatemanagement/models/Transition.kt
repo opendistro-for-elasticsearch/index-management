@@ -71,7 +71,7 @@ data class Transition(
 }
 
 data class Conditions(
-    val indexAge: String? = null,
+    val indexAge: TimeValue? = null,
     val docCount: Long? = null,
     val size: String? = null,
     val cron: CronSchedule? = null
@@ -80,15 +80,6 @@ data class Conditions(
     init {
         val conditionsList = listOf(indexAge, docCount, size, cron)
         require(conditionsList.filterNotNull().size == 1) { "Cannot provide more than one Transition condition" }
-
-        // Validate indexAge condition
-        if (indexAge != null) {
-            try {
-                TimeValue.parseTimeValue(indexAge, "")
-            } catch (e: IllegalArgumentException) {
-                throw IllegalArgumentException("Must have a valid index age Transition condition")
-            }
-        }
 
         // Validate size condition
         if (size != null) {
@@ -105,7 +96,7 @@ data class Conditions(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         val conditions: Map<String, Any?> =
             mapOf(
-                INDEX_AGE_FIELD to indexAge,
+                INDEX_AGE_FIELD to indexAge?.stringRep,
                 DOC_COUNT_FIELD to docCount,
                 SIZE_FIELD to size,
                 CRON_FIELD to cron
@@ -125,7 +116,7 @@ data class Conditions(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Conditions {
-            var indexAge: String? = null
+            var indexAge: TimeValue? = null
             var docCount: Long? = null
             var size: String? = null
             var cron: CronSchedule? = null
@@ -136,7 +127,7 @@ data class Conditions(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    INDEX_AGE_FIELD -> indexAge = xcp.text()
+                    INDEX_AGE_FIELD -> indexAge = TimeValue.parseTimeValue(xcp.text(), INDEX_AGE_FIELD)
                     DOC_COUNT_FIELD -> docCount = xcp.longValue()
                     SIZE_FIELD -> size = xcp.text()
                     CRON_FIELD -> cron = ScheduleParser.parse(xcp) as? CronSchedule

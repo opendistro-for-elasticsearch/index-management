@@ -27,27 +27,17 @@ import java.io.IOException
 data class ActionRetry(
     val count: Long,
     val backoff: String = DEFAULT_BACKOFF,
-    val delay: String? = null
+    val delay: TimeValue = TimeValue.timeValueMinutes(1)
 ) : ToXContentFragment {
 
-    init {
-        require(count > 0) { "Count for ActionRetry must be greater than 0" }
-
-        if (delay != null) {
-            try {
-                TimeValue.parseTimeValue(delay, "")
-            } catch (e: IllegalArgumentException) {
-                throw IllegalArgumentException("Must have a valid delay for ActionRetry")
-            }
-        }
-    }
+    init { require(count > 0) { "Count for ActionRetry must be greater than 0" } }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
             .startObject(RETRY_FIELD)
                 .field(COUNT_FIELD, count)
                 .field(BACKOFF_FIELD, backoff)
-                .field(DELAY_FIELD, delay)
+                .field(DELAY_FIELD, delay.stringRep)
             .endObject()
         return builder
     }
@@ -65,7 +55,7 @@ data class ActionRetry(
         fun parse(xcp: XContentParser): ActionRetry {
             var count: Long? = null
             var backoff: String = DEFAULT_BACKOFF
-            var delay: String? = null
+            var delay: TimeValue = TimeValue.timeValueMinutes(1)
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -75,7 +65,7 @@ data class ActionRetry(
                 when (fieldName) {
                     COUNT_FIELD -> count = xcp.longValue()
                     BACKOFF_FIELD -> backoff = xcp.text()
-                    DELAY_FIELD -> delay = xcp.text()
+                    DELAY_FIELD -> delay = TimeValue.parseTimeValue(xcp.text(), DELAY_FIELD)
                 }
             }
 

@@ -23,21 +23,10 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import java.io.IOException
 
-data class ActionTimeout(val timeout: String?) : ToXContentFragment {
-
-    init {
-        if (timeout != null) {
-            try {
-                TimeValue.parseTimeValue(timeout, "")
-            } catch (e: IllegalArgumentException) {
-                throw IllegalArgumentException("Must have a valid timeout for actions")
-            }
-        }
-    }
+data class ActionTimeout(val timeout: TimeValue) : ToXContentFragment {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        if (timeout != null) builder.field(TIMEOUT_FIELD, timeout)
-        return builder
+        return builder.field(TIMEOUT_FIELD, timeout.stringRep)
     }
 
     companion object {
@@ -47,7 +36,7 @@ data class ActionTimeout(val timeout: String?) : ToXContentFragment {
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): ActionTimeout {
             if (xcp.currentToken() == Token.VALUE_STRING) {
-                return ActionTimeout(xcp.text())
+                return ActionTimeout(TimeValue.parseTimeValue(xcp.text(), TIMEOUT_FIELD))
             } else {
                 throw IllegalArgumentException("Invalid token: [${xcp.currentToken()}] for ActionTimeout")
             }

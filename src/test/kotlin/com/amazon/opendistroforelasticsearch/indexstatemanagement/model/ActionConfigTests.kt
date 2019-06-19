@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionTimeout
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 
@@ -26,7 +27,7 @@ class ActionConfigTests : ESTestCase() {
         assertFailsWith(
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for invalid timeout") {
-            ActionTimeout(timeout = "invalidTimeout")
+            ActionTimeout(timeout = TimeValue.parseTimeValue("invalidTimeout", "timeout_test"))
         }
     }
 
@@ -42,7 +43,7 @@ class ActionConfigTests : ESTestCase() {
         assertFailsWith(
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for invalid action retry delay") {
-            ActionRetry(count = 3, delay = "invalidDelay")
+            ActionRetry(count = 3, delay = TimeValue.parseTimeValue("invalidDelay", "delay_test"))
         }
     }
 }

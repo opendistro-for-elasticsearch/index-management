@@ -13,10 +13,10 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken

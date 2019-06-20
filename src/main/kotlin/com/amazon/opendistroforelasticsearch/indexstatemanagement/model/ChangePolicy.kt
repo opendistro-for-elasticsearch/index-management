@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
@@ -23,26 +23,29 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-data class DeleteActionConfig(
-    val timeout: ActionTimeout?,
-    val retry: ActionRetry?
+data class ChangePolicy(
+    val policyName: String,
+    val state: String?
 ) : ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject().startObject(DELETE_ACTION_TYPE)
-        timeout?.toXContent(builder, params)
-        retry?.toXContent(builder, params)
-        return builder.endObject().endObject()
+        builder
+            .startObject()
+                .field(POLICY_NAME_FIELD, policyName)
+                .field(STATE_FIELD, state)
+            .endObject()
+        return builder
     }
 
     companion object {
-        const val DELETE_ACTION_TYPE = "delete"
+        const val POLICY_NAME_FIELD = "policy_name"
+        const val STATE_FIELD = "state"
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): DeleteActionConfig {
-            var timeout: ActionTimeout? = null
-            var retry: ActionRetry? = null
+        fun parse(xcp: XContentParser): ChangePolicy {
+            var policyName: String? = null
+            var state: String? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -50,13 +53,15 @@ data class DeleteActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
-                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in DeleteActionConfig.")
+                    POLICY_NAME_FIELD -> policyName = xcp.text()
+                    STATE_FIELD -> state = xcp.textOrNull()
                 }
             }
 
-            return DeleteActionConfig(timeout, retry)
+            return ChangePolicy(
+                requireNotNull(policyName) { "ChangePolicy policy name is null" },
+                state
+            )
         }
     }
 }

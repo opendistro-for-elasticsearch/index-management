@@ -25,7 +25,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.Re
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestIndexPolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
 import org.apache.logging.log4j.LogManager
@@ -81,22 +80,27 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     }
 
     override fun getJobParser(): ScheduledJobParser {
-        return ScheduledJobParser { xcp, id, version ->
-            var job: ScheduledJobParameter? = null
+        // TODO: Make PR on job-scheduler to pass JobDocVersion to let individual plugin owners choose what to use
+        // as we do not use version in 7.x in most of our plugins
+        return ScheduledJobParser { xcp, id, _ ->
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ManagedIndexConfig.MANAGED_INDEX_TYPE -> job = ManagedIndexConfig.parse(xcp, id, version)
-                    Policy.POLICY_TYPE -> job = null
+                    ManagedIndexConfig.MANAGED_INDEX_TYPE -> {
+                        return@ScheduledJobParser ManagedIndexConfig.parse(xcp, id)
+                    }
+                    Policy.POLICY_TYPE -> {
+                        return@ScheduledJobParser null
+                    }
                     else -> {
-                        logger.info("Unsupported document was indexed in $INDEX_STATE_MANAGEMENT_INDEX")
+                        logger.info("Unsupported document was indexed in $INDEX_STATE_MANAGEMENT_INDEX with type: $fieldName")
                     }
                 }
             }
-            job
+            return@ScheduledJobParser null
         }
     }
 
@@ -131,7 +135,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         val managedIndexRunner = ManagedIndexRunner
             .registerClient(client)
             .registerClusterService(clusterService)
-            .registerThreadPool(threadPool)
+            .registerNamedXContentRegistry(xContentRegistry)
 
         indexStateManagementIndices = IndexStateManagementIndices(client.admin().indices(), clusterService)
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),

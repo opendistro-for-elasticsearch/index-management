@@ -57,6 +57,14 @@ fun createManagedIndexRequest(index: String, uuid: String, policyName: String): 
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
+fun createManagedIndexRequest(managedIndexConfig: ManagedIndexConfig): IndexRequest {
+    return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
+            .id(managedIndexConfig.indexUuid)
+            .setIfPrimaryTerm(managedIndexConfig.primaryTerm)
+            .setIfSeqNo(managedIndexConfig.seqNo)
+            .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+}
+
 fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
     return DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, uuid)
 }

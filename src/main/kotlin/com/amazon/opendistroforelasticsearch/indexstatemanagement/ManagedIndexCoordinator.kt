@@ -89,7 +89,7 @@ class ManagedIndexCoordinator(
     private val threadPool: ThreadPool,
     indexStateManagementIndices: IndexStateManagementIndices
 ) : LocalNodeMasterListener, ClusterStateListener,
-        CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.IO), LifecycleListener() {
+        CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default), LifecycleListener() {
 
     private val logger = LogManager.getLogger(javaClass)
     private val ismIndices = indexStateManagementIndices

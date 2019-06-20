@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transit
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
@@ -107,6 +108,22 @@ fun randomDeleteActionConfig(
     retry: ActionRetry = randomActionRetry()
 ): DeleteActionConfig {
     return DeleteActionConfig(timeout = timeout, retry = retry)
+}
+
+fun randomRolloverActionConfig(
+    minSize: String = randomByteSizeValue(),
+    minDocs: Long = ESRestTestCase.randomLongBetween(1, 1000),
+    minAge: TimeValue = randomTimeValueObject(),
+    timeout: ActionTimeout = randomActionTimeout(),
+    retry: ActionRetry = randomActionRetry()
+): RolloverActionConfig {
+    return RolloverActionConfig(
+        minSize = minSize,
+        minDocs = minDocs,
+        minAge = minAge,
+        timeout = timeout,
+        retry = retry
+    )
 }
 
 fun randomActionTimeout() = ActionTimeout(randomTimeValueObject())
@@ -231,6 +248,11 @@ fun DeleteActionConfig.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
+fun RolloverActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
 fun ChangePolicy.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
@@ -248,6 +270,15 @@ fun parseDeleteActionWithType(xcp: XContentParser): DeleteActionConfig {
     val deleteActionConfig = DeleteActionConfig.parse(xcp)
     ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
     return deleteActionConfig
+}
+
+fun parseRolloverActionWithType(xcp: XContentParser): RolloverActionConfig {
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    val rolloverActionConfig = RolloverActionConfig.parse(xcp)
+    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    return rolloverActionConfig
 }
 
 /**

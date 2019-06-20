@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
@@ -44,6 +45,14 @@ class ActionConfigTests : ESTestCase() {
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for invalid action retry delay") {
             ActionRetry(count = 3, delay = TimeValue.parseTimeValue("invalidDelay", "delay_test"))
+        }
+    }
+
+    fun `test rollover action minimum doc count of zero fails`() {
+        assertFailsWith(
+            IllegalArgumentException::class,
+            "Expected IllegalArgumentException for minDoc less than 1") {
+            randomRolloverActionConfig(minDocs = 0)
         }
     }
 }

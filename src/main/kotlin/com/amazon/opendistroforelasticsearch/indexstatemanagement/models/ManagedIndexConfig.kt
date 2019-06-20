@@ -67,7 +67,7 @@ data class ManagedIndexConfig(
     override fun getLastUpdateTime() = jobLastUpdatedTime
 
     // TODO: Choose between hardcoding vs on document
-    override fun getLockDurationSeconds(): Long = 3600 // 1 hour
+    override fun getLockDurationSeconds(): Long = 3600L // 1 hour
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder

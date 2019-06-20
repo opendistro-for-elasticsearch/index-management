@@ -338,7 +338,10 @@
           "type": "date",
           "format": "strict_date_time||epoch_millis"
         },
-        "policy_version": {
+        "policy_seq_no": {
+          "type": "long"
+        },
+        "policy_primary_term": {
           "type": "long"
         },
         "policy_name": {

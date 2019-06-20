@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContex
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,15 +40,16 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.Index
 import org.elasticsearch.rest.RestStatus
 
-object ManagedIndexRunner : ScheduledJobRunner, CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
+object ManagedIndexRunner : ScheduledJobRunner,
+        CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexRunner")) {
 
     private val logger = LogManager.getLogger(javaClass)
 
@@ -72,20 +74,22 @@ object ManagedIndexRunner : ScheduledJobRunner, CoroutineScope by CoroutineScope
 
     override fun runJob(job: ScheduledJobParameter, context: JobExecutionContext) {
         if (job !is ManagedIndexConfig) {
-            throw IllegalArgumentException("Invalid job type")
+            throw IllegalArgumentException("Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}")
         }
 
         launch {
             // Attempt to acquire lock
-            var lock: LockModel? = null
-            withContext(Dispatchers.IO) { lock = context.lockService.acquireLock(job, context) }
+            val lock: LockModel? = withContext(Dispatchers.IO) { context.lockService.acquireLock(job, context) }
             if (lock == null) {
-                logger.info("Could not acquire lock for ${job.index}")
+                logger.debug("Could not acquire lock for ${job.index}")
             } else {
                 // TODO: Temporary until the initial ScheduledJobParser passes seqNo/primaryTerm
                 runManagedIndexConfig(job.copy(seqNo = context.jobVersion.seqNo, primaryTerm = context.jobVersion.primaryTerm))
                 // Release lock
-                withContext(Dispatchers.IO) { context.lockService.release(lock) }
+                val released = withContext(Dispatchers.IO) { context.lockService.release(lock) }
+                if (!released) {
+                    logger.debug("Could not release lock for ${job.index}")
+                }
             }
         }
     }
@@ -97,11 +101,15 @@ object ManagedIndexRunner : ScheduledJobRunner, CoroutineScope by CoroutineScope
 
         // Get current IndexMetaData and ManagedIndexMetaData
         val indexMetaData = clusterService.state().metaData().index(managedIndexConfig.index)
+        if (indexMetaData == null) {
+            logger.error("Could not find IndexMetaData in cluster state for ${managedIndexConfig.index}")
+            return
+        }
         val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
 
         // If policy or managedIndexMetaData is null then initialize
         if (managedIndexConfig.policy == null || managedIndexMetaData == null) {
-            initManagedIndex(managedIndexConfig, indexMetaData, managedIndexMetaData)
+            initManagedIndex(managedIndexConfig, managedIndexMetaData)
             return
         }
 
@@ -121,22 +129,23 @@ object ManagedIndexRunner : ScheduledJobRunner, CoroutineScope by CoroutineScope
 
     private suspend fun initManagedIndex(
         managedIndexConfig: ManagedIndexConfig,
-        indexMetaData: IndexMetaData,
         managedIndexMetaData: ManagedIndexMetaData?
     ) {
         // If policy does not currently exist, get policy by name and save it to ManagedIndexConfig
-        if (managedIndexConfig.policy == null) {
-            val policy = getPolicy(managedIndexConfig.policyName)
+        var policy: Policy? = managedIndexConfig.policy
+        if (policy == null) {
+            policy = getPolicy(managedIndexConfig.policyName)
 
             if (policy != null) {
                 val saved = savePolicyToManagedIndexConfig(managedIndexConfig, policy)
                 if (!saved) return // If we failed to save the policy, don't initialize ManagedIndexMetaData
             }
+            // If policy is null we handle it in the managedIndexMetaData by moving to ERROR
         }
 
         // Initialize ManagedIndexMetaData
         if (managedIndexMetaData == null) {
-            initializeManagedIndexMetaData(indexMetaData)
+            initializeManagedIndexMetaData(managedIndexConfig, policy)
         } else {
             // TODO: This could happen when deleting a ManagedIndexConfig document
             // We should compare the cached policy with the ManagedIndexMetaData and make sure we have the same policy, seqNo, primaryTerm
@@ -152,6 +161,7 @@ object ManagedIndexRunner : ScheduledJobRunner, CoroutineScope by CoroutineScope
         }
 
         val policySource = getResponse.sourceAsBytesRef
+        // Intellij complains about createParser/parseWithType blocking because it sees they throw IOExceptions
         return withContext(Dispatchers.IO) {
             val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                     policySource, XContentType.JSON)
@@ -171,23 +181,27 @@ object ManagedIndexRunner : ScheduledJobRunner, CoroutineScope by CoroutineScope
         return true
     }
 
-    private suspend fun initializeManagedIndexMetaData(indexMetaData: IndexMetaData) {
+    private suspend fun initializeManagedIndexMetaData(
+        managedIndexConfig: ManagedIndexConfig,
+        policy: Policy?
+    ) {
         // TODO: Implement with real information, retries, error handling
+        // If policy is null it means it does not exist or has empty source and we should move to ERROR
         val managedIndexMetaData = ManagedIndexMetaData(
-                indexMetaData.index.name,
-                indexMetaData.index.uuid,
-                "${indexMetaData.index.name}_POLICY_NAME",
-                "${indexMetaData.index.name}_POLICY_VERSION",
-                "${indexMetaData.index.name}_STATE",
-                "${indexMetaData.index.name}_STATE_START_TIME",
-                "${indexMetaData.index.name}_ACTION_INDEX",
-                "${indexMetaData.index.name}_ACTION",
-                "${indexMetaData.index.name}_ACTION_START_TIME",
-                "${indexMetaData.index.name}_STEP",
-                "${indexMetaData.index.name}_STEP_START_TIME",
-                "${indexMetaData.index.name}_FAILED_STEP"
+                managedIndexConfig.index,
+                managedIndexConfig.indexUuid,
+                managedIndexConfig.policyName,
+                "${managedIndexConfig.index}_POLICY_VERSION",
+                "${managedIndexConfig.index}_STATE",
+                "${managedIndexConfig.index}_STATE_START_TIME",
+                "${managedIndexConfig.index}_ACTION_INDEX",
+                "${managedIndexConfig.index}_ACTION",
+                "${managedIndexConfig.index}_ACTION_START_TIME",
+                "${managedIndexConfig.index}_STEP",
+                "${managedIndexConfig.index}_STEP_START_TIME",
+                "${managedIndexConfig.index}_FAILED_STEP"
         )
-        val request = UpdateManagedIndexMetaDataRequest(indexMetaData.index, managedIndexMetaData)
+        val request = UpdateManagedIndexMetaDataRequest(Index(managedIndexConfig.index, managedIndexConfig.indexUuid), managedIndexMetaData)
         val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
     }
 }

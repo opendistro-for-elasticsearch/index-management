@@ -16,8 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Conditions
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomAge
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomByteSizeValue
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTimeValueObject
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 
@@ -27,7 +28,7 @@ class ConditionsTests : ESTestCase() {
         assertFailsWith(
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for supplying multiple transition conditions") {
-            Conditions(indexAge = randomAge(), size = randomByteSizeValue())
+            Conditions(indexAge = randomTimeValueObject(), size = randomByteSizeValue())
         }
     }
 
@@ -35,7 +36,7 @@ class ConditionsTests : ESTestCase() {
         assertFailsWith(
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for invalid index age condition") {
-            Conditions(indexAge = "invalidIndexAge")
+            Conditions(indexAge = TimeValue.parseTimeValue("invalidIndexAge", "index_age_test"))
         }
     }
 
@@ -43,7 +44,7 @@ class ConditionsTests : ESTestCase() {
         assertFailsWith(
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for invalid size condition") {
-            Conditions(indexAge = "invalidIndexAge")
+            Conditions(size = "invalidSize")
         }
     }
 

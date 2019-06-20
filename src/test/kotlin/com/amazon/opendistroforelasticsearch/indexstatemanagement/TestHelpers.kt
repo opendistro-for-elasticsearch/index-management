@@ -22,6 +22,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Managed
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
@@ -33,8 +36,12 @@ import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
@@ -84,7 +91,7 @@ fun randomConditions(
     val value = condition.second
 
     return when (type) {
-        Conditions.INDEX_AGE_FIELD -> Conditions(indexAge = value as String)
+        Conditions.INDEX_AGE_FIELD -> Conditions(indexAge = value as TimeValue)
         Conditions.DOC_COUNT_FIELD -> Conditions(docCount = value as Long)
         Conditions.SIZE_FIELD -> Conditions(size = value as String)
 //        Conditions.CRON_FIELD -> Conditions(cron = value as CronSchedule) // TODO: Uncomment after issues are fixed
@@ -93,9 +100,23 @@ fun randomConditions(
 }
 
 fun nonNullRandomConditions(): Conditions =
-        randomConditions(ESRestTestCase.randomFrom(listOf(randomIndexAge(), randomDocCount(), randomSize())))!!
+    randomConditions(ESRestTestCase.randomFrom(listOf(randomIndexAge(), randomDocCount(), randomSize())))!!
 
-fun randomIndexAge(indexAge: String = randomAge()) = Conditions.INDEX_AGE_FIELD to indexAge
+fun randomDeleteActionConfig(
+    timeout: ActionTimeout = randomActionTimeout(),
+    retry: ActionRetry = randomActionRetry()
+): DeleteActionConfig {
+    return DeleteActionConfig(timeout = timeout, retry = retry)
+}
+
+fun randomActionTimeout() = ActionTimeout(randomTimeValueObject())
+
+fun randomActionRetry() = ActionRetry(count = ESRestTestCase.randomLongBetween(1, 10), delay = randomTimeValueObject())
+
+/**
+ * Helper functions for creating a random Conditions object
+ */
+fun randomIndexAge(indexAge: TimeValue = randomTimeValueObject()) = Conditions.INDEX_AGE_FIELD to indexAge
 
 fun randomDocCount(docCount: Long = ESRestTestCase.randomLong()) = Conditions.DOC_COUNT_FIELD to docCount
 
@@ -104,11 +125,13 @@ fun randomSize(size: String = randomByteSizeValue()) = Conditions.SIZE_FIELD to 
 fun randomCronSchedule(cron: CronSchedule = CronSchedule("0 * * * *", ZoneId.of("UTC"))) =
     Conditions.CRON_FIELD to cron
 
-fun randomAge() =
-    ESRestTestCase.randomIntBetween(1, 30).toString() + ESRestTestCase.randomFrom(listOf("s", "m", "h", "d"))
+fun randomTimeValueObject() = TimeValue.parseTimeValue(ESRestTestCase.randomPositiveTimeValue(), "")
 
 fun randomByteSizeValue() =
     ESRestTestCase.randomIntBetween(1, 1000).toString() + ESRestTestCase.randomFrom(listOf("b", "kb", "mb", "gb"))
+/**
+ * End - Conditions helper functions
+ */
 
 fun randomChangePolicy(
     policyName: String = ESRestTestCase.randomAlphaOfLength(10),
@@ -203,6 +226,11 @@ fun Conditions.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
+fun DeleteActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
 fun ChangePolicy.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
@@ -211,6 +239,15 @@ fun ChangePolicy.toJsonString(): String {
 fun ManagedIndexConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun parseDeleteActionWithType(xcp: XContentParser): DeleteActionConfig {
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    val deleteActionConfig = DeleteActionConfig.parse(xcp)
+    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    return deleteActionConfig
 }
 
 /**

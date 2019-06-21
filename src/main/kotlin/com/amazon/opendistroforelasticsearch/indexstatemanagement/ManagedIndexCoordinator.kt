@@ -23,9 +23,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.sho
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldDeleteManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldUpdateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
@@ -39,6 +39,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getDelete
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getSweptManagedIndexSearchRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getUpdateManagedIndexRequests
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateManagedIndexRequest
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -89,7 +90,7 @@ class ManagedIndexCoordinator(
     private val threadPool: ThreadPool,
     indexStateManagementIndices: IndexStateManagementIndices
 ) : LocalNodeMasterListener, ClusterStateListener,
-        CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.IO), LifecycleListener() {
+        CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexCoordinator")), LifecycleListener() {
 
     private val logger = LogManager.getLogger(javaClass)
     private val ismIndices = indexStateManagementIndices

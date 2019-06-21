@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
@@ -107,7 +107,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
             policyIndexName to mapOf<String, String?>(
                 "index.opendistro.index_state_management.policy_name" to policy.name,
                 ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid,
-                ManagedIndexMetaData.POLICY_NAME to "${policyIndexName}_POLICY_NAME",
+                ManagedIndexMetaData.POLICY_NAME to managedIndexConfig.policyName,
                 ManagedIndexMetaData.POLICY_VERSION to "${policyIndexName}_POLICY_VERSION",
                 ManagedIndexMetaData.STATE to "${policyIndexName}_STATE",
                 ManagedIndexMetaData.STATE_START_TIME to "${policyIndexName}_STATE_START_TIME",

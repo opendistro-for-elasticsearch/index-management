@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject

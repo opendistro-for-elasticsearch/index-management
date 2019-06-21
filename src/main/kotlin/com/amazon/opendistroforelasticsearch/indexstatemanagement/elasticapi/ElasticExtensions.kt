@@ -17,8 +17,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import kotlinx.coroutines.delay
 import org.apache.logging.log4j.Logger

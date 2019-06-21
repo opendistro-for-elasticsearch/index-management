@@ -15,12 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ChangePolicy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Conditions
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Policy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.State
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseDeleteActionWithType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseRolloverActionWithType

@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType

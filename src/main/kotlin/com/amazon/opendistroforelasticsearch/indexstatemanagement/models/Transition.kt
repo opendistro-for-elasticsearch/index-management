@@ -81,6 +81,9 @@ data class Conditions(
         val conditionsList = listOf(indexAge, docCount, size, cron)
         require(conditionsList.filterNotNull().size == 1) { "Cannot provide more than one Transition condition" }
 
+        // Validate doc count condition
+        if (docCount != null) require(docCount > 0) { "Transition doc count condition must be greater than 0" }
+
         // Validate size condition
         if (size != null) {
             try {

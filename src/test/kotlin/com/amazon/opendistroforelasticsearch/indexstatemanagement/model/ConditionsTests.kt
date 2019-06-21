@@ -40,6 +40,14 @@ class ConditionsTests : ESTestCase() {
         }
     }
 
+    fun `test doc count condition of zero fails`() {
+        assertFailsWith(
+            IllegalArgumentException::class,
+            "Expected IllegalArgumentException for doc count condition less than 1") {
+            Conditions(docCount = 0)
+        }
+    }
+
     fun `test invalid size condition fails`() {
         assertFailsWith(
             IllegalArgumentException::class,

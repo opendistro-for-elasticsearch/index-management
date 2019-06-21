@@ -135,7 +135,7 @@ fun randomActionRetry() = ActionRetry(count = ESRestTestCase.randomLongBetween(1
  */
 fun randomIndexAge(indexAge: TimeValue = randomTimeValueObject()) = Conditions.INDEX_AGE_FIELD to indexAge
 
-fun randomDocCount(docCount: Long = ESRestTestCase.randomLong()) = Conditions.DOC_COUNT_FIELD to docCount
+fun randomDocCount(docCount: Long = ESRestTestCase.randomLongBetween(1, 1000)) = Conditions.DOC_COUNT_FIELD to docCount
 
 fun randomSize(size: String = randomByteSizeValue()) = Conditions.SIZE_FIELD to size
 

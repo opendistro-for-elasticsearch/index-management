@@ -88,16 +88,11 @@ data class Conditions(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        val conditions: Map<String, Any?> =
-            mapOf(
-                INDEX_AGE_FIELD to indexAge?.stringRep,
-                DOC_COUNT_FIELD to docCount,
-                SIZE_FIELD to size?.stringRep,
-                CRON_FIELD to cron
-            )
-
         builder.startObject()
-        for ((k, v) in conditions) if (v != null) builder.field(k, v)
+        if (indexAge != null) builder.field(INDEX_AGE_FIELD, indexAge.stringRep)
+        if (docCount != null) builder.field(DOC_COUNT_FIELD, docCount)
+        if (size != null) builder.field(SIZE_FIELD, size.stringRep)
+        if (cron != null) builder.field(CRON_FIELD, cron)
         return builder.endObject()
     }
 

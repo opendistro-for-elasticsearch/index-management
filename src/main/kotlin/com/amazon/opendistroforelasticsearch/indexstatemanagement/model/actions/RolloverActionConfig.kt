@@ -40,17 +40,12 @@ data class RolloverActionConfig(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        val rolloverOptions: Map<String, Any?> =
-            mapOf(
-                MIN_SIZE_FIELD to minSize?.stringRep,
-                MIN_DOCS_FIELD to minDocs,
-                MIN_AGE_FIELD to minAge?.stringRep
-            )
-
         builder.startObject().startObject(ROLLOVER_ACTION_TYPE)
-        for ((k, v) in rolloverOptions) if (v != null) builder.field(k, v)
         timeout?.toXContent(builder, params)
         retry?.toXContent(builder, params)
+        if (minSize != null) builder.field(MIN_SIZE_FIELD, minSize.stringRep)
+        if (minDocs != null) builder.field(MIN_DOCS_FIELD, minDocs)
+        if (minAge != null) builder.field(MIN_AGE_FIELD, minAge.stringRep)
         return builder.endObject().endObject()
     }
 
@@ -76,11 +71,11 @@ data class RolloverActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
+                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
+                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
                     MIN_SIZE_FIELD -> minSize = ByteSizeValue.parseBytesSizeValue(xcp.text(), MIN_SIZE_FIELD)
                     MIN_DOCS_FIELD -> minDocs = xcp.longValue()
                     MIN_AGE_FIELD -> minAge = TimeValue.parseTimeValue(xcp.text(), MIN_AGE_FIELD)
-                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
-                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in RolloverActionConfig.")
                 }
             }

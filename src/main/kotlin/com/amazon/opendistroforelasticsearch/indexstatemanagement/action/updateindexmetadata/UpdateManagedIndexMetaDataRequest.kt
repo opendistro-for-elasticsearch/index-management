@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.ValidateActions.addValidationError
 import org.elasticsearch.action.support.master.AcknowledgedRequest

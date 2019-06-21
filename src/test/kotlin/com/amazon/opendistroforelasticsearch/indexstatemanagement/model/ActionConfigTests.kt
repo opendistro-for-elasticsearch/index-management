@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionRetry
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionTimeout
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith

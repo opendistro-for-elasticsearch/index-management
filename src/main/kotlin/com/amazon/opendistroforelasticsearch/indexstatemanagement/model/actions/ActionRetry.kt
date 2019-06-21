@@ -13,39 +13,49 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions
 
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.ToXContentObject
+import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-data class ChangePolicy(
-    val policyName: String,
-    val state: String?
-) : ToXContentObject {
+data class ActionRetry(
+    val count: Long,
+    val backoff: String = DEFAULT_BACKOFF,
+    val delay: TimeValue = TimeValue.timeValueMinutes(1)
+) : ToXContentFragment {
+
+    init { require(count > 0) { "Count for ActionRetry must be greater than 0" } }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
-            .startObject()
-                .field(POLICY_NAME_FIELD, policyName)
-                .field(STATE_FIELD, state)
+            .startObject(RETRY_FIELD)
+                .field(COUNT_FIELD, count)
+                .field(BACKOFF_FIELD, backoff)
+                .field(DELAY_FIELD, delay.stringRep)
             .endObject()
         return builder
     }
 
     companion object {
-        const val POLICY_NAME_FIELD = "policy_name"
-        const val STATE_FIELD = "state"
+        const val DEFAULT_BACKOFF = "exponential"
+
+        const val RETRY_FIELD = "retry"
+        const val COUNT_FIELD = "count"
+        const val BACKOFF_FIELD = "backoff"
+        const val DELAY_FIELD = "delay"
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): ChangePolicy {
-            var policyName: String? = null
-            var state: String? = null
+        fun parse(xcp: XContentParser): ActionRetry {
+            var count: Long? = null
+            var backoff: String = DEFAULT_BACKOFF
+            var delay: TimeValue = TimeValue.timeValueMinutes(1)
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -53,14 +63,16 @@ data class ChangePolicy(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    POLICY_NAME_FIELD -> policyName = xcp.text()
-                    STATE_FIELD -> state = xcp.textOrNull()
+                    COUNT_FIELD -> count = xcp.longValue()
+                    BACKOFF_FIELD -> backoff = xcp.text()
+                    DELAY_FIELD -> delay = TimeValue.parseTimeValue(xcp.text(), DELAY_FIELD)
                 }
             }
 
-            return ChangePolicy(
-                requireNotNull(policyName) { "ChangePolicy policy name is null" },
-                state
+            return ActionRetry(
+                count = requireNotNull(count) { "ActionRetry count is null" },
+                backoff = backoff,
+                delay = delay
             )
         }
     }

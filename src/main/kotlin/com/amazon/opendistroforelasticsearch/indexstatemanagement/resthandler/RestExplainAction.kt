@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyName
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse

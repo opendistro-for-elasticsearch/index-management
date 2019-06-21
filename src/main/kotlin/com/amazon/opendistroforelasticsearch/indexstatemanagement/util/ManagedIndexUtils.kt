@@ -18,9 +18,9 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.ClusterStateManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.coordinator.SweptManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.delete.DeleteRequest
@@ -54,6 +54,14 @@ fun createManagedIndexRequest(index: String, uuid: String, policyName: String): 
     return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
             .id(uuid)
             .create(true)
+            .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+}
+
+fun createManagedIndexRequest(managedIndexConfig: ManagedIndexConfig): IndexRequest {
+    return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
+            .id(managedIndexConfig.indexUuid)
+            .setIfPrimaryTerm(managedIndexConfig.primaryTerm)
+            .setIfSeqNo(managedIndexConfig.seqNo)
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 

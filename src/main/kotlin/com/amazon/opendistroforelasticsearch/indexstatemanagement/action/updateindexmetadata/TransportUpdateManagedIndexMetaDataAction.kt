@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.master.AcknowledgedResponse

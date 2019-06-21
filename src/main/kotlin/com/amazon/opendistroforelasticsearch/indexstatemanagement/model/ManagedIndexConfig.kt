@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.models
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
@@ -65,6 +65,9 @@ data class ManagedIndexConfig(
     override fun getSchedule() = jobSchedule
 
     override fun getLastUpdateTime() = jobLastUpdatedTime
+
+    // TODO: Choose between hardcoding vs on document
+    override fun getLockDurationSeconds(): Long = 3600L // 1 hour
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder

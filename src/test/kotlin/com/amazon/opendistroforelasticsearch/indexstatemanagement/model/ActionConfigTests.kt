@@ -18,6 +18,8 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
+import org.elasticsearch.ElasticsearchParseException
+import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
@@ -45,6 +47,22 @@ class ActionConfigTests : ESTestCase() {
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for invalid action retry delay") {
             ActionRetry(count = 3, delay = TimeValue.parseTimeValue("invalidDelay", "delay_test"))
+        }
+    }
+
+    fun `test invalid minimum size for rollover action fails`() {
+        assertFailsWith(
+            ElasticsearchParseException::class,
+            "Expected ElasticsearchParseException for invalid minSize") {
+            randomRolloverActionConfig(minSize = ByteSizeValue.parseBytesSizeValue("invalidSize", "min_size_test"))
+        }
+    }
+
+    fun `test rollover action minimum size of zero fails`() {
+        assertFailsWith(
+            IllegalArgumentException::class,
+            "Expected IllegalArgumentException for minSize less than 1") {
+            randomRolloverActionConfig(minSize = ByteSizeValue.parseBytesSizeValue("0", "min_size_test"))
         }
     }
 

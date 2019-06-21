@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.models.actions
 
+import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
@@ -25,7 +26,7 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class RolloverActionConfig(
-    val minSize: String?,
+    val minSize: ByteSizeValue?,
     val minDocs: Long?,
     val minAge: TimeValue?,
     val timeout: ActionTimeout?,
@@ -33,13 +34,15 @@ data class RolloverActionConfig(
 ) : ToXContentObject {
 
     init {
+        if (minSize != null) require(minSize.bytes > 0) { "RolloverActionConfig minSize value must be greater than 0" }
+
         if (minDocs != null) require(minDocs > 0) { "RolloverActionConfig minDocs value must be greater than 0" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         val rolloverOptions: Map<String, Any?> =
             mapOf(
-                MIN_SIZE_FIELD to minSize,
+                MIN_SIZE_FIELD to minSize?.stringRep,
                 MIN_DOCS_FIELD to minDocs,
                 MIN_AGE_FIELD to minAge?.stringRep
             )
@@ -61,7 +64,7 @@ data class RolloverActionConfig(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): RolloverActionConfig {
-            var minSize: String? = null
+            var minSize: ByteSizeValue? = null
             var minDocs: Long? = null
             var minAge: TimeValue? = null
             var timeout: ActionTimeout? = null
@@ -73,7 +76,7 @@ data class RolloverActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    MIN_SIZE_FIELD -> minSize = xcp.text()
+                    MIN_SIZE_FIELD -> minSize = ByteSizeValue.parseBytesSizeValue(xcp.text(), MIN_SIZE_FIELD)
                     MIN_DOCS_FIELD -> minDocs = xcp.longValue()
                     MIN_AGE_FIELD -> minAge = TimeValue.parseTimeValue(xcp.text(), MIN_AGE_FIELD)
                     ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)

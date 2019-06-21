@@ -37,6 +37,7 @@ import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -94,7 +95,7 @@ fun randomConditions(
     return when (type) {
         Conditions.INDEX_AGE_FIELD -> Conditions(indexAge = value as TimeValue)
         Conditions.DOC_COUNT_FIELD -> Conditions(docCount = value as Long)
-        Conditions.SIZE_FIELD -> Conditions(size = value as String)
+        Conditions.SIZE_FIELD -> Conditions(size = value as ByteSizeValue)
 //        Conditions.CRON_FIELD -> Conditions(cron = value as CronSchedule) // TODO: Uncomment after issues are fixed
         else -> throw IllegalArgumentException("Invalid field: [$type] given for random Conditions.")
     }
@@ -111,7 +112,7 @@ fun randomDeleteActionConfig(
 }
 
 fun randomRolloverActionConfig(
-    minSize: String = randomByteSizeValue(),
+    minSize: ByteSizeValue = randomByteSizeValue(),
     minDocs: Long = ESRestTestCase.randomLongBetween(1, 1000),
     minAge: TimeValue = randomTimeValueObject(),
     timeout: ActionTimeout = randomActionTimeout(),
@@ -137,7 +138,7 @@ fun randomIndexAge(indexAge: TimeValue = randomTimeValueObject()) = Conditions.I
 
 fun randomDocCount(docCount: Long = ESRestTestCase.randomLongBetween(1, 1000)) = Conditions.DOC_COUNT_FIELD to docCount
 
-fun randomSize(size: String = randomByteSizeValue()) = Conditions.SIZE_FIELD to size
+fun randomSize(size: ByteSizeValue = randomByteSizeValue()) = Conditions.SIZE_FIELD to size
 
 fun randomCronSchedule(cron: CronSchedule = CronSchedule("0 * * * *", ZoneId.of("UTC"))) =
     Conditions.CRON_FIELD to cron
@@ -145,7 +146,10 @@ fun randomCronSchedule(cron: CronSchedule = CronSchedule("0 * * * *", ZoneId.of(
 fun randomTimeValueObject() = TimeValue.parseTimeValue(ESRestTestCase.randomPositiveTimeValue(), "")
 
 fun randomByteSizeValue() =
-    ESRestTestCase.randomIntBetween(1, 1000).toString() + ESRestTestCase.randomFrom(listOf("b", "kb", "mb", "gb"))
+    ByteSizeValue.parseBytesSizeValue(
+        ESRestTestCase.randomIntBetween(1, 1000).toString() + ESRestTestCase.randomFrom(listOf("b", "kb", "mb", "gb")),
+        ""
+    )
 /**
  * End - Conditions helper functions
  */

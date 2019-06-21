@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.DeleteActionConfig
@@ -63,7 +64,7 @@ fun randomPolicy(
 
 fun randomState(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
-    actions: List<Map<String, Any>> = listOf(), // TODO: List<Action>
+    actions: List<ActionConfig> = listOf(),
     transitions: List<Transition> = listOf()
 ): State {
     return State(name = name, actions = actions, transitions = transitions)

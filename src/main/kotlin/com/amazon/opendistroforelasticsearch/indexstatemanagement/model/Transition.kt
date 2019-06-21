@@ -34,13 +34,13 @@ data class Transition(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-            .field(STATE_FIELD, stateName)
+            .field(STATE_NAME_FIELD, stateName)
         if (conditions != null) builder.field(CONDITIONS_FIELD, conditions)
         return builder.endObject()
     }
 
     companion object {
-        const val STATE_FIELD = "state_name"
+        const val STATE_NAME_FIELD = "state_name"
         const val CONDITIONS_FIELD = "conditions"
 
         @JvmStatic
@@ -55,7 +55,7 @@ data class Transition(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    STATE_FIELD -> name = xcp.text()
+                    STATE_NAME_FIELD -> name = xcp.text()
                     CONDITIONS_FIELD -> conditions = Conditions.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Transition.")
                 }

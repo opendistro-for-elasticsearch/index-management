@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.DeleteActionConfig
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -24,8 +26,8 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class State(
-    val name: String,
-    val actions: List<Map<String, Any>>, // TODO: Implement List<Action>
+    val name: String, // TODO: validate not empty or blank
+    val actions: List<ActionConfig>,
     val transitions: List<Transition>
 ) : ToXContentObject {
 
@@ -48,7 +50,7 @@ data class State(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): State {
             var name: String? = null
-            val actions: MutableList<Map<String, Any>> = mutableListOf() // TODO: Implement List<Action>
+            val actions: MutableList<ActionConfig> = mutableListOf()
             val transitions: MutableList<Transition> = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -61,7 +63,17 @@ data class State(
                     ACTIONS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
-                            // actions.add(Action.parse(xcp)) // TODO: Implement Action.parse()
+                            // TODO: Move into parse inside ActionConfig
+                            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+                            while (xcp.nextToken() != Token.END_OBJECT) {
+                                val actionFieldName = xcp.currentName()
+                                xcp.nextToken()
+
+                                when (actionFieldName) {
+                                    DeleteActionConfig.DELETE_ACTION_TYPE -> actions.add(DeleteActionConfig.parse(xcp))
+                                    else -> throw IllegalArgumentException("Invalid field: [$actionFieldName] found in State actions.")
+                                }
+                            }
                         }
                     }
                     TRANSITIONS_FIELD -> {

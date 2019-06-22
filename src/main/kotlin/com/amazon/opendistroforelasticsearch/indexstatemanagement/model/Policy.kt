@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.WITH_TYPE
-import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -68,7 +67,6 @@ data class Policy(
         const val POLICY_TYPE = "policy"
         const val NAME_FIELD = "name"
         const val NO_ID = ""
-        const val NO_VERSION = Versions.NOT_FOUND
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
         const val SCHEMA_VERSION_FIELD = "schema_version"
         const val DEFAULT_NOTIFICATION_FIELD = "default_notification"

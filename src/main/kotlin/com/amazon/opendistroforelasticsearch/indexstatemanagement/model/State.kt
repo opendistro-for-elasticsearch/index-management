@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -26,10 +25,14 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class State(
-    val name: String, // TODO: validate not empty or blank
+    val name: String,
     val actions: List<ActionConfig>,
     val transitions: List<Transition>
 ) : ToXContentObject {
+
+    init {
+        require(name.isNotBlank()) { "State must contain a valid name" }
+    }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
@@ -63,17 +66,7 @@ data class State(
                     ACTIONS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
-                            // TODO: Move into parse inside ActionConfig
-                            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-                            while (xcp.nextToken() != Token.END_OBJECT) {
-                                val actionFieldName = xcp.currentName()
-                                xcp.nextToken()
-
-                                when (actionFieldName) {
-                                    DeleteActionConfig.DELETE_ACTION_TYPE.type -> actions.add(DeleteActionConfig.parse(xcp))
-                                    else -> throw IllegalArgumentException("Invalid field: [$actionFieldName] found in State action.")
-                                }
-                            }
+                            actions.add(ActionConfig.parse(xcp))
                         }
                     }
                     TRANSITIONS_FIELD -> {

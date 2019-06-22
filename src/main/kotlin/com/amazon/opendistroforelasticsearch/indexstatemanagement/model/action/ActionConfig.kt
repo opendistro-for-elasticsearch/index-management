@@ -23,6 +23,10 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import java.io.IOException
 
 abstract class ActionConfig(
     val type: ActionType,
@@ -41,4 +45,25 @@ abstract class ActionConfig(
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action
+
+    companion object {
+        @JvmStatic
+        @Throws(IOException::class)
+        fun parse(xcp: XContentParser): ActionConfig {
+            var actionConfig: ActionConfig? = null
+
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            while (xcp.nextToken() != Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
+
+                when (fieldName) {
+                    DeleteActionConfig.DELETE_ACTION_TYPE.type -> actionConfig = DeleteActionConfig.parse(xcp)
+                    else -> throw IllegalArgumentException("Invalid field: [fieldName] found in State action.")
+                }
+            }
+
+            return requireNotNull(actionConfig) { "ActionConfig inside state is null" }
+        }
+    }
 }

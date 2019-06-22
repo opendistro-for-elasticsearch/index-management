@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseDeleteActionWithType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseRolloverActionWithType
@@ -63,6 +64,14 @@ class XContentTests : ESTestCase() {
         val conditionsString = conditions.toJsonString()
         val parsedConditions = Conditions.parse(parser(conditionsString))
         assertEquals("Round tripping Conditions doesn't work", conditions, parsedConditions)
+    }
+
+    fun `test action config parsing`() {
+        val deleteActionConfig = randomDeleteActionConfig()
+
+        val deleteActionConfigString = deleteActionConfig.toJsonString()
+        val parsedActionConfig = ActionConfig.parse((parser(deleteActionConfigString)))
+        assertEquals("Round tripping ActionConfig doesn't work", deleteActionConfig as ActionConfig, parsedActionConfig)
     }
 
     fun `test delete action config parsing`() {

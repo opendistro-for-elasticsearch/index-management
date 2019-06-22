@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transiti
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
@@ -36,6 +37,7 @@ import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
+import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -93,7 +95,7 @@ fun randomConditions(
     return when (type) {
         Conditions.INDEX_AGE_FIELD -> Conditions(indexAge = value as TimeValue)
         Conditions.DOC_COUNT_FIELD -> Conditions(docCount = value as Long)
-        Conditions.SIZE_FIELD -> Conditions(size = value as String)
+        Conditions.SIZE_FIELD -> Conditions(size = value as ByteSizeValue)
 //        Conditions.CRON_FIELD -> Conditions(cron = value as CronSchedule) // TODO: Uncomment after issues are fixed
         else -> throw IllegalArgumentException("Invalid field: [$type] given for random Conditions.")
     }
@@ -109,6 +111,22 @@ fun randomDeleteActionConfig(
     return DeleteActionConfig(timeout = timeout, retry = retry)
 }
 
+fun randomRolloverActionConfig(
+    minSize: ByteSizeValue = randomByteSizeValue(),
+    minDocs: Long = ESRestTestCase.randomLongBetween(1, 1000),
+    minAge: TimeValue = randomTimeValueObject(),
+    timeout: ActionTimeout = randomActionTimeout(),
+    retry: ActionRetry = randomActionRetry()
+): RolloverActionConfig {
+    return RolloverActionConfig(
+        minSize = minSize,
+        minDocs = minDocs,
+        minAge = minAge,
+        timeout = timeout,
+        retry = retry
+    )
+}
+
 fun randomActionTimeout() = ActionTimeout(randomTimeValueObject())
 
 fun randomActionRetry() = ActionRetry(count = ESRestTestCase.randomLongBetween(1, 10), delay = randomTimeValueObject())
@@ -118,9 +136,9 @@ fun randomActionRetry() = ActionRetry(count = ESRestTestCase.randomLongBetween(1
  */
 fun randomIndexAge(indexAge: TimeValue = randomTimeValueObject()) = Conditions.INDEX_AGE_FIELD to indexAge
 
-fun randomDocCount(docCount: Long = ESRestTestCase.randomLong()) = Conditions.DOC_COUNT_FIELD to docCount
+fun randomDocCount(docCount: Long = ESRestTestCase.randomLongBetween(1, 1000)) = Conditions.DOC_COUNT_FIELD to docCount
 
-fun randomSize(size: String = randomByteSizeValue()) = Conditions.SIZE_FIELD to size
+fun randomSize(size: ByteSizeValue = randomByteSizeValue()) = Conditions.SIZE_FIELD to size
 
 fun randomCronSchedule(cron: CronSchedule = CronSchedule("0 * * * *", ZoneId.of("UTC"))) =
     Conditions.CRON_FIELD to cron
@@ -128,7 +146,10 @@ fun randomCronSchedule(cron: CronSchedule = CronSchedule("0 * * * *", ZoneId.of(
 fun randomTimeValueObject() = TimeValue.parseTimeValue(ESRestTestCase.randomPositiveTimeValue(), "")
 
 fun randomByteSizeValue() =
-    ESRestTestCase.randomIntBetween(1, 1000).toString() + ESRestTestCase.randomFrom(listOf("b", "kb", "mb", "gb"))
+    ByteSizeValue.parseBytesSizeValue(
+        ESRestTestCase.randomIntBetween(1, 1000).toString() + ESRestTestCase.randomFrom(listOf("b", "kb", "mb", "gb")),
+        ""
+    )
 /**
  * End - Conditions helper functions
  */
@@ -231,6 +252,11 @@ fun DeleteActionConfig.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
+fun RolloverActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
 fun ChangePolicy.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
@@ -248,6 +274,15 @@ fun parseDeleteActionWithType(xcp: XContentParser): DeleteActionConfig {
     val deleteActionConfig = DeleteActionConfig.parse(xcp)
     ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
     return deleteActionConfig
+}
+
+fun parseRolloverActionWithType(xcp: XContentParser): RolloverActionConfig {
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    val rolloverActionConfig = RolloverActionConfig.parse(xcp)
+    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    return rolloverActionConfig
 }
 
 /**

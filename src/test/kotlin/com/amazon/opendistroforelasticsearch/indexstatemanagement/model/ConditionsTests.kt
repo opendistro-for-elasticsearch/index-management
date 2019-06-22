@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomByteSizeValue
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTimeValueObject
-import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 
@@ -31,19 +31,11 @@ class ConditionsTests : ESTestCase() {
         }
     }
 
-    fun `test invalid index age condition fails`() {
+    fun `test doc count condition of zero fails`() {
         assertFailsWith(
             IllegalArgumentException::class,
-            "Expected IllegalArgumentException for invalid index age condition") {
-            Conditions(indexAge = TimeValue.parseTimeValue("invalidIndexAge", "index_age_test"))
-        }
-    }
-
-    fun `test invalid size condition fails`() {
-        assertFailsWith(
-            IllegalArgumentException::class,
-            "Expected IllegalArgumentException for invalid size condition") {
-            Conditions(size = "invalidSize")
+            "Expected IllegalArgumentException for doc count condition less than 1") {
+            Conditions(docCount = 0)
         }
     }
 
@@ -51,7 +43,7 @@ class ConditionsTests : ESTestCase() {
         assertFailsWith(
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for size condition less than 1") {
-            Conditions(size = "0")
+            Conditions(size = ByteSizeValue.parseBytesSizeValue("0", "size_test"))
         }
     }
 }

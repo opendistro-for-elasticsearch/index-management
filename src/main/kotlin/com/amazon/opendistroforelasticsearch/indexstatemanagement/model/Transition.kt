@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
-import org.elasticsearch.ElasticsearchParseException
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
@@ -73,7 +72,7 @@ data class Transition(
 data class Conditions(
     val indexAge: TimeValue? = null,
     val docCount: Long? = null,
-    val size: String? = null,
+    val size: ByteSizeValue? = null,
     val cron: CronSchedule? = null
 ) : ToXContentObject {
 
@@ -81,29 +80,19 @@ data class Conditions(
         val conditionsList = listOf(indexAge, docCount, size, cron)
         require(conditionsList.filterNotNull().size == 1) { "Cannot provide more than one Transition condition" }
 
+        // Validate doc count condition
+        if (docCount != null) require(docCount > 0) { "Transition doc count condition must be greater than 0" }
+
         // Validate size condition
-        if (size != null) {
-            try {
-                val byteSizeValue = ByteSizeValue.parseBytesSizeValue(size, "")
-                // ByteSizeValue supports special unit-less values "0" and "1" which will not be supported by Conditions
-                require(byteSizeValue.bytes > 0) { "Transition size condition must be greater than 0" }
-            } catch (e: ElasticsearchParseException) {
-                throw IllegalArgumentException("Must have a valid size Transition condition")
-            }
-        }
+        if (size != null) require(size.bytes > 0) { "Transition size condition must be greater than 0" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        val conditions: Map<String, Any?> =
-            mapOf(
-                INDEX_AGE_FIELD to indexAge?.stringRep,
-                DOC_COUNT_FIELD to docCount,
-                SIZE_FIELD to size,
-                CRON_FIELD to cron
-            )
-
         builder.startObject()
-        for ((k, v) in conditions) if (v != null) builder.field(k, v)
+        if (indexAge != null) builder.field(INDEX_AGE_FIELD, indexAge.stringRep)
+        if (docCount != null) builder.field(DOC_COUNT_FIELD, docCount)
+        if (size != null) builder.field(SIZE_FIELD, size.stringRep)
+        if (cron != null) builder.field(CRON_FIELD, cron)
         return builder.endObject()
     }
 
@@ -118,7 +107,7 @@ data class Conditions(
         fun parse(xcp: XContentParser): Conditions {
             var indexAge: TimeValue? = null
             var docCount: Long? = null
-            var size: String? = null
+            var size: ByteSizeValue? = null
             var cron: CronSchedule? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -129,7 +118,7 @@ data class Conditions(
                 when (fieldName) {
                     INDEX_AGE_FIELD -> indexAge = TimeValue.parseTimeValue(xcp.text(), INDEX_AGE_FIELD)
                     DOC_COUNT_FIELD -> docCount = xcp.longValue()
-                    SIZE_FIELD -> size = xcp.text()
+                    SIZE_FIELD -> size = ByteSizeValue.parseBytesSizeValue(xcp.text(), SIZE_FIELD)
                     CRON_FIELD -> cron = ScheduleParser.parse(xcp) as? CronSchedule
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Conditions.")
                 }

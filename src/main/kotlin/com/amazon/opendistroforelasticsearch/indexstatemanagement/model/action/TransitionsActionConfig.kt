@@ -13,12 +13,13 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.actions.Action
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.actions.TransitionsAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.TransitionsAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
@@ -31,6 +32,6 @@ data class TransitionsActionConfig(val transitions: List<Transition>) : ActionCo
     ): Action = TransitionsAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
-        const val TRANSITIONS_ACTION_TYPE = "transitions"
+        val TRANSITIONS_ACTION_TYPE = ActionType.TRANSITION
     }
 }

@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -70,8 +70,8 @@ data class State(
                                 xcp.nextToken()
 
                                 when (actionFieldName) {
-                                    DeleteActionConfig.DELETE_ACTION_TYPE -> actions.add(DeleteActionConfig.parse(xcp))
-                                    else -> throw IllegalArgumentException("Invalid field: [$actionFieldName] found in State actions.")
+                                    DeleteActionConfig.DELETE_ACTION_TYPE.type -> actions.add(DeleteActionConfig.parse(xcp))
+                                    else -> throw IllegalArgumentException("Invalid field: [$actionFieldName] found in State action.")
                                 }
                             }
                         }

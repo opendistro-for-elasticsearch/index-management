@@ -175,3 +175,12 @@ fun getSweptManagedIndexSearchRequest(): SearchRequest {
                     )
                     .query(boolQueryBuilder))
 }
+
+enum class ActionType(val type: String) {
+    DELETE("delete"),
+    TRANSITION("transition");
+
+    override fun toString(): String {
+        return type
+    }
+}

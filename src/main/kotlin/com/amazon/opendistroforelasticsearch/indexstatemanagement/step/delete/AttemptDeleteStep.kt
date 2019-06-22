@@ -13,11 +13,12 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.steps
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse

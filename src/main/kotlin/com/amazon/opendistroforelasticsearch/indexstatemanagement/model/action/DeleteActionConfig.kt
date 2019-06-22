@@ -13,11 +13,12 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.actions.Action
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.actions.DeleteAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.DeleteAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
@@ -34,7 +35,7 @@ data class DeleteActionConfig(
 ) : ToXContentObject, ActionConfig(DELETE_ACTION_TYPE, timeout, retry) {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject().startObject(DELETE_ACTION_TYPE)
+        builder.startObject().startObject(DELETE_ACTION_TYPE.type)
         super.toXContent(builder, params)
         return builder.endObject().endObject()
     }
@@ -48,7 +49,7 @@ data class DeleteActionConfig(
     ): Action = DeleteAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
-        const val DELETE_ACTION_TYPE = "delete"
+        val DELETE_ACTION_TYPE = ActionType.DELETE
 
         @JvmStatic
         @Throws(IOException::class)

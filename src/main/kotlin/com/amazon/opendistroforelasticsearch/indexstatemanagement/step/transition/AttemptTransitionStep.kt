@@ -13,11 +13,12 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.steps
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.transition
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.TransitionsActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.TransitionsActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse

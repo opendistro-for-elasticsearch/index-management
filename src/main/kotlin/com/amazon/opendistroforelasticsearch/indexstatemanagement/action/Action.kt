@@ -13,14 +13,15 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.actions
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.steps.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 
-abstract class Action(val type: String, val managedIndexMetaData: ManagedIndexMetaData) {
+abstract class Action(val type: ActionType, val managedIndexMetaData: ManagedIndexMetaData) {
 
     abstract fun getSteps(): List<Step>
 
-    abstract fun getNextStep(managedIndexMetaData: ManagedIndexMetaData): Step
+    abstract fun getStepToExecute(managedIndexMetaData: ManagedIndexMetaData): Step
 }

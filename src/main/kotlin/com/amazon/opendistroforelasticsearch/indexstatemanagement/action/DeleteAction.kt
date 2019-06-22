@@ -13,12 +13,13 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.actions
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.DeleteActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.steps.AttemptDeleteStep
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.steps.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete.AttemptDeleteStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
@@ -35,11 +36,11 @@ class DeleteAction(
 
     override fun getSteps(): List<Step> = steps
 
-    override fun getNextStep(managedIndexMetaData: ManagedIndexMetaData): Step {
+    override fun getStepToExecute(managedIndexMetaData: ManagedIndexMetaData): Step {
         return attemptDeleteStep
     }
 
     companion object {
-        const val type = "delete"
+        val type = ActionType.DELETE
     }
 }

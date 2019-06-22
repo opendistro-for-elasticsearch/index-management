@@ -13,10 +13,11 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.actions.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
@@ -24,7 +25,7 @@ import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
 
 abstract class ActionConfig(
-    val type: String,
+    val type: ActionType,
     val configTimeout: ActionTimeout?,
     val configRetry: ActionRetry?
 ) : ToXContentFragment {

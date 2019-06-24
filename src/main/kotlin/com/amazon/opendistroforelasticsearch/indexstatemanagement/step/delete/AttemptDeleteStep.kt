@@ -24,6 +24,7 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import java.time.Instant
 
 class AttemptDeleteStep(
     val clusterService: ClusterService,
@@ -33,17 +34,29 @@ class AttemptDeleteStep(
 ) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
+    private var failed: Boolean = false
+    private var info: Map<String, Any>? = null
 
     // TODO: Incorporate retries from config and consumed retries from metadata
     // TODO: Needs to return execute status after finishing, i.e. succeeded, noop, failed, failed info to update metadata
     override suspend fun execute() {
         val response: AcknowledgedResponse = client.admin().indices()
                 .suspendUntil { delete(DeleteIndexRequest(managedIndexMetaData.index), it) }
-        if (response.isAcknowledged) {
-            logger.info("request is acknowledged")
-        } else {
-            logger.info("request is NOT acknowledged")
+        if (!response.isAcknowledged) {
+            failed = true
+            info = mapOf("message" to "Failed to delete index")
         }
+    }
+
+    override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
+        return currentMetaData.copy(
+            step = name,
+            stepStartTime = getStepStartTime().toEpochMilli().toString()
+            // transitionTo = null
+            // stepComplete = !failed
+            // failed = failed
+            // info = info
+        )
     }
 
     companion object {

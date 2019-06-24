@@ -19,6 +19,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
@@ -27,6 +28,8 @@ import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.update.UpdateRequest
+import org.elasticsearch.common.unit.ByteSizeValue
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.BoolQueryBuilder
@@ -183,4 +186,35 @@ enum class ActionType(val type: String) {
     override fun toString(): String {
         return type
     }
+}
+
+fun Transition.evaluateConditions(
+    indexCreationDate: Instant,
+    numDocs: Long,
+    indexSize: ByteSizeValue,
+    transitionStartTime: Instant
+): Boolean {
+    // If there are no conditions, treat as always true
+    if (this.conditions == null) return true
+
+    if (this.conditions.docCount != null) {
+        return this.conditions.docCount <= numDocs
+    }
+
+    if (this.conditions.indexAge != null) {
+        val elapsedTime = Instant.now().toEpochMilli() - indexCreationDate.toEpochMilli()
+        return this.conditions.indexAge.millis <= elapsedTime
+    }
+
+    if (this.conditions.size != null) {
+        return this.conditions.size <= indexSize
+    }
+
+    if (this.conditions.cron != null) {
+        // If a cron pattern matches the time between the start of "attempt_transition" to now then we consider it meeting the condition
+        return this.conditions.cron.getNextExecutionTime(transitionStartTime) <= Instant.now()
+    }
+
+    // We should never reach this
+    return false
 }

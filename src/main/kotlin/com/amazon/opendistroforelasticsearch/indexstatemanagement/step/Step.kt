@@ -16,9 +16,26 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import java.time.Instant
 
 // TODO: Step should probably have a method to return an updated ManagedIndexMetaData once it finishes execution
 abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMetaData) {
 
     abstract suspend fun execute()
+
+    abstract fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData
+
+    fun getStepStartTime(): Instant {
+        if (managedIndexMetaData.step != name) {
+            return Instant.now()
+        }
+
+        // TODO: Update ManagedIndexMetaData start times to be Long? instead of String
+        val startTimeMillis = managedIndexMetaData.stepStartTime.toLong()
+        if (startTimeMillis == null) {
+            return Instant.now()
+        }
+
+        return Instant.ofEpochMilli(managedIndexMetaData.stepStartTime.toLong())
+    }
 }

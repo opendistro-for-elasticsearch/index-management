@@ -36,7 +36,7 @@ class DeleteAction(
 
     override fun getSteps(): List<Step> = steps
 
-    override fun getStepToExecute(managedIndexMetaData: ManagedIndexMetaData): Step {
+    override fun getStepToExecute(): Step {
         return attemptDeleteStep
     }
 

@@ -23,5 +23,5 @@ abstract class Action(val type: ActionType, val managedIndexMetaData: ManagedInd
 
     abstract fun getSteps(): List<Step>
 
-    abstract fun getStepToExecute(managedIndexMetaData: ManagedIndexMetaData): Step
+    abstract fun getStepToExecute(): Step
 }

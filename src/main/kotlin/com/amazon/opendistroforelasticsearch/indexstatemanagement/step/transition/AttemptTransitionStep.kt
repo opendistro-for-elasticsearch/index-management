@@ -19,12 +19,23 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.sus
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.TransitionsActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.evaluateConditions
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.unit.ByteSizeValue
+import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.rest.RestStatus
+import java.time.Instant
 
+/**
+ * Attempt to transition to the next state
+ *
+ * This step compares the transition conditions configuration with the real time index stats data
+ * to check if the [ManagedIndexConfig] should move to the next state defined in its policy.
+ */
 class AttemptTransitionStep(
     val clusterService: ClusterService,
     val client: Client,
@@ -33,23 +44,47 @@ class AttemptTransitionStep(
 ) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
+    // TODO: Update ManagedIndexMetaData start times to be Long, move to extension function on MetaData
+    private var stateName: String? = null
+    private var failed: Boolean = false
+    private var info: Map<String, Any>? = null
 
     override suspend fun execute() {
         val statsRequest = IndicesStatsRequest()
                 .indices(managedIndexMetaData.index).clear().docs(true)
-        val stats: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
-        val indexCreationDate = clusterService.state().metaData().index(managedIndexMetaData.index).creationDate
-        val numDocs = stats.primaries.docs.count
-        val indexSize = stats.primaries.docs.totalSizeInBytes
-        logger.info("""
-            Current index stats are:
-            indexCreationDate: $indexCreationDate
-            numDocs: $numDocs
-            indexSize: $indexSize
-        """.trimIndent())
+        val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
-        // TODO: Evaluate transition conditions
-        // TODO: Update managed index meta data
+        if (statsResponse.status != RestStatus.OK) {
+            failed = true
+            info = mapOf(
+                "message" to "Failed to get Index stats",
+                "status" to statsResponse.status,
+                "shard_failures" to statsResponse.shardFailures.map { it.toString() }
+            )
+            return
+        }
+
+        val indexCreationDate = Instant.ofEpochMilli(clusterService.state().metaData().index(managedIndexMetaData.index).creationDate)
+        val numDocs = statsResponse.primaries.docs.count
+        val indexSize = ByteSizeValue(statsResponse.primaries.docs.totalSizeInBytes)
+
+        // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true
+        stateName = config.transitions.find { it.evaluateConditions(indexCreationDate, numDocs, indexSize, getStepStartTime()) }?.stateName
+        // TODO: Style of message, past tense, present tense, etc.
+        val message = if (stateName == null) "Attempting to transition" else "Transitioning to $stateName"
+        info = mapOf("message" to message)
+    }
+
+    // TODO: MetaData needs to be updated with correct step information
+    override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
+        return currentMetaData.copy(
+            step = name,
+            stepStartTime = getStepStartTime().toEpochMilli().toString()
+            // transitionTo = stateName
+            // stepComplete = stateName != null
+            // failed = failed
+            // info = info
+        )
     }
 
     companion object {

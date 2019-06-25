@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionRetry
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue

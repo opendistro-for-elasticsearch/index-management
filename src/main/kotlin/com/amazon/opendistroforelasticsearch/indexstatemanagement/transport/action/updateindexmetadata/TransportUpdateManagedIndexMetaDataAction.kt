@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData

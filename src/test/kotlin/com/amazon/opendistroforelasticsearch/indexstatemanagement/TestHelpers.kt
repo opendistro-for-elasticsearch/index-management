@@ -22,10 +22,11 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionRetry
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.ActionTimeout
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.DeleteActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions.RolloverActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
@@ -63,7 +64,7 @@ fun randomPolicy(
 
 fun randomState(
     name: String = ESRestTestCase.randomAlphaOfLength(10),
-    actions: List<Map<String, Any>> = listOf(), // TODO: List<Action>
+    actions: List<ActionConfig> = listOf(),
     transitions: List<Transition> = listOf()
 ): State {
     return State(name = name, actions = actions, transitions = transitions)

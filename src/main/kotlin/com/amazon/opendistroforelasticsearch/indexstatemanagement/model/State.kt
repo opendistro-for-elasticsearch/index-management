@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -25,9 +26,13 @@ import java.io.IOException
 
 data class State(
     val name: String,
-    val actions: List<Map<String, Any>>, // TODO: Implement List<Action>
+    val actions: List<ActionConfig>,
     val transitions: List<Transition>
 ) : ToXContentObject {
+
+    init {
+        require(name.isNotBlank()) { "State must contain a valid name" }
+    }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
@@ -48,7 +53,7 @@ data class State(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): State {
             var name: String? = null
-            val actions: MutableList<Map<String, Any>> = mutableListOf() // TODO: Implement List<Action>
+            val actions: MutableList<ActionConfig> = mutableListOf()
             val transitions: MutableList<Transition> = mutableListOf()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -61,7 +66,7 @@ data class State(
                     ACTIONS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
-                            // actions.add(Action.parse(xcp)) // TODO: Implement Action.parse()
+                            actions.add(ActionConfig.parse(xcp))
                         }
                     }
                     TRANSITIONS_FIELD -> {

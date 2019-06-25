@@ -13,9 +13,12 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.actions
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
-import org.elasticsearch.common.unit.TimeValue
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -24,38 +27,38 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-data class ActionRetry(
-    val count: Long,
-    val backoff: String = DEFAULT_BACKOFF,
-    val delay: TimeValue = TimeValue.timeValueMinutes(1)
+abstract class ActionConfig(
+    val type: ActionType,
+    val configTimeout: ActionTimeout?,
+    val configRetry: ActionRetry?
 ) : ToXContentFragment {
 
-    init { require(count > 0) { "Count for ActionRetry must be greater than 0" } }
-
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder
-            .startObject(RETRY_FIELD)
-                .field(COUNT_FIELD, count)
-                .field(BACKOFF_FIELD, backoff)
-                .field(DELAY_FIELD, delay.stringRep)
-            .endObject()
+        configTimeout?.toXContent(builder, params)
+        configRetry?.toXContent(builder, params)
         return builder
     }
 
+    abstract fun toAction(
+        clusterService: ClusterService,
+        client: Client,
+        managedIndexMetaData: ManagedIndexMetaData
+    ): Action
+
+    enum class ActionType(val type: String) {
+        DELETE("delete"),
+        TRANSITION("transition");
+
+        override fun toString(): String {
+            return type
+        }
+    }
+
     companion object {
-        const val DEFAULT_BACKOFF = "exponential"
-
-        const val RETRY_FIELD = "retry"
-        const val COUNT_FIELD = "count"
-        const val BACKOFF_FIELD = "backoff"
-        const val DELAY_FIELD = "delay"
-
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): ActionRetry {
-            var count: Long? = null
-            var backoff: String = DEFAULT_BACKOFF
-            var delay: TimeValue = TimeValue.timeValueMinutes(1)
+        fun parse(xcp: XContentParser): ActionConfig {
+            var actionConfig: ActionConfig? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -63,17 +66,12 @@ data class ActionRetry(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    COUNT_FIELD -> count = xcp.longValue()
-                    BACKOFF_FIELD -> backoff = xcp.text()
-                    DELAY_FIELD -> delay = TimeValue.parseTimeValue(xcp.text(), DELAY_FIELD)
+                    ActionType.DELETE.type -> actionConfig = DeleteActionConfig.parse(xcp)
+                    else -> throw IllegalArgumentException("Invalid field: [fieldName] found in State action.")
                 }
             }
 
-            return ActionRetry(
-                count = requireNotNull(count) { "ActionRetry count is null" },
-                backoff = backoff,
-                delay = delay
-            )
+            return requireNotNull(actionConfig) { "ActionConfig inside state is null" }
         }
     }
 }

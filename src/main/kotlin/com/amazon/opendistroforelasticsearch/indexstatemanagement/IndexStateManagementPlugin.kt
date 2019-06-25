@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata.TransportUpdateManagedIndexMetaDataAction
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.TransportUpdateManagedIndexMetaDataAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestDeletePolicyAction
@@ -80,9 +80,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     }
 
     override fun getJobParser(): ScheduledJobParser {
-        // TODO: Make PR on job-scheduler to pass JobDocVersion to let individual plugin owners choose what to use
-        // as we do not use version in 7.x in most of our plugins
-        return ScheduledJobParser { xcp, id, _ ->
+        return ScheduledJobParser { xcp, id, jobDocVersion ->
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
@@ -90,7 +88,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
 
                 when (fieldName) {
                     ManagedIndexConfig.MANAGED_INDEX_TYPE -> {
-                        return@ScheduledJobParser ManagedIndexConfig.parse(xcp, id)
+                        return@ScheduledJobParser ManagedIndexConfig.parse(xcp, id, jobDocVersion.seqNo, jobDocVersion.primaryTerm)
                     }
                     Policy.POLICY_TYPE -> {
                         return@ScheduledJobParser null

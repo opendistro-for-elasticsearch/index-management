@@ -18,8 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.act
 import org.elasticsearch.action.Action
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 
-const val UPDATE_MANAGED_INDEX_METADATA_ACTION_NAME = "cluster:admin/ism/update/managedindexmetadata"
-object UpdateManagedIndexMetaDataAction : Action<AcknowledgedResponse>(UPDATE_MANAGED_INDEX_METADATA_ACTION_NAME) {
+object UpdateManagedIndexMetaDataAction : Action<AcknowledgedResponse>("cluster:admin/ism/update/managedindexmetadata") {
     override fun newResponse(): AcknowledgedResponse {
         return AcknowledgedResponse()
     }

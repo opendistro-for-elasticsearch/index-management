@@ -40,6 +40,7 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -207,7 +208,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
             info = if (policy == null) mapOf("message" to "Could not load policy: ${managedIndexConfig.policyName}") else null,
             consumedRetries = null
         )
-        val request = UpdateManagedIndexMetaDataRequest(Index(managedIndexConfig.index, managedIndexConfig.indexUuid), managedIndexMetaData)
-        val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
+        val request = UpdateManagedIndexMetaDataRequest(
+            listOf(Pair(Index(managedIndexConfig.index, managedIndexConfig.indexUuid), managedIndexMetaData))
+        )
+        try {
+            val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
+        } catch (e: ClusterBlockException) {
+            logger.error("There was ClusterBlockException trying to update the metadata for ${managedIndexConfig.index}. Message: ${e.message}")
+        }
     }
 }

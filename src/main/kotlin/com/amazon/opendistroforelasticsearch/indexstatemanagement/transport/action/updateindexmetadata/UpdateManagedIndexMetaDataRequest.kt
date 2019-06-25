@@ -24,37 +24,38 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.index.Index
 
 class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndexMetaDataRequest> {
-    lateinit var index: Index
-        private set
-    lateinit var managedIndexMetaData: ManagedIndexMetaData
+    lateinit var listOfIndexMetadata: List<Pair<Index, ManagedIndexMetaData>>
         private set
 
     constructor()
 
-    constructor(index: Index, managedIndexMetaData: ManagedIndexMetaData) {
-        this.index = index
-        this.managedIndexMetaData = managedIndexMetaData
+    constructor(listOfIndexMetadata: List<Pair<Index, ManagedIndexMetaData>>) {
+        this.listOfIndexMetadata = listOfIndexMetadata
     }
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (!this::index.isInitialized) {
-            validationException = addValidationError("must specify index for UpdateManagedIndexMetaData", validationException)
-        } else if (!this::managedIndexMetaData.isInitialized) {
-            validationException = addValidationError("must specify managedIndexMetaData for UpdateManagedIndexMetaData", validationException)
+        if (!this::listOfIndexMetadata.isInitialized) {
+            validationException = addValidationError("must specify index List for UpdateManagedIndexMetaData", validationException)
         }
         return validationException
     }
 
     override fun writeTo(streamOutput: StreamOutput) {
         super.writeTo(streamOutput)
-        index.writeTo(streamOutput)
-        managedIndexMetaData.writeTo(streamOutput)
+        streamOutput.writeCollection(listOfIndexMetadata) { so, pair ->
+            pair.first.writeTo(so)
+            pair.second.writeTo(so)
+        }
     }
 
     override fun readFrom(streamInput: StreamInput) {
         super.readFrom(streamInput)
-        index = Index(streamInput)
-        managedIndexMetaData = ManagedIndexMetaData.fromStreamInput(streamInput)
+
+        listOfIndexMetadata = streamInput.readList {
+            val index = Index(it)
+            val managedIndexMetaData = ManagedIndexMetaData.fromStreamInput(it)
+            Pair(index, managedIndexMetaData)
+        }
     }
 }

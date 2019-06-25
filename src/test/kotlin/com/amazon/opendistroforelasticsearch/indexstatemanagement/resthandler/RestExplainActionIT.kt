@@ -40,7 +40,6 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
             fail("Excepted a failure.")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus.", RestStatus.BAD_REQUEST, e.response.restStatus())
-            logger.info(e.response)
             val actualMessage = e.response.asMap()
             val expectedErrorMessage = mapOf(
                 "error" to mapOf(

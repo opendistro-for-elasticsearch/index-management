@@ -44,7 +44,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         actionFilters: ActionFilters,
         indexNameExpressionResolver: IndexNameExpressionResolver
     ) : super(
-        UPDATE_MANAGED_INDEX_METADATA_ACTION_NAME,
+        UpdateManagedIndexMetaDataAction.name(),
         transportService,
         clusterService,
         threadPool,
@@ -54,7 +54,10 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
     )
 
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {
-        return state.blocks.globalBlockedException(ClusterBlockLevel.METADATA_WRITE)
+        // https://github.com/elastic/elasticsearch/commit/ae14b4e6f96b554ca8f4aaf4039b468f52df0123
+        // This commit will help us to give each individual index name and the error that is cause it. For now it will be a generic error message.
+        val indices = request.listOfIndexMetadata.map { it.first.name }.toTypedArray()
+        return state.blocks.indicesBlockedException(ClusterBlockLevel.METADATA_WRITE, indices)
     }
 
     override fun masterOperation(
@@ -63,16 +66,17 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         listener: ActionListener<AcknowledgedResponse>
     ) {
         clusterService.submitStateUpdateTask(
-            "${IndexStateManagementPlugin.PLUGIN_NAME}-${request.index.name}-${request.index.uuid}",
+            IndexStateManagementPlugin.PLUGIN_NAME,
             object : AckedClusterStateUpdateTask<AcknowledgedResponse>(request, listener) {
                 override fun execute(currentState: ClusterState): ClusterState {
-                    return ClusterState.builder(currentState).metaData(
-                        MetaData.builder(currentState.metaData).put(
-                            IndexMetaData.builder(currentState.metaData.index(request.index))
-                                .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, request.managedIndexMetaData.toMap())
-                        )
-                    )
-                        .build()
+                    val metaDataBuilder = MetaData.builder(currentState.metaData)
+
+                    for (pair in request.listOfIndexMetadata) {
+                        metaDataBuilder.put(IndexMetaData.builder(currentState.metaData.index(pair.first))
+                            .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, pair.second.toMap()))
+                    }
+
+                    return ClusterState.builder(currentState).metaData(metaDataBuilder).build()
                 }
 
                 override fun newResponse(acknowledged: Boolean): AcknowledgedResponse {

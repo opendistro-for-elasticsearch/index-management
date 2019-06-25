@@ -24,14 +24,13 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
-import java.time.Instant
 
 class AttemptDeleteStep(
     val clusterService: ClusterService,
     val client: Client,
     val config: DeleteActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step(name, managedIndexMetaData) {
+) : Step("attempt_delete", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var failed: Boolean = false
@@ -57,9 +56,5 @@ class AttemptDeleteStep(
             // failed = failed
             // info = info
         )
-    }
-
-    companion object {
-        const val name = "attempt_delete"
     }
 }

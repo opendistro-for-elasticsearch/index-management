@@ -26,7 +26,6 @@ import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.unit.ByteSizeValue
-import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 
@@ -41,7 +40,7 @@ class AttemptTransitionStep(
     val client: Client,
     val config: TransitionsActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step(name, managedIndexMetaData) {
+) : Step("attempt_transition", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     // TODO: Update ManagedIndexMetaData start times to be Long, move to extension function on MetaData
@@ -85,9 +84,5 @@ class AttemptTransitionStep(
             // failed = failed
             // info = info
         )
-    }
-
-    companion object {
-        const val name = "attempt_transition"
     }
 }

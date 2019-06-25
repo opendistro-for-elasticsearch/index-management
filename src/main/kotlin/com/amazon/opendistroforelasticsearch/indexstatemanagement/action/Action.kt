@@ -16,8 +16,8 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 
 abstract class Action(val type: ActionType, val managedIndexMetaData: ManagedIndexMetaData) {
 

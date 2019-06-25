@@ -29,7 +29,6 @@ import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.common.unit.ByteSizeValue
-import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.BoolQueryBuilder
@@ -177,15 +176,6 @@ fun getSweptManagedIndexSearchRequest(): SearchRequest {
                             emptyArray()
                     )
                     .query(boolQueryBuilder))
-}
-
-enum class ActionType(val type: String) {
-    DELETE("delete"),
-    TRANSITION("transition");
-
-    override fun toString(): String {
-        return type
-    }
 }
 
 fun Transition.evaluateConditions(

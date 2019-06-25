@@ -16,10 +16,10 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete.AttemptDeleteStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
@@ -28,7 +28,7 @@ class DeleteAction(
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
     config: DeleteActionConfig
-) : Action(type, managedIndexMetaData) {
+) : Action(ActionType.DELETE, managedIndexMetaData) {
 
     private val attemptDeleteStep =
             AttemptDeleteStep(clusterService, client, config, managedIndexMetaData)
@@ -38,9 +38,5 @@ class DeleteAction(
 
     override fun getStepToExecute(): Step {
         return attemptDeleteStep
-    }
-
-    companion object {
-        val type = ActionType.DELETE
     }
 }

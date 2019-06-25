@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.DeleteAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
@@ -32,24 +31,23 @@ import java.io.IOException
 data class DeleteActionConfig(
     val timeout: ActionTimeout?,
     val retry: ActionRetry?
-) : ToXContentObject, ActionConfig(DELETE_ACTION_TYPE, timeout, retry) {
+) : ToXContentObject, ActionConfig(ActionType.DELETE, timeout, retry) {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject().startObject(DELETE_ACTION_TYPE.type)
+        builder.startObject().startObject(ActionType.DELETE.type)
         super.toXContent(builder, params)
         return builder.endObject().endObject()
     }
 
     override fun isFragment(): Boolean = false
 
-    override fun toActionClass(
+    override fun toAction(
         clusterService: ClusterService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = DeleteAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
-        val DELETE_ACTION_TYPE = ActionType.DELETE
 
         @JvmStatic
         @Throws(IOException::class)

@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
@@ -40,11 +39,20 @@ abstract class ActionConfig(
         return builder
     }
 
-    abstract fun toActionClass(
+    abstract fun toAction(
         clusterService: ClusterService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action
+
+    enum class ActionType(val type: String) {
+        DELETE("delete"),
+        TRANSITION("transition");
+
+        override fun toString(): String {
+            return type
+        }
+    }
 
     companion object {
         @JvmStatic
@@ -58,7 +66,7 @@ abstract class ActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    DeleteActionConfig.DELETE_ACTION_TYPE.type -> actionConfig = DeleteActionConfig.parse(xcp)
+                    ActionType.DELETE.type -> actionConfig = DeleteActionConfig.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [fieldName] found in State action.")
                 }
             }

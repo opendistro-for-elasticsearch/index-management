@@ -16,10 +16,10 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.TransitionsActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.transition.AttemptTransitionStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.ActionType
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
@@ -28,7 +28,7 @@ class TransitionsAction(
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
     config: TransitionsActionConfig
-) : Action(type, managedIndexMetaData) {
+) : Action(ActionType.TRANSITION, managedIndexMetaData) {
 
     private val attemptTransitionStep =
             AttemptTransitionStep(clusterService, client, config, managedIndexMetaData)
@@ -38,9 +38,5 @@ class TransitionsAction(
 
     override fun getStepToExecute(): Step {
         return attemptTransitionStep
-    }
-
-    companion object {
-        val type = ActionType.TRANSITION
     }
 }

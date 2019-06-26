@@ -50,11 +50,11 @@ class AttemptDeleteStep(
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
             step = name,
-            stepStartTime = getStepStartTime().toEpochMilli().toString()
-            // transitionTo = null
-            // stepComplete = !failed
-            // failed = failed
-            // info = info
+            stepStartTime = getStepStartTime().toEpochMilli(),
+            transitionTo = null,
+            stepCompleted = !failed,
+            failed = failed,
+            info = info
         )
     }
 }

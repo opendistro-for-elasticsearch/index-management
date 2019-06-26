@@ -47,6 +47,7 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.RestStatus
+import java.time.Instant
 
 object ManagedIndexRunner : ScheduledJobRunner,
         CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexRunner")) {
@@ -165,7 +166,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         return withContext(Dispatchers.IO) {
             val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                     policySource, XContentType.JSON)
-            Policy.parseWithType(xcp)
+            Policy.parseWithType(xcp, getResponse.id, getResponse.seqNo, getResponse.primaryTerm)
         }
     }
 
@@ -188,18 +189,23 @@ object ManagedIndexRunner : ScheduledJobRunner,
         // TODO: Implement with real information, retries, error handling
         // If policy is null it means it does not exist or has empty source and we should move to ERROR
         val managedIndexMetaData = ManagedIndexMetaData(
-                managedIndexConfig.index,
-                managedIndexConfig.indexUuid,
-                managedIndexConfig.policyName,
-                "${managedIndexConfig.index}_POLICY_VERSION",
-                "${managedIndexConfig.index}_STATE",
-                "${managedIndexConfig.index}_STATE_START_TIME",
-                "${managedIndexConfig.index}_ACTION_INDEX",
-                "${managedIndexConfig.index}_ACTION",
-                "${managedIndexConfig.index}_ACTION_START_TIME",
-                "${managedIndexConfig.index}_STEP",
-                "${managedIndexConfig.index}_STEP_START_TIME",
-                "${managedIndexConfig.index}_FAILED_STEP"
+            index = managedIndexConfig.index,
+            indexUuid = managedIndexConfig.indexUuid,
+            policyName = managedIndexConfig.policyName,
+            policySeqNo = policy?.seqNo,
+            policyPrimaryTerm = policy?.primaryTerm,
+            state = policy?.defaultState,
+            stateStartTime = if (policy != null) Instant.now().toEpochMilli() else null,
+            transitionTo = null,
+            actionIndex = null,
+            action = null,
+            actionStartTime = null,
+            step = null,
+            stepStartTime = null,
+            stepCompleted = null,
+            failed = policy == null,
+            info = if (policy == null) mapOf("message" to "Could not load policy: ${managedIndexConfig.policyName}") else null,
+            consumedRetries = null
         )
         val request = UpdateManagedIndexMetaDataRequest(Index(managedIndexConfig.index, managedIndexConfig.indexUuid), managedIndexMetaData)
         val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }

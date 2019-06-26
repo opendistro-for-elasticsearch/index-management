@@ -78,11 +78,11 @@ class AttemptTransitionStep(
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
             step = name,
-            stepStartTime = getStepStartTime().toEpochMilli().toString()
-            // transitionTo = stateName
-            // stepComplete = stateName != null
-            // failed = failed
-            // info = info
+            stepStartTime = getStepStartTime().toEpochMilli(),
+            transitionTo = stateName,
+            stepCompleted = stateName != null,
+            failed = failed,
+            info = info
         )
     }
 }

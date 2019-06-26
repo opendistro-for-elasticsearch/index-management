@@ -89,14 +89,8 @@ class RestExplainAction(
 
                     // TODO Use param to enable and disable showing null/blank policy names.
                     builder.field(ManagedIndexSettings.POLICY_NAME.key, indexMetadata.getPolicyName())
-
                     if (managedIndexMetaDataMap != null) {
-                        val managedIndexMetaData = ManagedIndexMetaData.fromMap(
-                            indexMetadata.index.name,
-                            indexMetadata.index.uuid,
-                            managedIndexMetaDataMap
-                        )
-
+                        val managedIndexMetaData = ManagedIndexMetaData.fromMap(managedIndexMetaDataMap)
                         managedIndexMetaData.toXContent(builder, ToXContent.EMPTY_PARAMS)
                     }
                     builder.endObject()

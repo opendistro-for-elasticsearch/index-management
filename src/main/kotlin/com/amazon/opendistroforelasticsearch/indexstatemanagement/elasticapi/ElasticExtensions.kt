@@ -187,11 +187,7 @@ fun IndexMetaData.getManagedIndexMetaData(): ManagedIndexMetaData? {
     val existingMetadataMap = this.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
 
     if (existingMetadataMap != null) {
-        return ManagedIndexMetaData.fromMap(
-            this.index.name,
-            this.index.uuid,
-            existingMetadataMap
-        )
+        return ManagedIndexMetaData.fromMap(existingMetadataMap)
     }
     return null
 }

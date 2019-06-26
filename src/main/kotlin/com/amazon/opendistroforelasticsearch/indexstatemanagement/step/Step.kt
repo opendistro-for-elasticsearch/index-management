@@ -31,11 +31,12 @@ abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMeta
         }
 
         // TODO: Update ManagedIndexMetaData start times to be Long? instead of String
-        val startTimeMillis = managedIndexMetaData.stepStartTime.toLong()
+        val startTimeMillis = managedIndexMetaData.stepStartTime
+
         if (startTimeMillis == null) {
             return Instant.now()
         }
 
-        return Instant.ofEpochMilli(managedIndexMetaData.stepStartTime.toLong())
+        return Instant.ofEpochMilli(startTimeMillis)
     }
 }

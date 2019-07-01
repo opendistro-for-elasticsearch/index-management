@@ -22,7 +22,10 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transiti
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
-data class TransitionsActionConfig(val transitions: List<Transition>) : ActionConfig(ActionType.TRANSITION, null, null) {
+const val TRANSITION_ACTION_INDEX = -1
+data class TransitionsActionConfig(
+    val transitions: List<Transition>
+) : ActionConfig(ActionType.TRANSITION, null, null, TRANSITION_ACTION_INDEX) {
 
     override fun toAction(
         clusterService: ClusterService,

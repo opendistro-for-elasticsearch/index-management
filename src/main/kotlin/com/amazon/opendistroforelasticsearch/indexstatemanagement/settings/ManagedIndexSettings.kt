@@ -33,6 +33,12 @@ class ManagedIndexSettings {
             Setting.Property.Dynamic
         )
 
+        val ROLLOVER_ALIAS = Setting.simpleString(
+            "index.opendistro.index_state_management.rollover_alias",
+            Setting.Property.IndexScope,
+            Setting.Property.Dynamic
+        )
+
         // TODO: Change this to a higher value after development is finished
         val SWEEP_PERIOD = Setting.positiveTimeSetting(
             "opendistro.index_state_management.coordinator.sweep_period",

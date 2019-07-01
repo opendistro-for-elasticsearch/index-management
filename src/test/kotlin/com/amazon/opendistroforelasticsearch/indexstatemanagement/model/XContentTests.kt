@@ -70,7 +70,7 @@ class XContentTests : ESTestCase() {
         val deleteActionConfig = randomDeleteActionConfig()
 
         val deleteActionConfigString = deleteActionConfig.toJsonString()
-        val parsedActionConfig = ActionConfig.parse((parser(deleteActionConfigString)))
+        val parsedActionConfig = ActionConfig.parse((parser(deleteActionConfigString)), 0)
         assertEquals("Round tripping ActionConfig doesn't work", deleteActionConfig as ActionConfig, parsedActionConfig)
     }
 

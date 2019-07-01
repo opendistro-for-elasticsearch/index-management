@@ -173,6 +173,15 @@ fun IndexMetaData.getPolicyName(): String? {
     return this.settings.get(ManagedIndexSettings.POLICY_NAME.key)
 }
 
+/**
+ * Returns the current rollover_alias if it exists otherwise returns null.
+ * */
+fun IndexMetaData.getRolloverAlias(): String? {
+    if (this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key).isNullOrBlank()) return null
+
+    return this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key)
+}
+
 fun IndexMetaData.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexConfig? {
     val index = this.index.name
     val uuid = this.index.uuid

@@ -66,7 +66,7 @@ data class State(
                     ACTIONS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
-                            actions.add(ActionConfig.parse(xcp))
+                            actions.add(ActionConfig.parse(xcp, actions.size))
                         }
                     }
                     TRANSITIONS_FIELD -> {

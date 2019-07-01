@@ -16,15 +16,26 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
+import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
 
-abstract class Action(val type: ActionType, val config: ActionConfig, val managedIndexMetaData: ManagedIndexMetaData) {
+class RolloverAction(
+    clusterService: ClusterService,
+    client: Client,
+    managedIndexMetaData: ManagedIndexMetaData,
+    config: RolloverActionConfig
+) : Action(ActionType.ROLLOVER, config, managedIndexMetaData) {
 
-    abstract fun getSteps(): List<Step>
+    private val attemptRolloverStep = AttemptRolloverStep(clusterService, client, config, managedIndexMetaData)
+    private val steps = listOf(attemptRolloverStep)
 
-    abstract fun getStepToExecute(): Step
+    override fun getSteps(): List<Step> = steps
 
-    fun isLastStep(stepName: String): Boolean = getSteps().last().name == stepName
+    override fun getStepToExecute(): Step {
+        return attemptRolloverStep
+    }
 }

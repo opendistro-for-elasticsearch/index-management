@@ -30,8 +30,9 @@ import java.io.IOException
 
 data class DeleteActionConfig(
     val timeout: ActionTimeout?,
-    val retry: ActionRetry?
-) : ToXContentObject, ActionConfig(ActionType.DELETE, timeout, retry) {
+    val retry: ActionRetry?,
+    val index: Int
+) : ToXContentObject, ActionConfig(ActionType.DELETE, timeout, retry, index) {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject().startObject(ActionType.DELETE.type)
@@ -51,7 +52,7 @@ data class DeleteActionConfig(
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): DeleteActionConfig {
+        fun parse(xcp: XContentParser, index: Int): DeleteActionConfig {
             var timeout: ActionTimeout? = null
             var retry: ActionRetry? = null
 
@@ -67,7 +68,7 @@ data class DeleteActionConfig(
                 }
             }
 
-            return DeleteActionConfig(timeout, retry)
+            return DeleteActionConfig(timeout, retry, index)
         }
     }
 }

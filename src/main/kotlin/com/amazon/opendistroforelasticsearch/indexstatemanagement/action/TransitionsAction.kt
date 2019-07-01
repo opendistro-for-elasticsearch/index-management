@@ -28,7 +28,7 @@ class TransitionsAction(
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
     config: TransitionsActionConfig
-) : Action(ActionType.TRANSITION, managedIndexMetaData) {
+) : Action(ActionType.TRANSITION, config, managedIndexMetaData) {
 
     private val attemptTransitionStep =
             AttemptTransitionStep(clusterService, client, config, managedIndexMetaData)

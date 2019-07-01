@@ -109,7 +109,7 @@ fun randomDeleteActionConfig(
     timeout: ActionTimeout = randomActionTimeout(),
     retry: ActionRetry = randomActionRetry()
 ): DeleteActionConfig {
-    return DeleteActionConfig(timeout = timeout, retry = retry)
+    return DeleteActionConfig(timeout = timeout, retry = retry, index = 0)
 }
 
 fun randomRolloverActionConfig(
@@ -124,7 +124,8 @@ fun randomRolloverActionConfig(
         minDocs = minDocs,
         minAge = minAge,
         timeout = timeout,
-        retry = retry
+        retry = retry,
+        index = 0
     )
 }
 
@@ -272,7 +273,7 @@ fun parseDeleteActionWithType(xcp: XContentParser): DeleteActionConfig {
     ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
     ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
     ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    val deleteActionConfig = DeleteActionConfig.parse(xcp)
+    val deleteActionConfig = DeleteActionConfig.parse(xcp, 0)
     ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
     return deleteActionConfig
 }
@@ -281,7 +282,7 @@ fun parseRolloverActionWithType(xcp: XContentParser): RolloverActionConfig {
     ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
     ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
     ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    val rolloverActionConfig = RolloverActionConfig.parse(xcp)
+    val rolloverActionConfig = RolloverActionConfig.parse(xcp, 0)
     ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
     return rolloverActionConfig
 }

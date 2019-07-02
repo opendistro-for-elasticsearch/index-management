@@ -133,31 +133,30 @@ class RestRetryFailedManagedIndexAction(
 
         private fun populateList(state: ClusterState, startState: String?) {
             for (indexMetadataEntry in state.metaData.indices) {
-                val indexMetadata = indexMetadataEntry.value
-
-                if (indexMetadata.getPolicyName() == null) {
-                    failedIndices.add(FailedIndex(indexMetadata.index.name, indexMetadata.index.uuid, "This index is not being managed."))
-                    continue
-                }
-
-                val managedIndexMetaData = indexMetadata.getManagedIndexMetaData()
-                if (managedIndexMetaData == null) {
-                    failedIndices.add(FailedIndex(indexMetadata.index.name, indexMetadata.index.uuid, "There is no IndexMetaData information"))
-                } else {
-                    if (managedIndexMetaData.failed != true) {
-                        failedIndices.add(FailedIndex(indexMetadata.index.name, indexMetadata.index.uuid, "This index is not in failed state."))
-                    } else {
-                        listOfIndexMetaData.add(Pair(indexMetadata.index,
-                            managedIndexMetaData.copy(
-                                step = null,
-                                stepCompleted = false,
-                                stepStartTime = null,
-                                failed = false,
-                                consumedRetries = 0,
-                                transitionTo = startState ?: managedIndexMetaData.transitionTo,
-                                info = mapOf("message" to "Attempting retry")
-                            )))
-                    }
+                val indexMetaData = indexMetadataEntry.value
+                val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
+                when {
+                    indexMetaData.getPolicyName() == null ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
+                    managedIndexMetaData == null ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "There is no IndexMetaData information"))
+                    managedIndexMetaData.failed != true ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not in failed state."))
+                    else ->
+                        listOfIndexMetaData.add(
+                            Pair(
+                                indexMetaData.index,
+                                managedIndexMetaData.copy(
+                                    step = null,
+                                    stepCompleted = false,
+                                    stepStartTime = null,
+                                    failed = false,
+                                    consumedRetries = 0,
+                                    transitionTo = startState ?: managedIndexMetaData.transitionTo,
+                                    info = mapOf("message" to "Attempting to retry")
+                                )
+                            )
+                        )
                 }
             }
         }

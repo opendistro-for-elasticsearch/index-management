@@ -29,10 +29,11 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActionListener
 import org.elasticsearch.rest.action.RestResponseListener
 
-class RestRetryFailedManagedIndex(
+class RestRetryFailedManagedIndexAction(
     settings: Settings,
     controller: RestController
 ) : BaseRestHandler(settings) {
+
     private val log = LogManager.getLogger(javaClass)
 
     init {
@@ -61,41 +62,38 @@ class RestRetryFailedManagedIndex(
         clusterStateRequest.clear()
             .indices(*indices)
             .metaData(true)
-            .local(request.paramAsBoolean("local", clusterStateRequest.local()))
             .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
             .indicesOptions(strictExpandIndicesOptions)
 
         return RestChannelConsumer { client.admin().cluster().state(clusterStateRequest, IndexDestinationHandler(client, it, body["state"] as String?)) }
     }
 
-    private fun isFailedState(managedIndexMetaData: ManagedIndexMetaData): Boolean {
-        return managedIndexMetaData.failed == true
-    }
-
     inner class IndexDestinationHandler(
         private val client: NodeClient,
         channel: RestChannel,
-        private val startState: String?,
-        private val failedIndices: MutableList<FailedIndex> = mutableListOf(),
-        private val listOfIndexMetadata: MutableList<Pair<Index, ManagedIndexMetaData>> = mutableListOf()
+        private val startState: String?
     ) : RestActionListener<ClusterStateResponse>(channel) {
+
+        private val failedIndices: MutableList<FailedIndex> = mutableListOf()
+        private val listOfIndexMetaData: MutableList<Pair<Index, ManagedIndexMetaData>> = mutableListOf()
+
         override fun processResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
             populateList(state, startState)
 
             val builder = channel.newBuilder().startObject()
-            if (listOfIndexMetadata.isNotEmpty()) {
-                val updateManagedIndexMetaDataRequest = UpdateManagedIndexMetaDataRequest(listOfIndexMetadata)
+            if (listOfIndexMetaData.isNotEmpty()) {
+                val updateManagedIndexMetaDataRequest = UpdateManagedIndexMetaDataRequest(listOfIndexMetaData)
 
                 try {
                     client.execute(UpdateManagedIndexMetaDataAction, updateManagedIndexMetaDataRequest,
                         object : RestResponseListener<AcknowledgedResponse>(channel) {
                             override fun buildResponse(acknowledgedResponse: AcknowledgedResponse): RestResponse {
                                 if (acknowledgedResponse.isAcknowledged) {
-                                    builder.field(UPDATED_INDICES, listOfIndexMetadata.size)
+                                    builder.field(UPDATED_INDICES, listOfIndexMetaData.size)
                                 } else {
-                                    failedIndices.addAll(listOfIndexMetadata.map {
-                                        FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetadata")
+                                    failedIndices.addAll(listOfIndexMetaData.map {
+                                        FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetaData")
                                     })
                                 }
                                 buildInvalidIndexResponse(builder)
@@ -104,7 +102,7 @@ class RestRetryFailedManagedIndex(
                         }
                     )
                 } catch (e: ClusterBlockException) {
-                    failedIndices.addAll(listOfIndexMetadata.map {
+                    failedIndices.addAll(listOfIndexMetaData.map {
                         FailedIndex(it.first.name, it.first.uuid, "failed to update with ClusterBlockException. ${e.message}")
                     })
                     buildInvalidIndexResponse(builder)
@@ -144,13 +142,21 @@ class RestRetryFailedManagedIndex(
 
                 val managedIndexMetaData = indexMetadata.getManagedIndexMetaData()
                 if (managedIndexMetaData == null) {
-                    failedIndices.add(FailedIndex(indexMetadata.index.name, indexMetadata.index.uuid, "There is no index metadata information"))
+                    failedIndices.add(FailedIndex(indexMetadata.index.name, indexMetadata.index.uuid, "There is no IndexMetaData information"))
                 } else {
-                    if (!isFailedState(managedIndexMetaData)) {
+                    if (managedIndexMetaData.failed != true) {
                         failedIndices.add(FailedIndex(indexMetadata.index.name, indexMetadata.index.uuid, "This index is not in failed state."))
                     } else {
-                        listOfIndexMetadata.add(Pair(indexMetadata.index,
-                            managedIndexMetaData.copy(failed = false, consumedRetries = 0, transitionTo = startState ?: managedIndexMetaData.transitionTo)))
+                        listOfIndexMetaData.add(Pair(indexMetadata.index,
+                            managedIndexMetaData.copy(
+                                step = null,
+                                stepCompleted = false,
+                                stepStartTime = null,
+                                failed = false,
+                                consumedRetries = 0,
+                                transitionTo = startState ?: managedIndexMetaData.transitionTo,
+                                info = mapOf("message" to "Attempting retry")
+                            )))
                     }
                 }
             }

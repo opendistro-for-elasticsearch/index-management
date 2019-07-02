@@ -23,7 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.Re
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestGetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestIndexPolicyAction
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRetryFailedManagedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRetryFailedManagedIndexAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
@@ -117,7 +117,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             RestGetPolicyAction(settings, restController),
             RestDeletePolicyAction(settings, restController),
             RestExplainAction(settings, restController),
-            RestRetryFailedManagedIndex(settings, restController)
+            RestRetryFailedManagedIndexAction(settings, restController)
         )
     }
 

@@ -26,14 +26,8 @@ abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMeta
     abstract fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData
 
     fun getStepStartTime(): Instant {
-        if (managedIndexMetaData.step != name) {
-            return Instant.now()
-        }
-
-        // TODO: Update ManagedIndexMetaData start times to be Long? instead of String
         val startTimeMillis = managedIndexMetaData.stepStartTime
-
-        if (startTimeMillis == null) {
+        if (managedIndexMetaData.step != name || startTimeMillis == null) {
             return Instant.now()
         }
 

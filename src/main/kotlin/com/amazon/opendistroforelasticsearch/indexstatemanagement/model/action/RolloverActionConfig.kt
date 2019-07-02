@@ -15,6 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.RolloverAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
@@ -30,8 +35,9 @@ data class RolloverActionConfig(
     val minDocs: Long?,
     val minAge: TimeValue?,
     val timeout: ActionTimeout?,
-    val retry: ActionRetry?
-) : ToXContentObject {
+    val retry: ActionRetry?,
+    val index: Int
+) : ToXContentObject, ActionConfig(ActionType.ROLLOVER, timeout, retry, index) {
 
     init {
         if (minSize != null) require(minSize.bytes > 0) { "RolloverActionConfig minSize value must be greater than 0" }
@@ -44,21 +50,29 @@ data class RolloverActionConfig(
         timeout?.toXContent(builder, params)
         retry?.toXContent(builder, params)
         if (minSize != null) builder.field(MIN_SIZE_FIELD, minSize.stringRep)
-        if (minDocs != null) builder.field(MIN_DOCS_FIELD, minDocs)
-        if (minAge != null) builder.field(MIN_AGE_FIELD, minAge.stringRep)
+        if (minDocs != null) builder.field(MIN_DOC_COUNT_FIELD, minDocs)
+        if (minAge != null) builder.field(MIN_INDEX_AGE_FIELD, minAge.stringRep)
         return builder.endObject().endObject()
     }
+
+    override fun isFragment(): Boolean = false
+
+    override fun toAction(
+        clusterService: ClusterService,
+        client: Client,
+        managedIndexMetaData: ManagedIndexMetaData
+    ): Action = RolloverAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
         const val ROLLOVER_ACTION_TYPE = "rollover"
 
         const val MIN_SIZE_FIELD = "min_size"
-        const val MIN_DOCS_FIELD = "min_docs"
-        const val MIN_AGE_FIELD = "min_age"
+        const val MIN_DOC_COUNT_FIELD = "min_doc_count"
+        const val MIN_INDEX_AGE_FIELD = "min_index_age"
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): RolloverActionConfig {
+        fun parse(xcp: XContentParser, index: Int): RolloverActionConfig {
             var minSize: ByteSizeValue? = null
             var minDocs: Long? = null
             var minAge: TimeValue? = null
@@ -74,8 +88,8 @@ data class RolloverActionConfig(
                     ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
                     ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
                     MIN_SIZE_FIELD -> minSize = ByteSizeValue.parseBytesSizeValue(xcp.text(), MIN_SIZE_FIELD)
-                    MIN_DOCS_FIELD -> minDocs = xcp.longValue()
-                    MIN_AGE_FIELD -> minAge = TimeValue.parseTimeValue(xcp.text(), MIN_AGE_FIELD)
+                    MIN_DOC_COUNT_FIELD -> minDocs = xcp.longValue()
+                    MIN_INDEX_AGE_FIELD -> minAge = TimeValue.parseTimeValue(xcp.text(), MIN_INDEX_AGE_FIELD)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in RolloverActionConfig.")
                 }
             }
@@ -85,7 +99,8 @@ data class RolloverActionConfig(
                 minDocs = minDocs,
                 minAge = minAge,
                 timeout = timeout,
-                retry = retry
+                retry = retry,
+                index = index
             )
         }
     }

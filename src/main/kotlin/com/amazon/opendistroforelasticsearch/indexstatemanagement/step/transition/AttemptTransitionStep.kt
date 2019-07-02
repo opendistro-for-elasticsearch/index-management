@@ -56,7 +56,7 @@ class AttemptTransitionStep(
         if (statsResponse.status != RestStatus.OK) {
             failed = true
             info = mapOf(
-                "message" to "Failed to get Index stats",
+                "message" to "Failed to get index stats",
                 "status" to statsResponse.status,
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )

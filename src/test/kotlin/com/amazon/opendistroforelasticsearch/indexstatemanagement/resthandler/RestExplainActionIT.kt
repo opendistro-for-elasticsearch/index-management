@@ -173,6 +173,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         indexPredicates.forEach { (index, predicates) ->
             assertTrue("The index: $index was not found in the response", response.containsKey(index))
             val indexResponse = response[index] as Map<String, String?>
+            assertEquals("The fields do not match, response=($indexResponse) predicates=$predicates", predicates.map { it.first }.toSet(), indexResponse.keys.toSet())
             predicates.forEach { (fieldName, predicate) ->
                 assertTrue("The key: $fieldName was not found in the response", indexResponse.containsKey(fieldName))
                 assertTrue("Failed predicate assertion for $fieldName", predicate(indexResponse[fieldName]))

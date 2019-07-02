@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
@@ -178,6 +179,7 @@ fun getSweptManagedIndexSearchRequest(): SearchRequest {
                     .query(boolQueryBuilder))
 }
 
+@Suppress("ReturnCount")
 fun Transition.evaluateConditions(
     indexCreationDate: Instant,
     numDocs: Long,
@@ -207,4 +209,28 @@ fun Transition.evaluateConditions(
 
     // We should never reach this
     return false
+}
+
+@Suppress("ReturnCount")
+fun RolloverActionConfig.evaluateConditions(
+    indexCreationDate: Instant,
+    numDocs: Long,
+    indexSize: ByteSizeValue
+): Boolean {
+
+    if (this.minDocs != null) {
+        return this.minDocs <= numDocs
+    }
+
+    if (this.minAge != null) {
+        val elapsedTime = Instant.now().toEpochMilli() - indexCreationDate.toEpochMilli()
+        return this.minAge.millis <= elapsedTime
+    }
+
+    if (this.minSize != null) {
+        return this.minSize <= indexSize
+    }
+
+    // If no conditions specified we default to true
+    return true
 }

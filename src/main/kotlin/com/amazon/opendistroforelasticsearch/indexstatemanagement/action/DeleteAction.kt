@@ -28,7 +28,7 @@ class DeleteAction(
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
     config: DeleteActionConfig
-) : Action(ActionType.DELETE, managedIndexMetaData) {
+) : Action(ActionType.DELETE, config, managedIndexMetaData) {
 
     private val attemptDeleteStep =
             AttemptDeleteStep(clusterService, client, config, managedIndexMetaData)

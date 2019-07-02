@@ -30,7 +30,8 @@ import java.io.IOException
 abstract class ActionConfig(
     val type: ActionType,
     val configTimeout: ActionTimeout?,
-    val configRetry: ActionRetry?
+    val configRetry: ActionRetry?,
+    val actionIndex: Int
 ) : ToXContentFragment {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -47,7 +48,8 @@ abstract class ActionConfig(
 
     enum class ActionType(val type: String) {
         DELETE("delete"),
-        TRANSITION("transition");
+        TRANSITION("transition"),
+        ROLLOVER("rollover");
 
         override fun toString(): String {
             return type
@@ -57,7 +59,7 @@ abstract class ActionConfig(
     companion object {
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser): ActionConfig {
+        fun parse(xcp: XContentParser, index: Int): ActionConfig {
             var actionConfig: ActionConfig? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -66,7 +68,8 @@ abstract class ActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ActionType.DELETE.type -> actionConfig = DeleteActionConfig.parse(xcp)
+                    ActionType.DELETE.type -> actionConfig = DeleteActionConfig.parse(xcp, index)
+                    ActionType.ROLLOVER.type -> actionConfig = RolloverActionConfig.parse(xcp, index)
                     else -> throw IllegalArgumentException("Invalid field: [fieldName] found in State action.")
                 }
             }

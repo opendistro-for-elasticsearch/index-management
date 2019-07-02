@@ -205,6 +205,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
             stepStartTime = null,
             stepCompleted = null,
             failed = policy == null,
+            policyCompleted = false,
+            rolledOver = false,
             info = if (policy == null) mapOf("message" to "Could not load policy: ${managedIndexConfig.policyName}") else null,
             consumedRetries = null
         )

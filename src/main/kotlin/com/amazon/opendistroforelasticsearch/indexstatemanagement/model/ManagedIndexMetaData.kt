@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -73,7 +74,8 @@ data class ManagedIndexMetaData(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        // Order matters here as we are only trying to show what is needed for the customer
+        // The order we check values matters here as we are only trying to show what is needed for the customer
+        // and can return early on certain checks like policyCompleted
         builder
             .field(INDEX, index)
             .field(INDEX_UUID, indexUuid)
@@ -86,7 +88,8 @@ data class ManagedIndexMetaData(
             return builder
         }
 
-        if (rolledOver == true) {
+        // Only show rolled_over if we have rolled over or we are in the rollover action
+        if (rolledOver == true || action == ActionConfig.ActionType.ROLLOVER.type) {
             builder.field(ROLLED_OVER, rolledOver)
         }
 
@@ -176,49 +179,49 @@ data class ManagedIndexMetaData(
             val consumedRetries: Int? = si.readOptionalInt()
 
             return ManagedIndexMetaData(
-                    index = requireNotNull(index) { "$INDEX is null" },
-                    indexUuid = requireNotNull(indexUuid) { "$INDEX_UUID is null" },
-                    policyName = requireNotNull(policyName) { "$POLICY_NAME is null" },
-                    policySeqNo = policySeqNo,
-                    policyPrimaryTerm = policyPrimaryTerm,
-                    state = state,
-                    stateStartTime = stateStartTime,
-                    transitionTo = transitionTo,
-                    actionIndex = actionIndex,
-                    action = action,
-                    actionStartTime = actionStartTime,
-                    step = step,
-                    stepStartTime = stepStartTime,
-                    stepCompleted = stepCompleted,
-                    failed = failed,
-                    policyCompleted = policyCompleted,
-                    rolledOver = rolledOver,
-                    info = info,
-                    consumedRetries = consumedRetries
+                index = requireNotNull(index) { "$INDEX is null" },
+                indexUuid = requireNotNull(indexUuid) { "$INDEX_UUID is null" },
+                policyName = requireNotNull(policyName) { "$POLICY_NAME is null" },
+                policySeqNo = policySeqNo,
+                policyPrimaryTerm = policyPrimaryTerm,
+                state = state,
+                stateStartTime = stateStartTime,
+                transitionTo = transitionTo,
+                actionIndex = actionIndex,
+                action = action,
+                actionStartTime = actionStartTime,
+                step = step,
+                stepStartTime = stepStartTime,
+                stepCompleted = stepCompleted,
+                failed = failed,
+                policyCompleted = policyCompleted,
+                rolledOver = rolledOver,
+                info = info,
+                consumedRetries = consumedRetries
             )
         }
 
         fun fromMap(map: Map<String, String?>): ManagedIndexMetaData {
             return ManagedIndexMetaData(
-                    requireNotNull(map[INDEX]) { "$INDEX is null" },
-                    requireNotNull(map[INDEX_UUID]) { "$INDEX_UUID is null" },
-                    requireNotNull(map[POLICY_NAME]) { "$POLICY_NAME is null" },
-                    map[POLICY_SEQ_NO]?.toLong(),
-                    map[POLICY_PRIMARY_TERM]?.toLong(),
-                    map[STATE],
-                    map[STATE_START_TIME]?.toLong(),
-                    map[TRANSITION_TO],
-                    map[ACTION_INDEX]?.toInt(),
-                    map[ACTION],
-                    map[ACTION_START_TIME]?.toLong(),
-                    map[STEP],
-                    map[STEP_START_TIME]?.toLong(),
-                    map[STEP_COMPLETED]?.toBoolean(),
-                    map[FAILED]?.toBoolean(),
-                    map[POLICY_COMPLETED]?.toBoolean(),
-                    map[ROLLED_OVER]?.toBoolean(),
-                    map[INFO]?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) },
-                    map[CONSUMED_RETRIES]?.toInt()
+                requireNotNull(map[INDEX]) { "$INDEX is null" },
+                requireNotNull(map[INDEX_UUID]) { "$INDEX_UUID is null" },
+                requireNotNull(map[POLICY_NAME]) { "$POLICY_NAME is null" },
+                map[POLICY_SEQ_NO]?.toLong(),
+                map[POLICY_PRIMARY_TERM]?.toLong(),
+                map[STATE],
+                map[STATE_START_TIME]?.toLong(),
+                map[TRANSITION_TO],
+                map[ACTION_INDEX]?.toInt(),
+                map[ACTION],
+                map[ACTION_START_TIME]?.toLong(),
+                map[STEP],
+                map[STEP_START_TIME]?.toLong(),
+                map[STEP_COMPLETED]?.toBoolean(),
+                map[FAILED]?.toBoolean(),
+                map[POLICY_COMPLETED]?.toBoolean(),
+                map[ROLLED_OVER]?.toBoolean(),
+                map[INFO]?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) },
+                map[CONSUMED_RETRIES]?.toInt()
             )
         }
     }

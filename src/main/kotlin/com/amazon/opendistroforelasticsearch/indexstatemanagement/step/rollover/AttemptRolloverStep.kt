@@ -54,12 +54,12 @@ class AttemptRolloverStep(
             return
         }
 
-        val alias = getAlias()
-
+        val alias = getAliasOrUpdateInfo()
+        // If alias is null we already updated failed info from getAliasOrUpdateInfo and can return early
         alias ?: return
 
-        val statsResponse = getIndexStats()
-
+        val statsResponse = getIndexStatsOrUpdateInfo()
+        // If statsResponse is null we already updated failed info from getIndexStatsOrUpdateInfo and can return early
         statsResponse ?: return
 
         val indexCreationDate = Instant.ofEpochMilli(clusterService.state().metaData().index(managedIndexMetaData.index).creationDate)
@@ -100,7 +100,7 @@ class AttemptRolloverStep(
         }
     }
 
-    private fun getAlias(): String? {
+    private fun getAliasOrUpdateInfo(): String? {
         val alias = clusterService.state().metaData().index(managedIndexMetaData.index).getRolloverAlias()
 
         if (alias == null) {
@@ -111,7 +111,7 @@ class AttemptRolloverStep(
         return alias
     }
 
-    private suspend fun getIndexStats(): IndicesStatsResponse? {
+    private suspend fun getIndexStatsOrUpdateInfo(): IndicesStatsResponse? {
         try {
             val statsRequest = IndicesStatsRequest()
                     .indices(managedIndexMetaData.index).clear().docs(true)
@@ -123,14 +123,14 @@ class AttemptRolloverStep(
 
             failed = true
             info = mapOf(
-                "message" to "Failed to get Index stats",
+                "message" to "Failed to get index stats",
                 "status" to statsResponse.status,
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
             return null
         } catch (error: Exception) {
             failed = true
-            val mutableInfo = mutableMapOf("message" to "Failed to get Index stats")
+            val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
             val errorMessage = error.message
             if (errorMessage != null) mutableInfo.put("cause", errorMessage)
             info = mutableInfo.toMap()

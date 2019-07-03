@@ -65,7 +65,9 @@ class RestRetryFailedManagedIndexAction(
             .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
             .indicesOptions(strictExpandIndicesOptions)
 
-        return RestChannelConsumer { client.admin().cluster().state(clusterStateRequest, IndexDestinationHandler(client, it, body["state"] as String?)) }
+        return RestChannelConsumer {
+            client.admin().cluster().state(clusterStateRequest, IndexDestinationHandler(client, it, body["state"] as String?))
+        }
     }
 
     inner class IndexDestinationHandler(

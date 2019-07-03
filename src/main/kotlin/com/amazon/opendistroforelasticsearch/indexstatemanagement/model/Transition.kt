@@ -96,6 +96,7 @@ data class Conditions(
         return builder.endObject()
     }
 
+    // TODO: field names are different from rollover field names but refer to same concept, should make the same
     companion object {
         const val INDEX_AGE_FIELD = "index_age"
         const val DOC_COUNT_FIELD = "doc_count"

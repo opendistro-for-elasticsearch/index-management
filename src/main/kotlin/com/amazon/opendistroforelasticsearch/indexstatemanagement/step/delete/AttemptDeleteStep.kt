@@ -30,7 +30,7 @@ class AttemptDeleteStep(
     val client: Client,
     val config: DeleteActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step("attempt_delete", managedIndexMetaData) {
+) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var failed: Boolean = false
@@ -50,11 +50,17 @@ class AttemptDeleteStep(
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
             step = name,
+            // TODO only update stepStartTime when first try of step and not retries
+            // Will update when retry logic is added
             stepStartTime = getStepStartTime().toEpochMilli(),
             transitionTo = null,
             stepCompleted = !failed,
             failed = failed,
             info = info
         )
+    }
+
+    companion object {
+        const val name = "attempt_delete"
     }
 }

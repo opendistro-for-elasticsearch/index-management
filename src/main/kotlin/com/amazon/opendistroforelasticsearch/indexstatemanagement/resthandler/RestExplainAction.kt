@@ -87,6 +87,7 @@ class RestExplainAction(
                     val indexMetadata = indexMetadataEntry.value
                     val managedIndexMetaDataMap = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
 
+                    // TODO Explain API friendly map that strips out steps information
                     // TODO Use param to enable and disable showing null/blank policy names.
                     builder.field(ManagedIndexSettings.POLICY_NAME.key, indexMetadata.getPolicyName())
                     if (managedIndexMetaDataMap != null) {

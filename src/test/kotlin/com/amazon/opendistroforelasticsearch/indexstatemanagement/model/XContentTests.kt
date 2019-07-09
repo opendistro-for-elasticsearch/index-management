@@ -19,12 +19,14 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.A
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseDeleteActionWithType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseReadOnlyActionWithType
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseReadWriteActionWithType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseRolloverActionWithType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
@@ -98,6 +100,14 @@ class XContentTests : ESTestCase() {
         val readOnlyActionConfigString = readOnlyActionConfig.toJsonString()
         val parsedReadOnlyActionConfig = parseReadOnlyActionWithType(parserWithType(readOnlyActionConfigString))
         assertEquals("Round tripping ReadOnlyActionConfig doesn't work", readOnlyActionConfig, parsedReadOnlyActionConfig)
+    }
+
+    fun `test read_write action config parsing`() {
+        val readWriteActionConfig = randomReadWriteActionConfig()
+
+        val readWriteActionConfigString = readWriteActionConfig.toJsonString()
+        val parsedReadWriteActionConfig = parseReadWriteActionWithType(parserWithType(readWriteActionConfigString))
+        assertEquals("Round tripping ReadWriteActionConfig doesn't work", readWriteActionConfig, parsedReadWriteActionConfig)
     }
 
     fun `test managed index config parsing`() {

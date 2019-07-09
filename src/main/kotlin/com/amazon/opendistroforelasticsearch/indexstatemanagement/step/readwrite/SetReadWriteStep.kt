@@ -13,11 +13,11 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readonly
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readwrite
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
@@ -25,10 +25,10 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
-class SetReadOnlyStep(
+class SetReadWriteStep(
     val clusterService: ClusterService,
     val client: Client,
-    val config: ReadOnlyActionConfig,
+    val config: ReadWriteActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
 ) : Step(name, managedIndexMetaData) {
 
@@ -41,14 +41,14 @@ class SetReadOnlyStep(
         val updateSettingsRequest = UpdateSettingsRequest()
             .indices(managedIndexMetaData.index)
             .settings(
-                mapOf("index.blocks.write" to true)
+                mapOf("index.blocks.write" to false)
             )
         val response: AcknowledgedResponse = client.admin().indices()
             .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
         if (!response.isAcknowledged) {
             failed = true
-            info = mapOf("message" to "Failed to set index to read-only")
+            info = mapOf("message" to "Failed to set index to read-write")
         }
     }
 
@@ -64,6 +64,6 @@ class SetReadOnlyStep(
     }
 
     companion object {
-        const val name = "set_read_only"
+        const val name = "set_read_write"
     }
 }

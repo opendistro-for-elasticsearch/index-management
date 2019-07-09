@@ -149,7 +149,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST") // Do assertion of the response map here so we don't have many places to do suppression.
-    private fun assertResponseMap(expected: Map<String, Map<String, String?>>, actual: Map<String, Any>) {
+    private fun assertResponseMap(expected: Map<String, Map<String, Any?>>, actual: Map<String, Any>) {
         actual as Map<String, Map<String, String?>>
         assertEquals("Explain Map does not match.", expected.size, actual.size)
         for (metaDataEntry in expected) {
@@ -157,7 +157,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         }
     }
 
-    private fun assertMetaDataEntries(expected: Map<String, String?>, actual: Map<String, String?>) {
+    private fun assertMetaDataEntries(expected: Map<String, Any?>, actual: Map<String, String?>) {
         assertEquals("MetaDataSize are not the same", expected.size, actual.size)
         for (entry in expected) {
             assertEquals("Expected and actual values does not match.", entry.value, actual[entry.key])

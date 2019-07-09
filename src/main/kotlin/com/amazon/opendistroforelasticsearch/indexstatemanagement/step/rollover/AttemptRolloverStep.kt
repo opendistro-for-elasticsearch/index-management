@@ -32,7 +32,7 @@ import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 
-@Suppress("ReturnCount")
+@Suppress("ReturnCount", "TooGenericExceptionCaught")
 class AttemptRolloverStep(
     val clusterService: ClusterService,
     val client: Client,
@@ -91,10 +91,10 @@ class AttemptRolloverStep(
                 failed = true
                 info = mapOf("message" to "New index created (${response.newIndex}), but failed to update alias")
             }
-        } catch (error: Exception) {
+        } catch (e: Exception) {
             failed = true
             val mutableInfo = mutableMapOf("message" to "Failed to rollover index")
-            val errorMessage = error.message
+            val errorMessage = e.message
             if (errorMessage != null) mutableInfo.put("cause", errorMessage)
             info = mutableInfo.toMap()
         }
@@ -128,10 +128,10 @@ class AttemptRolloverStep(
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
             return null
-        } catch (error: Exception) {
+        } catch (e: Exception) {
             failed = true
             val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
-            val errorMessage = error.message
+            val errorMessage = e.message
             if (errorMessage != null) mutableInfo.put("cause", errorMessage)
             info = mutableInfo.toMap()
             return null
@@ -145,6 +145,7 @@ class AttemptRolloverStep(
             stepStartTime = getStepStartTime().toEpochMilli(),
             transitionTo = null,
             stepCompleted = stepCompleted,
+            rolledOver = stepCompleted,
             failed = failed,
             info = info
         )

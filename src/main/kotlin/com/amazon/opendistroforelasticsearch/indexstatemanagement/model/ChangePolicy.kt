@@ -55,6 +55,7 @@ data class ChangePolicy(
                 when (fieldName) {
                     POLICY_NAME_FIELD -> policyName = xcp.text()
                     STATE_FIELD -> state = xcp.textOrNull()
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ChangePolicy.")
                 }
             }
 

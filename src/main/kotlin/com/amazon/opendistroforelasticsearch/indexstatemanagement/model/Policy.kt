@@ -42,6 +42,7 @@ data class Policy(
 ) : ToXContentObject {
 
     init {
+        // TODO: Unique valid state names, transitions point to an existing state name
         require(states.isNotEmpty()) { "Policy must contain at least one State" }
         requireNotNull(states.find { it.name == defaultState }) { "Policy must have a valid default state" }
     }

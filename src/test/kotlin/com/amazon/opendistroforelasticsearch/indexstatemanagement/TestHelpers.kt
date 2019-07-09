@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.A
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
@@ -127,6 +128,13 @@ fun randomRolloverActionConfig(
         retry = retry,
         index = 0
     )
+}
+
+fun randomReadOnlyActionConfig(
+    timeout: ActionTimeout = randomActionTimeout(),
+    retry: ActionRetry = randomActionRetry()
+): ReadOnlyActionConfig {
+    return ReadOnlyActionConfig(timeout = timeout, retry = retry, index = 0)
 }
 
 fun randomActionTimeout() = ActionTimeout(randomTimeValueObject())
@@ -259,6 +267,11 @@ fun RolloverActionConfig.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
+fun ReadOnlyActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
 fun ChangePolicy.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
@@ -285,6 +298,15 @@ fun parseRolloverActionWithType(xcp: XContentParser): RolloverActionConfig {
     val rolloverActionConfig = RolloverActionConfig.parse(xcp, 0)
     ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
     return rolloverActionConfig
+}
+
+fun parseReadOnlyActionWithType(xcp: XContentParser): ReadOnlyActionConfig {
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    val readOnlyActionConfig = ReadOnlyActionConfig.parse(xcp, 0)
+    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+    return readOnlyActionConfig
 }
 
 /**

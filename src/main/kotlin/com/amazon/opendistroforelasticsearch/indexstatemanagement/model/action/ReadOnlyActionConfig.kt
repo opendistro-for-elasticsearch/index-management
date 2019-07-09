@@ -16,54 +16,44 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.ReadOnlyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.ToXContentFragment
+import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-abstract class ActionConfig(
-    val type: ActionType,
-    val configTimeout: ActionTimeout?,
-    val configRetry: ActionRetry?,
-    val actionIndex: Int
-) : ToXContentFragment {
+data class ReadOnlyActionConfig(
+    val timeout: ActionTimeout?,
+    val retry: ActionRetry?,
+    val index: Int
+) : ToXContentObject, ActionConfig(ActionType.READ_ONLY, timeout, retry, index) {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        configTimeout?.toXContent(builder, params)
-        configRetry?.toXContent(builder, params)
-        return builder
+        builder.startObject().startObject(ActionType.READ_ONLY.type)
+        super.toXContent(builder, params)
+        return builder.endObject().endObject()
     }
 
-    abstract fun toAction(
+    override fun isFragment(): Boolean = false
+
+    override fun toAction(
         clusterService: ClusterService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
-    ): Action
-
-    enum class ActionType(val type: String) {
-        DELETE("delete"),
-        TRANSITION("transition"),
-        ROLLOVER("rollover"),
-        CLOSE("close"),
-        OPEN("open"),
-        READ_ONLY("read_only");
-
-        override fun toString(): String {
-            return type
-        }
-    }
+    ): Action = ReadOnlyAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, index: Int): ActionConfig {
-            var actionConfig: ActionConfig? = null
+        fun parse(xcp: XContentParser, index: Int): ReadOnlyActionConfig {
+            var timeout: ActionTimeout? = null
+            var retry: ActionRetry? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -71,16 +61,13 @@ abstract class ActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ActionType.DELETE.type -> actionConfig = DeleteActionConfig.parse(xcp, index)
-                    ActionType.ROLLOVER.type -> actionConfig = RolloverActionConfig.parse(xcp, index)
-                    ActionType.OPEN.type -> actionConfig = OpenActionConfig.parse(xcp, index)
-                    ActionType.CLOSE.type -> actionConfig = CloseActionConfig.parse(xcp, index)
-                    ActionType.READ_ONLY.type -> actionConfig = ReadOnlyActionConfig.parse(xcp, index)
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Action.")
+                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
+                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ReadOnlyActionConfig.")
                 }
             }
 
-            return requireNotNull(actionConfig) { "ActionConfig inside state is null" }
+            return ReadOnlyActionConfig(timeout, retry, index)
         }
     }
 }

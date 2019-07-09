@@ -49,7 +49,6 @@ data class DeleteActionConfig(
     ): Action = DeleteAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
-
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): DeleteActionConfig {

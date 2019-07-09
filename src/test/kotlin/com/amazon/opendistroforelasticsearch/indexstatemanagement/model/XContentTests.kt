@@ -18,11 +18,13 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseDeleteActionWithType
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseReadOnlyActionWithType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseRolloverActionWithType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
@@ -88,6 +90,14 @@ class XContentTests : ESTestCase() {
         val rolloverActionConfigString = rolloverActionConfig.toJsonString()
         val parsedRolloverActionConfig = parseRolloverActionWithType(parserWithType(rolloverActionConfigString))
         assertEquals("Round tripping RolloverActionConfig doesn't work", rolloverActionConfig, parsedRolloverActionConfig)
+    }
+
+    fun `test read_only action config parsing`() {
+        val readOnlyActionConfig = randomReadOnlyActionConfig()
+
+        val readOnlyActionConfigString = readOnlyActionConfig.toJsonString()
+        val parsedReadOnlyActionConfig = parseReadOnlyActionWithType(parserWithType(readOnlyActionConfigString))
+        assertEquals("Round tripping ReadOnlyActionConfig doesn't work", readOnlyActionConfig, parsedReadOnlyActionConfig)
     }
 
     fun `test managed index config parsing`() {

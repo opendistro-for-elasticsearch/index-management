@@ -30,7 +30,7 @@ class SetReadWriteStep(
     val client: Client,
     val config: ReadWriteActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step(name, managedIndexMetaData) {
+) : Step("set_read_write", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var failed: Boolean = false
@@ -61,9 +61,5 @@ class SetReadWriteStep(
             failed = failed,
             info = info
         )
-    }
-
-    companion object {
-        const val name = "set_read_write"
     }
 }

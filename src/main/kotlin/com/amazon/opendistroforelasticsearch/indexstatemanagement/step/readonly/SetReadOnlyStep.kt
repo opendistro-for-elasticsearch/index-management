@@ -30,7 +30,7 @@ class SetReadOnlyStep(
     val client: Client,
     val config: ReadOnlyActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step(name, managedIndexMetaData) {
+) : Step("set_read_only", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var failed: Boolean = false
@@ -61,9 +61,5 @@ class SetReadOnlyStep(
             failed = failed,
             info = info
         )
-    }
-
-    companion object {
-        const val name = "set_read_only"
     }
 }

@@ -40,7 +40,7 @@ data class ReadOnlyActionConfig(
         return builder.endObject().endObject()
     }
 
-    override fun isFragment(): Boolean = false
+    override fun isFragment(): Boolean = super<ToXContentObject>.isFragment()
 
     override fun toAction(
         clusterService: ClusterService,

@@ -30,6 +30,7 @@ import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -55,8 +56,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
     protected fun createPolicy(policy: Policy, policyId: String = ESTestCase.randomAlphaOfLength(10), refresh: Boolean = true): Policy {
-        val response = client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId?refresh=$refresh", emptyMap(),
-                policy.toHttpEntity())
+        val response = client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId?refresh=$refresh", emptyMap(), policy.toHttpEntity())
         assertEquals("Unable to create a new policy", RestStatus.CREATED, response.restStatus())
 
         val policyJson = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
@@ -112,6 +112,14 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return index to policyName
     }
 
+    protected fun addPolicyToIndex(
+        index: String,
+        policyName: String
+    ) {
+        val settings = Settings.builder().put(ManagedIndexSettings.POLICY_NAME.key, policyName)
+        updateIndexSettings(index, settings)
+    }
+
     protected fun getManagedIndexConfig(index: String): ManagedIndexConfig? {
         val params = mapOf("version" to "true")
         val request = """
@@ -160,5 +168,17 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         } else {
             super.restClientSettings()
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getIndexState(indexName: String): String {
+        val request = Request("GET", "/_cluster/state")
+        val response = client().performRequest(request)
+
+        val responseMap = response.asMap()
+        val metadata = responseMap["metadata"] as Map<String, Any>
+        val indexMetaData = metadata["indices"] as Map<String, Any>
+        val myIndex = indexMetaData[indexName] as Map<String, Any>
+        return myIndex["state"] as String
     }
 }

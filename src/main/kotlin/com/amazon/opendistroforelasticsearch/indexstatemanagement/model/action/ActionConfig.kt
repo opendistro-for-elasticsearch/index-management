@@ -49,7 +49,9 @@ abstract class ActionConfig(
     enum class ActionType(val type: String) {
         DELETE("delete"),
         TRANSITION("transition"),
-        ROLLOVER("rollover");
+        ROLLOVER("rollover"),
+        CLOSE("close"),
+        OPEN("open");
 
         override fun toString(): String {
             return type
@@ -70,7 +72,9 @@ abstract class ActionConfig(
                 when (fieldName) {
                     ActionType.DELETE.type -> actionConfig = DeleteActionConfig.parse(xcp, index)
                     ActionType.ROLLOVER.type -> actionConfig = RolloverActionConfig.parse(xcp, index)
-                    else -> throw IllegalArgumentException("Invalid field: [fieldName] found in State action.")
+                    ActionType.OPEN.type -> actionConfig = OpenActionConfig.parse(xcp, index)
+                    ActionType.CLOSE.type -> actionConfig = CloseActionConfig.parse(xcp, index)
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Action.")
                 }
             }
 

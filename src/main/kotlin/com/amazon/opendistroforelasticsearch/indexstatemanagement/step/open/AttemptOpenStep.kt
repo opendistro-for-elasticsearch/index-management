@@ -32,7 +32,6 @@ class AttemptOpenStep(
             failed = true
             info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
         }
-        response.isShardsAcknowledged
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {

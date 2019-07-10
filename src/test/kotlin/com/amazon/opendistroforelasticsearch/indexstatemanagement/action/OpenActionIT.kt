@@ -11,28 +11,30 @@ import java.util.Locale
 
 class OpenActionIT : IndexStateManagementRestTestCase() {
 
+    private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
+
     fun `test basic`() {
-        val indexName = "${javaClass.simpleName.toLowerCase(Locale.getDefault())}_index"
-        val policyId = "${javaClass.simpleName.toLowerCase(Locale.getDefault())}_testPolicyName"
+        val indexName = "${testIndexName}_index"
+        val policyID = "${testIndexName}_testPolicyName"
         val actionConfig = OpenActionConfig(null, null, 0)
         val states = listOf(
             State("OpenState", listOf(actionConfig), listOf())
         )
 
-        val policy = Policy(id = policyId,
-            name = "${javaClass.simpleName.toLowerCase(Locale.getDefault())}_testPolicyName",
+        val policy = Policy(id = policyID,
+            name = "${testIndexName}_testPolicyName",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             defaultNotification = randomDefaultNotification(),
             defaultState = states[0].name,
             states = states)
-        createPolicy(policy, policyId)
+        createPolicy(policy, policyID)
         createIndex(indexName, null)
         closeIndex(indexName)
 
         assertEquals("close", getIndexState(indexName))
 
-        addPolicyToIndex(indexName, policyId)
+        addPolicyToIndex(indexName, policyID)
         Thread.sleep(2000)
 
         val managedIndexConfig = getManagedIndexConfig(indexName)

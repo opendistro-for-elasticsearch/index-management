@@ -41,7 +41,7 @@ data class ManagedIndexConfig(
     val jobSchedule: Schedule,
     val jobLastUpdatedTime: Instant,
     val jobEnabledTime: Instant?,
-    val policyName: String,
+    val policyID: String,
     val policySeqNo: Long?,
     val policyPrimaryTerm: Long?,
     val policy: Policy?,
@@ -80,7 +80,7 @@ data class ManagedIndexConfig(
                     .field(SCHEDULE_FIELD, jobSchedule)
                     .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
                     .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
-                    .field(POLICY_NAME_FIELD, policyName)
+                    .field(POLICY_ID_FIELD, policyID)
                     .field(POLICY_SEQ_NO_FIELD, policySeqNo)
                     .field(POLICY_PRIMARY_TERM_FIELD, policyPrimaryTerm)
                     .field(POLICY_FIELD, policy, XCONTENT_WITHOUT_TYPE)
@@ -100,7 +100,7 @@ data class ManagedIndexConfig(
         const val ENABLED_TIME_FIELD = "enabled_time"
         const val INDEX_FIELD = "index"
         const val INDEX_UUID_FIELD = "index_uuid"
-        const val POLICY_NAME_FIELD = "policy_name"
+        const val POLICY_ID_FIELD = "policy_id"
         const val POLICY_FIELD = "policy"
         const val POLICY_SEQ_NO_FIELD = "policy_seq_no"
         const val POLICY_PRIMARY_TERM_FIELD = "policy_primary_term"
@@ -120,7 +120,7 @@ data class ManagedIndexConfig(
             var index: String? = null
             var indexUuid: String? = null
             var schedule: Schedule? = null
-            var policyName: String? = null
+            var policyID: String? = null
             var policy: Policy? = null
             var changePolicy: ChangePolicy? = null
             var lastUpdatedTime: Instant? = null
@@ -142,7 +142,7 @@ data class ManagedIndexConfig(
                     SCHEDULE_FIELD -> schedule = ScheduleParser.parse(xcp)
                     ENABLED_TIME_FIELD -> enabledTime = xcp.instant()
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
-                    POLICY_NAME_FIELD -> policyName = xcp.text()
+                    POLICY_ID_FIELD -> policyID = xcp.text()
                     POLICY_SEQ_NO_FIELD -> {
                         policySeqNo = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
                     }
@@ -175,7 +175,7 @@ data class ManagedIndexConfig(
                 jobSchedule = requireNotNull(schedule) { "ManagedIndexConfig schedule is null" },
                 jobLastUpdatedTime = requireNotNull(lastUpdatedTime) { "ManagedIndexConfig last updated time is null" },
                 jobEnabledTime = enabledTime,
-                policyName = requireNotNull(policyName) { "ManagedIndexConfig policy name is null" },
+                policyID = requireNotNull(policyID) { "ManagedIndexConfig policy id is null" },
                 policySeqNo = policySeqNo,
                 policyPrimaryTerm = policyPrimaryTerm,
                 policy = policy,

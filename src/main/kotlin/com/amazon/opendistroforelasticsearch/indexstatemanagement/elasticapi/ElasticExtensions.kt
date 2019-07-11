@@ -118,59 +118,59 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
 /**
  * Compares current and previous IndexMetaData to determine if we should create [ManagedIndexConfig].
  *
- * If [getPolicyName] returns null then we should not create a [ManagedIndexConfig].
+ * If [getPolicyID] returns null then we should not create a [ManagedIndexConfig].
  * Else if the previous IndexMetaData is null then it means this is a newly created index that should be managed.
- * Else if the previous IndexMetaData's [getPolicyName] is null then this is an existing index that had
- * a policy_name added to it.
+ * Else if the previous IndexMetaData's [getPolicyID] is null then this is an existing index that had
+ * a policy_id added to it.
  *
  * @param previousIndexMetaData the previous [IndexMetaData].
  * @return whether a [ManagedIndexConfig] should be created.
  */
 fun IndexMetaData.shouldCreateManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
-    if (this.getPolicyName() == null) return false
+    if (this.getPolicyID() == null) return false
 
-    return previousIndexMetaData?.getPolicyName() == null
+    return previousIndexMetaData?.getPolicyID() == null
 }
 
 /**
  * Compares current and previous IndexMetaData to determine if we should delete [ManagedIndexConfig].
  *
- * If the previous IndexMetaData is null or its [getPolicyName] returns null then there should
- * be no [ManagedIndexConfig] to delete. Else if the current [getPolicyName] returns null
+ * If the previous IndexMetaData is null or its [getPolicyID] returns null then there should
+ * be no [ManagedIndexConfig] to delete. Else if the current [getPolicyID] returns null
  * then it means we should delete the existing [ManagedIndexConfig].
  *
  * @param previousIndexMetaData the previous [IndexMetaData].
  * @return whether a [ManagedIndexConfig] should be deleted.
  */
 fun IndexMetaData.shouldDeleteManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
-    if (previousIndexMetaData?.getPolicyName() == null) return false
+    if (previousIndexMetaData?.getPolicyID() == null) return false
 
-    return this.getPolicyName() == null
+    return this.getPolicyID() == null
 }
 
 /**
  * Compares current and previous IndexMetaData to determine if we should update [ManagedIndexConfig].
  *
- * If [getPolicyName] returns null, the previous IndexMetaData does not exist, or the previous IndexMetaData's
- * [getPolicyName] returns null then we should not update the [ManagedIndexConfig].
- * Else compare the policy_names and if they are different then we should update.
+ * If [getPolicyID] returns null, the previous IndexMetaData does not exist, or the previous IndexMetaData's
+ * [getPolicyID] returns null then we should not update the [ManagedIndexConfig].
+ * Else compare the policy_ids and if they are different then we should update.
  *
  * @param previousIndexMetaData the previous [IndexMetaData].
  * @return whether a [ManagedIndexConfig] should be updated.
  */
 fun IndexMetaData.shouldUpdateManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
-    if (this.getPolicyName() == null || previousIndexMetaData?.getPolicyName() == null) return false
+    if (this.getPolicyID() == null || previousIndexMetaData?.getPolicyID() == null) return false
 
-    return this.getPolicyName() != previousIndexMetaData.getPolicyName()
+    return this.getPolicyID() != previousIndexMetaData.getPolicyID()
 }
 
 /**
- * Returns the current policy_name if it exists and is valid otherwise returns null.
+ * Returns the current policy_id if it exists and is valid otherwise returns null.
  * */
-fun IndexMetaData.getPolicyName(): String? {
-    if (this.settings.get(ManagedIndexSettings.POLICY_NAME.key).isNullOrBlank()) return null
+fun IndexMetaData.getPolicyID(): String? {
+    if (this.settings.get(ManagedIndexSettings.POLICY_ID.key).isNullOrBlank()) return null
 
-    return this.settings.get(ManagedIndexSettings.POLICY_NAME.key)
+    return this.settings.get(ManagedIndexSettings.POLICY_ID.key)
 }
 
 /**
@@ -185,11 +185,11 @@ fun IndexMetaData.getRolloverAlias(): String? {
 fun IndexMetaData.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexConfig? {
     val index = this.index.name
     val uuid = this.index.uuid
-    val policyName = this.getPolicyName()
+    val policyID = this.getPolicyID()
 
-    if (policyName == null) return null
+    if (policyID == null) return null
 
-    return ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyName = policyName)
+    return ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyID = policyID)
 }
 
 fun IndexMetaData.getManagedIndexMetaData(): ManagedIndexMetaData? {

@@ -32,7 +32,7 @@ data class Policy(
     val id: String = NO_ID,
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
-    val name: String,
+    val description: String,
     val schemaVersion: Long,
     val lastUpdatedTime: Instant,
     // TODO: Implement DefaultNotification(destination, message)
@@ -54,7 +54,7 @@ data class Policy(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(POLICY_TYPE)
-        builder.field(NAME_FIELD, name)
+        builder.field(DESCRIPTION_FIELD, description)
             .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
             .field(SCHEMA_VERSION_FIELD, schemaVersion)
             .field(DEFAULT_NOTIFICATION_FIELD, defaultNotification)
@@ -66,7 +66,7 @@ data class Policy(
 
     companion object {
         const val POLICY_TYPE = "policy"
-        const val NAME_FIELD = "name"
+        const val DESCRIPTION_FIELD = "description"
         const val NO_ID = ""
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
         const val SCHEMA_VERSION_FIELD = "schema_version"
@@ -84,7 +84,7 @@ data class Policy(
             seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
             primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
         ): Policy {
-            var name: String? = null
+            var description: String? = null
             var defaultState: String? = null
             // TODO Implement DefaultNotification(destination, message)
             var defaultNotification: Map<String, Any>? = null
@@ -100,7 +100,7 @@ data class Policy(
                 when (fieldName) {
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.longValue()
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
-                    NAME_FIELD -> name = xcp.text()
+                    DESCRIPTION_FIELD -> description = xcp.text()
                     // TODO: DefaultNotification.parse(xcp)
                     DEFAULT_NOTIFICATION_FIELD -> defaultNotification = null
                     DEFAULT_STATE_FIELD -> defaultState = xcp.text()
@@ -118,11 +118,11 @@ data class Policy(
                 id,
                 seqNo,
                 primaryTerm,
-                requireNotNull(name) { "Policy name is null" },
+                requireNotNull(description) { "$DESCRIPTION_FIELD is null" },
                 schemaVersion,
                 lastUpdatedTime ?: Instant.now(),
                 defaultNotification,
-                requireNotNull(defaultState) { "Default state is null" },
+                requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
                 states.toList()
             )
         }

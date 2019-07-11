@@ -27,8 +27,8 @@ class ManagedIndexSettings {
             Setting.Property.Dynamic
         )
 
-        val POLICY_NAME = Setting.simpleString(
-            "index.opendistro.index_state_management.policy_name",
+        val POLICY_ID = Setting.simpleString(
+            "index.opendistro.index_state_management.policy_id",
             Setting.Property.IndexScope,
             Setting.Property.Dynamic
         )

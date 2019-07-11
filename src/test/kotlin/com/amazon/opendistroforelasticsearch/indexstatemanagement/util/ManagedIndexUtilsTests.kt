@@ -36,8 +36,8 @@ class ManagedIndexUtilsTests : ESTestCase() {
     fun `test create managed index request`() {
         val index = randomAlphaOfLength(10)
         val uuid = randomAlphaOfLength(10)
-        val policyName = randomAlphaOfLength(10)
-        val createRequest = createManagedIndexRequest(index, uuid, policyName)
+        val policyID = randomAlphaOfLength(10)
+        val createRequest = createManagedIndexRequest(index, uuid, policyID)
 
         assertNotNull("IndexRequest not created", createRequest)
         assertEquals("Incorrect ism index used in request", INDEX_STATE_MANAGEMENT_INDEX, createRequest.index())
@@ -48,7 +48,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertEquals("Incorrect index on ManagedIndexConfig source", index, managedIndexConfig.index)
         assertEquals("Incorrect name on ManagedIndexConfig source", index, managedIndexConfig.name)
         assertEquals("Incorrect index uuid on ManagedIndexConfig source", uuid, managedIndexConfig.indexUuid)
-        assertEquals("Incorrect policy_name on ManagedIndexConfig source", policyName, managedIndexConfig.policyName)
+        assertEquals("Incorrect policy_id on ManagedIndexConfig source", policyID, managedIndexConfig.policyID)
     }
 
     fun `test delete managed index request`() {
@@ -64,8 +64,8 @@ class ManagedIndexUtilsTests : ESTestCase() {
     fun `test update managed index request`() {
         val index = randomAlphaOfLength(10)
         val uuid = randomAlphaOfLength(10)
-        val policyName = randomAlphaOfLength(10)
-        val clusterStateManagedIndexConfig = ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyName = policyName)
+        val policyID = randomAlphaOfLength(10)
+        val clusterStateManagedIndexConfig = ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyID = policyID)
         val updateRequest = updateManagedIndexRequest(clusterStateManagedIndexConfig)
 
         assertNotNull("UpdateRequest not created", updateRequest)
@@ -73,27 +73,27 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertEquals("Incorrect uuid used as document id on request", uuid, updateRequest.id())
 
         val source = updateRequest.doc().sourceAsMap()
-        assertEquals("Incorrect policy_name added to change_policy", clusterStateManagedIndexConfig.policyName,
-                ((source["managed_index"] as Map<String, Any>)["change_policy"] as Map<String, String>)["policy_name"])
+        assertEquals("Incorrect policy_id added to change_policy", clusterStateManagedIndexConfig.policyID,
+                ((source["managed_index"] as Map<String, Any>)["change_policy"] as Map<String, String>)["policy_id"])
     }
 
     fun `test get create managed index requests`() {
-        val sweptConfigToDelete = randomSweptManagedIndexConfig(policyName = "delete_me")
+        val sweptConfigToDelete = randomSweptManagedIndexConfig(policyID = "delete_me")
 
-        val clusterConfigToCreate = randomClusterStateManagedIndexConfig(policyName = "some_policy")
+        val clusterConfigToCreate = randomClusterStateManagedIndexConfig(policyID = "some_policy")
 
-        val clusterConfigToUpdate = randomClusterStateManagedIndexConfig(policyName = "update_me")
+        val clusterConfigToUpdate = randomClusterStateManagedIndexConfig(policyID = "update_me")
         val sweptConfigToBeUpdated = randomSweptManagedIndexConfig(index = clusterConfigToUpdate.index,
-                uuid = clusterConfigToUpdate.uuid, policyName = "to_something_new", seqNo = 5, primaryTerm = 17)
+                uuid = clusterConfigToUpdate.uuid, policyID = "to_something_new", seqNo = 5, primaryTerm = 17)
 
-        val clusterConfigBeingUpdated = randomClusterStateManagedIndexConfig(policyName = "updating")
+        val clusterConfigBeingUpdated = randomClusterStateManagedIndexConfig(policyID = "updating")
         val sweptConfigBeingUpdated = randomSweptManagedIndexConfig(index = clusterConfigBeingUpdated.index,
-                uuid = clusterConfigBeingUpdated.uuid, policyName = "to_something_new", seqNo = 5, primaryTerm = 17,
+                uuid = clusterConfigBeingUpdated.uuid, policyID = "to_something_new", seqNo = 5, primaryTerm = 17,
                 changePolicy = randomChangePolicy("updating"))
 
-        val clusterConfig = randomClusterStateManagedIndexConfig(policyName = "do_nothing")
+        val clusterConfig = randomClusterStateManagedIndexConfig(policyID = "do_nothing")
         val sweptConfig = randomSweptManagedIndexConfig(index = clusterConfig.index,
-                uuid = clusterConfig.uuid, policyName = clusterConfig.policyName, seqNo = 5, primaryTerm = 17)
+                uuid = clusterConfig.uuid, policyID = clusterConfig.policyID, seqNo = 5, primaryTerm = 17)
 
         val requests = getCreateManagedIndexRequests(
             mapOf(
@@ -120,26 +120,26 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertEquals("Incorrect index on ManagedIndexConfig source", clusterConfigToCreate.index, managedIndexConfig.index)
         assertEquals("Incorrect name on ManagedIndexConfig source", clusterConfigToCreate.index, managedIndexConfig.name)
         assertEquals("Incorrect index uuid on ManagedIndexConfig source", clusterConfigToCreate.uuid, managedIndexConfig.indexUuid)
-        assertEquals("Incorrect policy_name on ManagedIndexConfig source", clusterConfigToCreate.policyName, managedIndexConfig.policyName)
+        assertEquals("Incorrect policy_id on ManagedIndexConfig source", clusterConfigToCreate.policyID, managedIndexConfig.policyID)
     }
 
     fun `test get delete managed index requests`() {
-        val sweptConfigToDelete = randomSweptManagedIndexConfig(policyName = "delete_me")
+        val sweptConfigToDelete = randomSweptManagedIndexConfig(policyID = "delete_me")
 
-        val clusterConfigToCreate = randomClusterStateManagedIndexConfig(policyName = "some_policy")
+        val clusterConfigToCreate = randomClusterStateManagedIndexConfig(policyID = "some_policy")
 
-        val clusterConfigToUpdate = randomClusterStateManagedIndexConfig(policyName = "update_me")
+        val clusterConfigToUpdate = randomClusterStateManagedIndexConfig(policyID = "update_me")
         val sweptConfigToBeUpdated = randomSweptManagedIndexConfig(index = clusterConfigToUpdate.index,
-                uuid = clusterConfigToUpdate.uuid, policyName = "to_something_new", seqNo = 5, primaryTerm = 17)
+                uuid = clusterConfigToUpdate.uuid, policyID = "to_something_new", seqNo = 5, primaryTerm = 17)
 
-        val clusterConfigBeingUpdated = randomClusterStateManagedIndexConfig(policyName = "updating")
+        val clusterConfigBeingUpdated = randomClusterStateManagedIndexConfig(policyID = "updating")
         val sweptConfigBeingUpdated = randomSweptManagedIndexConfig(index = clusterConfigBeingUpdated.index,
-                uuid = clusterConfigBeingUpdated.uuid, policyName = "to_something_new", seqNo = 5, primaryTerm = 17,
+                uuid = clusterConfigBeingUpdated.uuid, policyID = "to_something_new", seqNo = 5, primaryTerm = 17,
                 changePolicy = randomChangePolicy("updating"))
 
-        val clusterConfig = randomClusterStateManagedIndexConfig(policyName = "do_nothing")
+        val clusterConfig = randomClusterStateManagedIndexConfig(policyID = "do_nothing")
         val sweptConfig = randomSweptManagedIndexConfig(index = clusterConfig.index,
-                uuid = clusterConfig.uuid, policyName = clusterConfig.policyName, seqNo = 5, primaryTerm = 17)
+                uuid = clusterConfig.uuid, policyID = clusterConfig.policyID, seqNo = 5, primaryTerm = 17)
 
         val requests = getDeleteManagedIndexRequests(
             mapOf(
@@ -164,22 +164,22 @@ class ManagedIndexUtilsTests : ESTestCase() {
 
     @Suppress("UNCHECKED_CAST")
     fun `test get update managed index requests`() {
-        val sweptConfigToDelete = randomSweptManagedIndexConfig(policyName = "delete_me")
+        val sweptConfigToDelete = randomSweptManagedIndexConfig(policyID = "delete_me")
 
-        val clusterConfigToCreate = randomClusterStateManagedIndexConfig(policyName = "some_policy")
+        val clusterConfigToCreate = randomClusterStateManagedIndexConfig(policyID = "some_policy")
 
-        val clusterConfigToUpdate = randomClusterStateManagedIndexConfig(policyName = "update_me")
+        val clusterConfigToUpdate = randomClusterStateManagedIndexConfig(policyID = "update_me")
         val sweptConfigToBeUpdated = randomSweptManagedIndexConfig(index = clusterConfigToUpdate.index,
-                uuid = clusterConfigToUpdate.uuid, policyName = "to_something_new", seqNo = 5, primaryTerm = 17)
+                uuid = clusterConfigToUpdate.uuid, policyID = "to_something_new", seqNo = 5, primaryTerm = 17)
 
-        val clusterConfigBeingUpdated = randomClusterStateManagedIndexConfig(policyName = "updating")
+        val clusterConfigBeingUpdated = randomClusterStateManagedIndexConfig(policyID = "updating")
         val sweptConfigBeingUpdated = randomSweptManagedIndexConfig(index = clusterConfigBeingUpdated.index,
-                uuid = clusterConfigBeingUpdated.uuid, policyName = "to_something_new", seqNo = 5, primaryTerm = 17,
+                uuid = clusterConfigBeingUpdated.uuid, policyID = "to_something_new", seqNo = 5, primaryTerm = 17,
                 changePolicy = randomChangePolicy("updating"))
 
-        val clusterConfig = randomClusterStateManagedIndexConfig(policyName = "do_nothing")
+        val clusterConfig = randomClusterStateManagedIndexConfig(policyID = "do_nothing")
         val sweptConfig = randomSweptManagedIndexConfig(index = clusterConfig.index,
-                uuid = clusterConfig.uuid, policyName = clusterConfig.policyName, seqNo = 5, primaryTerm = 17)
+                uuid = clusterConfig.uuid, policyID = clusterConfig.policyID, seqNo = 5, primaryTerm = 17)
 
         val requests = getUpdateManagedIndexRequests(
             mapOf(
@@ -201,8 +201,8 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertEquals("Incorrect uuid used as document id on request", clusterConfigToUpdate.uuid, request.id())
         assertTrue("Incorrect request type", request is UpdateRequest)
         val source = (request as UpdateRequest).doc().sourceAsMap()
-        assertEquals("Incorrect policy_name added to change_policy", clusterConfigToUpdate.policyName,
-                ((source["managed_index"] as Map<String, Any>)["change_policy"] as Map<String, String>)["policy_name"])
+        assertEquals("Incorrect policy_id added to change_policy", clusterConfigToUpdate.policyID,
+                ((source["managed_index"] as Map<String, Any>)["change_policy"] as Map<String, String>)["policy_id"])
     }
 
     fun `test get swept managed index search request`() {

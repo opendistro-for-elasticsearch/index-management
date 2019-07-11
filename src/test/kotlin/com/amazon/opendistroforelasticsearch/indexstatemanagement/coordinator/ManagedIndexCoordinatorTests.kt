@@ -142,11 +142,11 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
                 .build()
 
         val results = coordinator.sweepClusterState(clusterState)
-        assertTrue("Missed index with policy_name: first_policy", results.values.any { it.index == "index-with-policy" })
-        assertTrue("Missed index with policy_name: second_policy", results.values.any { it.index == "index-with-policy-two" })
-        assertFalse("Swept index with null policy_name", results.values.any { it.index == "index-with-null-policy" })
-        assertFalse("Swept index with empty policy_name", results.values.any { it.index == "index-with-empty-policy" })
-        assertFalse("Swept index with blank policy_name", results.values.any { it.index == "index-with-blank-policy" })
+        assertTrue("Missed index with policy_id: first_policy", results.values.any { it.index == "index-with-policy" })
+        assertTrue("Missed index with policy_id: second_policy", results.values.any { it.index == "index-with-policy-two" })
+        assertFalse("Swept index with null policy_id", results.values.any { it.index == "index-with-null-policy" })
+        assertFalse("Swept index with empty policy_id", results.values.any { it.index == "index-with-empty-policy" })
+        assertFalse("Swept index with blank policy_id", results.values.any { it.index == "index-with-blank-policy" })
     }
 
     fun `test sweep`() {
@@ -157,10 +157,10 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         }
     }
 
-    private fun createIndexMetaData(indexName: String, replicaNumber: Int, shardNumber: Int, policyName: String?): IndexMetaData.Builder {
+    private fun createIndexMetaData(indexName: String, replicaNumber: Int, shardNumber: Int, policyID: String?): IndexMetaData.Builder {
         val defaultSettings = Settings.builder()
                 .put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT)
-                .put(ManagedIndexSettings.POLICY_NAME.key, policyName)
+                .put(ManagedIndexSettings.POLICY_ID.key, policyID)
                 .put(SETTING_INDEX_UUID, randomAlphaOfLength(20))
                 .build()
         return IndexMetaData.Builder(indexName)

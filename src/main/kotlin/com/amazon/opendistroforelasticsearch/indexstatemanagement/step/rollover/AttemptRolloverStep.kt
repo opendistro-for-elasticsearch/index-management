@@ -19,6 +19,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.get
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.evaluateConditions
 import org.apache.logging.log4j.LogManager
@@ -141,12 +143,10 @@ class AttemptRolloverStep(
     // TODO: retries, stepStartTime not resetting when same step
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            step = name,
-            stepStartTime = getStepStartTime().toEpochMilli(),
-            transitionTo = null,
-            stepCompleted = stepCompleted,
-            rolledOver = stepCompleted,
-            failed = failed,
+            // TODO only update stepStartTime when first try of step and not retries
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            // TODO properly attempt retry and update RetryInfo.
+            retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info
         )
     }

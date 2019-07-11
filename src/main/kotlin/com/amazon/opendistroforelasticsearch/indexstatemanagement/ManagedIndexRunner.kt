@@ -25,6 +25,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.sus
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.createManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getActionToExecute
@@ -166,7 +168,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         // If policy does not currently exist, we need to save the policy on the ManagedIndexConfig for the first time
         if (policy == null) {
             // Get the policy by the name unless a ChangePolicy exists then allow the change to happen during initialization
-            policy = getPolicy(managedIndexConfig.changePolicy?.policyName ?: managedIndexConfig.policyName)
+            policy = getPolicy(managedIndexConfig.changePolicy?.policyID ?: managedIndexConfig.policyID)
             // Attempt to save the policy
             if (policy != null) {
                 val saved = savePolicyToManagedIndexConfig(managedIndexConfig, policy)
@@ -186,8 +188,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
     }
 
-    private suspend fun getPolicy(policyName: String): Policy? {
-        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyName)
+    private suspend fun getPolicy(policyID: String): Policy? {
+        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyID)
         val getResponse: GetResponse = client.suspendUntil { get(getRequest, it) }
         if (!getResponse.isExists || getResponse.isSourceEmpty) {
             return null
@@ -204,7 +206,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun savePolicyToManagedIndexConfig(managedIndexConfig: ManagedIndexConfig, policy: Policy): Boolean {
-        val updatedManagedIndexConfig = managedIndexConfig.copy(policyName = policy.id, policy = policy,
+        val updatedManagedIndexConfig = managedIndexConfig.copy(policyID = policy.id, policy = policy,
                 policySeqNo = policy.seqNo, policyPrimaryTerm = policy.primaryTerm, changePolicy = null)
         val indexRequest = createManagedIndexRequest(updatedManagedIndexConfig)
         var savedPolicy = false
@@ -220,26 +222,26 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     private suspend fun initializeManagedIndexMetaData(managedIndexConfig: ManagedIndexConfig, policy: Policy?) {
+        val stateMetaData = if (policy?.defaultState != null) {
+            StateMetaData(policy.defaultState, Instant.now().toEpochMilli())
+        } else {
+            null
+        }
         val managedIndexMetaData = ManagedIndexMetaData(
             index = managedIndexConfig.index,
             indexUuid = managedIndexConfig.indexUuid,
-            policyName = managedIndexConfig.policyName,
+            policyID = managedIndexConfig.policyID,
             policySeqNo = policy?.seqNo,
             policyPrimaryTerm = policy?.primaryTerm,
-            state = policy?.defaultState,
-            stateStartTime = if (policy != null) Instant.now().toEpochMilli() else null,
-            transitionTo = null,
-            actionIndex = null,
-            action = null,
-            actionStartTime = null,
-            step = null,
-            stepStartTime = null,
-            stepCompleted = null,
-            failed = policy == null,
             policyCompleted = false,
             rolledOver = false,
-            info = if (policy == null) mapOf("message" to "Could not load policy: ${managedIndexConfig.policyName}") else null,
-            consumedRetries = null
+            transitionTo = null,
+            stateMetaData = stateMetaData,
+            actionMetaData = null,
+            stepMetaData = null,
+            // TODO fix retryInfo when we implement retry logic.
+            retryInfo = RetryInfoMetaData(failed = policy == null, consumedRetries = 0),
+            info = if (policy == null) mapOf("message" to "Could not load policy: ${managedIndexConfig.policyID}") else null
         )
 
         updateManagedIndexMetaData(managedIndexMetaData)

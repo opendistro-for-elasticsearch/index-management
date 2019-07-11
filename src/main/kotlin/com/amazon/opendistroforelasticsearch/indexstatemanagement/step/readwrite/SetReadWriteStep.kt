@@ -18,6 +18,8 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readwrit
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
@@ -58,18 +60,17 @@ class SetReadWriteStep(
             failed = true
             val mutableInfo = mutableMapOf("message" to "Failed to set index to read-write")
             val errorMessage = e.message
-            if (errorMessage != null) mutableInfo.put("cause", errorMessage)
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
         }
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            step = name,
-            stepStartTime = getStepStartTime().toEpochMilli(),
-            transitionTo = null,
-            stepCompleted = !failed,
-            failed = failed,
+            // TODO only update stepStartTime when first try of step and not retries
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            // TODO properly attempt retry and update RetryInfo.
+            retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info
         )
     }

@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readwrite.SetReadWriteStep
@@ -28,7 +28,7 @@ class ReadWriteAction(
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
     config: ReadWriteActionConfig
-) : Action(ActionConfig.ActionType.READ_WRITE, config, managedIndexMetaData) {
+) : Action(ActionType.READ_WRITE, config, managedIndexMetaData) {
 
     private val setReadWriteStep = SetReadWriteStep(clusterService, client, config, managedIndexMetaData)
     private val steps = listOf(setReadWriteStep)

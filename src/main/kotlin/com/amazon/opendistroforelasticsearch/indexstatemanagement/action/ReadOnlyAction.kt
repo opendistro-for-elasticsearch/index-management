@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readonly.SetReadOnlyStep
@@ -28,7 +28,7 @@ class ReadOnlyAction(
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
     config: ReadOnlyActionConfig
-) : Action(ActionConfig.ActionType.READ_ONLY, config, managedIndexMetaData) {
+) : Action(ActionType.READ_ONLY, config, managedIndexMetaData) {
 
     private val setReadOnlyStep = SetReadOnlyStep(clusterService, client, config, managedIndexMetaData)
     private val steps = listOf(setReadOnlyStep)

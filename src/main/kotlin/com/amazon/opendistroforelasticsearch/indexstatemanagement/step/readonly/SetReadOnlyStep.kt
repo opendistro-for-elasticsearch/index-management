@@ -39,17 +39,27 @@ class SetReadOnlyStep(
 
     // TODO: Incorporate retries from config and consumed retries from metadata
     override suspend fun execute() {
-        val updateSettingsRequest = UpdateSettingsRequest()
-            .indices(managedIndexMetaData.index)
-            .settings(
-                Settings.builder().put("index.blocks.write", true)
-            )
-        val response: AcknowledgedResponse = client.admin().indices()
-            .suspendUntil { updateSettings(updateSettingsRequest, it) }
+        try {
+            val updateSettingsRequest = UpdateSettingsRequest()
+                .indices(managedIndexMetaData.index)
+                .settings(
+                    Settings.builder().put("index.blocks.write", true)
+                )
+            val response: AcknowledgedResponse = client.admin().indices()
+                .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
-        if (!response.isAcknowledged) {
+            if (response.isAcknowledged) {
+                info = mapOf("message" to "Set index to read-only")
+            } else {
+                failed = true
+                info = mapOf("message" to "Failed to set index to read-only")
+            }
+        } catch (e: Exception) {
             failed = true
-            info = mapOf("message" to "Failed to set index to read-only")
+            val mutableInfo = mutableMapOf("message" to "Failed to set index to read-only")
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo.put("cause", errorMessage)
+            info = mutableInfo.toMap()
         }
     }
 

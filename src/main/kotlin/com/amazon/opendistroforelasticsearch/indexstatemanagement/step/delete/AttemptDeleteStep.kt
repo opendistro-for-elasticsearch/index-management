@@ -24,6 +24,7 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import java.lang.Exception
 
 class AttemptDeleteStep(
     val clusterService: ClusterService,
@@ -39,11 +40,22 @@ class AttemptDeleteStep(
     // TODO: Incorporate retries from config and consumed retries from metadata
     // TODO: Needs to return execute status after finishing, i.e. succeeded, noop, failed, failed info to update metadata
     override suspend fun execute() {
-        val response: AcknowledgedResponse = client.admin().indices()
+        try {
+            val response: AcknowledgedResponse = client.admin().indices()
                 .suspendUntil { delete(DeleteIndexRequest(managedIndexMetaData.index), it) }
-        if (!response.isAcknowledged) {
+
+            if (response.isAcknowledged) {
+                info = mapOf("message" to "Deleted index")
+            } else {
+                failed = true
+                info = mapOf("message" to "Failed to delete index")
+            }
+        } catch (e: Exception) {
             failed = true
-            info = mapOf("message" to "Failed to delete index")
+            val mutableInfo = mutableMapOf("message" to "Failed to delete index")
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo.put("cause", errorMessage)
+            info = mutableInfo.toMap()
         }
     }
 

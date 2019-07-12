@@ -39,17 +39,27 @@ class SetReadWriteStep(
 
     // TODO: Incorporate retries from config and consumed retries from metadata
     override suspend fun execute() {
-        val updateSettingsRequest = UpdateSettingsRequest()
-            .indices(managedIndexMetaData.index)
-            .settings(
-                Settings.builder().put("index.blocks.write", false)
-            )
-        val response: AcknowledgedResponse = client.admin().indices()
-            .suspendUntil { updateSettings(updateSettingsRequest, it) }
+        try {
+            val updateSettingsRequest = UpdateSettingsRequest()
+                .indices(managedIndexMetaData.index)
+                .settings(
+                    Settings.builder().put("index.blocks.write", false)
+                )
+            val response: AcknowledgedResponse = client.admin().indices()
+                .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
-        if (!response.isAcknowledged) {
+            if (response.isAcknowledged) {
+                info = mapOf("message" to "Set index to read-write")
+            } else {
+                failed = true
+                info = mapOf("message" to "Failed to set index to read-write")
+            }
+        } catch (e: Exception) {
             failed = true
-            info = mapOf("message" to "Failed to set index to read-write")
+            val mutableInfo = mutableMapOf("message" to "Failed to set index to read-write")
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo.put("cause", errorMessage)
+            info = mutableInfo.toMap()
         }
     }
 

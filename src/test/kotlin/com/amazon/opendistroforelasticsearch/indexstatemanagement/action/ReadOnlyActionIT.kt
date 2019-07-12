@@ -64,7 +64,6 @@ class ReadOnlyActionIT : IndexStateManagementRestTestCase() {
 
         Thread.sleep(3000)
 
-        val indexSettings = getIndexSettings(indexName)
         assertEquals("true", getIndexBlocksWriteSetting(indexName))
     }
 }

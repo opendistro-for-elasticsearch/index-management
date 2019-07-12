@@ -55,15 +55,33 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
     fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
-    protected fun createPolicy(policy: Policy, policyId: String = ESTestCase.randomAlphaOfLength(10), refresh: Boolean = true): Policy {
-        val response = client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId?refresh=$refresh", emptyMap(), policy.toHttpEntity())
+    protected fun createPolicy(
+        policy: Policy,
+        policyId: String = ESTestCase.randomAlphaOfLength(10),
+        refresh: Boolean = true
+    ): Policy {
+        val response = client()
+            .makeRequest(
+                "PUT",
+                "$POLICY_BASE_URI/$policyId?refresh=$refresh",
+                emptyMap(),
+                policy.toHttpEntity()
+            )
         assertEquals("Unable to create a new policy", RestStatus.CREATED, response.restStatus())
 
-        val policyJson = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE,
-                response.entity.content).map()
+        val policyJson = JsonXContent.jsonXContent
+            .createParser(
+                NamedXContentRegistry.EMPTY,
+                LoggingDeprecationHandler.INSTANCE,
+                response.entity.content
+            ).map()
         val createdId = policyJson["_id"] as String
         assertEquals("policy ids are not the same", policyId, createdId)
-        return policy.copy(id = createdId, seqNo = (policyJson["_seq_no"] as Int).toLong(), primaryTerm = (policyJson["_primary_term"] as Int).toLong())
+        return policy.copy(
+            id = createdId,
+            seqNo = (policyJson["_seq_no"] as Int).toLong(),
+            primaryTerm = (policyJson["_primary_term"] as Int).toLong()
+        )
     }
 
     protected fun createRandomPolicy(refresh: Boolean = false): Policy {
@@ -72,7 +90,10 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return getPolicy(policyId = policyId)
     }
 
-    protected fun getPolicy(policyId: String, header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")): Policy {
+    protected fun getPolicy(
+        policyId: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): Policy {
         val response = client().makeRequest("GET", "$POLICY_BASE_URI/$policyId", null, header)
         assertEquals("Unable to get policy $policyId", RestStatus.OK, response.restStatus())
 
@@ -180,5 +201,11 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val indexMetaData = metadata["indices"] as Map<String, Any>
         val myIndex = indexMetaData[indexName] as Map<String, Any>
         return myIndex["state"] as String
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getIndexBlocksWriteSetting(indexName: String): String {
+        val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
+        return indexSettings[indexName]!!["settings"]!!["index.blocks.write"] as String
     }
 }

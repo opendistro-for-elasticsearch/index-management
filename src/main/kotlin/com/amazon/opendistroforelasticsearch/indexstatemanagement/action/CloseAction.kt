@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.CloseActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.close.AttemptCloseStep
@@ -13,7 +13,7 @@ class CloseAction(
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
     config: CloseActionConfig
-) : Action(ActionConfig.ActionType.CLOSE, config, managedIndexMetaData) {
+) : Action(ActionType.CLOSE, config, managedIndexMetaData) {
 
     private val attemptCloseStep = AttemptCloseStep(clusterService, client, config, managedIndexMetaData)
 

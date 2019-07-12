@@ -18,22 +18,22 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.CloseActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDefaultNotification
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-class CloseActionIT : IndexStateManagementRestTestCase() {
+class ReadOnlyActionIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    fun `test basic`() {
+    fun `test basic workflow`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
-        val actionConfig = CloseActionConfig(null, null, 0)
+        val actionConfig = ReadOnlyActionConfig(null, null, 0)
         val states = listOf(
-            State("CloseState", listOf(actionConfig), listOf())
+            State("ReadOnlyState", listOf(actionConfig), listOf())
         )
 
         val policy = Policy(
@@ -45,12 +45,10 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
             defaultState = states[0].name,
             states = states
         )
+
         createPolicy(policy, policyID)
-        createIndex(indexName, null)
+        createIndex(indexName, policyID)
 
-        assertEquals("open", getIndexState(indexName))
-
-        addPolicyToIndex(indexName, policyID)
         Thread.sleep(2000)
 
         val managedIndexConfig = getManagedIndexConfig(indexName)
@@ -66,6 +64,7 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
 
         Thread.sleep(3000)
 
-        assertEquals("close", getIndexState(indexName))
+        val indexSettings = getIndexSettings(indexName)
+        assertEquals("true", getIndexBlocksWriteSetting(indexName))
     }
 }

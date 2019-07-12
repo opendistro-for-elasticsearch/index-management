@@ -13,46 +13,50 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readonly
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
-import java.lang.Exception
+import org.elasticsearch.common.settings.Settings
 
-class AttemptDeleteStep(
+class SetReadOnlyStep(
     val clusterService: ClusterService,
     val client: Client,
-    val config: DeleteActionConfig,
+    val config: ReadOnlyActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step(name, managedIndexMetaData) {
+) : Step("set_read_only", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var failed: Boolean = false
     private var info: Map<String, Any>? = null
 
     // TODO: Incorporate retries from config and consumed retries from metadata
-    // TODO: Needs to return execute status after finishing, i.e. succeeded, noop, failed, failed info to update metadata
     override suspend fun execute() {
         try {
+            val updateSettingsRequest = UpdateSettingsRequest()
+                .indices(managedIndexMetaData.index)
+                .settings(
+                    Settings.builder().put("index.blocks.write", true)
+                )
             val response: AcknowledgedResponse = client.admin().indices()
-                .suspendUntil { delete(DeleteIndexRequest(managedIndexMetaData.index), it) }
+                .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
             if (response.isAcknowledged) {
-                info = mapOf("message" to "Deleted index")
+                info = mapOf("message" to "Set index to read-only")
             } else {
                 failed = true
-                info = mapOf("message" to "Failed to delete index")
+                info = mapOf("message" to "Failed to set index to read-only")
             }
         } catch (e: Exception) {
             failed = true
-            val mutableInfo = mutableMapOf("message" to "Failed to delete index")
+            val mutableInfo = mutableMapOf("message" to "Failed to set index to read-only")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo.put("cause", errorMessage)
             info = mutableInfo.toMap()
@@ -62,17 +66,11 @@ class AttemptDeleteStep(
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
             step = name,
-            // TODO only update stepStartTime when first try of step and not retries
-            // Will update when retry logic is added
             stepStartTime = getStepStartTime().toEpochMilli(),
             transitionTo = null,
             stepCompleted = !failed,
             failed = failed,
             info = info
         )
-    }
-
-    companion object {
-        const val name = "attempt_delete"
     }
 }

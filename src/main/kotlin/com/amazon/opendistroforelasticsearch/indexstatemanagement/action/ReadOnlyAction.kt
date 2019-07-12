@@ -17,25 +17,25 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete.AttemptDeleteStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readonly.SetReadOnlyStep
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
-class DeleteAction(
+class ReadOnlyAction(
     clusterService: ClusterService,
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
-    config: DeleteActionConfig
-) : Action(ActionType.DELETE, config, managedIndexMetaData) {
+    config: ReadOnlyActionConfig
+) : Action(ActionType.READ_ONLY, config, managedIndexMetaData) {
 
-    private val attemptDeleteStep = AttemptDeleteStep(clusterService, client, config, managedIndexMetaData)
-    private val steps = listOf(attemptDeleteStep)
+    private val setReadOnlyStep = SetReadOnlyStep(clusterService, client, config, managedIndexMetaData)
+    private val steps = listOf(setReadOnlyStep)
 
     override fun getSteps(): List<Step> = steps
 
     override fun getStepToExecute(): Step {
-        return attemptDeleteStep
+        return setReadOnlyStep
     }
 }

@@ -18,8 +18,7 @@ class AttemptOpenStep(
 ) : Step("attempt_open", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
-
-    var failed = false
+    private var failed = false
     private var info: Map<String, Any>? = null
 
     override suspend fun execute() {

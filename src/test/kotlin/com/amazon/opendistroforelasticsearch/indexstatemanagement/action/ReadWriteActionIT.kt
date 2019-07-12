@@ -18,22 +18,23 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.CloseActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDefaultNotification
+import org.elasticsearch.common.settings.Settings
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-class CloseActionIT : IndexStateManagementRestTestCase() {
+class ReadWriteActionIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    fun `test basic`() {
+    fun `test basic workflow`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
-        val actionConfig = CloseActionConfig(null, null, 0)
+        val actionConfig = ReadWriteActionConfig(null, null, 0)
         val states = listOf(
-            State("CloseState", listOf(actionConfig), listOf())
+            State("ReadWriteState", listOf(actionConfig), listOf())
         )
 
         val policy = Policy(
@@ -45,10 +46,16 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
             defaultState = states[0].name,
             states = states
         )
+
         createPolicy(policy, policyID)
         createIndex(indexName, null)
+        // Set index to read-only
+        updateIndexSettings(
+            indexName,
+            Settings.builder().put("index.blocks.write", true)
+        )
 
-        assertEquals("open", getIndexState(indexName))
+        assertEquals("true", getIndexBlocksWriteSetting(indexName))
 
         addPolicyToIndex(indexName, policyID)
         Thread.sleep(2000)
@@ -66,6 +73,6 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
 
         Thread.sleep(3000)
 
-        assertEquals("close", getIndexState(indexName))
+        assertEquals("false", getIndexBlocksWriteSetting(indexName))
     }
 }

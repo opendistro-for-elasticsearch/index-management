@@ -24,6 +24,7 @@ import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 
 class SetReadOnlyStep(
     val clusterService: ClusterService,
@@ -41,7 +42,7 @@ class SetReadOnlyStep(
         val updateSettingsRequest = UpdateSettingsRequest()
             .indices(managedIndexMetaData.index)
             .settings(
-                mapOf("index.blocks.write" to true)
+                Settings.builder().put("index.blocks.write", true)
             )
         val response: AcknowledgedResponse = client.admin().indices()
             .suspendUntil { updateSettings(updateSettingsRequest, it) }

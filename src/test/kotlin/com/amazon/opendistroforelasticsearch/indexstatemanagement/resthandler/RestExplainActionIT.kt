@@ -37,9 +37,9 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     fun `test missing indices`() {
         try {
             client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
-            fail("Expected a failure.")
+            fail("Expected a failure")
         } catch (e: ResponseException) {
-            assertEquals("Unexpected RestStatus.", RestStatus.BAD_REQUEST, e.response.restStatus())
+            assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()
             val expectedErrorMessage = mapOf(
                 "error" to mapOf(
@@ -57,7 +57,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     fun `test single index`() {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/movies")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             "movies" to mapOf<String, String?>(
                 "index.opendistro.index_state_management.policy_name" to null
@@ -69,7 +69,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     fun `test index pattern`() {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/movies*")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             "movies" to mapOf<String, String?>(
                 "index.opendistro.index_state_management.policy_name" to null
@@ -100,7 +100,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         Thread.sleep(3000)
 
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
 
         val actual = response.asMap()
 
@@ -133,7 +133,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         Thread.sleep(3000)
 
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
 
         val expectedInfoString = mapOf("message" to "Could not load policy: $policyName").toString()
         val actual = response.asMap()
@@ -151,7 +151,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     @Suppress("UNCHECKED_CAST") // Do assertion of the response map here so we don't have many places to do suppression.
     private fun assertResponseMap(expected: Map<String, Map<String, Any?>>, actual: Map<String, Any>) {
         actual as Map<String, Map<String, String?>>
-        assertEquals("Explain Map does not match.", expected.size, actual.size)
+        assertEquals("Explain Map does not match", expected.size, actual.size)
         for (metaDataEntry in expected) {
             assertMetaDataEntries(metaDataEntry.value, actual[metaDataEntry.key]!!)
         }
@@ -160,7 +160,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     private fun assertMetaDataEntries(expected: Map<String, Any?>, actual: Map<String, String?>) {
         assertEquals("MetaDataSize are not the same", expected.size, actual.size)
         for (entry in expected) {
-            assertEquals("Expected and actual values does not match.", entry.value, actual[entry.key])
+            assertEquals("Expected and actual values does not match", entry.value, actual[entry.key])
         }
     }
 

@@ -17,9 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestAddPolicyAction.Companion.FAILED_INDICES
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestAddPolicyAction.Companion.FAILURES
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestAddPolicyAction.Companion.UPDATED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.elasticsearch.client.ResponseException
@@ -103,6 +103,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
     fun `test index list`() {
         val indexOne = "movies_1"
         val indexTwo = "movies_2"
+
         createIndex(indexOne, null)
         createIndex(indexTwo, "somePolicy")
 
@@ -139,6 +140,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
         val indexOne = "movies_1"
         val indexTwo = "movies_2"
         val indexThree = "movies_3"
+
         createIndex(indexOne, null)
         createIndex(indexTwo, "somePolicy")
         createIndex(indexThree, null)

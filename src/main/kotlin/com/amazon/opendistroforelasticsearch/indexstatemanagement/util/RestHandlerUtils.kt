@@ -18,6 +18,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentBuilder
 
 const val _DOC = "_doc"
 const val _ID = "_id"
@@ -30,3 +31,26 @@ const val REFRESH = "refresh"
 
 const val WITH_TYPE = "with_type"
 val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
+
+const val FAILURES = "failures"
+const val FAILED_INDICES = "failed_indices"
+const val UPDATED_INDICES = "updated_indices"
+
+fun buildInvalidIndexResponse(builder: XContentBuilder, failedIndices: MutableList<FailedIndex>) {
+    if (failedIndices.isNotEmpty()) {
+        builder.field(FAILURES, true)
+        builder.startArray(FAILED_INDICES)
+        for (failedIndex in failedIndices) {
+            builder.startObject()
+            builder.field("index_name", failedIndex.name)
+            builder.field("index_uuid", failedIndex.uuid)
+            builder.field("reason", failedIndex.reason)
+            builder.endObject()
+        }
+        builder.endArray()
+    } else {
+        builder.field(FAILURES, false)
+    }
+}
+
+data class FailedIndex(val name: String, val uuid: String, val reason: String)

@@ -21,6 +21,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.get
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.buildInvalidIndexResponse
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -31,7 +34,6 @@ import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
@@ -113,7 +115,7 @@ class RestRetryFailedManagedIndexAction(
                                         FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetaData")
                                     })
                                 }
-                                buildInvalidIndexResponse(builder)
+                                buildInvalidIndexResponse(builder, failedIndices)
                                 return BytesRestResponse(RestStatus.OK, builder.endObject())
                             }
                         }
@@ -122,29 +124,12 @@ class RestRetryFailedManagedIndexAction(
                     failedIndices.addAll(listOfIndexMetaData.map {
                         FailedIndex(it.first.name, it.first.uuid, "failed to update with ClusterBlockException. ${e.message}")
                     })
-                    buildInvalidIndexResponse(builder)
+                    buildInvalidIndexResponse(builder, failedIndices)
                     channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
                 }
             } else {
-                buildInvalidIndexResponse(builder)
+                buildInvalidIndexResponse(builder, failedIndices)
                 channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
-            }
-        }
-
-        private fun buildInvalidIndexResponse(builder: XContentBuilder) {
-            if (failedIndices.isNotEmpty()) {
-                builder.field(FAILURES, true)
-                builder.startArray(FAILED_INDICES)
-                for (failedIndex in failedIndices) {
-                    builder.startObject()
-                    builder.field("index_name", failedIndex.name)
-                    builder.field("index_uuid", failedIndex.uuid)
-                    builder.field("reason", failedIndex.reason)
-                    builder.endObject()
-                }
-                builder.endArray()
-            } else {
-                builder.field(FAILURES, false)
             }
         }
 
@@ -179,12 +164,7 @@ class RestRetryFailedManagedIndexAction(
         }
     }
 
-    data class FailedIndex(val name: String, val uuid: String, val reason: String)
-
     companion object {
         const val RETRY_BASE_URI = "${IndexStateManagementPlugin.ISM_BASE_URI}/retry"
-        const val FAILURES = "failures"
-        const val FAILED_INDICES = "failed_indices"
-        const val UPDATED_INDICES = "updated_indices"
     }
 }

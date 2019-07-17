@@ -2,9 +2,9 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRetryFailedManagedIndexAction.Companion.FAILED_INDICES
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRetryFailedManagedIndexAction.Companion.FAILURES
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRetryFailedManagedIndexAction.Companion.UPDATED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
@@ -17,7 +17,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             client().makeRequest(RestRequest.Method.POST.toString(), RestRetryFailedManagedIndexAction.RETRY_BASE_URI)
             fail("Expected a failure")
         } catch (e: ResponseException) {
-            assertEquals("Unexpected RestStatus.", RestStatus.BAD_REQUEST, e.response.restStatus())
+            assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()
             val expectedErrorMessage = mapOf(
                 "error" to mapOf(
@@ -44,7 +44,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName3, null)
 
         val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName,$indexName1")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
@@ -61,7 +61,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertRetryFailedManagedIndexResponse(expectedErrorMessage, actualMessage)
+        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index pattern`() {
@@ -75,7 +75,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName3, null)
 
         val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName*")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
@@ -97,14 +97,14 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertRetryFailedManagedIndexResponse(expectedErrorMessage, actualMessage)
+        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index not being managed`() {
         val indexName = "movies"
         createIndex(indexName, null)
         val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
@@ -116,14 +116,14 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertRetryFailedManagedIndexResponse(expectedErrorMessage, actualMessage)
+        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index has no metadata`() {
         val indexName = "movies"
         createIndex(indexName, "somePolicy")
         val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
@@ -135,7 +135,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertRetryFailedManagedIndexResponse(expectedErrorMessage, actualMessage)
+        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index not failed`() {
@@ -153,7 +153,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         Thread.sleep(3000)
 
         val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
@@ -165,7 +165,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertRetryFailedManagedIndexResponse(expectedErrorMessage, actualMessage)
+        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index failed`() {
@@ -182,33 +182,12 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         Thread.sleep(3000)
 
         val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             UPDATED_INDICES to 1,
             FAILURES to false
         )
-        assertRetryFailedManagedIndexResponse(expectedErrorMessage, actualMessage)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun assertRetryFailedManagedIndexResponse(expected: Map<String, Any>, actual: Map<String, Any>) {
-        for (entry in actual) {
-            when (val value = entry.value) {
-                is String -> assertEquals(expected[entry.key] as String, value)
-                is Boolean -> assertEquals(expected[entry.key] as Boolean, value)
-                is Int -> assertEquals(expected[entry.key] as Int, value)
-                is List<*> -> {
-                    // Assume at this point we are checking for failed_indices.
-                    value as List<Map<String, String>>
-                    val actualArray = value.toTypedArray()
-                    actualArray.sortWith(compareBy { it["index_name"] })
-                    val expectedArray = (expected[entry.key] as List<Map<String, String>>).toTypedArray()
-                    expectedArray.sortWith(compareBy { it["index_name"] })
-                    assertArrayEquals(expectedArray, actualArray)
-                }
-                else -> fail("unknown type $value")
-            }
-        }
+        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 }

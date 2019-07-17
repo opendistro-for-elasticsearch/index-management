@@ -43,7 +43,10 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName2, null)
         createIndex(indexName3, null)
 
-        val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName,$indexName1")
+        val response = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName,$indexName1"
+        )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
@@ -74,7 +77,10 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName2, "somePolicy")
         createIndex(indexName3, null)
 
-        val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName*")
+        val response = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName*"
+        )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
@@ -103,7 +109,10 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     fun `test index not being managed`() {
         val indexName = "movies"
         createIndex(indexName, null)
-        val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName")
+        val response = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+        )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
@@ -122,7 +131,10 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     fun `test index has no metadata`() {
         val indexName = "movies"
         createIndex(indexName, "somePolicy")
-        val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName")
+        val response = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+        )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
@@ -148,11 +160,17 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getManagedIndexConfig(indexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
         // change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(
+            managedIndexConfig!!,
+            Instant.now().minusSeconds(58).toEpochMilli()
+        )
 
         Thread.sleep(3000)
 
-        val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName")
+        val response = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+        )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
@@ -177,11 +195,17 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getManagedIndexConfig(indexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
         // change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(
+            managedIndexConfig!!,
+            Instant.now().minusSeconds(58).toEpochMilli()
+        )
 
         Thread.sleep(3000)
 
-        val response = client().makeRequest(RestRequest.Method.POST.toString(), "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName")
+        val response = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+        )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(

@@ -33,7 +33,6 @@ import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BytesRestResponse
@@ -47,14 +46,14 @@ import org.elasticsearch.rest.action.RestActionListener
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 
-class RestAddPolicyAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
+class RestRemovePolicyAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
 
     init {
-        controller.registerHandler(POST, ADD_POLICY_BASE_URI, this)
-        controller.registerHandler(POST, "$ADD_POLICY_BASE_URI/{index}", this)
+        controller.registerHandler(POST, REMOVE_POLICY_BASE_URI, this)
+        controller.registerHandler(POST, "$REMOVE_POLICY_BASE_URI/{index}", this)
     }
 
-    override fun getName(): String = "add_policy_action"
+    override fun getName(): String = "remove_policy_action"
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
@@ -62,16 +61,6 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
 
         if (indices == null || indices.isEmpty()) {
             throw IllegalArgumentException("Missing indices")
-        }
-
-        val body = if (request.hasContent()) {
-            XContentHelper.convertToMap(request.requiredContent(), false, request.xContentType).v2()
-        } else {
-            mapOf()
-        }
-
-        if (!body.containsKey("policy_id") || body["policy_id"] == null) {
-            throw IllegalArgumentException("Missing policy_id")
         }
 
         val strictExpandOptions = IndicesOptions.strictExpand()
@@ -85,29 +74,28 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
         return RestChannelConsumer {
             client.admin()
                 .cluster()
-                .state(clusterStateRequest, AddPolicyHandler(client, it, body["policy_id"] as String))
+                .state(clusterStateRequest, RemovePolicyHandler(client, it))
         }
     }
 
-    inner class AddPolicyHandler(
+    inner class RemovePolicyHandler(
         private val client: NodeClient,
-        channel: RestChannel,
-        private val policyID: String
+        channel: RestChannel
     ) : RestActionListener<ClusterStateResponse>(channel) {
 
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
-        private val indicesToAddPolicyTo: MutableList<Index> = mutableListOf()
+        private val indicesToRemovePolicyFrom: MutableList<Index> = mutableListOf()
 
         override fun processResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
             populateLists(state)
 
             val builder = channel.newBuilder().startObject()
-            if (indicesToAddPolicyTo.isNotEmpty()) {
+            if (indicesToRemovePolicyFrom.isNotEmpty()) {
                 val updateSettingsRequest = UpdateSettingsRequest()
-                    .indices(*indicesToAddPolicyTo.map { it.name }.toTypedArray())
+                    .indices(*indicesToRemovePolicyFrom.map { it.name }.toTypedArray())
                     .settings(
-                        Settings.builder().put(ManagedIndexSettings.POLICY_NAME.key, policyID)
+                        Settings.builder().putNull(ManagedIndexSettings.POLICY_NAME.key)
                     )
 
                 try {
@@ -115,10 +103,10 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
                         object : RestResponseListener<AcknowledgedResponse>(channel) {
                             override fun buildResponse(response: AcknowledgedResponse): RestResponse {
                                 if (response.isAcknowledged) {
-                                    builder.field(UPDATED_INDICES, indicesToAddPolicyTo.size)
+                                    builder.field(UPDATED_INDICES, indicesToRemovePolicyFrom.size)
                                 } else {
-                                    failedIndices.addAll(indicesToAddPolicyTo.map {
-                                        FailedIndex(it.name, it.uuid, "Failed to add policy")
+                                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
+                                        FailedIndex(it.name, it.uuid, "Failed to remove policy")
                                     })
                                 }
 
@@ -128,11 +116,11 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
                         }
                     )
                 } catch (e: ClusterBlockException) {
-                    failedIndices.addAll(indicesToAddPolicyTo.map {
+                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
                         FailedIndex(
                             it.name,
                             it.uuid,
-                            "Failed to add policy due to ClusterBlockingException: ${e.message}"
+                            "Failed to remove policy due to ClusterBlockException: ${e.message}"
                         )
                     })
 
@@ -149,12 +137,12 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
             for (indexMetaDataEntry in state.metaData.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 when {
-                    indexMetaData.getPolicyName() != null ->
+                    indexMetaData.getPolicyName() == null ->
                         failedIndices.add(
                             FailedIndex(
                                 indexMetaData.index.name,
                                 indexMetaData.index.uuid,
-                                "This index already has a policy, use the update policy API to update index policies"
+                                "This index does not have a policy to remove"
                             )
                         )
                     indexMetaData.state == IndexMetaData.State.CLOSE ->
@@ -165,13 +153,13 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
                                 "This index is closed"
                             )
                         )
-                    else -> indicesToAddPolicyTo.add(indexMetaData.index)
+                    else -> indicesToRemovePolicyFrom.add(indexMetaData.index)
                 }
             }
         }
     }
 
     companion object {
-        const val ADD_POLICY_BASE_URI = "$ISM_BASE_URI/add"
+        const val REMOVE_POLICY_BASE_URI = "$ISM_BASE_URI/remove"
     }
 }

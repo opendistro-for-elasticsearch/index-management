@@ -83,7 +83,9 @@ class RestRetryFailedManagedIndexAction(
             .indicesOptions(strictExpandIndicesOptions)
 
         return RestChannelConsumer {
-            client.admin().cluster().state(clusterStateRequest, IndexDestinationHandler(client, it, body["state"] as String?))
+            client.admin()
+                .cluster()
+                .state(clusterStateRequest, IndexDestinationHandler(client, it, body["state"] as String?))
         }
     }
 
@@ -112,7 +114,11 @@ class RestRetryFailedManagedIndexAction(
                                     builder.field(UPDATED_INDICES, listOfIndexMetaData.size)
                                 } else {
                                     failedIndices.addAll(listOfIndexMetaData.map {
-                                        FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetaData")
+                                        FailedIndex(
+                                            it.first.name,
+                                            it.first.uuid,
+                                            "failed to update IndexMetaData"
+                                        )
                                     })
                                 }
                                 buildInvalidIndexResponse(builder, failedIndices)
@@ -122,7 +128,11 @@ class RestRetryFailedManagedIndexAction(
                     )
                 } catch (e: ClusterBlockException) {
                     failedIndices.addAll(listOfIndexMetaData.map {
-                        FailedIndex(it.first.name, it.first.uuid, "failed to update with ClusterBlockException. ${e.message}")
+                        FailedIndex(
+                            it.first.name,
+                            it.first.uuid,
+                            "failed to update with ClusterBlockException. ${e.message}"
+                        )
                     })
                     buildInvalidIndexResponse(builder, failedIndices)
                     channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
@@ -139,11 +149,29 @@ class RestRetryFailedManagedIndexAction(
                 val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
                 when {
                     indexMetaData.getPolicyName() == null ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
+                        failedIndices.add(
+                            FailedIndex(
+                                indexMetaData.index.name,
+                                indexMetaData.index.uuid,
+                                "This index is not being managed."
+                            )
+                        )
                     managedIndexMetaData == null ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "There is no IndexMetaData information"))
+                        failedIndices.add(
+                            FailedIndex(
+                                indexMetaData.index.name,
+                                indexMetaData.index.uuid,
+                                "There is no IndexMetaData information"
+                            )
+                        )
                     managedIndexMetaData.failed != true ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not in failed state."))
+                        failedIndices.add(
+                            FailedIndex(
+                                indexMetaData.index.name,
+                                indexMetaData.index.uuid,
+                                "This index is not in failed state."
+                            )
+                        )
                     else ->
                         listOfIndexMetaData.add(
                             Pair(

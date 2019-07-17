@@ -20,17 +20,15 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
-import org.apache.http.entity.ContentType.APPLICATION_JSON
-import org.apache.http.entity.StringEntity
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestStatus
 
-class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
+class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
 
     fun `test missing indices`() {
         try {
-            client().makeRequest(POST.toString(), RestAddPolicyAction.ADD_POLICY_BASE_URI)
+            client().makeRequest(POST.toString(), RestRemovePolicyAction.REMOVE_POLICY_BASE_URI)
             fail("Expected a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -51,13 +49,12 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
 
     fun `test closed index`() {
         val index = "movies"
-        createIndex(index, null)
+        createIndex(index, "somePolicy")
         closeIndex(index)
 
         val response = client().makeRequest(
             POST.toString(),
-            "${RestAddPolicyAction.ADD_POLICY_BASE_URI}/$index",
-            StringEntity("{ \"policy_id\": \"somePolicy\" }", APPLICATION_JSON)
+            "${RestRemovePolicyAction.REMOVE_POLICY_BASE_URI}/$index"
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
@@ -75,14 +72,13 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
         assertApiResponseIsEqual(expectedMessage, actualMessage)
     }
 
-    fun `test index with existing policy`() {
+    fun `test index without policy`() {
         val index = "movies"
-        createIndex(index, "somePolicy")
+        createIndex(index, null)
 
         val response = client().makeRequest(
             POST.toString(),
-            "${RestAddPolicyAction.ADD_POLICY_BASE_URI}/$index",
-            StringEntity("{ \"policy_id\": \"someOtherPolicy\" }", APPLICATION_JSON)
+            "${RestRemovePolicyAction.REMOVE_POLICY_BASE_URI}/$index"
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
@@ -92,7 +88,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
                 mapOf(
                     "index_name" to index,
                     "index_uuid" to getUuid(index),
-                    "reason" to "This index already has a policy, use the update policy API to update index policies"
+                    "reason" to "This index does not have a policy to remove"
                 )
             )
         )
@@ -104,15 +100,14 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
         val indexOne = "movies_1"
         val indexTwo = "movies_2"
 
-        createIndex(indexOne, null)
-        createIndex(indexTwo, "somePolicy")
+        createIndex(indexOne, "somePolicy")
+        createIndex(indexTwo, null)
 
         closeIndex(indexOne)
 
         val response = client().makeRequest(
             POST.toString(),
-            "${RestAddPolicyAction.ADD_POLICY_BASE_URI}/$indexOne,$indexTwo",
-            StringEntity("{ \"policy_id\": \"someOtherPolicy\" }", APPLICATION_JSON)
+            "${RestRemovePolicyAction.REMOVE_POLICY_BASE_URI}/$indexOne,$indexTwo"
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
@@ -127,7 +122,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
                 mapOf(
                     "index_name" to indexTwo,
                     "index_uuid" to getUuid(indexTwo),
-                    "reason" to "This index already has a policy, use the update policy API to update index policies"
+                    "reason" to "This index does not have a policy to remove"
                 )
             )
         )
@@ -141,16 +136,15 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
         val indexTwo = "movies_2"
         val indexThree = "movies_3"
 
-        createIndex(indexOne, null)
-        createIndex(indexTwo, "somePolicy")
-        createIndex(indexThree, null)
+        createIndex(indexOne, "somePolicy")
+        createIndex(indexTwo, null)
+        createIndex(indexThree, "somePolicy")
 
         closeIndex(indexOne)
 
         val response = client().makeRequest(
             POST.toString(),
-            "${RestAddPolicyAction.ADD_POLICY_BASE_URI}/$indexPattern*",
-            StringEntity("{ \"policy_id\": \"someOtherPolicy\" }", APPLICATION_JSON)
+            "${RestRemovePolicyAction.REMOVE_POLICY_BASE_URI}/$indexPattern*"
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
@@ -166,14 +160,14 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
                 mapOf(
                     "index_name" to indexTwo,
                     "index_uuid" to getUuid(indexTwo),
-                    "reason" to "This index already has a policy, use the update policy API to update index policies"
+                    "reason" to "This index does not have a policy to remove"
                 )
             )
         )
 
         assertApiResponseIsEqual(expectedMessage, actualMessage)
 
-        // Check if indexThree had policy set
-        assertEquals("someOtherPolicy", getPolicyFromIndex(indexThree))
+        // Check if indexThree had policy removed
+        assertEquals(null, getPolicyFromIndex(indexThree))
     }
 }

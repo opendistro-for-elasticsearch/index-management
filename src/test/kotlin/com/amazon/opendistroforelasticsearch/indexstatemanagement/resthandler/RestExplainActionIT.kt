@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
@@ -60,7 +61,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             "movies" to mapOf<String, String?>(
-                "index.opendistro.index_state_management.policy_name" to null
+                ManagedIndexSettings.POLICY_NAME.key to null
             )
         )
         val actual = response.asMap()
@@ -72,13 +73,13 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             "movies" to mapOf<String, String?>(
-                "index.opendistro.index_state_management.policy_name" to null
+                ManagedIndexSettings.POLICY_NAME.key to null
             ),
             "movies_1" to mapOf<String, String?>(
-                "index.opendistro.index_state_management.policy_name" to null
+                ManagedIndexSettings.POLICY_NAME.key to null
             ),
             "movies_2" to mapOf<String, String?>(
-                "index.opendistro.index_state_management.policy_name" to null
+                ManagedIndexSettings.POLICY_NAME.key to null
             )
         )
         val actual = response.asMap()
@@ -106,7 +107,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
         assertPredicatesOnMetaData(listOf(
             policyIndexName to listOf(
-            "index.opendistro.index_state_management.policy_name" to policy.id::equals,
+            ManagedIndexSettings.POLICY_NAME.key to policy.id::equals,
             ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
             ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
             ManagedIndexMetaData.POLICY_NAME to managedIndexConfig.policyName::equals,
@@ -139,7 +140,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val actual = response.asMap()
         assertPredicatesOnMetaData(listOf(
                 policyIndexName to listOf(
-                    "index.opendistro.index_state_management.policy_name" to policyName::equals,
+                    ManagedIndexSettings.POLICY_NAME.key to policyName::equals,
                     ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
                     ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
                     ManagedIndexMetaData.POLICY_NAME to managedIndexConfig.policyName::equals,

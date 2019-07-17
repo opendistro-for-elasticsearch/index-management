@@ -37,7 +37,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     fun `test missing indices`() {
         try {
             client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
-            fail("Excepted a failure.")
+            fail("Expected a failure.")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus.", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()

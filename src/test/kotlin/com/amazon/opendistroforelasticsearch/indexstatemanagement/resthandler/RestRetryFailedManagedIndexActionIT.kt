@@ -15,7 +15,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     fun `test missing indices`() {
         try {
             client().makeRequest(RestRequest.Method.POST.toString(), RestRetryFailedManagedIndexAction.RETRY_BASE_URI)
-            fail("Excepted a failure.")
+            fail("Expected a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus.", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()
@@ -51,12 +51,12 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
-                    "index_uuid" to getUUID(indexName),
+                    "index_uuid" to getUuid(indexName),
                     "reason" to "This index is not being managed."
                 ),
                 mapOf(
                     "index_name" to indexName1,
-                    "index_uuid" to getUUID(indexName1),
+                    "index_uuid" to getUuid(indexName1),
                     "reason" to "There is no IndexMetaData information"
                 )
             )
@@ -82,17 +82,17 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
-                    "index_uuid" to getUUID(indexName),
+                    "index_uuid" to getUuid(indexName),
                     "reason" to "This index is not being managed."
                 ),
                 mapOf(
                     "index_name" to indexName1,
-                    "index_uuid" to getUUID(indexName1),
+                    "index_uuid" to getUuid(indexName1),
                     "reason" to "This index is not being managed."
                 ),
                 mapOf(
                     "index_name" to indexName2,
-                    "index_uuid" to getUUID(indexName2),
+                    "index_uuid" to getUuid(indexName2),
                     "reason" to "There is no IndexMetaData information"
                 )
             )
@@ -111,7 +111,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
-                    "index_uuid" to getUUID(indexName),
+                    "index_uuid" to getUuid(indexName),
                     "reason" to "This index is not being managed."
                 )
             )
@@ -130,7 +130,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
-                    "index_uuid" to getUUID(indexName),
+                    "index_uuid" to getUuid(indexName),
                     "reason" to "There is no IndexMetaData information"
                 )
             )
@@ -160,7 +160,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
-                    "index_uuid" to getUUID(indexName),
+                    "index_uuid" to getUuid(indexName),
                     "reason" to "This index is not in failed state."
                 )
             )
@@ -189,12 +189,6 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             FAILURES to false
         )
         assertRetryFailedManagedIndexResponse(expectedErrorMessage, actualMessage)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun getUUID(indexName: String): String {
-        val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
-        return indexSettings[indexName]!!["settings"]!!["index.uuid"] as String
     }
 
     @Suppress("UNCHECKED_CAST")

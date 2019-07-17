@@ -15,8 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.ISM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyName
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
@@ -189,7 +188,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
     data class FailedIndex(val name: String, val uuid: String, val reason: String)
 
     companion object {
-        const val ADD_POLICY_BASE_URI = "$POLICY_BASE_URI/add"
+        const val ADD_POLICY_BASE_URI = "$ISM_BASE_URI/add"
         const val FAILURES = "failures"
         const val FAILED_INDICES = "failed_indices"
         const val UPDATED_INDICES = "updated_indices"

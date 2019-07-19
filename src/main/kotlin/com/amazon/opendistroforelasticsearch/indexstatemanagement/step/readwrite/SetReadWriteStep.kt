@@ -69,6 +69,8 @@ class SetReadWriteStep(
         return currentMetaData.copy(
             // TODO only update stepStartTime when first try of step and not retries
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            // TODO we should refactor such that transitionTo is not reset in the step.
+            transitionTo = null,
             // TODO properly attempt retry and update RetryInfo.
             retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info

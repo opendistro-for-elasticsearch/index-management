@@ -105,8 +105,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
         assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
 
+        val expectedInfoString = mapOf("message" to "Successfully initialized policy: ${policy.id}").toString()
         val actual = response.asMap()
-
         assertPredicatesOnMetaData(
             listOf(
                 policyIndexName to listOf(
@@ -119,7 +119,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                     StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
                         assertState(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
                     RetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
-                        assertRetryInfo(RetryInfoMetaData(false, 0), retryInfoMetaDataMap)
+                        assertRetryInfo(RetryInfoMetaData(false, 0), retryInfoMetaDataMap),
+                    ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
             ), actual)
     }
@@ -141,7 +142,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
         assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
 
-        val expectedInfoString = mapOf("message" to "Could not load policy: $policyID").toString()
+        val expectedInfoString = mapOf("message" to "Fail to load policy: $policyID").toString()
         val actual = response.asMap()
         assertPredicatesOnMetaData(
             listOf(

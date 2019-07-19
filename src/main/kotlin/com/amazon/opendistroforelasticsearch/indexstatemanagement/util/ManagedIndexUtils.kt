@@ -292,7 +292,7 @@ fun State.getActionToExecute(
     return actionConfig.toAction(clusterService, client, managedIndexMetaData)
 }
 
-fun State.getUpdatedManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaData): StateMetaData {
+fun State.getUpdatedStateMetaData(managedIndexMetaData: ManagedIndexMetaData): StateMetaData {
     // If the current ManagedIndexMetaData state does not match this state, it means we transitioned and need to update the startStartTime
     val stateMetaData = managedIndexMetaData.stateMetaData
     return when {
@@ -302,7 +302,7 @@ fun State.getUpdatedManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaD
     }
 }
 
-fun Action.getUpdatedManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaData, state: State): ActionMetaData {
+fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, state: State): ActionMetaData {
     val stateMetaData = managedIndexMetaData.stateMetaData
     val actionMetaData = managedIndexMetaData.actionMetaData
 
@@ -336,8 +336,8 @@ fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
         )
     }
 
-    val updatedStateMetaData = state.getUpdatedManagedIndexMetaData(this)
-    val updatedActionMetaData = action.getUpdatedManagedIndexMetaData(this, state)
+    val updatedStateMetaData = state.getUpdatedStateMetaData(this)
+    val updatedActionMetaData = action.getUpdatedActionMetaData(this, state)
     val updatedStepMetaData = step.getUpdatedManagedIndexMetaData(this)
 
     return this.copy(

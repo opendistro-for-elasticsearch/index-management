@@ -227,6 +227,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         } else {
             null
         }
+
         val managedIndexMetaData = ManagedIndexMetaData(
             index = managedIndexConfig.index,
             indexUuid = managedIndexConfig.indexUuid,
@@ -241,7 +242,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             stepMetaData = null,
             // TODO fix retryInfo when we implement retry logic.
             retryInfo = RetryInfoMetaData(failed = policy == null, consumedRetries = 0),
-            info = if (policy == null) mapOf("message" to "Could not load policy: ${managedIndexConfig.policyID}") else null
+            info = mapOf("message" to "${if (policy == null) "Fail to load" else "Successfully initialized"} policy: ${managedIndexConfig.policyID}")
         )
 
         updateManagedIndexMetaData(managedIndexMetaData)

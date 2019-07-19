@@ -86,25 +86,25 @@ data class ManagedIndexMetaData(
             return builder
         }
 
-        val transitionToExist = transitionTo != null
+        val transitionToExists = transitionTo != null
 
-        if (transitionToExist) {
+        if (transitionToExists) {
             builder.field(TRANSITION_TO, transitionTo)
         }
 
-        if (stateMetaData != null && !transitionToExist) {
+        if (stateMetaData != null && !transitionToExists) {
             builder.startObject(StateMetaData.STATE)
             stateMetaData.toXContent(builder, params)
             builder.endObject()
         }
 
-        if (actionMetaData != null && !transitionToExist) {
+        if (actionMetaData != null && !transitionToExists) {
             builder.startObject(ActionMetaData.ACTION)
             actionMetaData.toXContent(builder, params)
             builder.endObject()
         }
 
-        if (retryInfo != null && !transitionToExist) {
+        if (retryInfo != null && !transitionToExists) {
             builder.startObject(RetryInfoMetaData.RETRY_INFO)
             retryInfo.toXContent(builder, params)
             builder.endObject()

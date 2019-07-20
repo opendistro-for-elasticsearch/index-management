@@ -32,6 +32,8 @@ class AttemptOpenStep(
         if (!response.isAcknowledged) {
             failed = true
             info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
+        } else {
+            info = mapOf("message" to "Successfully opened index")
         }
     }
 

@@ -39,6 +39,8 @@ data class ChangePolicy(
     }
 
     companion object {
+        const val POLICY_ID_FIELD = "policy_id"
+        const val STATE_FIELD = "state"
 
         @JvmStatic
         @Throws(IOException::class)
@@ -52,8 +54,8 @@ data class ChangePolicy(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ManagedIndexConfig.POLICY_ID_FIELD -> policyID = xcp.text()
-                    StateMetaData.STATE -> state = xcp.textOrNull()
+                    POLICY_ID_FIELD -> policyID = xcp.text()
+                    STATE_FIELD -> state = xcp.textOrNull()
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ChangePolicy.")
                 }
             }

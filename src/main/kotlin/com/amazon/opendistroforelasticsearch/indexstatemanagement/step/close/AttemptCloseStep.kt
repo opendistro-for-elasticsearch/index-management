@@ -32,6 +32,8 @@ class AttemptCloseStep(
         if (!response.isAcknowledged) {
             failed = true
             info = mapOf("message" to "Failed to close index: ${managedIndexMetaData.index}")
+        } else {
+            info = mapOf("message" to "Successfully closed index")
         }
     }
 

@@ -26,7 +26,7 @@ abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMeta
     abstract fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData
 
     fun getStepStartTime(): Instant {
-        if (managedIndexMetaData.stepMetaData == null) {
+        if (managedIndexMetaData.stepMetaData == null || managedIndexMetaData.stepMetaData.name != this.name) {
             return Instant.now()
         }
         return Instant.ofEpochMilli(managedIndexMetaData.stepMetaData.startTime)

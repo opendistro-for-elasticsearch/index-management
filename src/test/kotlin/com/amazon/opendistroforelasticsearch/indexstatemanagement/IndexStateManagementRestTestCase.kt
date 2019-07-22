@@ -119,25 +119,25 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     protected fun createIndex(
-        index: String = ESTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
-        policyName: String? = ESTestCase.randomAlphaOfLength(10)
+        index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
+        policyID: String? = randomAlphaOfLength(10)
     ): Pair<String, String?> {
         val settings = Settings.builder().let {
-            if (policyName == null) {
-                it.putNull(ManagedIndexSettings.POLICY_NAME.key)
+            if (policyID == null) {
+                it.putNull(ManagedIndexSettings.POLICY_ID.key)
             } else {
-                it.put(ManagedIndexSettings.POLICY_NAME.key, policyName)
+                it.put(ManagedIndexSettings.POLICY_ID.key, policyID)
             }
         }.build()
         createIndex(index, settings)
-        return index to policyName
+        return index to policyID
     }
 
     protected fun addPolicyToIndex(
         index: String,
-        policyName: String
+        policyID: String
     ) {
-        val settings = Settings.builder().put(ManagedIndexSettings.POLICY_NAME.key, policyName)
+        val settings = Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, policyID)
         updateIndexSettings(index, settings)
     }
 

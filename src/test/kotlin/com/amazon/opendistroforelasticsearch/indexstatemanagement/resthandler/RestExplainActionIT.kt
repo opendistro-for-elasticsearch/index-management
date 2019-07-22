@@ -18,6 +18,9 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
@@ -60,7 +63,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             "movies" to mapOf<String, String?>(
-                "index.opendistro.index_state_management.policy_name" to null
+                ManagedIndexSettings.POLICY_ID.key to null
             )
         )
         val actual = response.asMap()
@@ -72,13 +75,13 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             "movies" to mapOf<String, String?>(
-                "index.opendistro.index_state_management.policy_name" to null
+                ManagedIndexSettings.POLICY_ID.key to null
             ),
             "movies_1" to mapOf<String, String?>(
-                "index.opendistro.index_state_management.policy_name" to null
+                ManagedIndexSettings.POLICY_ID.key to null
             ),
             "movies_2" to mapOf<String, String?>(
-                "index.opendistro.index_state_management.policy_name" to null
+                ManagedIndexSettings.POLICY_ID.key to null
             )
         )
         val actual = response.asMap()
@@ -88,7 +91,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     fun `test attached policy`() {
         val policyIndexName = "test_policy_index"
         val policy = createRandomPolicy(refresh = true)
-        createIndex(policyIndexName, policyName = policy.id)
+        createIndex(policyIndexName, policy.id)
 
         Thread.sleep(2000)
 
@@ -102,26 +105,30 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
         assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
 
+        val expectedInfoString = mapOf("message" to "Successfully initialized policy: ${policy.id}").toString()
         val actual = response.asMap()
-
-        assertPredicatesOnMetaData(listOf(
-            policyIndexName to listOf(
-            "index.opendistro.index_state_management.policy_name" to policy.id::equals,
-            ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
-            ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
-            ManagedIndexMetaData.POLICY_NAME to managedIndexConfig.policyName::equals,
-            ManagedIndexMetaData.POLICY_SEQ_NO to policy.seqNo.toInt()::equals,
-            ManagedIndexMetaData.POLICY_PRIMARY_TERM to policy.primaryTerm.toInt()::equals,
-            ManagedIndexMetaData.STATE to policy.defaultState::equals,
-            ManagedIndexMetaData.STATE_START_TIME to fun(startTime: Any?): Boolean = (startTime as Long) < Instant.now().toEpochMilli(),
-            ManagedIndexMetaData.FAILED to false::equals
-        )), actual)
+        assertPredicatesOnMetaData(
+            listOf(
+                policyIndexName to listOf(
+                    ManagedIndexSettings.POLICY_ID.key to policy.id::equals,
+                    ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
+                    ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
+                    ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
+                    ManagedIndexMetaData.POLICY_SEQ_NO to policy.seqNo.toInt()::equals,
+                    ManagedIndexMetaData.POLICY_PRIMARY_TERM to policy.primaryTerm.toInt()::equals,
+                    StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
+                        assertState(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
+                    RetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
+                        assertRetryInfo(RetryInfoMetaData(false, 0), retryInfoMetaDataMap),
+                    ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
+                )
+            ), actual)
     }
 
     fun `test failed policy`() {
-        val policyIndexName = "test_policy_index"
-        val policyName = "does_not_exist"
-        createIndex(policyIndexName, policyName = policyName)
+        val policyIndexName = "test_failed_policy_index"
+        val policyID = "does_not_exist"
+        createIndex(policyIndexName, policyID)
 
         Thread.sleep(2000)
 
@@ -135,17 +142,20 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
         assertEquals("Unexpected RestStatus.", RestStatus.OK, response.restStatus())
 
-        val expectedInfoString = mapOf("message" to "Could not load policy: $policyName").toString()
+        val expectedInfoString = mapOf("message" to "Fail to load policy: $policyID").toString()
         val actual = response.asMap()
-        assertPredicatesOnMetaData(listOf(
+        assertPredicatesOnMetaData(
+            listOf(
                 policyIndexName to listOf(
-                    "index.opendistro.index_state_management.policy_name" to policyName::equals,
+                    ManagedIndexSettings.POLICY_ID.key to policyID::equals,
                     ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
                     ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
-                    ManagedIndexMetaData.POLICY_NAME to managedIndexConfig.policyName::equals,
-                    ManagedIndexMetaData.FAILED to true::equals,
+                    ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
+                    RetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
+                        assertRetryInfo(RetryInfoMetaData(true, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
-                )), actual)
+                )
+            ), actual)
     }
 
     @Suppress("UNCHECKED_CAST") // Do assertion of the response map here so we don't have many places to do suppression.
@@ -176,8 +186,24 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
             assertEquals("The fields do not match, response=($indexResponse) predicates=$predicates", predicates.map { it.first }.toSet(), indexResponse.keys.toSet())
             predicates.forEach { (fieldName, predicate) ->
                 assertTrue("The key: $fieldName was not found in the response", indexResponse.containsKey(fieldName))
-                assertTrue("Failed predicate assertion for $fieldName", predicate(indexResponse[fieldName]))
+                assertTrue("Failed predicate assertion for $fieldName response=($indexResponse) predicates=$predicates", predicate(indexResponse[fieldName]))
             }
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun assertRetryInfo(expectedRetryInfo: RetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
+        actualRetryInfoMetaDataMap as Map<String, Any>
+        assertEquals(expectedRetryInfo.failed, actualRetryInfoMetaDataMap[RetryInfoMetaData.FAILED] as Boolean)
+        assertEquals(expectedRetryInfo.consumedRetries, actualRetryInfoMetaDataMap[RetryInfoMetaData.CONSUMED_RETRIES] as Int)
+        return true
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun assertState(expectedState: StateMetaData, actualStateMap: Any?): Boolean {
+        actualStateMap as Map<String, Any>
+        assertEquals(expectedState.name, actualStateMap[ManagedIndexMetaData.NAME] as String)
+        assertTrue((actualStateMap[ManagedIndexMetaData.START_TIME] as Long) < expectedState.startTime)
+        return true
     }
 }

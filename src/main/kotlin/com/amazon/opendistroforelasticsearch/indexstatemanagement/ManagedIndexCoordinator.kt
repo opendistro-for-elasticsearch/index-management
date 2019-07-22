@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyName
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldDeleteManagedIndexConfig
@@ -29,7 +29,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordina
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.POLICY_NAME
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.POLICY_ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.createManagedIndexRequest
@@ -173,15 +173,15 @@ class ManagedIndexCoordinator(
     @OpenForTesting
     suspend fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
         val indicesDeletedRequests = event.indicesDeleted()
-                    .filter { event.previousState().metaData().index(it).getPolicyName() != null }
+                    .filter { event.previousState().metaData().index(it).getPolicyID() != null }
                     .map { deleteManagedIndexRequest(it.uuid) }
 
         /*
         * TODO: Test performance this has on master
         *
-        * Update existing indices that have added, removed, or updated policy_names
+        * Update existing indices that have added, removed, or updated policy_ids
         * There doesn't seem to be a fast way of finding indices that meet the above conditions without
-        * iterating over every index in cluster state and comparing current policy_name with previous policy_name
+        * iterating over every index in cluster state and comparing current policy_id with previous policy_id
         * If this turns out to be a performance bottle neck we can remove this and enforce
         * addPolicy/removePolicy API usage for existing indices and let the background sweep pick up
         * any changes from users that ignore and use the ES settings API
@@ -189,18 +189,18 @@ class ManagedIndexCoordinator(
         var hasCreateRequests = false
         val requests: List<DocWriteRequest<*>> = event.state().metaData().indices().mapNotNull {
             val previousIndexMetaData = event.previousState().metaData().index(it.value.index)
-            val policyName = it.value.getPolicyName()
+            val policyID = it.value.getPolicyID()
             // TODO: Hard delete (unsafe) vs delayed delete (safe, but index is still managed)
             val request: DocWriteRequest<*>? = when {
-                it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyName != null -> {
+                it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyID != null -> {
                     hasCreateRequests = true
-                    createManagedIndexRequest(it.value.index.name, it.value.indexUUID, policyName)
+                    createManagedIndexRequest(it.value.index.name, it.value.indexUUID, policyID)
                 }
                 it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
                     deleteManagedIndexRequest(it.value.indexUUID)
-                it.value.shouldUpdateManagedIndexConfig(previousIndexMetaData) && policyName != null ->
+                it.value.shouldUpdateManagedIndexConfig(previousIndexMetaData) && policyID != null ->
                     updateManagedIndexRequest(ClusterStateManagedIndexConfig(index = it.value.index.name,
-                            uuid = it.value.indexUUID, policyName = policyName))
+                            uuid = it.value.indexUUID, policyID = policyID))
                 else -> null
             }
             request
@@ -283,7 +283,7 @@ class ManagedIndexCoordinator(
      * Sweeps the [INDEX_STATE_MANAGEMENT_INDEX] for ManagedIndices.
      *
      * Sweeps the [INDEX_STATE_MANAGEMENT_INDEX] for ManagedIndices and only fetches the index, index_uuid,
-     * policy_name, and change_policy fields to convert into a [SweptManagedIndexConfig].
+     * policy_id, and change_policy fields to convert into a [SweptManagedIndexConfig].
      *
      * @return map of IndexUuid to [SweptManagedIndexConfig].
      */
@@ -310,8 +310,8 @@ class ManagedIndexCoordinator(
     /**
      * Sweeps the cluster state for ManagedIndices.
      *
-     * Sweeps the cluster state for ManagedIndices by checking for the [POLICY_NAME] in the index settings.
-     * If the [POLICY_NAME] is null or blank it's treated as not existing.
+     * Sweeps the cluster state for ManagedIndices by checking for the [POLICY_ID] in the index settings.
+     * If the [POLICY_ID] is null or blank it's treated as not existing.
      *
      * @return map of IndexUuid to [ClusterStateManagedIndexConfig].
      */
@@ -321,7 +321,7 @@ class ManagedIndexCoordinator(
                 .mapNotNull {
                     val clusterConfig = it.value.getClusterStateManagedIndexConfig()
                     clusterConfig?.run {
-                        uuid to ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyName = policyName)
+                        uuid to ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyID = policyID)
                     }
         }.toMap()
     }

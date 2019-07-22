@@ -29,6 +29,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.R
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.TransitionsActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete.AttemptDeleteStep
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
@@ -48,7 +51,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-fun createManagedIndexRequest(index: String, uuid: String, policyName: String): IndexRequest {
+fun createManagedIndexRequest(index: String, uuid: String, policyID: String): IndexRequest {
     val managedIndexConfig = ManagedIndexConfig(
         jobName = index,
         index = index,
@@ -57,7 +60,7 @@ fun createManagedIndexRequest(index: String, uuid: String, policyName: String): 
         jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
         jobLastUpdatedTime = Instant.now(),
         jobEnabledTime = Instant.now(),
-        policyName = policyName,
+        policyID = policyID,
         policy = null,
         policySeqNo = null,
         policyPrimaryTerm = null,
@@ -107,7 +110,7 @@ fun getCreateManagedIndexRequests(
 ): List<DocWriteRequest<*>> {
     return clusterStateManagedIndexConfigs.filter { (uuid) ->
         !currentManagedIndexConfigs.containsKey(uuid)
-    }.map { createManagedIndexRequest(it.value.index, it.value.uuid, it.value.policyName) }
+    }.map { createManagedIndexRequest(it.value.index, it.value.uuid, it.value.policyID) }
 }
 
 /**
@@ -134,9 +137,9 @@ fun getDeleteManagedIndexRequests(
  * Creates UpdateRequests for [ManagedIndexConfig].
  *
  * Finds ManagedIndices that exist both in cluster state and in [INDEX_STATE_MANAGEMENT_INDEX] that
- * need to be updated. We know a [ManagedIndexConfig] needs to be updated when the policyName differs between
+ * need to be updated. We know a [ManagedIndexConfig] needs to be updated when the policyID differs between
  * the [ClusterStateManagedIndexConfig] and the [SweptManagedIndexConfig]. And we know
- * a [ManagedIndexConfig] has not yet been updated if it's ChangePolicy does not match the new policyName.
+ * a [ManagedIndexConfig] has not yet been updated if it's ChangePolicy does not match the new policyID.
  *
  * @param clusterStateManagedIndexConfigs map of IndexUuid to [ClusterStateManagedIndexConfig].
  * @param currentManagedIndexConfigs map of IndexUuid to [SweptManagedIndexConfig].
@@ -152,9 +155,9 @@ fun getUpdateManagedIndexRequests(
                 val sweptConfig = currentManagedIndexConfigs[uuid]
                 sweptConfig != null &&
                         // Verify they have different policy names which means we should update it
-                        sweptConfig.policyName != clusterConfig.policyName &&
+                        sweptConfig.policyID != clusterConfig.policyID &&
                         // Verify it is not already being updated
-                        sweptConfig.changePolicy?.policyName != clusterConfig.policyName
+                        sweptConfig.changePolicy?.policyID != clusterConfig.policyID
             }
             .map {
                 val sweptConfig = currentManagedIndexConfigs[it.key]
@@ -181,7 +184,7 @@ fun getSweptManagedIndexSearchRequest(): SearchRequest {
                             arrayOf(
                                     "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",
                                     "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_UUID_FIELD}",
-                                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_NAME_FIELD}",
+                                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_ID_FIELD}",
                                     "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.CHANGE_POLICY_FIELD}"
                             ),
                             emptyArray()
@@ -249,7 +252,7 @@ fun Policy.getStateToExecute(managedIndexMetaData: ManagedIndexMetaData): State?
     if (managedIndexMetaData.transitionTo != null) {
         return this.states.find { it.name == managedIndexMetaData.transitionTo }
     }
-    return this.states.find { it.name == managedIndexMetaData.state }
+    return this.states.find { managedIndexMetaData.stateMetaData != null && it.name == managedIndexMetaData.stateMetaData.name }
 }
 
 // TODO: This doesn't look great because it thinks actionIndex can be null while action is not (should never happen)
@@ -263,25 +266,25 @@ fun State.getActionToExecute(
 
     // If we are transitioning to this state get the first action in the state
     // If the action/actionIndex are null it means we just initialized and should get the first action from the state
-    if (managedIndexMetaData.transitionTo != null || managedIndexMetaData.action == null || managedIndexMetaData.actionIndex == null) {
+    if (managedIndexMetaData.transitionTo != null || managedIndexMetaData.actionMetaData == null) {
         actionConfig = this.actions.firstOrNull() ?: TransitionsActionConfig(this.transitions)
-    } else if (managedIndexMetaData.action == ActionConfig.ActionType.TRANSITION.type) {
+    } else if (managedIndexMetaData.actionMetaData.name == ActionConfig.ActionType.TRANSITION.type) {
         // If the current action is transition and we do not have a transitionTo set then we should be in Transition
         actionConfig = TransitionsActionConfig(this.transitions)
     } else {
         // Get the current actionConfig that is in the ManagedIndexMetaData
         actionConfig = this.actions.filterIndexed { index, config ->
-            index == managedIndexMetaData.actionIndex && config.type.type == managedIndexMetaData.action
+            index == managedIndexMetaData.actionMetaData.index && config.type.type == managedIndexMetaData.actionMetaData.name
         }.firstOrNull()
 
         if (actionConfig == null) return null
 
         // TODO: Refactor so we can get isLastStep from somewhere besides an instantiated Action class so we can simplify this to a when block
         // If stepCompleted is true and this is the last step of the action then we should get the next action
-        if (managedIndexMetaData.stepCompleted == true && managedIndexMetaData.step != null) {
+        if (managedIndexMetaData.stepMetaData != null && managedIndexMetaData.stepMetaData.completed) {
             val action = actionConfig.toAction(clusterService, client, managedIndexMetaData)
-            if (action.isLastStep(managedIndexMetaData.step)) {
-                actionConfig = this.actions.getOrNull(managedIndexMetaData.actionIndex + 1) ?: TransitionsActionConfig(this.transitions)
+            if (action.isLastStep(managedIndexMetaData.stepMetaData.name)) {
+                actionConfig = this.actions.getOrNull(managedIndexMetaData.actionMetaData.index + 1) ?: TransitionsActionConfig(this.transitions)
             }
         }
     }
@@ -289,25 +292,25 @@ fun State.getActionToExecute(
     return actionConfig.toAction(clusterService, client, managedIndexMetaData)
 }
 
-fun State.getUpdatedManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
+fun State.getUpdatedStateMetaData(managedIndexMetaData: ManagedIndexMetaData): StateMetaData {
     // If the current ManagedIndexMetaData state does not match this state, it means we transitioned and need to update the startStartTime
-    return managedIndexMetaData.copy(
-        state = this.name,
-        stateStartTime = if (managedIndexMetaData.state == this.name) managedIndexMetaData.stateStartTime else Instant.now().toEpochMilli()
-    )
+    val stateMetaData = managedIndexMetaData.stateMetaData
+    return when {
+        stateMetaData == null -> StateMetaData(this.name, Instant.now().toEpochMilli())
+        stateMetaData.name != this.name -> StateMetaData(this.name, Instant.now().toEpochMilli())
+        else -> stateMetaData
+    }
 }
 
-fun Action.getUpdatedManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaData, state: State): ManagedIndexMetaData {
-    val actionStartTime = if (managedIndexMetaData.state != state.name || this.config.actionIndex != managedIndexMetaData.actionIndex) {
-        Instant.now().toEpochMilli()
-    } else {
-        managedIndexMetaData.actionStartTime
+fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, state: State): ActionMetaData {
+    val stateMetaData = managedIndexMetaData.stateMetaData
+    val actionMetaData = managedIndexMetaData.actionMetaData
+
+    return when {
+        stateMetaData?.name != state.name -> ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex)
+        actionMetaData?.index != this.config.actionIndex -> ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex)
+        else -> actionMetaData
     }
-    return managedIndexMetaData.copy(
-        action = this.type.type,
-        actionIndex = this.config.actionIndex,
-        actionStartTime = actionStartTime
-    )
 }
 
 @Suppress("ReturnCount")
@@ -318,44 +321,40 @@ fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
 ): ManagedIndexMetaData {
     // State can be null if the transition_to state or the current metadata state is not found in the policy
     if (state == null) {
-        return this.copy(failed = true,
-                info = mapOf("message" to "Failed to find state=${this.transitionTo ?: this.state} in policy=${this.policyName}"))
+        return this.copy(
+            retryInfo = RetryInfoMetaData(true, 0),
+            info = mapOf("message" to "Failed to find state=${this.transitionTo ?: this.stateMetaData} in policy=${this.policyID}")
+        )
     }
 
     // Action can only be null if the metadata action type/actionIndex do not match in state.actions
     // Step can only be null if Action is null
     if (action == null || step == null) {
         return this.copy(
-            failed = true,
-            info = mapOf("message" to "Failed to find action=${this.action} at index=${this.actionIndex} in state=${this.state}")
+            retryInfo = RetryInfoMetaData(true, 0),
+            info = mapOf("message" to "Failed to find action=${this.actionMetaData} in state=${this.stateMetaData}")
         )
     }
 
-    val updatedStateMetaData = state.getUpdatedManagedIndexMetaData(this)
-    val updatedActionMetaData = action.getUpdatedManagedIndexMetaData(this, state)
+    val updatedStateMetaData = state.getUpdatedStateMetaData(this)
+    val updatedActionMetaData = action.getUpdatedActionMetaData(this, state)
     val updatedStepMetaData = step.getUpdatedManagedIndexMetaData(this)
 
     return this.copy(
-        state = updatedStateMetaData.state,
-        stateStartTime = updatedStateMetaData.stateStartTime,
-        actionIndex = updatedActionMetaData.actionIndex,
-        action = updatedActionMetaData.action,
-        actionStartTime = updatedActionMetaData.actionStartTime,
-        step = updatedStepMetaData.step,
-        stepStartTime = updatedStepMetaData.stepStartTime,
-        transitionTo = updatedStepMetaData.transitionTo,
-        stepCompleted = updatedStepMetaData.stepCompleted,
-        failed = updatedStepMetaData.failed,
         policyCompleted = action.type == ActionConfig.ActionType.TRANSITION && state.transitions.isEmpty(),
         rolledOver = updatedStepMetaData.rolledOver,
-        info = updatedStepMetaData.info,
+        stateMetaData = updatedStateMetaData,
+        actionMetaData = updatedActionMetaData,
+        stepMetaData = updatedStepMetaData.stepMetaData,
+        transitionTo = updatedStepMetaData.transitionTo,
         // TODO: ConsumedRetries
-        consumedRetries = 0
+        retryInfo = updatedStepMetaData.retryInfo,
+        info = updatedStepMetaData.info
+
     )
 }
 
 val ManagedIndexMetaData.isSuccessfulDelete: Boolean
-    get() = this.action == ActionConfig.ActionType.DELETE.type &&
-            this.step == AttemptDeleteStep.name &&
-            this.failed == false &&
-            this.stepCompleted == true
+    get() = (this.actionMetaData != null && this.actionMetaData.name == ActionConfig.ActionType.DELETE.type) &&
+            (this.stepMetaData != null && this.stepMetaData.name == AttemptDeleteStep.name && this.stepMetaData.completed) &&
+            (this.retryInfo != null && !this.retryInfo.failed)

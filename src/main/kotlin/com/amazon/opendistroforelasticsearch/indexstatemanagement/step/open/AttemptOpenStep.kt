@@ -3,6 +3,8 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.open
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.OpenActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.open.OpenIndexRequest
@@ -30,16 +32,19 @@ class AttemptOpenStep(
         if (!response.isAcknowledged) {
             failed = true
             info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
+        } else {
+            info = mapOf("message" to "Successfully opened index")
         }
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            step = name,
-            stepStartTime = getStepStartTime().toEpochMilli(),
+            // TODO only update stepStartTime when first try of step and not retries
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
-            stepCompleted = !failed,
-            failed = failed,
+            // TODO properly attempt retry and update RetryInfo.
+            retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info
         )
     }

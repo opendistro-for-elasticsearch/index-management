@@ -64,7 +64,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index pattern`() {
@@ -103,7 +103,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index not being managed`() {
@@ -125,7 +125,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index has no metadata`() {
@@ -147,7 +147,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index not failed`() {
@@ -183,7 +183,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 )
             )
         )
-        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
     fun `test index failed`() {
@@ -210,8 +210,9 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             UPDATED_INDICES to 1,
-            FAILURES to false
+            FAILURES to false,
+            FAILED_INDICES to emptyList<Map<String, Any>>()
         )
-        assertApiResponseIsEqual(expectedErrorMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 }

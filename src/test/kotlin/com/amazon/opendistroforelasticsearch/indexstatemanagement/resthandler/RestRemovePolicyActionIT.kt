@@ -69,7 +69,7 @@ class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
             )
         )
 
-        assertApiResponseIsEqual(expectedMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
     }
 
     fun `test index without policy`() {
@@ -93,7 +93,7 @@ class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
             )
         )
 
-        assertApiResponseIsEqual(expectedMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
     }
 
     fun `test index list`() {
@@ -127,7 +127,7 @@ class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
             )
         )
 
-        assertApiResponseIsEqual(expectedMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
     }
 
     fun `test index pattern`() {
@@ -165,7 +165,7 @@ class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
             )
         )
 
-        assertApiResponseIsEqual(expectedMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
 
         // Check if indexThree had policy removed
         assertEquals(null, getPolicyFromIndex(indexThree))

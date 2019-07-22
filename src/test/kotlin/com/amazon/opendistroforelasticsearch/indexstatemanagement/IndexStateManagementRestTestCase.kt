@@ -231,6 +231,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
      * {
      *   "failures": false,
      *   "updated_indices": 3
+     *   "failed_indices": []
      * }
      *
      * Example response with failures:
@@ -246,7 +247,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
      * }
      */
     @Suppress("UNCHECKED_CAST")
-    protected fun assertApiResponseIsEqual(expected: Map<String, Any>, actual: Map<String, Any>) {
+    protected fun assertAffectedIndicesResponseIsEqual(expected: Map<String, Any>, actual: Map<String, Any>) {
         for (entry in actual) {
             val key = entry.key
             val value = entry.value

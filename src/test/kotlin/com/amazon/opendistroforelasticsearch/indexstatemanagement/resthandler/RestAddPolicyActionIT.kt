@@ -72,7 +72,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
             )
         )
 
-        assertApiResponseIsEqual(expectedMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
     }
 
     fun `test index with existing policy`() {
@@ -97,7 +97,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
             )
         )
 
-        assertApiResponseIsEqual(expectedMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
     }
 
     fun `test index list`() {
@@ -132,7 +132,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
             )
         )
 
-        assertApiResponseIsEqual(expectedMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
     }
 
     fun `test index pattern`() {
@@ -171,7 +171,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
             )
         )
 
-        assertApiResponseIsEqual(expectedMessage, actualMessage)
+        assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
 
         // Check if indexThree had policy set
         assertEquals("someOtherPolicy", getPolicyFromIndex(indexThree))

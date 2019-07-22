@@ -127,10 +127,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
                     )
                 } catch (e: ClusterBlockException) {
                     failedIndices.addAll(indicesToAddPolicyTo.map {
-                        FailedIndex(
-                            it.name,
-                            it.uuid,
-                            "Failed to add policy due to ClusterBlockingException: ${e.message}"
+                        FailedIndex(it.name, it.uuid, "Failed to add policy due to ClusterBlockingException: ${e.message}"
                         )
                     })
 
@@ -156,13 +153,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
                             )
                         )
                     indexMetaData.state == IndexMetaData.State.CLOSE ->
-                        failedIndices.add(
-                            FailedIndex(
-                                indexMetaData.index.name,
-                                indexMetaData.index.uuid,
-                                "This index is closed"
-                            )
-                        )
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
                     else -> indicesToAddPolicyTo.add(indexMetaData.index)
                 }
             }

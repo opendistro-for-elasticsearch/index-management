@@ -117,11 +117,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
                     )
                 } catch (e: ClusterBlockException) {
                     failedIndices.addAll(indicesToRemovePolicyFrom.map {
-                        FailedIndex(
-                            it.name,
-                            it.uuid,
-                            "Failed to remove policy due to ClusterBlockException: ${e.message}"
-                        )
+                        FailedIndex(it.name, it.uuid, "Failed to remove policy due to ClusterBlockException: ${e.message}")
                     })
 
                     buildInvalidIndexResponse(builder, failedIndices)
@@ -139,20 +135,10 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
                 when {
                     indexMetaData.getPolicyName() == null ->
                         failedIndices.add(
-                            FailedIndex(
-                                indexMetaData.index.name,
-                                indexMetaData.index.uuid,
-                                "This index does not have a policy to remove"
-                            )
+                            FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index does not have a policy to remove")
                         )
                     indexMetaData.state == IndexMetaData.State.CLOSE ->
-                        failedIndices.add(
-                            FailedIndex(
-                                indexMetaData.index.name,
-                                indexMetaData.index.uuid,
-                                "This index is closed"
-                            )
-                        )
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
                     else -> indicesToRemovePolicyFrom.add(indexMetaData.index)
                 }
             }

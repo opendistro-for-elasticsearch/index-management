@@ -13,23 +13,15 @@
  * permissions and limitations under the License.
  */
 
-@file:Suppress("TopLevelPropertyNaming")
-
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
-import org.elasticsearch.common.xcontent.ToXContent
-
-const val _DOC = "_doc"
-const val _ID = "_id"
-const val _VERSION = "_version"
-const val _SEQ_NO = "_seq_no"
-const val IF_SEQ_NO = "if_seq_no"
-const val _PRIMARY_TERM = "_primary_term"
-const val IF_PRIMARY_TERM = "if_primary_term"
-const val REFRESH = "refresh"
-
-const val WITH_TYPE = "with_type"
-val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
-
-const val SCHEMA_VERSION = "schema_version"
-const val NO_SCHEMA_VERSION = 0
+/**
+ * Temporary import from alerting, this will be removed once we pull notifications out of
+ * alerting so all plugins can consume and use.
+ */
+enum class DestinationType(val value: String) {
+    CHIME("chime"),
+    SLACK("slack"),
+    CUSTOM_WEBHOOK("custom_webhook"),
+    TEST_ACTION("test_action")
+}

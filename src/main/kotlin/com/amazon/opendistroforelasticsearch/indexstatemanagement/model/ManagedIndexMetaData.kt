@@ -73,6 +73,7 @@ data class ManagedIndexMetaData(
         )
     }
 
+    @Suppress("ComplexMethod")
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         // The order we check values matters here as we are only trying to show what is needed for the customer
         // and can return early on certain checks like policyCompleted

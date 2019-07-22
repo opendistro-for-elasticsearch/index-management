@@ -60,7 +60,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
 
-        if (indices == null || indices.isEmpty()) {
+        if (indices.isNullOrEmpty()) {
             throw IllegalArgumentException("Missing indices")
         }
 
@@ -70,9 +70,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
             mapOf()
         }
 
-        if (!body.containsKey("policy_id") || body["policy_id"] == null) {
-            throw IllegalArgumentException("Missing policy_id")
-        }
+        val policyID = requireNotNull(body.getOrDefault("policy_id", null)) { "Missing policy_id" }
 
         val strictExpandOptions = IndicesOptions.strictExpand()
 
@@ -85,7 +83,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
         return RestChannelConsumer {
             client.admin()
                 .cluster()
-                .state(clusterStateRequest, AddPolicyHandler(client, it, body["policy_id"] as String))
+                .state(clusterStateRequest, AddPolicyHandler(client, it, policyID as String))
         }
     }
 

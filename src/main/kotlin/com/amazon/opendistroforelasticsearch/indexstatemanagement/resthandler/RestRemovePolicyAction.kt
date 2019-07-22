@@ -59,7 +59,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
 
-        if (indices == null || indices.isEmpty()) {
+        if (indices.isNullOrEmpty()) {
             throw IllegalArgumentException("Missing indices")
         }
 

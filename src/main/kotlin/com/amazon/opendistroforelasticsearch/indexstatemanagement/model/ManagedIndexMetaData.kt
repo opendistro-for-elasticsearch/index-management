@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import org.elasticsearch.common.Strings
@@ -43,7 +43,7 @@ data class ManagedIndexMetaData(
     val stateMetaData: StateMetaData?,
     val actionMetaData: ActionMetaData?,
     val stepMetaData: StepMetaData?,
-    val retryInfo: RetryInfoMetaData?,
+    val policyRetryInfo: PolicyRetryInfoMetaData?,
     val info: Map<String, Any>?
 ) : Writeable, ToXContentFragment {
 
@@ -60,11 +60,12 @@ data class ManagedIndexMetaData(
             StateMetaData.STATE to stateMetaData?.getMapValueString(),
             ActionMetaData.ACTION to actionMetaData?.getMapValueString(),
             StepMetaData.STEP to stepMetaData?.getMapValueString(),
-            RetryInfoMetaData.RETRY_INFO to retryInfo?.getMapValueString(),
+            PolicyRetryInfoMetaData.RETRY_INFO to policyRetryInfo?.getMapValueString(),
             INFO to info?.let { Strings.toString(XContentFactory.jsonBuilder().map(it)) }
         )
     }
 
+    @Suppress("ComplexMethod")
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         // The order we check values matters here as we are only trying to show what is needed for the customer
         // and can return early on certain checks like policyCompleted
@@ -104,9 +105,9 @@ data class ManagedIndexMetaData(
             builder.endObject()
         }
 
-        if (retryInfo != null && !transitionToExists) {
-            builder.startObject(RetryInfoMetaData.RETRY_INFO)
-            retryInfo.toXContent(builder, params)
+        if (policyRetryInfo != null && !transitionToExists) {
+            builder.startObject(PolicyRetryInfoMetaData.RETRY_INFO)
+            policyRetryInfo.toXContent(builder, params)
             builder.endObject()
         }
 
@@ -127,7 +128,7 @@ data class ManagedIndexMetaData(
         streamOutput.writeOptionalWriteable { stateMetaData?.writeTo(it) }
         streamOutput.writeOptionalWriteable { actionMetaData?.writeTo(it) }
         streamOutput.writeOptionalWriteable { stepMetaData?.writeTo(it) }
-        streamOutput.writeOptionalWriteable { retryInfo?.writeTo(it) }
+        streamOutput.writeOptionalWriteable { policyRetryInfo?.writeTo(it) }
 
         streamOutput.writeOptionalString(info?.toString())
     }
@@ -161,7 +162,7 @@ data class ManagedIndexMetaData(
             val state: StateMetaData? = si.readOptionalWriteable { StateMetaData.fromStreamInput(it) }
             val action: ActionMetaData? = si.readOptionalWriteable { ActionMetaData.fromStreamInput(it) }
             val step: StepMetaData? = si.readOptionalWriteable { StepMetaData.fromStreamInput(it) }
-            val retryInfo: RetryInfoMetaData? = si.readOptionalWriteable { RetryInfoMetaData.fromStreamInput(it) }
+            val retryInfo: PolicyRetryInfoMetaData? = si.readOptionalWriteable { PolicyRetryInfoMetaData.fromStreamInput(it) }
 
             val info = si.readOptionalString()?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) }?.toMap()
 
@@ -196,7 +197,7 @@ data class ManagedIndexMetaData(
                 StateMetaData.fromManagedIndexMetaDataMap(map),
                 ActionMetaData.fromManagedIndexMetaDataMap(map),
                 StepMetaData.fromManagedIndexMetaDataMap(map),
-                RetryInfoMetaData.fromManagedIndexMetaDataMap(map),
+                PolicyRetryInfoMetaData.fromManagedIndexMetaDataMap(map),
                 map[INFO]?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) }
             )
         }

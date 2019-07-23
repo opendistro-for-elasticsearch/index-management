@@ -31,7 +31,7 @@ import org.elasticsearch.common.xcontent.XContentType
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 
-data class RetryInfoMetaData(
+data class PolicyRetryInfoMetaData(
     val failed: Boolean,
     val consumedRetries: Int
 ) : Writeable, ToXContentFragment {
@@ -56,17 +56,17 @@ data class RetryInfoMetaData(
         const val FAILED = "failed"
         const val CONSUMED_RETRIES = "consumed_retries"
 
-        fun fromStreamInput(si: StreamInput): RetryInfoMetaData {
+        fun fromStreamInput(si: StreamInput): PolicyRetryInfoMetaData {
             val failed: Boolean? = si.readBoolean()
             val consumedRetries: Int? = si.readInt()
 
-            return RetryInfoMetaData(
+            return PolicyRetryInfoMetaData(
                 requireNotNull(failed) { "$FAILED is null" },
                 requireNotNull(consumedRetries) { "$CONSUMED_RETRIES is null" }
             )
         }
 
-        fun fromManagedIndexMetaDataMap(map: Map<String, String?>): RetryInfoMetaData? {
+        fun fromManagedIndexMetaDataMap(map: Map<String, String?>): PolicyRetryInfoMetaData? {
             val stateJsonString = map[RETRY_INFO]
             return if (stateJsonString != null) {
                 val inputStream = ByteArrayInputStream(stateJsonString.toByteArray(StandardCharsets.UTF_8))
@@ -78,7 +78,7 @@ data class RetryInfoMetaData(
             }
         }
 
-        fun parse(xcp: XContentParser): RetryInfoMetaData {
+        fun parse(xcp: XContentParser): PolicyRetryInfoMetaData {
             var failed: Boolean? = null
             var consumedRetries: Int? = null
 
@@ -93,7 +93,7 @@ data class RetryInfoMetaData(
                 }
             }
 
-            return RetryInfoMetaData(
+            return PolicyRetryInfoMetaData(
                 requireNotNull(failed) { "$FAILED is null" },
                 requireNotNull(consumedRetries) { "$CONSUMED_RETRIES is null" }
             )

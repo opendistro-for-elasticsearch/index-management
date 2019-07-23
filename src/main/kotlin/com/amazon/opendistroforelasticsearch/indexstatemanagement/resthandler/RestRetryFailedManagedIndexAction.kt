@@ -19,7 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
@@ -63,6 +63,7 @@ class RestRetryFailedManagedIndexAction(
         return "retry_failed_managed_index"
     }
 
+    @Suppress("SpreadOperator")
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
         if (indices == null || indices.isEmpty()) {
@@ -145,7 +146,7 @@ class RestRetryFailedManagedIndexAction(
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
                     managedIndexMetaData == null ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "There is no IndexMetaData information"))
-                    managedIndexMetaData.retryInfo == null || !managedIndexMetaData.retryInfo.failed ->
+                    managedIndexMetaData.policyRetryInfo == null || !managedIndexMetaData.policyRetryInfo.failed ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not in failed state."))
                     else ->
                         listOfIndexMetaData.add(
@@ -153,7 +154,7 @@ class RestRetryFailedManagedIndexAction(
                                 indexMetaData.index,
                                 managedIndexMetaData.copy(
                                     stepMetaData = null,
-                                    retryInfo = RetryInfoMetaData(false, 0),
+                                    policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
                                     transitionTo = startState,
                                     info = mapOf("message" to "Attempting to retry")
                                 )

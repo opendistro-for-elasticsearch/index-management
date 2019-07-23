@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.client.ResponseException
@@ -118,8 +118,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                     ManagedIndexMetaData.POLICY_PRIMARY_TERM to policy.primaryTerm.toInt()::equals,
                     StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
                         assertState(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
-                    RetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
-                        assertRetryInfo(RetryInfoMetaData(false, 0), retryInfoMetaDataMap),
+                    PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
+                        assertRetryInfo(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
             ), actual)
@@ -151,8 +151,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                     ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
                     ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
                     ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
-                    RetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
-                        assertRetryInfo(RetryInfoMetaData(true, 0), retryInfoMetaDataMap),
+                    PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
+                        assertRetryInfo(PolicyRetryInfoMetaData(true, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
             ), actual)
@@ -192,10 +192,10 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun assertRetryInfo(expectedRetryInfo: RetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
+    private fun assertRetryInfo(expectedRetryInfo: PolicyRetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
         actualRetryInfoMetaDataMap as Map<String, Any>
-        assertEquals(expectedRetryInfo.failed, actualRetryInfoMetaDataMap[RetryInfoMetaData.FAILED] as Boolean)
-        assertEquals(expectedRetryInfo.consumedRetries, actualRetryInfoMetaDataMap[RetryInfoMetaData.CONSUMED_RETRIES] as Int)
+        assertEquals(expectedRetryInfo.failed, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.FAILED] as Boolean)
+        assertEquals(expectedRetryInfo.consumedRetries, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.CONSUMED_RETRIES] as Int)
         return true
     }
 

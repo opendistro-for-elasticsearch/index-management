@@ -33,7 +33,7 @@ import java.lang.IllegalStateException
  * Temporary import from alerting, this will be removed once we pull notifications out of
  * alerting so all plugins can consume and use.
  */
-data class Chime(val url: String) : ToXContent {
+data class Chime(val url: String?) : ToXContent {
 
     init {
         require(!Strings.isNullOrEmpty(url)) { "URL is null or empty" }

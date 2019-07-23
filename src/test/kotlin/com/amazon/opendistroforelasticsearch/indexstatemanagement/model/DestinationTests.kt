@@ -37,6 +37,12 @@ class DestinationTests : ESTestCase() {
             fail("Creating a chime destination with empty url did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
+
+        try {
+            Chime(null)
+            fail("Creating a chime destination with null url did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
     }
 
     fun `test slack destination`() {
@@ -48,6 +54,12 @@ class DestinationTests : ESTestCase() {
         try {
             Slack("")
             fail("Creating a slack destination with empty url did not fail.")
+        } catch (ignored: IllegalArgumentException) {
+        }
+
+        try {
+            Slack(null)
+            fail("Creating a slack destination with null url did not fail.")
         } catch (ignored: IllegalArgumentException) {
         }
     }

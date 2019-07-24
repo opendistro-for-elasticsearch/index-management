@@ -18,6 +18,8 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
 import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.ToXContentFragment
+import org.elasticsearch.common.xcontent.XContentBuilder
 
 const val _DOC = "_doc"
 const val _ID = "_id"
@@ -30,3 +32,38 @@ const val REFRESH = "refresh"
 
 const val WITH_TYPE = "with_type"
 val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
+
+const val FAILURES = "failures"
+const val FAILED_INDICES = "failed_indices"
+const val UPDATED_INDICES = "updated_indices"
+
+fun buildInvalidIndexResponse(builder: XContentBuilder, failedIndices: MutableList<FailedIndex>) {
+    if (failedIndices.isNotEmpty()) {
+        builder.field(FAILURES, true)
+        builder.startArray(FAILED_INDICES)
+        for (failedIndex in failedIndices) {
+            failedIndex.toXContent(builder, ToXContent.EMPTY_PARAMS)
+        }
+        builder.endArray()
+    } else {
+        builder.field(FAILURES, false)
+        builder.startArray(FAILED_INDICES).endArray()
+    }
+}
+
+data class FailedIndex(val name: String, val uuid: String, val reason: String) : ToXContentFragment {
+
+    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        builder.startObject()
+            .field(INDEX_NAME_FIELD, name)
+            .field(INDEX_UUID_FIELD, uuid)
+            .field(REASON_FIELD, reason)
+        return builder.endObject()
+    }
+
+    companion object {
+        const val INDEX_NAME_FIELD = "index_name"
+        const val INDEX_UUID_FIELD = "index_uuid"
+        const val REASON_FIELD = "reason"
+    }
+}

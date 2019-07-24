@@ -21,6 +21,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
@@ -141,6 +144,12 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         updateIndexSettings(index, settings)
     }
 
+    @Suppress("UNCHECKED_CAST")
+    protected fun getPolicyFromIndex(index: String): String? {
+        val indexSettings = getIndexSettings(index) as Map<String, Map<String, Map<String, Any?>>>
+        return indexSettings[index]!!["settings"]!![ManagedIndexSettings.POLICY_ID.key] as? String
+    }
+
     protected fun getManagedIndexConfig(index: String): ManagedIndexConfig? {
         val params = mapOf("version" to "true")
         val request = """
@@ -207,5 +216,57 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     protected fun getIndexBlocksWriteSetting(indexName: String): String {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
         return indexSettings[indexName]!!["settings"]!!["index.blocks.write"] as String
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getUuid(indexName: String): String {
+        val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
+        return indexSettings[indexName]!!["settings"]!!["index.uuid"] as String
+    }
+
+    /**
+     * Compares responses returned by APIs such as those defined in [RetryFailedManagedIndexAction] and [RestAddPolicyAction]
+     *
+     * Example response with no failures:
+     * {
+     *   "failures": false,
+     *   "updated_indices": 3
+     *   "failed_indices": []
+     * }
+     *
+     * Example response with failures:
+     * {
+     *   "failures": true,
+     *   "failed_indices": [
+     *     {
+     *       "index_name": "indexName",
+     *       "index_uuid": "s1PvTKzaThWoeA43eTPYxQ"
+     *       "reason": "Reason for failure"
+     *     }
+     *   ]
+     * }
+     */
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertAffectedIndicesResponseIsEqual(expected: Map<String, Any>, actual: Map<String, Any>) {
+        for (entry in actual) {
+            val key = entry.key
+            val value = entry.value
+
+            when {
+                key == FAILURES && value is Boolean -> assertEquals(expected[key] as Boolean, value)
+                key == UPDATED_INDICES && value is Int -> assertEquals(expected[key] as Int, value)
+                key == FAILED_INDICES && value is List<*> -> {
+                    value as List<Map<String, String>>
+
+                    val actualArray = value.toTypedArray()
+                    actualArray.sortWith(compareBy { it["index_name"] })
+                    val expectedArray = (expected[key] as List<Map<String, String>>).toTypedArray()
+                    expectedArray.sortWith(compareBy { it["index_name"] })
+
+                    assertArrayEquals(expectedArray, actualArray)
+                }
+                else -> fail("Unknown field: [$key] or incorrect type for value: [$value]")
+            }
+        }
     }
 }

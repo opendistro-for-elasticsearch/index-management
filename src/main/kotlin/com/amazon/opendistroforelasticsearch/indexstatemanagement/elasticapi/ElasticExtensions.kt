@@ -193,10 +193,10 @@ fun IndexMetaData.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexC
 }
 
 fun IndexMetaData.getManagedIndexMetaData(): ManagedIndexMetaData? {
-    val existingMetadataMap = this.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+    val existingMetaDataMap = this.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
 
-    if (existingMetadataMap != null) {
-        return ManagedIndexMetaData.fromMap(existingMetadataMap)
+    if (existingMetaDataMap != null) {
+        return ManagedIndexMetaData.fromMap(existingMetaDataMap)
     }
     return null
 }

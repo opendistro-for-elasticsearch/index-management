@@ -47,7 +47,7 @@ class AttemptTransitionStep(
     private val logger = LogManager.getLogger(javaClass)
     // TODO: Update ManagedIndexMetaData start times to be Long, move to extension function on MetaData
     private var stateName: String? = null
-    private var failed: Boolean = false
+    private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
@@ -58,7 +58,7 @@ class AttemptTransitionStep(
             val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
             if (statsResponse.status != RestStatus.OK) {
-                failed = true
+                stepStatus = StepStatus.FAILED
                 info = mapOf(
                     "message" to "Failed to get index stats",
                     "status" to statsResponse.status,
@@ -74,10 +74,16 @@ class AttemptTransitionStep(
             // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true
             stateName = config.transitions.find { it.evaluateConditions(indexCreationDate, numDocs, indexSize, getStepStartTime()) }?.stateName
             // TODO: Style of message, past tense, present tense, etc.
-            val message = if (stateName == null) "Attempting to transition" else "Transitioning to $stateName"
+            val message = if (stateName == null) {
+                stepStatus = StepStatus.CONDITION_NOT_MET
+                "Attempting to transition"
+            } else {
+                stepStatus = StepStatus.COMPLETED
+                "Transitioning to $stateName"
+            }
             info = mapOf("message" to message)
         } catch (e: Exception) {
-            failed = true
+            stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to transition index")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
@@ -85,12 +91,10 @@ class AttemptTransitionStep(
         }
     }
 
-    // TODO: MetaData needs to be updated with correct step information
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
             transitionTo = stateName,
-            // TODO only update stepStartTime when first try of step and not retries
-            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stateName != null),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             info = info
         )
     }

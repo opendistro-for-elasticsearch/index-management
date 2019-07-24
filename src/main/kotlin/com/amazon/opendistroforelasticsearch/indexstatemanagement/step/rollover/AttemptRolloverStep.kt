@@ -42,16 +42,14 @@ class AttemptRolloverStep(
 ) : Step("attempt_rollover", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
-    private var failed: Boolean = false
-    private var stepCompleted: Boolean = false
+    private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    // TODO: Incorporate retries from config and consumed retries from metadata
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         // If we have already rolled over this index then fail as we only allow an index to be rolled over once
         if (managedIndexMetaData.rolledOver == true) {
-            failed = true
+            stepStatus = StepStatus.FAILED
             info = mapOf("message" to "This index has already been rolled over")
             return
         }
@@ -71,6 +69,7 @@ class AttemptRolloverStep(
         if (config.evaluateConditions(indexCreationDate, numDocs, indexSize)) {
             executeRollover(alias)
         } else {
+            stepStatus = StepStatus.CONDITION_NOT_MET
             info = mapOf("message" to "Attempting to rollover")
         }
     }
@@ -85,16 +84,16 @@ class AttemptRolloverStep(
 
             // If response isAcknowledged it means the index was created and alias was added to new index
             if (response.isAcknowledged) {
-                stepCompleted = true
+                stepStatus = StepStatus.COMPLETED
                 info = mapOf("message" to "Rolled over index")
             } else {
                 // If the alias update response is NOT acknowledged we will get back isAcknowledged=false
                 // This means the new index was created but we failed to swap the alias
-                failed = true
+                stepStatus = StepStatus.FAILED
                 info = mapOf("message" to "New index created (${response.newIndex}), but failed to update alias")
             }
         } catch (e: Exception) {
-            failed = true
+            stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to rollover index")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo.put("cause", errorMessage)
@@ -106,7 +105,7 @@ class AttemptRolloverStep(
         val alias = clusterService.state().metaData().index(managedIndexMetaData.index).getRolloverAlias()
 
         if (alias == null) {
-            failed = true
+            stepStatus = StepStatus.FAILED
             info = mapOf("message" to "There is no valid rollover_alias=$alias set on ${managedIndexMetaData.index}")
         }
 
@@ -123,7 +122,7 @@ class AttemptRolloverStep(
                 return statsResponse
             }
 
-            failed = true
+            stepStatus = StepStatus.FAILED
             info = mapOf(
                 "message" to "Failed to get index stats",
                 "status" to statsResponse.status,
@@ -131,7 +130,7 @@ class AttemptRolloverStep(
             )
             return null
         } catch (e: Exception) {
-            failed = true
+            stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
@@ -140,11 +139,9 @@ class AttemptRolloverStep(
         }
     }
 
-    // TODO: retries, stepStartTime not resetting when same step
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            // TODO only update stepStartTime when first try of step and not retries
-            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), this.stepStatus),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
             info = info

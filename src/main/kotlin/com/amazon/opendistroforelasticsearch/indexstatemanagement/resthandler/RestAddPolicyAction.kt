@@ -61,6 +61,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
     override fun getName(): String = "add_policy_action"
 
     @Throws(IOException::class)
+    @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
 
@@ -103,6 +104,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
         private val indicesToAddPolicyTo: MutableList<Index> = mutableListOf()
 
+        @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
         override fun processResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
             populateLists(state)

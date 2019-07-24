@@ -55,6 +55,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
 
     override fun getName(): String = "remove_policy_action"
 
+    @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
@@ -86,6 +87,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
         private val indicesToRemovePolicyFrom: MutableList<Index> = mutableListOf()
 
+        @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
         override fun processResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
             populateLists(state)

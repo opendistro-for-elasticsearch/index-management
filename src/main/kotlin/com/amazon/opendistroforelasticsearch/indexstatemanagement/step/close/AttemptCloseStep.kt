@@ -19,7 +19,7 @@ class AttemptCloseStep(
 ) : Step("attempt_close", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
-    private var failed = false
+    private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
@@ -30,14 +30,15 @@ class AttemptCloseStep(
                 .indices(managedIndexMetaData.index)
 
             val response: AcknowledgedResponse = client.admin().indices().suspendUntil { close(closeIndexRequest, it) }
-            if (!response.isAcknowledged) {
-                failed = true
-                info = mapOf("message" to "Failed to close index: ${managedIndexMetaData.index}")
-            } else {
+            if (response.isAcknowledged) {
+                stepStatus = StepStatus.COMPLETED
                 info = mapOf("message" to "Successfully closed index")
+            } else {
+                stepStatus = StepStatus.FAILED
+                info = mapOf("message" to "Failed to close index: ${managedIndexMetaData.index}")
             }
         } catch (e: Exception) {
-            failed = true
+            stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set index to close")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
@@ -47,8 +48,7 @@ class AttemptCloseStep(
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            // TODO only update stepStartTime when first try of step and not retries
-            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
             info = info

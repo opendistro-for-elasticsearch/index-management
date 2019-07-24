@@ -29,14 +29,13 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class DeleteActionConfig(
-    val timeout: ActionTimeout?,
-    val retry: ActionRetry?,
     val index: Int
-) : ToXContentObject, ActionConfig(ActionType.DELETE, timeout, retry, index) {
+) : ToXContentObject, ActionConfig(ActionType.DELETE, index) {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject().startObject(ActionType.DELETE.type)
+        builder.startObject()
         super.toXContent(builder, params)
+            .startObject(ActionType.DELETE.type)
         return builder.endObject().endObject()
     }
 
@@ -52,22 +51,14 @@ data class DeleteActionConfig(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): DeleteActionConfig {
-            var timeout: ActionTimeout? = null
-            var retry: ActionRetry? = null
-
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
-
-                when (fieldName) {
-                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
-                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in DeleteActionConfig.")
-                }
+                throw IllegalArgumentException("Invalid field: [$fieldName] found in DeleteActionConfig.")
             }
 
-            return DeleteActionConfig(timeout, retry, index)
+            return DeleteActionConfig(index)
         }
     }
 }

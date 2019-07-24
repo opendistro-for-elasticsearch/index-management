@@ -35,10 +35,9 @@ class SetReadOnlyStep(
 ) : Step("set_read_only", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
-    private var failed: Boolean = false
+    private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    // TODO: Incorporate retries from config and consumed retries from metadata
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         try {
@@ -51,13 +50,14 @@ class SetReadOnlyStep(
                 .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
             if (response.isAcknowledged) {
+                stepStatus = StepStatus.COMPLETED
                 info = mapOf("message" to "Set index to read-only")
             } else {
-                failed = true
+                stepStatus = StepStatus.FAILED
                 info = mapOf("message" to "Failed to set index to read-only")
             }
         } catch (e: Exception) {
-            failed = true
+            stepStatus = StepStatus.STARTING
             val mutableInfo = mutableMapOf("message" to "Failed to set index to read-only")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
@@ -67,8 +67,7 @@ class SetReadOnlyStep(
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            // TODO only update stepStartTime when first try of step and not retries
-            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
             info = info

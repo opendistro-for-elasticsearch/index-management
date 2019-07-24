@@ -64,7 +64,7 @@ class RestRetryFailedManagedIndexAction(
         return "retry_failed_managed_index"
     }
 
-    @Suppress("SpreadOperator")
+    @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
         if (indices == null || indices.isEmpty()) {

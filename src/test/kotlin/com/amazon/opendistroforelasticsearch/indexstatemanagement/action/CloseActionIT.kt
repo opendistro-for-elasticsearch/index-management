@@ -31,7 +31,7 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
     fun `test basic`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
-        val actionConfig = CloseActionConfig(null, null, 0)
+        val actionConfig = CloseActionConfig(0)
         val states = listOf(
             State("CloseState", listOf(actionConfig), listOf())
         )
@@ -46,11 +46,9 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
             states = states
         )
         createPolicy(policy, policyID)
-        createIndex(indexName, null)
+        createIndex(indexName, policyID)
 
         assertEquals("open", getIndexState(indexName))
-
-        addPolicyToIndex(indexName, policyID)
         Thread.sleep(2000)
 
         val managedIndexConfig = getManagedIndexConfig(indexName)
@@ -72,7 +70,7 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
     fun `test already closed index`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
-        val actionConfig = CloseActionConfig(null, null, 0)
+        val actionConfig = CloseActionConfig(0)
         val states = listOf(
             State("CloseState", listOf(actionConfig), listOf())
         )
@@ -87,8 +85,7 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
             states = states
         )
         createPolicy(policy, policyID)
-        createIndex(indexName, null)
-        addPolicyToIndex(indexName, policyID)
+        createIndex(indexName, policyID)
 
         closeIndex(indexName)
         assertEquals("close", getIndexState(indexName))

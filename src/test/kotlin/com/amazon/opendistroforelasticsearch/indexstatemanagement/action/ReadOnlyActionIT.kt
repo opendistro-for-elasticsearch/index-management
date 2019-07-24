@@ -31,7 +31,7 @@ class ReadOnlyActionIT : IndexStateManagementRestTestCase() {
     fun `test basic workflow`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
-        val actionConfig = ReadOnlyActionConfig(null, null, 0)
+        val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(
             State("ReadOnlyState", listOf(actionConfig), listOf())
         )

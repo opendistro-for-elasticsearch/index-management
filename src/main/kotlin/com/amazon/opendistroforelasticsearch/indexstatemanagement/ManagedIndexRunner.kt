@@ -30,8 +30,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.createManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getActionToExecute
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStartingManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStateToExecute
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getUpdatedManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCompletedManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSuccessfulDelete
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
@@ -61,6 +62,7 @@ import org.elasticsearch.index.Index
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 
+@Suppress("TooManyFunctions")
 object ManagedIndexRunner : ScheduledJobRunner,
         CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexRunner")) {
 
@@ -130,12 +132,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         // If the policy was completed then return early and disable job so it stops scheduling work
         if (managedIndexMetaData.policyCompleted == true) {
-            // TODO: Update ManagedIndexConfig to disabled
+            disableManagedIndexConfig(managedIndexConfig)
             return
         }
-
-        // TODO: If we're failed and consumed all retries then return early
-        // Should also disable the job as retry requires an API call where we can reenable it
 
         // TODO: Compare policy version of ManagedIndexMetaData with policy version of job
         // If mismatch, update ManagedIndexMetaData with Version Conflict error
@@ -146,21 +145,45 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val action: Action? = state?.getActionToExecute(clusterService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
 
-        // If any of the above components come back as null then we are moving to error in ManagedIndexMetaData
-        if (state != null && action != null && step != null) {
-            step.execute()
-        }
-
-        val updatedManagedIndexMetaData = managedIndexMetaData.getUpdatedManagedIndexMetaData(state, action, step)
-
-        // TODO: Check if we can move this into the TransportUpdateManagedIndexMetaDataAction to cover all cases where
-        //  IndexMetaData does not exist anymore since if this current execution was a delete step and it was
-        //  successful then the IndexMetaData will be wiped and will throw a NPE if we attempt to update it
-        if (updatedManagedIndexMetaData.isSuccessfulDelete) {
+        if (action?.config?.configRetry?.backoff?.shouldBackoff(managedIndexMetaData.actionMetaData, action.config.configRetry) == true) {
+            // If we should back off then exit early.
+            logger.info("Backoff for retrying.")
             return
         }
 
-        updateManagedIndexMetaData(updatedManagedIndexMetaData)
+        // If Step status is still in Start it means we have failed to update the IndexMetaData.
+        // TODO: In case the step is Idempotent we can retry. ie. open, close, read_only, read_write, etc...
+        if (managedIndexMetaData.stepMetaData?.stepStatus == Step.StepStatus.STARTING) {
+            val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
+            updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+            disableManagedIndexConfig(managedIndexConfig)
+            return
+        }
+
+        // If any of the above components come back as null then we are moving to error in ManagedIndexMetaData
+        val startingManagedIndexMetaData = managedIndexMetaData.getStartingManagedIndexMetaData(state, action, step)
+        updateManagedIndexMetaData(startingManagedIndexMetaData)
+
+        val actionMetaData = startingManagedIndexMetaData.actionMetaData
+
+        if (state != null && action != null && step != null && actionMetaData != null) {
+            // Step null check is done in getStartingManagedIndexMetaData
+            step.execute()
+            val updatedManagedIndexMetaData = managedIndexMetaData.getCompletedManagedIndexMetaData(state, action, step, actionMetaData)
+            if (updatedManagedIndexMetaData.actionMetaData?.failed == true) {
+                // If the action is failed we can disable the ManagedIndexConfig.
+                disableManagedIndexConfig(managedIndexConfig)
+            }
+
+            // TODO: Check if we can move this into the TransportUpdateManagedIndexMetaDataAction to cover all cases where
+            //  IndexMetaData does not exist anymore since if this current execution was a delete step and it was
+            //  successful then the IndexMetaData will be wiped and will throw a NPE if we attempt to update it
+            if (updatedManagedIndexMetaData.isSuccessfulDelete) {
+                return
+            }
+
+            updateManagedIndexMetaData(updatedManagedIndexMetaData)
+        }
     }
 
     private suspend fun initManagedIndex(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData?) {
@@ -202,6 +225,22 @@ object ManagedIndexRunner : ScheduledJobRunner,
                     policySource, XContentType.JSON)
             Policy.parseWithType(xcp, getResponse.id, getResponse.seqNo, getResponse.primaryTerm)
         }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun disableManagedIndexConfig(managedIndexConfig: ManagedIndexConfig): Boolean {
+        val updatedManagedIndexConfig = managedIndexConfig.copy(enabled = false, jobEnabledTime = null)
+        val indexRequest = createManagedIndexRequest(updatedManagedIndexConfig)
+        var savedPolicy = false
+        try {
+            savePolicyRetryPolicy.retry(logger) {
+                val indexResponse: IndexResponse = client.suspendUntil { index(indexRequest, it) }
+                savedPolicy = indexResponse.status() == RestStatus.OK
+            }
+        } catch (e: Exception) {
+            logger.error("Failed to disable ManagedIndexConfig(${managedIndexConfig.index})", e)
+        }
+        return savedPolicy
     }
 
     @Suppress("TooGenericExceptionCaught")

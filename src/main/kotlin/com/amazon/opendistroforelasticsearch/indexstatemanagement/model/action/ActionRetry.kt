@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
@@ -23,10 +25,13 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
+import java.time.Instant
+import java.util.Locale
+import kotlin.math.pow
 
 data class ActionRetry(
     val count: Long,
-    val backoff: String = DEFAULT_BACKOFF,
+    val backoff: Backoff = Backoff.EXPONENTIAL,
     val delay: TimeValue = TimeValue.timeValueMinutes(1)
 ) : ToXContentFragment {
 
@@ -43,8 +48,6 @@ data class ActionRetry(
     }
 
     companion object {
-        const val DEFAULT_BACKOFF = "exponential"
-
         const val RETRY_FIELD = "retry"
         const val COUNT_FIELD = "count"
         const val BACKOFF_FIELD = "backoff"
@@ -54,7 +57,7 @@ data class ActionRetry(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): ActionRetry {
             var count: Long? = null
-            var backoff: String = DEFAULT_BACKOFF
+            var backoff: Backoff = Backoff.EXPONENTIAL
             var delay: TimeValue = TimeValue.timeValueMinutes(1)
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -64,7 +67,7 @@ data class ActionRetry(
 
                 when (fieldName) {
                     COUNT_FIELD -> count = xcp.longValue()
-                    BACKOFF_FIELD -> backoff = xcp.text()
+                    BACKOFF_FIELD -> backoff = Backoff.valueOf(xcp.text().toUpperCase(Locale.ROOT))
                     DELAY_FIELD -> delay = TimeValue.parseTimeValue(xcp.text(), DELAY_FIELD)
                 }
             }
@@ -74,6 +77,40 @@ data class ActionRetry(
                 backoff = backoff,
                 delay = delay
             )
+        }
+    }
+
+    enum class Backoff(val type: String, val getNextRetryTime: (consumedRetries: Int, timeValue: TimeValue) -> Long) {
+        EXPONENTIAL("exponential", { consumedRetries, timeValue ->
+            (2.0.pow(consumedRetries - 1)).toLong() * timeValue.millis
+        }),
+        CONSTANT("constant", { _, timeValue ->
+            timeValue.millis
+        }),
+        LINEAR("linear", { consumedRetries, timeValue ->
+            consumedRetries * timeValue.millis
+        });
+
+        private val logger = LogManager.getLogger(javaClass)
+
+        override fun toString(): String {
+            return type
+        }
+
+        fun shouldBackoff(actionMetaData: ActionMetaData?, actionRetry: ActionRetry?): Boolean {
+            if (actionMetaData == null || actionRetry == null) {
+                logger.debug("There is no actionMetaData and ActionRetry we don't need to backoff")
+                return false
+            }
+
+            if (actionMetaData.consumedRetries > 0) {
+                if (actionMetaData.lastRetryTime != null) {
+                    return Instant.now().toEpochMilli() - actionMetaData.lastRetryTime <
+                        getNextRetryTime(actionMetaData.consumedRetries, actionRetry.delay)
+                }
+            }
+
+            return false
         }
     }
 }

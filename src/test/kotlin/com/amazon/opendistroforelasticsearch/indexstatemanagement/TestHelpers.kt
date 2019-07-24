@@ -23,8 +23,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
@@ -107,47 +105,30 @@ fun randomConditions(
 fun nonNullRandomConditions(): Conditions =
     randomConditions(ESRestTestCase.randomFrom(listOf(randomIndexAge(), randomDocCount(), randomSize())))!!
 
-fun randomDeleteActionConfig(
-    timeout: ActionTimeout = randomActionTimeout(),
-    retry: ActionRetry = randomActionRetry()
-): DeleteActionConfig {
-    return DeleteActionConfig(timeout = timeout, retry = retry, index = 0)
+fun randomDeleteActionConfig(): DeleteActionConfig {
+    return DeleteActionConfig(index = 0)
 }
 
 fun randomRolloverActionConfig(
     minSize: ByteSizeValue = randomByteSizeValue(),
     minDocs: Long = ESRestTestCase.randomLongBetween(1, 1000),
-    minAge: TimeValue = randomTimeValueObject(),
-    timeout: ActionTimeout = randomActionTimeout(),
-    retry: ActionRetry = randomActionRetry()
+    minAge: TimeValue = randomTimeValueObject()
 ): RolloverActionConfig {
     return RolloverActionConfig(
         minSize = minSize,
         minDocs = minDocs,
         minAge = minAge,
-        timeout = timeout,
-        retry = retry,
         index = 0
     )
 }
 
-fun randomReadOnlyActionConfig(
-    timeout: ActionTimeout = randomActionTimeout(),
-    retry: ActionRetry = randomActionRetry()
-): ReadOnlyActionConfig {
-    return ReadOnlyActionConfig(timeout = timeout, retry = retry, index = 0)
+fun randomReadOnlyActionConfig(): ReadOnlyActionConfig {
+    return ReadOnlyActionConfig(index = 0)
 }
 
-fun randomReadWriteActionConfig(
-    timeout: ActionTimeout = randomActionTimeout(),
-    retry: ActionRetry = randomActionRetry()
-): ReadWriteActionConfig {
-    return ReadWriteActionConfig(timeout = timeout, retry = retry, index = 0)
+fun randomReadWriteActionConfig(): ReadWriteActionConfig {
+    return ReadWriteActionConfig(index = 0)
 }
-
-fun randomActionTimeout() = ActionTimeout(randomTimeValueObject())
-
-fun randomActionRetry() = ActionRetry(count = ESRestTestCase.randomLongBetween(1, 10), delay = randomTimeValueObject())
 
 /**
  * Helper functions for creating a random Conditions object

@@ -29,10 +29,13 @@ import java.io.IOException
 
 abstract class ActionConfig(
     val type: ActionType,
-    val configTimeout: ActionTimeout?,
-    val configRetry: ActionRetry?,
     val actionIndex: Int
 ) : ToXContentFragment {
+
+    var configTimeout: ActionTimeout? = null
+        private set
+    var configRetry: ActionRetry? = null
+        private set
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         configTimeout?.toXContent(builder, params)
@@ -65,6 +68,8 @@ abstract class ActionConfig(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): ActionConfig {
             var actionConfig: ActionConfig? = null
+            var timeout: ActionTimeout? = null
+            var retry: ActionRetry? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -72,6 +77,8 @@ abstract class ActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
+                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
+                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
                     ActionType.DELETE.type -> actionConfig = DeleteActionConfig.parse(xcp, index)
                     ActionType.ROLLOVER.type -> actionConfig = RolloverActionConfig.parse(xcp, index)
                     ActionType.OPEN.type -> actionConfig = OpenActionConfig.parse(xcp, index)
@@ -82,7 +89,12 @@ abstract class ActionConfig(
                 }
             }
 
-            return requireNotNull(actionConfig) { "ActionConfig inside state is null" }
+            requireNotNull(actionConfig) { "ActionConfig inside state is null" }
+
+            actionConfig.configTimeout = timeout
+            actionConfig.configRetry = retry
+
+            return actionConfig
         }
     }
 }

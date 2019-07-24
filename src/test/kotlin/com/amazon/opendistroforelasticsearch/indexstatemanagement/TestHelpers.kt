@@ -54,14 +54,14 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 fun randomPolicy(
-    name: String = ESRestTestCase.randomAlphaOfLength(10),
+    id: String = ESRestTestCase.randomAlphaOfLength(10),
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
     states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
 ): Policy {
-    return Policy(name = name, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            defaultNotification = defaultNotification, defaultState = states[0].name, states = states)
+    return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
+            defaultNotification = defaultNotification, defaultState = states[0].name, states = states, description = "random policy")
 }
 
 fun randomState(
@@ -173,10 +173,10 @@ fun randomByteSizeValue() =
  */
 
 fun randomChangePolicy(
-    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    policyID: String = ESRestTestCase.randomAlphaOfLength(10),
     state: String? = if (ESRestTestCase.randomBoolean()) ESRestTestCase.randomAlphaOfLength(10) else null
 ): ChangePolicy {
-    return ChangePolicy(policyName, state)
+    return ChangePolicy(policyID, state)
 }
 
 fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class
@@ -191,7 +191,7 @@ fun randomManagedIndexConfig(
     schedule: Schedule = IntervalSchedule(Instant.ofEpochMilli(Instant.now().toEpochMilli()), 5, ChronoUnit.MINUTES),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     enabledTime: Instant? = if (enabled) Instant.now().truncatedTo(ChronoUnit.MILLIS) else null,
-    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    policyID: String = ESRestTestCase.randomAlphaOfLength(10),
     policy: Policy? = randomPolicy(),
     changePolicy: ChangePolicy? = randomChangePolicy()
 ): ManagedIndexConfig {
@@ -203,10 +203,10 @@ fun randomManagedIndexConfig(
         jobSchedule = schedule,
         jobLastUpdatedTime = lastUpdatedTime,
         jobEnabledTime = enabledTime,
-        policyName = policy?.name ?: policyName,
+        policyID = policy?.id ?: policyID,
         policySeqNo = policy?.seqNo,
         policyPrimaryTerm = policy?.primaryTerm,
-        policy = policy,
+        policy = policy?.copy(id = ManagedIndexConfig.NO_ID, seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO, primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM),
         changePolicy = changePolicy
     )
 }
@@ -214,14 +214,14 @@ fun randomManagedIndexConfig(
 fun randomClusterStateManagedIndexConfig(
     index: String = ESRestTestCase.randomAlphaOfLength(10),
     uuid: String = ESRestTestCase.randomAlphaOfLength(20),
-    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    policyID: String = ESRestTestCase.randomAlphaOfLength(10),
     seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
 ): ClusterStateManagedIndexConfig {
     return ClusterStateManagedIndexConfig(
         index = index,
         uuid = uuid,
-        policyName = policyName,
+        policyID = policyID,
         seqNo = seqNo,
         primaryTerm = primaryTerm
     )
@@ -230,7 +230,7 @@ fun randomClusterStateManagedIndexConfig(
 fun randomSweptManagedIndexConfig(
     index: String = ESRestTestCase.randomAlphaOfLength(10),
     uuid: String = ESRestTestCase.randomAlphaOfLength(20),
-    policyName: String = ESRestTestCase.randomAlphaOfLength(10),
+    policyID: String = ESRestTestCase.randomAlphaOfLength(10),
     seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     changePolicy: ChangePolicy? = null
@@ -238,7 +238,7 @@ fun randomSweptManagedIndexConfig(
     return SweptManagedIndexConfig(
         index = index,
         uuid = uuid,
-        policyName = policyName,
+        policyID = policyID,
         seqNo = seqNo,
         primaryTerm = primaryTerm,
         changePolicy = changePolicy

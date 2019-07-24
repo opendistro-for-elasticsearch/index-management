@@ -150,7 +150,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
 
     override fun getSettings(): List<Setting<*>> {
         return listOf(
-            ManagedIndexSettings.POLICY_NAME,
+            ManagedIndexSettings.POLICY_ID,
             ManagedIndexSettings.ROLLOVER_ALIAS,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
             ManagedIndexSettings.SWEEP_PERIOD,

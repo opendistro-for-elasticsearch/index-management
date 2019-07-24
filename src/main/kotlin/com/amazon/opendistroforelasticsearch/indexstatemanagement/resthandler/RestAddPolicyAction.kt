@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.ISM_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyName
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
@@ -122,7 +122,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
 
                 val updateSettingsRequest = UpdateSettingsRequest()
                     .indices(*indicesToAddPolicyTo.map { it.name }.toTypedArray())
-                    .settings(Settings.builder().put(ManagedIndexSettings.POLICY_NAME.key, policyID))
+                    .settings(Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, policyID))
                     .timeout(TimeValue.timeValueMillis(updateSettingsTimeout))
 
                 try {
@@ -161,7 +161,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
             for (indexMetaDataEntry in state.metaData.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 when {
-                    indexMetaData.getPolicyName() != null ->
+                    indexMetaData.getPolicyID() != null ->
                         failedIndices.add(
                             FailedIndex(
                                 indexMetaData.index.name,

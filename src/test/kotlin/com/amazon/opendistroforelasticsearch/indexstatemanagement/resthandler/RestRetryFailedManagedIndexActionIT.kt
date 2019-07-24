@@ -153,7 +153,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     fun `test index not failed`() {
         val indexName = "movies"
         val policy = createRandomPolicy(refresh = true)
-        createIndex(indexName, policyName = policy.id)
+        createIndex(indexName, policyID = policy.id)
 
         Thread.sleep(2000)
 

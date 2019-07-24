@@ -17,8 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyName
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
@@ -100,7 +101,7 @@ class RestRetryFailedManagedIndexAction(
 
         override fun processResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
-            populateList(state, startState)
+            populateList(state)
 
             val builder = channel.newBuilder().startObject()
             if (listOfIndexMetaData.isNotEmpty()) {
@@ -135,28 +136,25 @@ class RestRetryFailedManagedIndexAction(
             }
         }
 
-        private fun populateList(state: ClusterState, startState: String?) {
+        private fun populateList(state: ClusterState) {
             for (indexMetaDataEntry in state.metaData.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
                 when {
-                    indexMetaData.getPolicyName() == null ->
+                    indexMetaData.getPolicyID() == null ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
                     managedIndexMetaData == null ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "There is no IndexMetaData information"))
-                    managedIndexMetaData.failed != true ->
+                    managedIndexMetaData.retryInfo == null || !managedIndexMetaData.retryInfo.failed ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not in failed state."))
                     else ->
                         listOfIndexMetaData.add(
                             Pair(
                                 indexMetaData.index,
                                 managedIndexMetaData.copy(
-                                    step = null,
-                                    stepCompleted = false,
-                                    stepStartTime = null,
-                                    failed = false,
-                                    consumedRetries = 0,
-                                    transitionTo = startState ?: managedIndexMetaData.transitionTo,
+                                    stepMetaData = null,
+                                    retryInfo = RetryInfoMetaData(false, 0),
+                                    transitionTo = startState,
                                     info = mapOf("message" to "Attempting to retry")
                                 )
                             )

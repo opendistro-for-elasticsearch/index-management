@@ -39,7 +39,7 @@ class ReadWriteActionIT : IndexStateManagementRestTestCase() {
 
         val policy = Policy(
             id = policyID,
-            name = "${testIndexName}_testPolicyName",
+            description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             defaultNotification = randomDefaultNotification(),

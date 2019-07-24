@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -24,27 +25,27 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class ChangePolicy(
-    val policyName: String,
+    val policyID: String,
     val state: String?
 ) : ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
             .startObject()
-                .field(POLICY_NAME_FIELD, policyName)
-                .field(STATE_FIELD, state)
+                .field(ManagedIndexConfig.POLICY_ID_FIELD, policyID)
+                .field(StateMetaData.STATE, state)
             .endObject()
         return builder
     }
 
     companion object {
-        const val POLICY_NAME_FIELD = "policy_name"
+        const val POLICY_ID_FIELD = "policy_id"
         const val STATE_FIELD = "state"
 
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): ChangePolicy {
-            var policyName: String? = null
+            var policyID: String? = null
             var state: String? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -53,14 +54,14 @@ data class ChangePolicy(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    POLICY_NAME_FIELD -> policyName = xcp.text()
+                    POLICY_ID_FIELD -> policyID = xcp.text()
                     STATE_FIELD -> state = xcp.textOrNull()
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ChangePolicy.")
                 }
             }
 
             return ChangePolicy(
-                requireNotNull(policyName) { "ChangePolicy policy name is null" },
+                requireNotNull(policyID) { "ChangePolicy policy id is null" },
                 state
             )
         }

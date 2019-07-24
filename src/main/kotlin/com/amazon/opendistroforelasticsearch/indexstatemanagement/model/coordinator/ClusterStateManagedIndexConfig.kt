@@ -36,7 +36,7 @@ data class ClusterStateManagedIndexConfig(
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     val uuid: String,
-    val policyName: String
+    val policyID: String
 ) : ToXContentObject {
 
     /**
@@ -48,7 +48,7 @@ data class ClusterStateManagedIndexConfig(
             .startObject()
                 .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
                 .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
-                .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, ChangePolicy(policyName, null))
+                .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, ChangePolicy(policyID, null))
                 .endObject()
             .endObject()
         return builder

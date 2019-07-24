@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.ISM_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyName
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
@@ -95,7 +95,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
                 val updateSettingsRequest = UpdateSettingsRequest()
                     .indices(*indicesToRemovePolicyFrom.map { it.name }.toTypedArray())
                     .settings(
-                        Settings.builder().putNull(ManagedIndexSettings.POLICY_NAME.key)
+                        Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key)
                     )
 
                 try {
@@ -133,7 +133,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
             for (indexMetaDataEntry in state.metaData.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 when {
-                    indexMetaData.getPolicyName() == null ->
+                    indexMetaData.getPolicyID() == null ->
                         failedIndices.add(
                             FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index does not have a policy to remove")
                         )

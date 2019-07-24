@@ -88,11 +88,10 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
         )
         createPolicy(policy, policyID)
         createIndex(indexName, null)
-        closeIndex(indexName)
-
-        assertEquals("close", getIndexState(indexName))
-
         addPolicyToIndex(indexName, policyID)
+
+        closeIndex(indexName)
+        assertEquals("close", getIndexState(indexName))
         Thread.sleep(2000)
 
         val managedIndexConfig = getManagedIndexConfig(indexName)

@@ -28,14 +28,23 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+
+/** Convert an object to maps and lists representation */
+fun ToXContent.convertToMap(): Map<String, Any> {
+    val bytesReference = XContentHelper.toXContent(this, XContentType.JSON, false)
+    return XContentHelper.convertToMap(bytesReference, false, XContentType.JSON).v2()
+}
 
 fun XContentParser.instant(): Instant? {
     return when {

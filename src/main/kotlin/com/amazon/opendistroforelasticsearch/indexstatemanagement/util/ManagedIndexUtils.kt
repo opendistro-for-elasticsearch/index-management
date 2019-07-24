@@ -12,8 +12,8 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+@file:Suppress("TooManyFunctions")
 @file:JvmName("ManagedIndexUtils")
-
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
@@ -30,7 +30,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.T
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete.AttemptDeleteStep
@@ -307,8 +307,8 @@ fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, 
     val actionMetaData = managedIndexMetaData.actionMetaData
 
     return when {
-        stateMetaData?.name != state.name -> ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex)
-        actionMetaData?.index != this.config.actionIndex -> ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex)
+        stateMetaData?.name != state.name -> ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0)
+        actionMetaData?.index != this.config.actionIndex -> ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0)
         else -> actionMetaData
     }
 }
@@ -322,7 +322,7 @@ fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
     // State can be null if the transition_to state or the current metadata state is not found in the policy
     if (state == null) {
         return this.copy(
-            retryInfo = RetryInfoMetaData(true, 0),
+            policyRetryInfo = PolicyRetryInfoMetaData(true, 0),
             info = mapOf("message" to "Failed to find state=${this.transitionTo ?: this.stateMetaData} in policy=${this.policyID}")
         )
     }
@@ -331,7 +331,7 @@ fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
     // Step can only be null if Action is null
     if (action == null || step == null) {
         return this.copy(
-            retryInfo = RetryInfoMetaData(true, 0),
+            policyRetryInfo = PolicyRetryInfoMetaData(true, 0),
             info = mapOf("message" to "Failed to find action=${this.actionMetaData} in state=${this.stateMetaData}")
         )
     }
@@ -339,6 +339,8 @@ fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
     val updatedStateMetaData = state.getUpdatedStateMetaData(this)
     val updatedActionMetaData = action.getUpdatedActionMetaData(this, state)
     val updatedStepMetaData = step.getUpdatedManagedIndexMetaData(this)
+
+    // TODO Update Action retry logic.
 
     return this.copy(
         policyCompleted = action.type == ActionConfig.ActionType.TRANSITION && state.transitions.isEmpty(),
@@ -348,13 +350,21 @@ fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
         stepMetaData = updatedStepMetaData.stepMetaData,
         transitionTo = updatedStepMetaData.transitionTo,
         // TODO: ConsumedRetries
-        retryInfo = updatedStepMetaData.retryInfo,
+        policyRetryInfo = updatedStepMetaData.policyRetryInfo,
         info = updatedStepMetaData.info
-
     )
 }
 
 val ManagedIndexMetaData.isSuccessfulDelete: Boolean
-    get() = (this.actionMetaData != null && this.actionMetaData.name == ActionConfig.ActionType.DELETE.type) &&
+    get() = (this.actionMetaData != null && this.actionMetaData.name == ActionConfig.ActionType.DELETE.type && !this.actionMetaData.failed) &&
             (this.stepMetaData != null && this.stepMetaData.name == AttemptDeleteStep.name && this.stepMetaData.completed) &&
-            (this.retryInfo != null && !this.retryInfo.failed)
+            (this.policyRetryInfo != null && !this.policyRetryInfo.failed)
+
+val ManagedIndexMetaData.isFailed: Boolean
+    get() {
+        // If PolicyRetryInfo is failed then the ManagedIndex has failed.
+        if (this.policyRetryInfo?.failed == true) return true
+        // If ActionMetaData is not null and some action is failed. Then the ManagedIndex has failed.
+        if (this.actionMetaData?.failed == true) return true
+        return false
+    }

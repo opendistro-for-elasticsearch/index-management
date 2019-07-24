@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.get
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.evaluateConditions
@@ -48,6 +47,7 @@ class AttemptRolloverStep(
     private var info: Map<String, Any>? = null
 
     // TODO: Incorporate retries from config and consumed retries from metadata
+    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         // If we have already rolled over this index then fail as we only allow an index to be rolled over once
         if (managedIndexMetaData.rolledOver == true) {
@@ -134,7 +134,7 @@ class AttemptRolloverStep(
             failed = true
             val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
             val errorMessage = e.message
-            if (errorMessage != null) mutableInfo.put("cause", errorMessage)
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
             return null
         }
@@ -147,8 +147,6 @@ class AttemptRolloverStep(
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
-            // TODO properly attempt retry and update RetryInfo.
-            retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info
         )
     }

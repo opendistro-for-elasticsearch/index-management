@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
@@ -41,6 +40,7 @@ class AttemptDeleteStep(
 
     // TODO: Incorporate retries from config and consumed retries from metadata
     // TODO: Needs to return execute status after finishing, i.e. succeeded, noop, failed, failed info to update metadata
+    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         try {
             val response: AcknowledgedResponse = client.admin().indices()
@@ -56,7 +56,7 @@ class AttemptDeleteStep(
             failed = true
             val mutableInfo = mutableMapOf("message" to "Failed to delete index")
             val errorMessage = e.message
-            if (errorMessage != null) mutableInfo.put("cause", errorMessage)
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
         }
     }
@@ -67,8 +67,6 @@ class AttemptDeleteStep(
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
-            // TODO properly attempt retry and update RetryInfo.
-            retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info
         )
     }

@@ -3,7 +3,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.open
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.OpenActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
@@ -23,17 +22,26 @@ class AttemptOpenStep(
     private var failed = false
     private var info: Map<String, Any>? = null
 
+    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
-        logger.info("Executing open on ${managedIndexMetaData.index}")
-        val openIndexRequest = OpenIndexRequest()
-            .indices(managedIndexMetaData.index)
+        try {
+            logger.info("Executing open on ${managedIndexMetaData.index}")
+            val openIndexRequest = OpenIndexRequest()
+                .indices(managedIndexMetaData.index)
 
-        val response: OpenIndexResponse = client.admin().indices().suspendUntil { open(openIndexRequest, it) }
-        if (!response.isAcknowledged) {
+            val response: OpenIndexResponse = client.admin().indices().suspendUntil { open(openIndexRequest, it) }
+            if (!response.isAcknowledged) {
+                failed = true
+                info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
+            } else {
+                info = mapOf("message" to "Successfully opened index")
+            }
+        } catch (e: Exception) {
             failed = true
-            info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
-        } else {
-            info = mapOf("message" to "Successfully opened index")
+            val mutableInfo = mutableMapOf("message" to "Failed to set index to open")
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
+            info = mutableInfo.toMap()
         }
     }
 
@@ -43,8 +51,6 @@ class AttemptOpenStep(
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
-            // TODO properly attempt retry and update RetryInfo.
-            retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info
         )
     }

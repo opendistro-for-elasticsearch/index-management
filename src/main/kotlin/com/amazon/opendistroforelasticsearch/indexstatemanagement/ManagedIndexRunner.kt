@@ -25,7 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.sus
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.createManagedIndexRequest
@@ -240,8 +240,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
             stateMetaData = stateMetaData,
             actionMetaData = null,
             stepMetaData = null,
-            // TODO fix retryInfo when we implement retry logic.
-            retryInfo = RetryInfoMetaData(failed = policy == null, consumedRetries = 0),
+            // TODO fix policyRetryInfo when we implement retry logic.
+            policyRetryInfo = PolicyRetryInfoMetaData(failed = policy == null, consumedRetries = 0),
             info = mapOf("message" to "${if (policy == null) "Fail to load" else "Successfully initialized"} policy: ${managedIndexConfig.policyID}")
         )
 

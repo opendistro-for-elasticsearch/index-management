@@ -3,7 +3,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.close
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.CloseActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
@@ -23,17 +22,26 @@ class AttemptCloseStep(
     private var failed = false
     private var info: Map<String, Any>? = null
 
+    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
-        logger.info("Executing close on ${managedIndexMetaData.index}")
-        val closeIndexRequest = CloseIndexRequest()
-            .indices(managedIndexMetaData.index)
+        try {
+            logger.info("Executing close on ${managedIndexMetaData.index}")
+            val closeIndexRequest = CloseIndexRequest()
+                .indices(managedIndexMetaData.index)
 
-        val response: AcknowledgedResponse = client.admin().indices().suspendUntil { close(closeIndexRequest, it) }
-        if (!response.isAcknowledged) {
+            val response: AcknowledgedResponse = client.admin().indices().suspendUntil { close(closeIndexRequest, it) }
+            if (!response.isAcknowledged) {
+                failed = true
+                info = mapOf("message" to "Failed to close index: ${managedIndexMetaData.index}")
+            } else {
+                info = mapOf("message" to "Successfully closed index")
+            }
+        } catch (e: Exception) {
             failed = true
-            info = mapOf("message" to "Failed to close index: ${managedIndexMetaData.index}")
-        } else {
-            info = mapOf("message" to "Successfully closed index")
+            val mutableInfo = mutableMapOf("message" to "Failed to set index to close")
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
+            info = mutableInfo.toMap()
         }
     }
 
@@ -43,8 +51,6 @@ class AttemptCloseStep(
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
-            // TODO properly attempt retry and update RetryInfo.
-            retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info
         )
     }

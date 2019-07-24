@@ -22,6 +22,7 @@ class AttemptOpenStep(
     private var failed = false
     private var info: Map<String, Any>? = null
 
+    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         try {
             logger.info("Executing open on ${managedIndexMetaData.index}")

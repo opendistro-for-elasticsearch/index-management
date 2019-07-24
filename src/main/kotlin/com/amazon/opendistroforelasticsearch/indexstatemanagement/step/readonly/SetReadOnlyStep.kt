@@ -39,6 +39,7 @@ class SetReadOnlyStep(
     private var info: Map<String, Any>? = null
 
     // TODO: Incorporate retries from config and consumed retries from metadata
+    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         try {
             val updateSettingsRequest = UpdateSettingsRequest()

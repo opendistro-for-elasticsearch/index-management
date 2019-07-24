@@ -68,4 +68,46 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
 
         assertEquals("close", getIndexState(indexName))
     }
+
+    fun `test already closed index`() {
+        val indexName = "${testIndexName}_index"
+        val policyID = "${testIndexName}_testPolicyName"
+        val actionConfig = CloseActionConfig(null, null, 0)
+        val states = listOf(
+            State("CloseState", listOf(actionConfig), listOf())
+        )
+
+        val policy = Policy(
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            defaultNotification = randomDefaultNotification(),
+            defaultState = states[0].name,
+            states = states
+        )
+        createPolicy(policy, policyID)
+        createIndex(indexName, null)
+        closeIndex(indexName)
+
+        assertEquals("close", getIndexState(indexName))
+
+        addPolicyToIndex(indexName, policyID)
+        Thread.sleep(2000)
+
+        val managedIndexConfig = getManagedIndexConfig(indexName)
+        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+
+        Thread.sleep(3000)
+
+        // Need to wait two cycles.
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        Thread.sleep(3000)
+
+        assertEquals("close", getIndexState(indexName))
+    }
 }

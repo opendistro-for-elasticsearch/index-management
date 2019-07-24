@@ -356,6 +356,21 @@ fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
 }
 
 val ManagedIndexMetaData.isSuccessfulDelete: Boolean
-    get() = (this.actionMetaData != null && this.actionMetaData.name == ActionConfig.ActionType.DELETE.type) &&
+    get() = (this.actionMetaData != null && this.actionMetaData.name == ActionConfig.ActionType.DELETE.type && !this.actionMetaData.failed) &&
             (this.stepMetaData != null && this.stepMetaData.name == AttemptDeleteStep.name && this.stepMetaData.completed) &&
             (this.policyRetryInfo != null && !this.policyRetryInfo.failed)
+
+val ManagedIndexMetaData.isFailed: Boolean
+    get() {
+        if (this.policyRetryInfo != null && this.policyRetryInfo.failed) {
+            // If PolicyRetryInfo is failed then the ManagedIndex has failed.
+            return true
+        } else if (this.policyRetryInfo != null && !this.policyRetryInfo.failed && this.actionMetaData == null) {
+            // If PolicyRetryInfo is NOT failed and the actionMetaData is null it means we haven't started any action. Then the ManagedIndex has NOT failed.
+            return false
+        } else if (this.actionMetaData != null && this.actionMetaData.failed) {
+            // If ActionMetaData is not null and some action is failed. Then the ManagedIndex has failed.
+            return true
+        }
+        return false
+    }

@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.acti
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.buildInvalidIndexResponse
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -146,7 +147,7 @@ class RestRetryFailedManagedIndexAction(
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
                     managedIndexMetaData == null ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "There is no IndexMetaData information"))
-                    managedIndexMetaData.policyRetryInfo == null || !managedIndexMetaData.policyRetryInfo.failed ->
+                    !managedIndexMetaData.isFailed ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not in failed state."))
                     else ->
                         listOfIndexMetaData.add(

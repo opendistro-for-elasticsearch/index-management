@@ -47,6 +47,7 @@ class AttemptRolloverStep(
     private var info: Map<String, Any>? = null
 
     // TODO: Incorporate retries from config and consumed retries from metadata
+    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         // If we have already rolled over this index then fail as we only allow an index to be rolled over once
         if (managedIndexMetaData.rolledOver == true) {
@@ -133,7 +134,7 @@ class AttemptRolloverStep(
             failed = true
             val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
             val errorMessage = e.message
-            if (errorMessage != null) mutableInfo.put("cause", errorMessage)
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
             return null
         }

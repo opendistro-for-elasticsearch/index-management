@@ -42,7 +42,7 @@ class XContentTests : ESTestCase() {
         val policy = randomPolicy()
 
         val policyString = policy.toJsonString()
-        val parsedPolicy = Policy.parseWithType(parserWithType(policyString))
+        val parsedPolicy = Policy.parseWithType(parserWithType(policyString), policy.id, policy.seqNo, policy.primaryTerm)
         assertEquals("Round tripping Policy doesn't work", policy, parsedPolicy)
     }
 
@@ -111,6 +111,7 @@ class XContentTests : ESTestCase() {
     }
 
     fun `test managed index config parsing`() {
+
         val config = randomManagedIndexConfig()
         val configTwo = config.copy(changePolicy = null)
         var configThree = config.copy()
@@ -118,8 +119,10 @@ class XContentTests : ESTestCase() {
         val configString = config.toJsonString()
         val configTwoString = configTwo.toJsonString()
         val configThreeString = configThree.toJsonString()
-        val parsedConfig = ManagedIndexConfig.parseWithType(parserWithType(configString))
-        val parsedConfigTwo = ManagedIndexConfig.parseWithType(parserWithType(configTwoString))
+        val parsedConfig =
+            ManagedIndexConfig.parseWithType(parserWithType(configString), config.id, config.seqNo, config.primaryTerm)
+        val parsedConfigTwo =
+            ManagedIndexConfig.parseWithType(parserWithType(configTwoString), configTwo.id, configTwo.seqNo, configTwo.primaryTerm)
         configThree = configThree.copy(id = "some_doc_id", seqNo = 17, primaryTerm = 1)
         val parsedConfigThree =
             ManagedIndexConfig.parseWithType(parserWithType(configThreeString), configThree.id, configThree.seqNo, configThree.primaryTerm)

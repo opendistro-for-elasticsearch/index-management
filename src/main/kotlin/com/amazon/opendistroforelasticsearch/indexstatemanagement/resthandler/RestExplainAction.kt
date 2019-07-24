@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyName
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
@@ -89,7 +89,7 @@ class RestExplainAction(
 
                     // TODO Explain API friendly map that strips out steps information
                     // TODO Use param to enable and disable showing null/blank policy names.
-                    builder.field(ManagedIndexSettings.POLICY_NAME.key, indexMetadata.getPolicyName())
+                    builder.field(ManagedIndexSettings.POLICY_ID.key, indexMetadata.getPolicyID())
                     if (managedIndexMetaDataMap != null) {
                         val managedIndexMetaData = ManagedIndexMetaData.fromMap(managedIndexMetaDataMap)
                         managedIndexMetaData.toXContent(builder, ToXContent.EMPTY_PARAMS)

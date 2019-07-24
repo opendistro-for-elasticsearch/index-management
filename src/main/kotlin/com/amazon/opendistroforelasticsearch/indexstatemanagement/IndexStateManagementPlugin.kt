@@ -19,10 +19,12 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.acti
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestAddPolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestDeletePolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestGetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestIndexPolicyAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRemovePolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRetryFailedManagedIndexAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
@@ -117,7 +119,9 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             RestGetPolicyAction(settings, restController),
             RestDeletePolicyAction(settings, restController),
             RestExplainAction(settings, restController),
-            RestRetryFailedManagedIndexAction(settings, restController)
+            RestRetryFailedManagedIndexAction(settings, restController),
+            RestAddPolicyAction(settings, restController),
+            RestRemovePolicyAction(settings, restController)
         )
     }
 
@@ -146,7 +150,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
 
     override fun getSettings(): List<Setting<*>> {
         return listOf(
-            ManagedIndexSettings.POLICY_NAME,
+            ManagedIndexSettings.POLICY_ID,
             ManagedIndexSettings.ROLLOVER_ALIAS,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
             ManagedIndexSettings.SWEEP_PERIOD,

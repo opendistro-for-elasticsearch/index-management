@@ -39,11 +39,11 @@ class RestDeletePolicyAction(settings: Settings, controller: RestController) : B
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val policyId = request.param("policyID")
+        val policyID = request.param("policyID")
         val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
 
         return RestChannelConsumer { channel ->
-            val deleteRequest = DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, policyId)
+            val deleteRequest = DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, policyID)
                     .setRefreshPolicy(refreshPolicy)
             client.delete(deleteRequest, RestStatusToXContentListener(channel))
         }

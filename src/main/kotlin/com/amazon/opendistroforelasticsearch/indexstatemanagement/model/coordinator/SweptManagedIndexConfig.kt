@@ -33,7 +33,7 @@ data class SweptManagedIndexConfig(
     val seqNo: Long,
     val primaryTerm: Long,
     val uuid: String,
-    val policyName: String,
+    val policyID: String,
     val changePolicy: ChangePolicy?
 ) {
 
@@ -43,7 +43,7 @@ data class SweptManagedIndexConfig(
         fun parse(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndexConfig {
             lateinit var index: String
             lateinit var uuid: String
-            lateinit var policyName: String
+            lateinit var policyID: String
             var changePolicy: ChangePolicy? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -54,7 +54,7 @@ data class SweptManagedIndexConfig(
                 when (fieldName) {
                     ManagedIndexConfig.INDEX_FIELD -> index = xcp.text()
                     ManagedIndexConfig.INDEX_UUID_FIELD -> uuid = xcp.text()
-                    ManagedIndexConfig.POLICY_NAME_FIELD -> policyName = xcp.text()
+                    ManagedIndexConfig.POLICY_ID_FIELD -> policyID = xcp.text()
                     ManagedIndexConfig.CHANGE_POLICY_FIELD -> {
                         changePolicy = if (xcp.currentToken() == Token.VALUE_NULL) null else ChangePolicy.parse(xcp)
                     }
@@ -66,7 +66,7 @@ data class SweptManagedIndexConfig(
                     seqNo,
                     primaryTerm,
                     requireNotNull(uuid) { "SweptManagedIndexConfig uuid is null" },
-                    requireNotNull(policyName) { "SweptManagedIndexConfig policy name is null" },
+                    requireNotNull(policyID) { "SweptManagedIndexConfig policy id is null" },
                     changePolicy
             )
         }

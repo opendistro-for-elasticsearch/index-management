@@ -18,6 +18,8 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.transiti
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.TransitionsActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.RetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.evaluateConditions
 import org.apache.logging.log4j.LogManager
@@ -77,11 +79,11 @@ class AttemptTransitionStep(
     // TODO: MetaData needs to be updated with correct step information
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            step = name,
-            stepStartTime = getStepStartTime().toEpochMilli(),
             transitionTo = stateName,
-            stepCompleted = stateName != null,
-            failed = failed,
+            // TODO only update stepStartTime when first try of step and not retries
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stateName != null),
+            // TODO properly attempt retry and update RetryInfo.
+            retryInfo = if (currentMetaData.retryInfo != null) currentMetaData.retryInfo.copy(failed = failed) else RetryInfoMetaData(failed, 0),
             info = info
         )
     }

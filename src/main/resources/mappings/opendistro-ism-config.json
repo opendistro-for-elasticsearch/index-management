@@ -3,7 +3,7 @@
   "properties": {
     "policy": {
       "properties": {
-        "name": {
+        "description": {
           "type": "text",
           "fields": {
             "keyword": {
@@ -344,7 +344,7 @@
         "policy_primary_term": {
           "type": "long"
         },
-        "policy_name": {
+        "policy_id": {
           "type" : "keyword"
         },
         "policy": {
@@ -353,7 +353,7 @@
         },
         "change_policy": {
           "properties": {
-            "policy_name": {
+            "policy_id": {
               "type": "keyword"
             },
             "state": {

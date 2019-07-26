@@ -77,7 +77,7 @@ class RestIndexPolicyAction(
         }
 
         val xcp = request.contentParser()
-        val policy = Policy.parseWithType(xcp, id).copy(lastUpdatedTime = Instant.now())
+        val policy = Policy.parseWithType(xcp = xcp, id = id).copy(lastUpdatedTime = Instant.now())
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val refreshPolicy = if (request.hasParam(REFRESH)) {

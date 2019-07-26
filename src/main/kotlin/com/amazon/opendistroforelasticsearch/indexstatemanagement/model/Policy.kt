@@ -54,7 +54,8 @@ data class Policy(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(POLICY_TYPE)
-        builder.field(DESCRIPTION_FIELD, description)
+        builder.field(POLICY_ID_FIELD, id)
+            .field(DESCRIPTION_FIELD, description)
             .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
             .field(SCHEMA_VERSION_FIELD, schemaVersion)
             .field(DEFAULT_NOTIFICATION_FIELD, defaultNotification)
@@ -66,6 +67,7 @@ data class Policy(
 
     companion object {
         const val POLICY_TYPE = "policy"
+        const val POLICY_ID_FIELD = "policy_id"
         const val DESCRIPTION_FIELD = "description"
         const val NO_ID = ""
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
@@ -100,6 +102,7 @@ data class Policy(
                 when (fieldName) {
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.longValue()
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
+                    POLICY_ID_FIELD -> { /* do nothing as this is an internal field */ }
                     DESCRIPTION_FIELD -> description = xcp.text()
                     // TODO: DefaultNotification.parse(xcp)
                     DEFAULT_NOTIFICATION_FIELD -> defaultNotification = null

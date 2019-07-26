@@ -24,8 +24,12 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
+import org.apache.http.entity.ContentType.APPLICATION_JSON
+import org.apache.http.entity.StringEntity
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
@@ -198,5 +202,27 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
     fun `test checking if a non-existent policy exists`() {
         val headResponse = client().makeRequest("HEAD", "$POLICY_BASE_URI/foobarbaz")
         assertEquals("Unexpected status", RestStatus.NOT_FOUND, headResponse.restStatus())
+    }
+
+    @Throws(Exception::class)
+    fun `test able to fuzzy search policies`() {
+        val policy = createRandomPolicy(refresh = true)
+
+        val request = """
+            {
+                "query": {
+                    "query_string": {
+                        "default_field": "${Policy.POLICY_TYPE}.${Policy.POLICY_ID_FIELD}",
+                        "default_operator": "AND",
+                        "query": "*${policy.id.substring(4, 7)}*"
+                    }
+                }
+            }
+        """.trimIndent()
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_search", emptyMap(),
+                StringEntity(request, APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+        val searchResponse = SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
+        assertTrue("Did not find policy using fuzzy search", searchResponse.hits.hits.size == 1)
     }
 }

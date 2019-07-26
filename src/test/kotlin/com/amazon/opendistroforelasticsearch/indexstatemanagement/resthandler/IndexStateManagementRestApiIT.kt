@@ -206,7 +206,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 
     @Throws(Exception::class)
     fun `test able to fuzzy search policies`() {
-        val policy = createRandomPolicy()
+        val policy = createRandomPolicy(refresh = true)
 
         val request = """
             {
@@ -223,6 +223,6 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
                 StringEntity(request, APPLICATION_JSON))
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
         val searchResponse = SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
-        assertTrue("Did not find policy using fuzzy search", searchResponse.hits.hits.size != 1)
+        assertTrue("Did not find policy using fuzzy search", searchResponse.hits.hits.size == 1)
     }
 }

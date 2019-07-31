@@ -23,7 +23,6 @@ import org.elasticsearch.common.io.stream.Writeable
 import java.time.Instant
 import java.util.Locale
 
-// TODO: Step should probably have a method to return an updated ManagedIndexMetaData once it finishes execution
 abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMetaData) {
 
     abstract suspend fun execute()

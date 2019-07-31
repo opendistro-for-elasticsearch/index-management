@@ -16,6 +16,9 @@ import java.util.Locale
 class ActionRetryIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
+    /**
+     * We are forcing RollOver to fail in this Integ test.
+     */
     fun `test failed action`() {
         val testPolicy = """
         {"policy":{"description":"Default policy","default_state":"Ingest","states":[
@@ -39,25 +42,23 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getManagedIndexConfig(indexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
         // Change the start time so the job will trigger in 2 seconds.
+        // First execution. We need to initialize the policy.
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
-
         Thread.sleep(3000)
 
-        // Change the start time so the job will trigger in 2 seconds.
+        // Second execution is to fail the step once.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-
         Thread.sleep(3000)
 
-        // Change the start time so the job will trigger in 2 seconds.
+        // Third execution is to fail the step second time.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-
         Thread.sleep(3000)
 
-        // Change the start time so the job will trigger in 2 seconds.
+        // Fourth execution is to fail the step third time and finally fail the action.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-
         Thread.sleep(3000)
 
+        // At this point we should see in the explain API the action has failed with correct number of consumed retries.
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
 
@@ -108,22 +109,19 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
         // Change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        Thread.sleep(3000)
+        // First execution. We need to initialize the policy.
 
+        // Second execution is to fail the step once.
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
-        // Change the start time so the job will trigger in 2 seconds.
+        // Third execution should not run job since we have the retry backoff.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-
         Thread.sleep(3000)
 
-        // Change the start time so the job will trigger in 2 seconds.
+        // Fourth execution should not run job since we have the retry backoff.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-
-        Thread.sleep(3000)
-
-        // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-
         Thread.sleep(3000)
 
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")

@@ -97,20 +97,23 @@ data class ActionRetry(
             return type
         }
 
-        fun shouldBackoff(actionMetaData: ActionMetaData?, actionRetry: ActionRetry?): Boolean {
+        @Suppress("ReturnCount")
+        fun shouldBackoff(actionMetaData: ActionMetaData?, actionRetry: ActionRetry?): Pair<Boolean, Long?> {
             if (actionMetaData == null || actionRetry == null) {
                 logger.debug("There is no actionMetaData and ActionRetry we don't need to backoff")
-                return false
+                return Pair(false, null)
             }
 
             if (actionMetaData.consumedRetries > 0) {
                 if (actionMetaData.lastRetryTime != null) {
-                    return Instant.now().toEpochMilli() - actionMetaData.lastRetryTime <
-                        getNextRetryTime(actionMetaData.consumedRetries, actionRetry.delay)
+                    val remainingTime = getNextRetryTime(actionMetaData.consumedRetries, actionRetry.delay) -
+                        (Instant.now().toEpochMilli() - actionMetaData.lastRetryTime)
+
+                    return Pair(remainingTime > 0, remainingTime)
                 }
             }
 
-            return false
+            return Pair(false, null)
         }
     }
 }

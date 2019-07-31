@@ -26,9 +26,14 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedInd
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.buildInvalidIndexResponse
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateEnableManagedIndexRequest
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.ActionListener
+import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
+import org.elasticsearch.action.bulk.BulkRequest
+import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
@@ -43,10 +48,7 @@ import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.rest.action.RestActionListener
-import org.elasticsearch.rest.action.RestResponseListener
 
 class RestRetryFailedManagedIndexAction(
     settings: Settings,
@@ -94,47 +96,25 @@ class RestRetryFailedManagedIndexAction(
 
     inner class IndexDestinationHandler(
         private val client: NodeClient,
-        channel: RestChannel,
+        private val channel: RestChannel,
         private val startState: String?
-    ) : RestActionListener<ClusterStateResponse>(channel) {
+    ) : ActionListener<ClusterStateResponse> {
 
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
+        private val listOfIndexMetaDataBulk: MutableList<ManagedIndexMetaData> = mutableListOf()
+
         private val listOfIndexMetaData: MutableList<Pair<Index, ManagedIndexMetaData>> = mutableListOf()
 
-        override fun processResponse(clusterStateResponse: ClusterStateResponse) {
+        override fun onResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
             populateList(state)
 
-            val builder = channel.newBuilder().startObject()
-            if (listOfIndexMetaData.isNotEmpty()) {
-                val updateManagedIndexMetaDataRequest = UpdateManagedIndexMetaDataRequest(listOfIndexMetaData)
-
-                try {
-                    client.execute(UpdateManagedIndexMetaDataAction, updateManagedIndexMetaDataRequest,
-                        object : RestResponseListener<AcknowledgedResponse>(channel) {
-                            override fun buildResponse(acknowledgedResponse: AcknowledgedResponse): RestResponse {
-                                if (acknowledgedResponse.isAcknowledged) {
-                                    builder.field(UPDATED_INDICES, listOfIndexMetaData.size)
-                                } else {
-                                    failedIndices.addAll(listOfIndexMetaData.map {
-                                        FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetaData")
-                                    })
-                                }
-                                buildInvalidIndexResponse(builder, failedIndices)
-                                return BytesRestResponse(RestStatus.OK, builder.endObject())
-                            }
-                        }
-                    )
-                } catch (e: ClusterBlockException) {
-                    failedIndices.addAll(listOfIndexMetaData.map {
-                        FailedIndex(it.first.name, it.first.uuid, "failed to update with ClusterBlockException. ${e.message}")
-                    })
-                    buildInvalidIndexResponse(builder, failedIndices)
-                    channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
-                }
+            if (listOfIndexMetaDataBulk.isNotEmpty()) {
+                updateBulkRequest(listOfIndexMetaDataBulk.map { it.indexUuid })
             } else {
+                val builder = channel.newBuilder().startObject()
                 buildInvalidIndexResponse(builder, failedIndices)
-                channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
+                return channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
             }
         }
 
@@ -150,18 +130,82 @@ class RestRetryFailedManagedIndexAction(
                     !managedIndexMetaData.isFailed ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not in failed state."))
                     else ->
-                        listOfIndexMetaData.add(
-                            Pair(
-                                indexMetaData.index,
-                                managedIndexMetaData.copy(
-                                    stepMetaData = null,
-                                    policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                                    transitionTo = startState,
-                                    info = mapOf("message" to "Attempting to retry")
-                                )
-                            )
-                        )
+                        listOfIndexMetaDataBulk.add(managedIndexMetaData)
                 }
+            }
+        }
+
+        private fun updateBulkRequest(documentIds: List<String>) {
+            val requestsToRetry = createEnableBulkRequest(documentIds)
+            val bulkRequest = BulkRequest().add(requestsToRetry)
+
+            // TODO add ES retryPolicy on RestStatus.TOO_MANY_REQUESTS
+            client.bulk(bulkRequest, ActionListener.wrap(::onBulkResponse, ::onFailure))
+        }
+
+        private fun onBulkResponse(bulkResponse: BulkResponse) {
+            for (bulkItemResponse in bulkResponse) {
+                val managedIndexMetaData = listOfIndexMetaDataBulk.first { it.indexUuid == bulkItemResponse.id }
+                if (bulkItemResponse.isFailed) {
+                    failedIndices.add(FailedIndex(managedIndexMetaData.index, managedIndexMetaData.indexUuid, bulkItemResponse.failureMessage))
+                } else {
+                    listOfIndexMetaData.add(
+                        Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData.copy(
+                            stepMetaData = null,
+                            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+                            transitionTo = startState,
+                            info = mapOf("message" to "Attempting to retry")
+                        ))
+                    )
+                }
+            }
+
+            if (listOfIndexMetaData.isNotEmpty()) {
+                val updateManagedIndexMetaDataRequest = UpdateManagedIndexMetaDataRequest(listOfIndexMetaData)
+                client.execute(
+                    UpdateManagedIndexMetaDataAction,
+                    updateManagedIndexMetaDataRequest,
+                    ActionListener.wrap(::onUpdateManagedIndexMetaDataActionResponse, ::onFailure)
+                )
+            } else {
+                val builder = channel.newBuilder().startObject()
+                buildInvalidIndexResponse(builder, failedIndices)
+                return channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
+            }
+        }
+
+        private fun createEnableBulkRequest(documentIds: List<String>): List<DocWriteRequest<*>> {
+            return documentIds.map { updateEnableManagedIndexRequest(it) }
+        }
+
+        private fun onUpdateManagedIndexMetaDataActionResponse(response: AcknowledgedResponse) {
+            val builder = channel.newBuilder().startObject()
+            if (response.isAcknowledged) {
+                builder.field(UPDATED_INDICES, listOfIndexMetaData.size)
+            } else {
+                failedIndices.addAll(listOfIndexMetaData.map {
+                    FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetaData")
+                })
+            }
+            buildInvalidIndexResponse(builder, failedIndices)
+            return channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
+        }
+
+        override fun onFailure(e: Exception) {
+            try {
+                val builder = channel.newBuilder().startObject()
+
+                if (e is ClusterBlockException) {
+                    failedIndices.addAll(listOfIndexMetaData.map {
+                        FailedIndex(it.first.name, it.first.uuid, "failed to update with ClusterBlockException. ${e.message}")
+                    })
+                }
+
+                buildInvalidIndexResponse(builder, failedIndices)
+                return channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
+            } catch (inner: Exception) {
+                inner.addSuppressed(e)
+                log.error("failed to send failure response", inner)
             }
         }
     }

@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
@@ -24,9 +25,9 @@ import org.apache.logging.log4j.LogManager
 class CallForceMergeStep(
     val clusterService: ClusterService,
     val client: Client,
-    // val config: ForceMergeActionConfig TODO ForceMergeActionConfig
+    val config: ForceMergeActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step("call_force_merge", managedIndexMetaData) {
+) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var failed: Boolean = false
@@ -36,10 +37,14 @@ class CallForceMergeStep(
     // TODO: Incorporate retries from config and consumed retries from metadata
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        TODO("not implemented") // To change body of created functions use File | Settings | File Templates.
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        TODO("not implemented") // To change body of created functions use File | Settings | File Templates.
+    }
+
+    companion object {
+        const val name = "call_force_merge"
     }
 }

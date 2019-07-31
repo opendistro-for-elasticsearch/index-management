@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
@@ -24,7 +25,7 @@ import org.apache.logging.log4j.LogManager
 class WaitForForceMergeStep(
     val clusterService: ClusterService,
     val client: Client,
-    // val config: ForceMergeActionConfig TODO ForceMergeActionConfig
+    val config: ForceMergeActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
 ) : Step("wait_for_force_merge", managedIndexMetaData) {
 
@@ -36,10 +37,10 @@ class WaitForForceMergeStep(
     // TODO: Incorporate retries from config and consumed retries from metadata
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        TODO("not implemented") // To change body of created functions use File | Settings | File Templates.
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        TODO("not implemented") // To change body of created functions use File | Settings | File Templates.
     }
 }

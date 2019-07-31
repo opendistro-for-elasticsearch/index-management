@@ -16,60 +16,51 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.ForceMergeAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.ToXContentFragment
+import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-abstract class ActionConfig(
-    val type: ActionType,
-    val actionIndex: Int
-) : ToXContentFragment {
+data class ForceMergeActionConfig(
+    val maxNumSegments: Long,
+    val timeout: ActionTimeout?,
+    val retry: ActionRetry?,
+    val index: Int
+) : ToXContentObject, ActionConfig(ActionType.FORCE_MERGE, timeout, retry, index) {
 
-    var configTimeout: ActionTimeout? = null
-        private set
-    var configRetry: ActionRetry? = null
-        private set
-
-    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        configTimeout?.toXContent(builder, params)
-        configRetry?.toXContent(builder, params)
-        return builder
+    init {
+        require(maxNumSegments > 0) { "Force merge {$MAX_NUM_SEGMENTS_FIELD} must be greater than 0" }
     }
 
-    abstract fun toAction(
+    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        builder.startObject().startObject(ActionType.FORCE_MERGE.type)
+        super.toXContent(builder, params)
+        builder.field(MAX_NUM_SEGMENTS_FIELD, maxNumSegments)
+        return builder.endObject().endObject()
+    }
+
+    override fun isFragment(): Boolean = super<ToXContentObject>.isFragment()
+
+    override fun toAction(
         clusterService: ClusterService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
-    ): Action
-
-    enum class ActionType(val type: String) {
-        DELETE("delete"),
-        TRANSITION("transition"),
-        ROLLOVER("rollover"),
-        CLOSE("close"),
-        OPEN("open"),
-        READ_ONLY("read_only"),
-        READ_WRITE("read_write"),
-        REPLICA_COUNT("replica_count"),
-        FORCE_MERGE("force_merge");
-
-        override fun toString(): String {
-            return type
-        }
-    }
+    ): Action = ForceMergeAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
+        const val MAX_NUM_SEGMENTS_FIELD = "max_num_segments"
+
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, index: Int): ActionConfig {
-            var actionConfig: ActionConfig? = null
+        fun parse(xcp: XContentParser, index: Int): ForceMergeActionConfig {
+            var maxNumSegments: Long? = null
             var timeout: ActionTimeout? = null
             var retry: ActionRetry? = null
 
@@ -81,24 +72,17 @@ abstract class ActionConfig(
                 when (fieldName) {
                     ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
                     ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
-                    ActionType.DELETE.type -> actionConfig = DeleteActionConfig.parse(xcp, index)
-                    ActionType.ROLLOVER.type -> actionConfig = RolloverActionConfig.parse(xcp, index)
-                    ActionType.OPEN.type -> actionConfig = OpenActionConfig.parse(xcp, index)
-                    ActionType.CLOSE.type -> actionConfig = CloseActionConfig.parse(xcp, index)
-                    ActionType.READ_ONLY.type -> actionConfig = ReadOnlyActionConfig.parse(xcp, index)
-                    ActionType.READ_WRITE.type -> actionConfig = ReadWriteActionConfig.parse(xcp, index)
-                    ActionType.REPLICA_COUNT.type -> actionConfig = ReplicaCountActionConfig.parse(xcp, index)
-                    ActionType.FORCE_MERGE.type -> actionConfig = ForceMergeActionConfig.parse(xcp, index)
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Action.")
+                    MAX_NUM_SEGMENTS_FIELD -> maxNumSegments = xcp.longValue()
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ForceMergeActionConfig.")
                 }
             }
 
-            requireNotNull(actionConfig) { "ActionConfig inside state is null" }
-
-            actionConfig.configTimeout = timeout
-            actionConfig.configRetry = retry
-
-            return actionConfig
+            return ForceMergeActionConfig(
+                requireNotNull(maxNumSegments) { "ForceMergeActionConfig maxNumSegments is null" },
+                timeout,
+                retry,
+                index
+            )
         }
     }
 }

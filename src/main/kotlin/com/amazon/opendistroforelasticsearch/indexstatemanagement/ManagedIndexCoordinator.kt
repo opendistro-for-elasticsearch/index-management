@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.get
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldDeleteManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldUpdateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
@@ -37,8 +36,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.deleteMan
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCreateManagedIndexRequests
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getDeleteManagedIndexRequests
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getSweptManagedIndexSearchRequest
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getUpdateManagedIndexRequests
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateManagedIndexRequest
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,12 +71,16 @@ import org.elasticsearch.threadpool.ThreadPool
  * Listens for cluster changes to pick up new indices to manage.
  * Sweeps the cluster state and [INDEX_STATE_MANAGEMENT_INDEX] for [ManagedIndexConfig].
  *
- * This class listens for [ClusterChangedEvent] to pick up on [ManagedIndexConfig] to create, update, or delete.
+ * This class listens for [ClusterChangedEvent] to pick up on [ManagedIndexConfig] to create or delete.
  * Also sets up a background process that sweeps the cluster state for [ClusterStateManagedIndexConfig]
  * and the [INDEX_STATE_MANAGEMENT_INDEX] for [SweptManagedIndexConfig]. It will then compare these
- * ManagedIndices to appropriately create, delete, or update each [ManagedIndexConfig]. Each node that has
+ * ManagedIndices to appropriately create or delete each [ManagedIndexConfig]. Each node that has
  * the [IndexStateManagementPlugin] installed will have an instance of this class, but only the elected
  * master node will set up the background sweep process and listen for [ClusterChangedEvent].
+ *
+ * We do not allow updating to a new policy through Coordinator as this can have bad side effects. If
+ * a user wants to update an existing [ManagedIndexConfig] to a new policy (or updated version of policy)
+ * then they must use the ChangePolicy API.
  */
 @Suppress("TooManyFunctions")
 @OpenForTesting
@@ -179,7 +180,7 @@ class ManagedIndexCoordinator(
         /*
         * TODO: Test performance this has on master
         *
-        * Update existing indices that have added, removed, or updated policy_ids
+        * Update existing indices that have added or removed policy_ids
         * There doesn't seem to be a fast way of finding indices that meet the above conditions without
         * iterating over every index in cluster state and comparing current policy_id with previous policy_id
         * If this turns out to be a performance bottle neck we can remove this and enforce
@@ -198,9 +199,6 @@ class ManagedIndexCoordinator(
                 }
                 it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
                     deleteManagedIndexRequest(it.value.indexUUID)
-                it.value.shouldUpdateManagedIndexConfig(previousIndexMetaData) && policyID != null ->
-                    updateManagedIndexRequest(ClusterStateManagedIndexConfig(index = it.value.index.name,
-                            uuid = it.value.indexUUID, policyID = policyID))
                 else -> null
             }
             request
@@ -271,10 +269,7 @@ class ManagedIndexCoordinator(
         val deleteManagedIndexRequests =
                 getDeleteManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
 
-        val updateManagedIndexRequests =
-                getUpdateManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
-
-        val requests = createManagedIndexRequests + deleteManagedIndexRequests + updateManagedIndexRequests
+        val requests = createManagedIndexRequests + deleteManagedIndexRequests
         updateManagedIndices(requests, createManagedIndexRequests.isNotEmpty())
         lastFullSweepTimeNano = System.nanoTime()
     }

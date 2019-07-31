@@ -26,7 +26,8 @@ import java.io.IOException
 
 data class ChangePolicy(
     val policyID: String,
-    val state: String?
+    val state: String?,
+    val include: List<StateFilter>
 ) : ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -41,12 +42,14 @@ data class ChangePolicy(
     companion object {
         const val POLICY_ID_FIELD = "policy_id"
         const val STATE_FIELD = "state"
+        const val INCLUDE_FIELD = "include"
 
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): ChangePolicy {
             var policyID: String? = null
             var state: String? = null
+            val include = mutableListOf<StateFilter>()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -56,13 +59,20 @@ data class ChangePolicy(
                 when (fieldName) {
                     POLICY_ID_FIELD -> policyID = xcp.text()
                     STATE_FIELD -> state = xcp.textOrNull()
+                    INCLUDE_FIELD -> {
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        while (xcp.nextToken() != Token.END_ARRAY) {
+                            include.add(StateFilter.parse(xcp))
+                        }
+                    }
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ChangePolicy.")
                 }
             }
 
             return ChangePolicy(
                 requireNotNull(policyID) { "ChangePolicy policy id is null" },
-                state
+                state,
+                include.toList()
             )
         }
     }

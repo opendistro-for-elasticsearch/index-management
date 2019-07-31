@@ -15,12 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.ToXContentObject
+import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
+import java.time.Instant
 
 /**
  * Data class to hold partial [ManagedIndexConfig] data.
@@ -35,7 +40,22 @@ data class SweptManagedIndexConfig(
     val uuid: String,
     val policyID: String,
     val changePolicy: ChangePolicy?
-) {
+): ToXContentObject {
+
+    /**
+     * Used in the partial update of ManagedIndices when calling the
+     * [RestChangePolicyAction] API
+     */
+    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        builder
+            .startObject()
+            .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
+            .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
+            .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, changePolicy)
+            .endObject()
+            .endObject()
+        return builder
+    }
 
     companion object {
         @JvmStatic

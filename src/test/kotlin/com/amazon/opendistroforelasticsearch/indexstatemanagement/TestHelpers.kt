@@ -53,13 +53,14 @@ import java.time.temporal.ChronoUnit
 
 fun randomPolicy(
     id: String = ESRestTestCase.randomAlphaOfLength(10),
+    description: String = ESRestTestCase.randomAlphaOfLength(10),
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
     states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
 ): Policy {
     return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            defaultNotification = defaultNotification, defaultState = states[0].name, states = states, description = "random policy")
+            defaultNotification = defaultNotification, defaultState = states[0].name, states = states, description = description)
 }
 
 fun randomState(
@@ -157,7 +158,7 @@ fun randomChangePolicy(
     policyID: String = ESRestTestCase.randomAlphaOfLength(10),
     state: String? = if (ESRestTestCase.randomBoolean()) ESRestTestCase.randomAlphaOfLength(10) else null
 ): ChangePolicy {
-    return ChangePolicy(policyID, state)
+    return ChangePolicy(policyID, state, emptyList())
 }
 
 fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class

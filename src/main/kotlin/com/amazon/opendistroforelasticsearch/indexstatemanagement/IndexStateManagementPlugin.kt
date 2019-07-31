@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.acti
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestAddPolicyAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestChangePolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestDeletePolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestGetPolicyAction
@@ -61,6 +62,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
 
     private val logger = LogManager.getLogger(javaClass)
     lateinit var indexStateManagementIndices: IndexStateManagementIndices
+    lateinit var clusterService: ClusterService
 
     companion object {
         const val PLUGIN_NAME = "opendistro-ism"
@@ -121,7 +123,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             RestExplainAction(settings, restController),
             RestRetryFailedManagedIndexAction(settings, restController),
             RestAddPolicyAction(settings, restController),
-            RestRemovePolicyAction(settings, restController)
+            RestRemovePolicyAction(settings, restController),
+            RestChangePolicyAction(settings, restController, clusterService)
         )
     }
 
@@ -136,6 +139,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         nodeEnvironment: NodeEnvironment,
         namedWriteableRegistry: NamedWriteableRegistry
     ): Collection<Any> {
+        this.clusterService = clusterService
         val managedIndexRunner = ManagedIndexRunner
             .registerClient(client)
             .registerClusterService(clusterService)

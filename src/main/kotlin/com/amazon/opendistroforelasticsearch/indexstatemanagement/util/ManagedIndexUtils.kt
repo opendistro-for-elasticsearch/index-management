@@ -111,7 +111,7 @@ fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig):
     return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX, sweptManagedIndexConfig.uuid)
         .setIfPrimaryTerm(sweptManagedIndexConfig.primaryTerm)
         .setIfSeqNo(sweptManagedIndexConfig.seqNo)
-        .doc(sweptManagedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+        .doc(getPartialChangePolicyBuilder(sweptManagedIndexConfig.changePolicy))
 }
 
 /**
@@ -390,14 +390,15 @@ val ManagedIndexMetaData.isFailed: Boolean
  * @param managedIndexMetaData current [ManagedIndexMetaData]
  * @return {@code true} if we should change policy, {@code false} if not
  */
+@Suppress("ReturnCount")
 fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMetaData): Boolean {
     if (this.changePolicy == null) {
         return false
     }
-    
+
     if (managedIndexMetaData.actionMetaData?.name != ActionConfig.ActionType.TRANSITION.type) {
         return false
     }
-    
+
     return true
 }

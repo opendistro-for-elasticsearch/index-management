@@ -62,19 +62,12 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 
 class RestChangePolicyAction(
-        settings: Settings,
-        controller: RestController,
-        val clusterService: ClusterService
+    settings: Settings,
+    controller: RestController,
+    val clusterService: ClusterService
 ) : BaseRestHandler(settings) {
 
     private val log = LogManager.getLogger(javaClass)
-
-    companion object {
-        const val CHANGE_POLICY_BASE_URI = "$ISM_BASE_URI/change_policy"
-        const val INDEX_NOT_MANAGED = "This index is not being managed"
-        const val INDEX_IN_TRANSITION = "This index is already transitioning"
-        const val INDEX_NOT_INITIALIZED = "This managed index has not been initialized yet"
-    }
 
     init {
         controller.registerHandler(POST, "$ISM_BASE_URI/change_policy", this)
@@ -100,21 +93,22 @@ class RestChangePolicyAction(
     }
 
     inner class ChangePolicyHandler(
-            client: NodeClient,
-            channel: RestChannel,
-            private val indices: Array<String>,
-            private val changePolicy: ChangePolicy
+        client: NodeClient,
+        channel: RestChannel,
+        private val indices: Array<String>,
+        private val changePolicy: ChangePolicy
     ) : AsyncActionHandler(client, channel) {
 
         private val failedIndices = mutableListOf<FailedIndex>()
         private val managedIndexUuids = mutableListOf<Pair<String, String>>()
 
+        @Suppress("SpreadOperator")
         fun start() {
             val clusterStateRequest = ClusterStateRequest()
-                    .clear()
-                    .indices(*indices)
-                    .metaData(true)
-                    .indicesOptions(IndicesOptions.strictExpand())
+                .clear()
+                .indices(*indices)
+                .metaData(true)
+                .indicesOptions(IndicesOptions.strictExpand())
 
             client.admin().cluster().state(clusterStateRequest, ActionListener.wrap(::processResponse, ::onFailure))
         }
@@ -156,11 +150,11 @@ class RestChangePolicyAction(
         private fun onSearchResponse(response: SearchResponse) {
             val foundManagedIndices = mutableSetOf<String>()
             val sweptConfigs = response.hits
-                    .map {
-                        // The id is the index uuid
-                        foundManagedIndices.add(it.id)
-                        SweptManagedIndexConfig.parseWithType(contentParser(it.sourceRef), it.seqNo, it.primaryTerm)
-                    }
+                .map {
+                    // The id is the index uuid
+                    foundManagedIndices.add(it.id)
+                    SweptManagedIndexConfig.parseWithType(contentParser(it.sourceRef), it.seqNo, it.primaryTerm)
+                }
 
             // If we do not find a matching ManagedIndexConfig for one of the provided managedIndexUuids
             // it means that we have not yet created a job for that index (which can happen during the small
@@ -209,11 +203,11 @@ class RestChangePolicyAction(
 
         private fun getRestResponse(updated: Int, failedIndices: List<FailedIndex>): BytesRestResponse {
             val builder = channel.newBuilder()
-                    .startObject()
-                    .field(UPDATED_INDICES, updated)
-                    .field(FAILURES, failedIndices.isNotEmpty())
-                    .field(FAILED_INDICES, failedIndices)
-                    .endObject()
+                .startObject()
+                .field(UPDATED_INDICES, updated)
+                .field(FAILURES, failedIndices.isNotEmpty())
+                .field(FAILED_INDICES, failedIndices)
+                .endObject()
             return BytesRestResponse(RestStatus.OK, builder)
         }
 
@@ -223,22 +217,31 @@ class RestChangePolicyAction(
         }
     }
 
+    @Suppress("SpreadOperator")
     private fun getManagedIndexConfigSearchQuery(managedIndexUuids: Array<String>): SearchRequest {
         val idsQuery = IdsQueryBuilder().addIds(*managedIndexUuids)
         return SearchRequest()
-                .indices(INDEX_STATE_MANAGEMENT_INDEX)
-                .source(SearchSourceBuilder.searchSource()
-                        .seqNoAndPrimaryTerm(true)
-                        .size(10_000)
-                        .fetchSource(
-                            arrayOf(
-                                "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",
-                                "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_UUID_FIELD}",
-                                "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_ID_FIELD}",
-                                "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.CHANGE_POLICY_FIELD}"
-                            ),
-                            emptyArray()
-                        )
-                        .query(idsQuery))
+            .indices(INDEX_STATE_MANAGEMENT_INDEX)
+            .source(SearchSourceBuilder.searchSource()
+                .seqNoAndPrimaryTerm(true)
+                .size(MAX_HITS)
+                .fetchSource(
+                    arrayOf(
+                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",
+                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_UUID_FIELD}",
+                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_ID_FIELD}",
+                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.CHANGE_POLICY_FIELD}"
+                    ),
+                    emptyArray()
+                )
+                .query(idsQuery))
+    }
+
+    companion object {
+        const val CHANGE_POLICY_BASE_URI = "$ISM_BASE_URI/change_policy"
+        const val INDEX_NOT_MANAGED = "This index is not being managed"
+        const val INDEX_IN_TRANSITION = "Cannot change policy while transitioning to new state"
+        const val INDEX_NOT_INITIALIZED = "This managed index has not been initialized yet"
+        const val MAX_HITS = 10_000
     }
 }

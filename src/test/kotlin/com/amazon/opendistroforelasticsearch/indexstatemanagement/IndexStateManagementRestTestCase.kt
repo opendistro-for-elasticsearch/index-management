@@ -314,7 +314,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun assertRetryInfo(expectedRetryInfo: PolicyRetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
+    protected fun assertRetryInfoEquals(expectedRetryInfo: PolicyRetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
         actualRetryInfoMetaDataMap as Map<String, Any>
         assertEquals(expectedRetryInfo.failed, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.FAILED] as Boolean)
         assertEquals(expectedRetryInfo.consumedRetries, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.CONSUMED_RETRIES] as Int)
@@ -322,7 +322,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun assertState(expectedState: StateMetaData, actualStateMap: Any?): Boolean {
+    protected fun assertStateEquals(expectedState: StateMetaData, actualStateMap: Any?): Boolean {
         actualStateMap as Map<String, Any>
         assertEquals(expectedState.name, actualStateMap[ManagedIndexMetaData.NAME] as String)
         assertTrue((actualStateMap[ManagedIndexMetaData.START_TIME] as Long) < expectedState.startTime)
@@ -330,7 +330,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun assertAction(expectedAction: ActionMetaData, actualActionMap: Any?): Boolean {
+    protected fun assertActionEquals(expectedAction: ActionMetaData, actualActionMap: Any?): Boolean {
         actualActionMap as Map<String, Any>
         assertEquals(expectedAction.name, actualActionMap[ManagedIndexMetaData.NAME] as String)
         assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedAction.startTime)

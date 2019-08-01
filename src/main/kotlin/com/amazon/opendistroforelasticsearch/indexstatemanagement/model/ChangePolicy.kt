@@ -24,6 +24,16 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
+/**
+ * The ChangePolicy data class is used for the eventual changing of policies in a managed index.
+ * Whether it be completely different policies, or the same policy, but a new version. If a ChangePolicy
+ * exists on a [ManagedIndexConfig] then when we are in the transition part of a state we will always check
+ * if a ChangePolicy exists and attempt to change the policy. If the change happens, the ChangePolicy on
+ * [ManagedIndexConfig] will be reset to null.
+ *
+ * The list of [StateFilter] are only used in the ChangePolicy API call where we will use them to filter out
+ * the [ManagedIndexConfig]s to apply the ChangePolicy to.
+ */
 data class ChangePolicy(
     val policyID: String,
     val state: String?,

@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomClusterStateManagedIndexConfig
@@ -66,7 +65,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         val uuid = randomAlphaOfLength(10)
         val policyID = randomAlphaOfLength(10)
         val sweptManagedIndexConfig = SweptManagedIndexConfig(index = index, uuid = uuid, policyID = policyID,
-                primaryTerm = 1, seqNo = 1, changePolicy = null)
+                primaryTerm = 1, seqNo = 1, changePolicy = randomChangePolicy(policyID = policyID))
         val updateRequest = updateManagedIndexRequest(sweptManagedIndexConfig)
 
         assertNotNull("UpdateRequest not created", updateRequest)
@@ -74,6 +73,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertEquals("Incorrect uuid used as document id on request", uuid, updateRequest.id())
 
         val source = updateRequest.doc().sourceAsMap()
+        logger.info("source is $source")
         assertEquals("Incorrect policy_id added to change_policy", sweptManagedIndexConfig.policyID,
                 ((source["managed_index"] as Map<String, Any>)["change_policy"] as Map<String, String>)["policy_id"])
     }

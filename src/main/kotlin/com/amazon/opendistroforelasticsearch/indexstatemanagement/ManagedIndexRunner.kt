@@ -237,7 +237,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                         policySource, XContentType.JSON)
                 Policy.parseWithType(xcp, getResponse.id, getResponse.seqNo, getResponse.primaryTerm)
             }
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             logger.error("Failed to get policy: $policyID", e)
             return null
         }
@@ -352,19 +352,25 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 }
             }
         } catch (e: ClusterBlockException) {
-            logger.error("There was ClusterBlockException trying to update the metadata for ${managedIndexMetaData.index}. Message: ${e.message}")
+            logger.error("There was ClusterBlockException trying to update the metadata for ${managedIndexMetaData.index}. Message: ${e.message}", e)
         } catch (e: Exception) {
             logger.error("Failed to save ManagedIndexMetaData", e)
         }
         return result
     }
 
+    /**
+     * Initializes the change policy process where we will get the policy using the change policy's policyID, update the [ManagedIndexMetaData]
+     * to reflect the new policy, and save the new policy to the [ManagedIndexConfig] while resetting the change policy to null
+     */
     private suspend fun initChangePolicy(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData) {
-        // update policy, policy_id, policy_seq_no, policy_primary_term on job, and change policy to null
 
         // should never happen since we only call this if there is a changePolicy, but we'll do it to make changePolicy non null
         val changePolicy = managedIndexConfig.changePolicy
-        if (changePolicy == null) return
+        if (changePolicy == null) {
+            logger.debug("initChangePolicy was called with a null ChangePolicy, ManagedIndexConfig: $managedIndexConfig")
+            return
+        }
 
         // get the policy we'll attempt to change to
         val policy = getPolicy(changePolicy.policyID)
@@ -387,10 +393,12 @@ object ManagedIndexRunner : ScheduledJobRunner,
             )
         }
 
-        // try to update the ManagedIndexMetaData in cluster state, we need to do this first before updating the ManagedIndexConfig
-        // because if this fails we can fail early and still retry this whole process on the next execution
-        // whereas if we do the update to ManagedIndexConfig first we lose the ChangePolicy on the job and could fail to update
-        // the ManagedIndexMetaData which would put us in a bad state
+        /*
+        * Try to update the ManagedIndexMetaData in cluster state, we need to do this first before updating the
+        * ManagedIndexConfig because if this fails we can fail early and still retry this whole process on the next
+        * execution whereas if we do the update to ManagedIndexConfig first we lose the ChangePolicy on the job and
+        * could fail to update the ManagedIndexMetaData which would put us in a bad state
+        * */
         val updated = updateManagedIndexMetaData(updatedManagedIndexMetaData)
 
         if (!updated || policy == null) return
@@ -399,11 +407,12 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val saved = savePolicyToManagedIndexConfig(managedIndexConfig, policy)
 
         if (saved) {
-            // If we successfully saved the the new policy then the last thing we need to do is update the
-            // opendistro.indexstatemanagement.policy_id setting to the new policy id
-            // we don't care that much if this fails, because we'll have a check in the beginning of the runner
-            // to read in the setting and compare it with the policy_id on the job and update the setting
-            // if they ever differ, as we do not allow someone to change an existing policy using _settings API
+            /*
+            * If we successfully saved the the new policy then the last thing we need to do is update the
+            * opendistro.indexstatemanagement.policy_id setting to the new policy id we don't care that much if this fails, because we'll
+            * have a check in the beginning of the runner to read in the setting and compare it with the policy_id on the job and update
+            * the setting if they ever differ, as we do not allow someone to change an existing policy using _settings API
+            * */
             updateIndexPolicyIDSetting(managedIndexConfig.index, changePolicy.policyID)
         }
     }
@@ -427,7 +436,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 logger.warn("Updating policy_id ($policyID) for $index was not acknowledged")
             }
         } catch (e: Exception) {
-            logger.error("There was an error while trying to update the policy_id ($policyID) setting for $index")
+            logger.error("There was an error while trying to update the policy_id ($policyID) setting for $index", e)
         }
 >>>>>>> Adds ChangePolicy API and implementation
     }

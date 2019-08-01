@@ -52,11 +52,7 @@ data class ReadOnlyActionConfig(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): ReadOnlyActionConfig {
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != Token.END_OBJECT) {
-                val fieldName = xcp.currentName()
-                xcp.nextToken()
-                throw IllegalArgumentException("Invalid field: [$fieldName] found in ReadOnlyActionConfig.")
-            }
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
 
             return ReadOnlyActionConfig(index)
         }

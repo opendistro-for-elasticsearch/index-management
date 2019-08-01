@@ -38,11 +38,7 @@ data class CloseActionConfig(
         fun parse(xcp: XContentParser, index: Int): CloseActionConfig {
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != Token.END_OBJECT) {
-                val fieldName = xcp.currentName()
-                xcp.nextToken()
-                throw IllegalArgumentException("Invalid field: [$fieldName] found in CloseActionConfig.")
-            }
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
 
             return CloseActionConfig(index)
         }

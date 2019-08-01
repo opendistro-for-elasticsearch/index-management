@@ -53,11 +53,7 @@ data class ReadWriteActionConfig(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): ReadWriteActionConfig {
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != Token.END_OBJECT) {
-                val fieldName = xcp.currentName()
-                xcp.nextToken()
-                throw IllegalArgumentException("Invalid field: [$fieldName] found in ReadWriteActionConfig")
-            }
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
 
             return ReadWriteActionConfig(index)
         }

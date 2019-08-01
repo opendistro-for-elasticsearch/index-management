@@ -166,11 +166,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         // If any of State, Action, Step components come back as null then we are moving to error in ManagedIndexMetaData
         val startingManagedIndexMetaData = managedIndexMetaData.getStartingManagedIndexMetaData(state, action, step)
-        updateManagedIndexMetaData(startingManagedIndexMetaData)
+        val updateResult = updateManagedIndexMetaData(startingManagedIndexMetaData)
 
         val actionMetaData = startingManagedIndexMetaData.actionMetaData
 
-        if (state != null && action != null && step != null && actionMetaData != null) {
+        if (updateResult && state != null && action != null && step != null && actionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
             step.execute()
             val executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(state, action, step, actionMetaData)
@@ -182,7 +182,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 return
             }
 
-            updateManagedIndexMetaData(executedManagedIndexMetaData)
+            if (!updateManagedIndexMetaData(executedManagedIndexMetaData)) {
+                logger.error("failed to update ManagedIndexMetaData after executing the Step : ${step.name}")
+            }
         }
     }
 
@@ -315,14 +317,17 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun updateManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaData) {
+    private suspend fun updateManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaData): Boolean {
+        var result = false
         try {
             val request = UpdateManagedIndexMetaDataRequest(
                     listOf(Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData))
             )
             updateMetaDataRetryPolicy.retry(logger) {
                 val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
-                if (!response.isAcknowledged) {
+                if (response.isAcknowledged) {
+                    result = true
+                } else {
                     logger.error("Failed to save ManagedIndexMetaData")
                 }
             }
@@ -331,5 +336,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
         } catch (e: Exception) {
             logger.error("Failed to save ManagedIndexMetaData")
         }
+        return result
     }
 }

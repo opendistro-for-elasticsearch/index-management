@@ -52,11 +52,7 @@ data class DeleteActionConfig(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): DeleteActionConfig {
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != Token.END_OBJECT) {
-                val fieldName = xcp.currentName()
-                xcp.nextToken()
-                throw IllegalArgumentException("Invalid field: [$fieldName] found in DeleteActionConfig.")
-            }
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
 
             return DeleteActionConfig(index)
         }

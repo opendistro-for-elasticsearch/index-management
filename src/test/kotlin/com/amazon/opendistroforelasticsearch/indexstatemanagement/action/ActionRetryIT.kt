@@ -82,7 +82,9 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                         assertRetryInfo(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
-            ), actual)
+            ),
+            actual
+        )
     }
 
     fun `test exponential backoff`() {
@@ -148,6 +150,8 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                         assertRetryInfo(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
-            ), actual)
+            ),
+            actual
+        )
     }
 }

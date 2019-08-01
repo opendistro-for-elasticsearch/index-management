@@ -334,7 +334,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         } catch (e: ClusterBlockException) {
             logger.error("There was ClusterBlockException trying to update the metadata for ${managedIndexMetaData.index}. Message: ${e.message}")
         } catch (e: Exception) {
-            logger.error("Failed to save ManagedIndexMetaData")
+            logger.error("Failed to save ManagedIndexMetaData", e)
         }
         return result
     }

@@ -387,10 +387,6 @@ fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
     val updatedActionMetaData = if (updatedStepMetaData.stepMetaData?.stepStatus == Step.StepStatus.FAILED) {
         when {
             action.config.configRetry == null -> actionMetaData.copy(failed = true)
-            actionMetaData.consumedRetries <= 0 -> actionMetaData.copy(
-                failed = false,
-                consumedRetries = 1,
-                lastRetryTime = Instant.now().toEpochMilli())
             actionMetaData.consumedRetries >= action.config.configRetry!!.count -> actionMetaData.copy(failed = true)
             else -> actionMetaData.copy(
                 failed = false,

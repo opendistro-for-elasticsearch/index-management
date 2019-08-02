@@ -15,12 +15,19 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest
+import org.elasticsearch.action.admin.indices.settings.get.GetSettingsResponse
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
+import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.common.settings.Settings
 
 class CallForceMergeStep(
     val clusterService: ClusterService,
@@ -30,6 +37,7 @@ class CallForceMergeStep(
 ) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
+    private var wasReadOnly: Boolean = false
     private var failed: Boolean = false
     private var stepCompleted: Boolean = false
     private var info: Map<String, Any>? = null
@@ -37,14 +45,50 @@ class CallForceMergeStep(
     // TODO: Incorporate retries from config and consumed retries from metadata
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
-        TODO("not implemented") // To change body of created functions use File | Settings | File Templates.
+        // TODO: Add wasReadOnly to ManagedIndexMetaData and check before setting to read_only
     }
 
+    // TODO: retries, stepStartTime not resetting when same step
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
-        TODO("not implemented") // To change body of created functions use File | Settings | File Templates.
+        return currentMetaData.copy(
+            // TODO only update stepStartTime when first try of step and not retries
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            // TODO add wasReadOnly in ManagedIndexMetaData
+            // TODO we should refactor such that transitionTo is not reset in the step.
+            transitionTo = null,
+            info = info
+        )
+    }
+
+    private suspend fun isReadOnly(indexName: String): Boolean {
+        val getSettingsResponse: GetSettingsResponse = client.admin().indices()
+            .suspendUntil { getSettings(GetSettingsRequest().indices(indexName), it) }
+        val blocksWrite: String? = getSettingsResponse.getSetting(indexName, INDEX_BLOCKS_WRITE)
+
+        // If the "index.blocks.write" setting is set to "true", the index is read_only
+        if (blocksWrite != null && blocksWrite == "true") {
+            return true
+        }
+
+        // Otherwise if "index.blocks.write" is null or "false", the index is not read_only
+        return false
+    }
+
+    private suspend fun setIndexToReadOnly(indexName: String) {
+        // TODO: Add try/catch and logger.error() if request !isAcknowledged
+
+        val updateSettingsRequest = UpdateSettingsRequest()
+            .indices(indexName)
+            .settings(
+                Settings.builder().put(INDEX_BLOCKS_WRITE, true)
+            )
+        val response: AcknowledgedResponse = client.admin().indices()
+            .suspendUntil { updateSettings(updateSettingsRequest, it) }
     }
 
     companion object {
         const val name = "call_force_merge"
+
+        const val INDEX_BLOCKS_WRITE = "index.blocks.write"
     }
 }

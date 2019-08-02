@@ -206,7 +206,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private suspend fun initManagedIndex(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData?) {
         var policy: Policy? = managedIndexConfig.policy
         // If policy does not currently exist, we need to save the policy on the ManagedIndexConfig for the first time
-        if (policy == null) {
+        // or if a change policy exists then we will also execute the change as we are still in initialization phase
+        if (policy == null || managedIndexConfig.changePolicy != null) {
             // Get the policy by the name unless a ChangePolicy exists then allow the change to happen during initialization
             policy = getPolicy(managedIndexConfig.changePolicy?.policyID ?: managedIndexConfig.policyID)
             // Attempt to save the policy
@@ -215,7 +216,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 // If we failed to save the policy, don't initialize ManagedIndexMetaData
                 if (!saved) return
             }
-            // If policy is still null we handle it in the managedIndexMetaData by moving to ERROR
+            // If we failed to get the policy then we will update the ManagedIndexMetaData with error info
         }
 
         // Initializing ManagedIndexMetaData for the first time
@@ -279,8 +280,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
         managedIndexConfig: ManagedIndexConfig,
         policy: Policy?
     ) {
-        val stateMetaData = if (policy?.defaultState != null) {
-            StateMetaData(policy.defaultState, Instant.now().toEpochMilli())
+        val state = managedIndexConfig.changePolicy?.state ?: policy?.defaultState
+        val stateMetaData = if (state != null) {
+            StateMetaData(state, Instant.now().toEpochMilli())
         } else {
             null
         }
@@ -289,7 +291,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             managedIndexMetaData == null -> ManagedIndexMetaData(
                 index = managedIndexConfig.index,
                 indexUuid = managedIndexConfig.indexUuid,
-                policyID = managedIndexConfig.policyID,
+                policyID = policy?.id ?: managedIndexConfig.policyID,
                 policySeqNo = policy?.seqNo,
                 policyPrimaryTerm = policy?.primaryTerm,
                 policyCompleted = false,
@@ -438,6 +440,5 @@ object ManagedIndexRunner : ScheduledJobRunner,
         } catch (e: Exception) {
             logger.error("There was an error while trying to update the policy_id ($policyID) setting for $index", e)
         }
->>>>>>> Adds ChangePolicy API and implementation
     }
 }

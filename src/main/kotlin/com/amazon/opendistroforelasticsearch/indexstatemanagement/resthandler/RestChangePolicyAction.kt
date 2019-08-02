@@ -114,9 +114,9 @@ class RestChangePolicyAction(
         }
 
         private fun processResponse(response: ClusterStateResponse) {
+            val includedStates = changePolicy.include.map { it.state }.toSet()
             response.state.metaData.indices.forEach {
                 val indexMetaData = it.value
-                val includedStates = changePolicy.include.map { it.state }.toSet()
                 when {
                     // If there is no policyID on the index then it's not currently being managed
                     indexMetaData.getPolicyID() == null -> failedIndices

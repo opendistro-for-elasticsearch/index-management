@@ -48,7 +48,7 @@ data class ClusterStateManagedIndexConfig(
             .startObject()
                 .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
                 .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
-                .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, ChangePolicy(policyID, null))
+                .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, ChangePolicy(policyID, null, emptyList()))
                 .endObject()
             .endObject()
         return builder

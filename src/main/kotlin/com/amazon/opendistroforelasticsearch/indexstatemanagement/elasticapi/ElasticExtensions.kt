@@ -158,22 +158,6 @@ fun IndexMetaData.shouldDeleteManagedIndexConfig(previousIndexMetaData: IndexMet
 }
 
 /**
- * Compares current and previous IndexMetaData to determine if we should update [ManagedIndexConfig].
- *
- * If [getPolicyID] returns null, the previous IndexMetaData does not exist, or the previous IndexMetaData's
- * [getPolicyID] returns null then we should not update the [ManagedIndexConfig].
- * Else compare the policy_ids and if they are different then we should update.
- *
- * @param previousIndexMetaData the previous [IndexMetaData].
- * @return whether a [ManagedIndexConfig] should be updated.
- */
-fun IndexMetaData.shouldUpdateManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
-    if (this.getPolicyID() == null || previousIndexMetaData?.getPolicyID() == null) return false
-
-    return this.getPolicyID() != previousIndexMetaData.getPolicyID()
-}
-
-/**
  * Returns the current policy_id if it exists and is valid otherwise returns null.
  * */
 fun IndexMetaData.getPolicyID(): String? {

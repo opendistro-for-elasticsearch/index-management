@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
@@ -27,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.createManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getActionToExecute
@@ -36,6 +38,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getComple
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSuccessfulDelete
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.shouldBackoff
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.shouldChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateDisableManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
@@ -48,6 +51,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
@@ -57,6 +61,7 @@ import org.elasticsearch.action.update.UpdateResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -134,6 +139,18 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
+        // If there is a mismatch between _settings policy_id and job policy_id it means the user
+        // tried to change it using the _settings API or we failed to update during ChangePolicy
+        // so we will attempt to self heal and disallow the use of _settings API to modify policy_id
+        if (indexMetaData.getPolicyID() != managedIndexConfig.policyID) {
+            updateIndexPolicyIDSetting(managedIndexConfig.index, managedIndexConfig.policyID)
+        }
+
+        if (managedIndexConfig.shouldChangePolicy(managedIndexMetaData)) {
+            initChangePolicy(managedIndexConfig, managedIndexMetaData)
+            return
+        }
+
         // If the policy was completed or failed then return early and disable job so it stops scheduling work
         if (managedIndexMetaData.policyCompleted == true || managedIndexMetaData.isFailed) {
             disableManagedIndexConfig(managedIndexConfig)
@@ -142,8 +159,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         // TODO: Compare policy version of ManagedIndexMetaData with policy version of job
         // If mismatch, update ManagedIndexMetaData with Version Conflict error
-
-        // TODO: Check if there is a ChangePolicy attached to job and try to switch when possible
 
         val state = policy.getStateToExecute(managedIndexMetaData)
         val action: Action? = state?.getActionToExecute(clusterService, client, managedIndexMetaData)
@@ -191,7 +206,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private suspend fun initManagedIndex(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData?) {
         var policy: Policy? = managedIndexConfig.policy
         // If policy does not currently exist, we need to save the policy on the ManagedIndexConfig for the first time
-        if (policy == null) {
+        // or if a change policy exists then we will also execute the change as we are still in initialization phase
+        if (policy == null || managedIndexConfig.changePolicy != null) {
             // Get the policy by the name unless a ChangePolicy exists then allow the change to happen during initialization
             policy = getPolicy(managedIndexConfig.changePolicy?.policyID ?: managedIndexConfig.policyID)
             // Attempt to save the policy
@@ -200,7 +216,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 // If we failed to save the policy, don't initialize ManagedIndexMetaData
                 if (!saved) return
             }
-            // If policy is still null we handle it in the managedIndexMetaData by moving to ERROR
+            // If we failed to get the policy then we will update the ManagedIndexMetaData with error info
         }
 
         // Initializing ManagedIndexMetaData for the first time
@@ -208,18 +224,23 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     private suspend fun getPolicy(policyID: String): Policy? {
-        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyID)
-        val getResponse: GetResponse = client.suspendUntil { get(getRequest, it) }
-        if (!getResponse.isExists || getResponse.isSourceEmpty) {
-            return null
-        }
+        try {
+            val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyID)
+            val getResponse: GetResponse = client.suspendUntil { get(getRequest, it) }
+            if (!getResponse.isExists || getResponse.isSourceEmpty) {
+                return null
+            }
 
-        val policySource = getResponse.sourceAsBytesRef
-        // Intellij complains about createParser/parseWithType blocking because it sees they throw IOExceptions
-        return withContext(Dispatchers.IO) {
-            val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                    policySource, XContentType.JSON)
-            Policy.parseWithType(xcp, getResponse.id, getResponse.seqNo, getResponse.primaryTerm)
+            val policySource = getResponse.sourceAsBytesRef
+            // Intellij complains about createParser/parseWithType blocking because it sees they throw IOExceptions
+            return withContext(Dispatchers.IO) {
+                val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                        policySource, XContentType.JSON)
+                Policy.parseWithType(xcp, getResponse.id, getResponse.seqNo, getResponse.primaryTerm)
+            }
+        } catch (e: Exception) {
+            logger.error("Failed to get policy: $policyID", e)
+            return null
         }
     }
 
@@ -259,8 +280,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
         managedIndexConfig: ManagedIndexConfig,
         policy: Policy?
     ) {
-        val stateMetaData = if (policy?.defaultState != null) {
-            StateMetaData(policy.defaultState, Instant.now().toEpochMilli())
+        val state = managedIndexConfig.changePolicy?.state ?: policy?.defaultState
+        val stateMetaData = if (state != null) {
+            StateMetaData(state, Instant.now().toEpochMilli())
         } else {
             null
         }
@@ -269,7 +291,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             managedIndexMetaData == null -> ManagedIndexMetaData(
                 index = managedIndexConfig.index,
                 indexUuid = managedIndexConfig.indexUuid,
-                policyID = managedIndexConfig.policyID,
+                policyID = policy?.id ?: managedIndexConfig.policyID,
                 policySeqNo = policy?.seqNo,
                 policyPrimaryTerm = policy?.primaryTerm,
                 policyCompleted = false,
@@ -332,10 +354,91 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 }
             }
         } catch (e: ClusterBlockException) {
-            logger.error("There was ClusterBlockException trying to update the metadata for ${managedIndexMetaData.index}. Message: ${e.message}")
+            logger.error("There was ClusterBlockException trying to update the metadata for ${managedIndexMetaData.index}. Message: ${e.message}", e)
         } catch (e: Exception) {
             logger.error("Failed to save ManagedIndexMetaData", e)
         }
         return result
+    }
+
+    /**
+     * Initializes the change policy process where we will get the policy using the change policy's policyID, update the [ManagedIndexMetaData]
+     * to reflect the new policy, and save the new policy to the [ManagedIndexConfig] while resetting the change policy to null
+     */
+    private suspend fun initChangePolicy(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData) {
+
+        // should never happen since we only call this if there is a changePolicy, but we'll do it to make changePolicy non null
+        val changePolicy = managedIndexConfig.changePolicy
+        if (changePolicy == null) {
+            logger.debug("initChangePolicy was called with a null ChangePolicy, ManagedIndexConfig: $managedIndexConfig")
+            return
+        }
+
+        // get the policy we'll attempt to change to
+        val policy = getPolicy(changePolicy.policyID)
+
+        // update the ManagedIndexMetaData with new information
+        val updatedManagedIndexMetaData = if (policy == null) {
+            managedIndexMetaData.copy(
+                info = mapOf("message" to "Failed to load change policy: ${changePolicy.policyID}"),
+                policyRetryInfo = PolicyRetryInfoMetaData(failed = true, consumedRetries = 0)
+            )
+        } else {
+            managedIndexMetaData.copy(
+                info = mapOf("message" to "Attempting to change policy to ${policy.id}"),
+                transitionTo = changePolicy.state,
+                stepMetaData = null,
+                policyCompleted = false,
+                policySeqNo = policy.seqNo,
+                policyPrimaryTerm = policy.primaryTerm,
+                policyID = policy.id
+            )
+        }
+
+        /*
+        * Try to update the ManagedIndexMetaData in cluster state, we need to do this first before updating the
+        * ManagedIndexConfig because if this fails we can fail early and still retry this whole process on the next
+        * execution whereas if we do the update to ManagedIndexConfig first we lose the ChangePolicy on the job and
+        * could fail to update the ManagedIndexMetaData which would put us in a bad state
+        * */
+        val updated = updateManagedIndexMetaData(updatedManagedIndexMetaData)
+
+        if (!updated || policy == null) return
+
+        // this will save the new policy on the job and reset the change policy back to null
+        val saved = savePolicyToManagedIndexConfig(managedIndexConfig, policy)
+
+        if (saved) {
+            /*
+            * If we successfully saved the the new policy then the last thing we need to do is update the
+            * opendistro.indexstatemanagement.policy_id setting to the new policy id we don't care that much if this fails, because we'll
+            * have a check in the beginning of the runner to read in the setting and compare it with the policy_id on the job and update
+            * the setting if they ever differ, as we do not allow someone to change an existing policy using _settings API
+            * */
+            updateIndexPolicyIDSetting(managedIndexConfig.index, changePolicy.policyID)
+        }
+    }
+
+    /**
+     * Once we successfully swap over a ChangePolicy then we need to update the [ManagedIndexSettings.POLICY_ID] setting.
+     *
+     * We will constantly check the [ManagedIndexSettings.POLICY_ID] against the [ManagedIndexConfig] policyID and if
+     * there is ever a mismatch we will overwrite the [ManagedIndexSettings.POLICY_ID] with the [ManagedIndexConfig] policyID.
+     *
+     * We do this because if this fails we want to ensure we try again on the next execution of the job. At the same time, this
+     * will disallow the user from directly using the _settings API to change the policy_id. We do not want to allow this,
+     * they must use the ChangePolicy API as the [ManagedIndexSettings.POLICY_ID] is referring to the currently running policy.
+     */
+    private suspend fun updateIndexPolicyIDSetting(index: String, policyID: String) {
+        try {
+            val settings = Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, policyID).build()
+            val updateSettingsRequest = UpdateSettingsRequest(index).settings(settings)
+            val response: AcknowledgedResponse = client.admin().indices().suspendUntil { updateSettings(updateSettingsRequest) }
+            if (!response.isAcknowledged) {
+                logger.warn("Updating policy_id ($policyID) for $index was not acknowledged")
+            }
+        } catch (e: Exception) {
+            logger.error("There was an error while trying to update the policy_id ($policyID) setting for $index", e)
+        }
     }
 }

@@ -78,27 +78,4 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         val afterDeleteConfig = getManagedIndexConfig(index)
         assertNull("Did not delete ManagedIndexConfig", afterDeleteConfig)
     }
-
-    fun `test updating index with policy_id`() {
-        val (indexValidToValid) = createIndex()
-        val (indexValidToInvalid) = createIndex()
-        val (indexInvalidToInvalid) = createIndex(policyID = " ")
-        val (indexInvalidToValid) = createIndex(policyID = null)
-        Thread.sleep(2000)
-        updateIndexSettings(indexValidToValid, Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, "some_policy"))
-        updateIndexSettings(indexValidToInvalid, Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, ""))
-        updateIndexSettings(indexInvalidToInvalid, Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key))
-        updateIndexSettings(indexInvalidToValid, Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, "other_policy"))
-        Thread.sleep(2000)
-        assertEquals("Did not update managed index config",
-                "some_policy", getManagedIndexConfig(indexValidToValid)?.changePolicy?.policyID)
-
-        // TODO: This might change depending on hard vs soft delete
-        assertNull("Did not delete managed index config", getManagedIndexConfig(indexValidToInvalid))
-
-        assertNull("Created managed index config", getManagedIndexConfig(indexValidToInvalid))
-
-        assertEquals("Did not create managed index config",
-                "other_policy", getManagedIndexConfig(indexInvalidToValid)?.policyID)
-    }
 }

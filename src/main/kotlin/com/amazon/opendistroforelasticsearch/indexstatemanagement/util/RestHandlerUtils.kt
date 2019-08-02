@@ -17,9 +17,14 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentFactory
+import java.time.Instant
 
 const val _DOC = "_doc"
 const val _ID = "_id"
@@ -69,4 +74,19 @@ data class FailedIndex(val name: String, val uuid: String, val reason: String) :
         const val INDEX_UUID_FIELD = "index_uuid"
         const val REASON_FIELD = "reason"
     }
+}
+
+/**
+ * Gets the XContentBuilder for partially updating a [ManagedIndexConfig]'s ChangePolicy
+ */
+fun getPartialChangePolicyBuilder(
+    changePolicy: ChangePolicy?
+): XContentBuilder {
+    return XContentFactory.jsonBuilder()
+        .startObject()
+        .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
+        .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
+        .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, changePolicy)
+        .endObject()
+        .endObject()
 }

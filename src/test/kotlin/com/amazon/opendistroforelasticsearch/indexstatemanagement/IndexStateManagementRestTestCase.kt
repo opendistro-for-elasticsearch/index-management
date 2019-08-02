@@ -17,10 +17,12 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.StateFilter
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
@@ -164,10 +166,9 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     protected fun getManagedIndexConfig(index: String): ManagedIndexConfig? {
-        val params = mapOf("version" to "true")
         val request = """
             {
-                "version": true,
+                "seq_no_primary_term": true,
                 "query": {
                     "term": {
                         "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}": "$index"
@@ -175,7 +176,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
                 }
             }
         """.trimIndent()
-        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_search", params,
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_search", emptyMap(),
                 StringEntity(request, APPLICATION_JSON))
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
         val searchResponse = SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
@@ -201,6 +202,16 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)
 
     protected fun Policy.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
+
+    protected fun ChangePolicy.toHttpEntity(): HttpEntity {
+        var string = "{\"${ChangePolicy.POLICY_ID_FIELD}\":\"$policyID\","
+        if (state != null) {
+            string += "\"${ChangePolicy.STATE_FIELD}\":\"$state\","
+        }
+        string += "\"${ChangePolicy.INCLUDE_FIELD}\":${include.map { "{\"${StateFilter.STATE_FIELD}\":\"${it.state}\"}" }}}"
+
+        return StringEntity(string, APPLICATION_JSON)
+    }
 
     // Useful settings when debugging to prevent timeouts
     override fun restClientSettings(): Settings {
@@ -286,22 +297,33 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     /**
      * indexPredicates is a list of pairs where first is index name and second is a list of pairs
      * where first is key property and second is predicate function to assert on
+     *
+     * @param indexPredicates list of index to list of predicates to assert on
+     * @param response explain response to use for assertions
+     * @param strict if true all fields must be handled in assertions
      */
     @Suppress("UNCHECKED_CAST")
-    protected fun assertPredicatesOnMetaData(indexPredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, response: Map<String, Any?>) {
+    protected fun assertPredicatesOnMetaData(
+        indexPredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>,
+        response: Map<String, Any?>,
+        strict: Boolean = true
+    ) {
         indexPredicates.forEach { (index, predicates) ->
-            assertTrue("The index: $index was not found in the response", response.containsKey(index))
+            assertTrue("The index: $index was not found in the response: $response", response.containsKey(index))
             val indexResponse = response[index] as Map<String, String?>
-            assertEquals("The fields do not match, response=($indexResponse) predicates=$predicates", predicates.map { it.first }.toSet(), indexResponse.keys.toSet())
+            if (strict) {
+                val predicatesSet = predicates.map { it.first }.toSet()
+                assertEquals("The fields do not match, response=($indexResponse) predicates=$predicatesSet", predicatesSet, indexResponse.keys.toSet())
+            }
             predicates.forEach { (fieldName, predicate) ->
-                assertTrue("The key: $fieldName was not found in the response", indexResponse.containsKey(fieldName))
+                assertTrue("The key: $fieldName was not found in the response: $indexResponse", indexResponse.containsKey(fieldName))
                 assertTrue("Failed predicate assertion for $fieldName response=($indexResponse) predicates=$predicates", predicate(indexResponse[fieldName]))
             }
         }
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun assertRetryInfo(expectedRetryInfo: PolicyRetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
+    protected fun assertRetryInfoEquals(expectedRetryInfo: PolicyRetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
         actualRetryInfoMetaDataMap as Map<String, Any>
         assertEquals(expectedRetryInfo.failed, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.FAILED] as Boolean)
         assertEquals(expectedRetryInfo.consumedRetries, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.CONSUMED_RETRIES] as Int)
@@ -309,7 +331,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun assertState(expectedState: StateMetaData, actualStateMap: Any?): Boolean {
+    protected fun assertStateEquals(expectedState: StateMetaData, actualStateMap: Any?): Boolean {
         actualStateMap as Map<String, Any>
         assertEquals(expectedState.name, actualStateMap[ManagedIndexMetaData.NAME] as String)
         assertTrue((actualStateMap[ManagedIndexMetaData.START_TIME] as Long) < expectedState.startTime)
@@ -317,10 +339,10 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun assertAction(expectedState: ActionMetaData, actualActionMap: Any?): Boolean {
+    protected fun assertActionEquals(expectedAction: ActionMetaData, actualActionMap: Any?): Boolean {
         actualActionMap as Map<String, Any>
-        assertEquals(expectedState.name, actualActionMap[ManagedIndexMetaData.NAME] as String)
-        assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedState.startTime)
+        assertEquals(expectedAction.name, actualActionMap[ManagedIndexMetaData.NAME] as String)
+        assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedAction.startTime)
         return true
     }
 }

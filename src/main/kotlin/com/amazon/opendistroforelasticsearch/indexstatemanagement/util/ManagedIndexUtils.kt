@@ -107,12 +107,11 @@ fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
     return DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, uuid)
 }
 
-fun updateManagedIndexRequest(clusterStateManagedIndexConfig: ClusterStateManagedIndexConfig): UpdateRequest {
-    return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX,
-            clusterStateManagedIndexConfig.uuid)
-            .setIfPrimaryTerm(clusterStateManagedIndexConfig.primaryTerm)
-            .setIfSeqNo(clusterStateManagedIndexConfig.seqNo)
-            .doc(clusterStateManagedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig): UpdateRequest {
+    return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX, sweptManagedIndexConfig.uuid)
+        .setIfPrimaryTerm(sweptManagedIndexConfig.primaryTerm)
+        .setIfSeqNo(sweptManagedIndexConfig.seqNo)
+        .doc(getPartialChangePolicyBuilder(sweptManagedIndexConfig.changePolicy))
 }
 
 /**
@@ -153,45 +152,6 @@ fun getDeleteManagedIndexRequests(
     return currentManagedIndexConfigs.filter { (uuid) ->
         !clusterStateManagedIndexConfigs.containsKey(uuid)
     }.map { deleteManagedIndexRequest(it.value.uuid) }
-}
-
-/**
- * Creates UpdateRequests for [ManagedIndexConfig].
- *
- * Finds ManagedIndices that exist both in cluster state and in [INDEX_STATE_MANAGEMENT_INDEX] that
- * need to be updated. We know a [ManagedIndexConfig] needs to be updated when the policyID differs between
- * the [ClusterStateManagedIndexConfig] and the [SweptManagedIndexConfig]. And we know
- * a [ManagedIndexConfig] has not yet been updated if it's ChangePolicy does not match the new policyID.
- *
- * @param clusterStateManagedIndexConfigs map of IndexUuid to [ClusterStateManagedIndexConfig].
- * @param currentManagedIndexConfigs map of IndexUuid to [SweptManagedIndexConfig].
- * @return list of [DocWriteRequest].
- */
-@OpenForTesting
-fun getUpdateManagedIndexRequests(
-    clusterStateManagedIndexConfigs: Map<String, ClusterStateManagedIndexConfig>,
-    currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>
-): List<DocWriteRequest<*>> {
-    return clusterStateManagedIndexConfigs.asSequence()
-            .filter { (uuid, clusterConfig) ->
-                val sweptConfig = currentManagedIndexConfigs[uuid]
-                sweptConfig != null &&
-                        // Verify they have different policy names which means we should update it
-                        sweptConfig.policyID != clusterConfig.policyID &&
-                        // Verify it is not already being updated
-                        sweptConfig.changePolicy?.policyID != clusterConfig.policyID
-            }
-            .map {
-                val sweptConfig = currentManagedIndexConfigs[it.key]
-                if (sweptConfig == null) {
-                    updateManagedIndexRequest(it.value)
-                } else {
-                    updateManagedIndexRequest(
-                            it.value.copy(seqNo = sweptConfig.seqNo,
-                                    primaryTerm = sweptConfig.primaryTerm)
-                    )
-                }
-            }.toList()
 }
 
 fun getSweptManagedIndexSearchRequest(): SearchRequest {
@@ -298,7 +258,6 @@ fun State.getActionToExecute(
         actionConfig = this.actions.filterIndexed { index, config ->
             index == managedIndexMetaData.actionMetaData.index && config.type.type == managedIndexMetaData.actionMetaData.name
         }.firstOrNull()
-
         if (actionConfig == null) return null
 
         // TODO: Refactor so we can get isLastStep from somewhere besides an instantiated Action class so we can simplify this to a when block
@@ -421,3 +380,25 @@ val ManagedIndexMetaData.isFailed: Boolean
         if (this.actionMetaData?.failed == true) return true
         return false
     }
+
+/**
+ * We will change the policy if a change policy exists and if we are currently in
+ * a Transitions action (which means we're safely at the end of a state). If a
+ * transitionTo exists on the [ManagedIndexMetaData] it should still be fine to
+ * change policy as we have not actually transitioned yet.
+ *
+ * @param managedIndexMetaData current [ManagedIndexMetaData]
+ * @return {@code true} if we should change policy, {@code false} if not
+ */
+@Suppress("ReturnCount")
+fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMetaData): Boolean {
+    if (this.changePolicy == null) {
+        return false
+    }
+
+    if (managedIndexMetaData.actionMetaData?.name != ActionConfig.ActionType.TRANSITION.type) {
+        return false
+    }
+
+    return true
+}

@@ -16,19 +16,48 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import java.time.Instant
+import java.util.Locale
 
-// TODO: Step should probably have a method to return an updated ManagedIndexMetaData once it finishes execution
 abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMetaData) {
 
     abstract suspend fun execute()
 
     abstract fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData
 
+    fun getStartingStepMetaData(): StepMetaData {
+        return StepMetaData(name, getStepStartTime().toEpochMilli(), StepStatus.STARTING)
+    }
+
     fun getStepStartTime(): Instant {
         if (managedIndexMetaData.stepMetaData == null || managedIndexMetaData.stepMetaData.name != this.name) {
             return Instant.now()
         }
         return Instant.ofEpochMilli(managedIndexMetaData.stepMetaData.startTime)
+    }
+
+    enum class StepStatus(val status: String) : Writeable {
+        STARTING("starting"),
+        CONDITION_NOT_MET("condition_not_met"),
+        FAILED("failed"),
+        COMPLETED("completed");
+
+        override fun toString(): String {
+            return status
+        }
+
+        override fun writeTo(out: StreamOutput) {
+            out.writeString(status)
+        }
+
+        companion object {
+            fun read(streamInput: StreamInput): StepStatus {
+                return valueOf(streamInput.readString().toUpperCase(Locale.ROOT))
+            }
+        }
     }
 }

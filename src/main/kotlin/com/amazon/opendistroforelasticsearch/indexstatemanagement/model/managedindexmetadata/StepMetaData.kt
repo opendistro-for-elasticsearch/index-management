@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managed
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData.Companion.NAME
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData.Companion.START_TIME
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -32,24 +33,25 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
+import java.util.Locale
 
 data class StepMetaData(
     val name: String,
     val startTime: Long,
-    val completed: Boolean
+    val stepStatus: Step.StepStatus
 ) : Writeable, ToXContentFragment {
 
     override fun writeTo(out: StreamOutput) {
         out.writeString(name)
         out.writeLong(startTime)
-        out.writeBoolean(completed)
+        stepStatus.writeTo(out)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject(STEP)
             .field(NAME, name)
             .field(START_TIME, startTime)
-            .field(COMPLETED, completed)
+            .field(STEP_STATUS, stepStatus.toString())
             .endObject()
     }
 
@@ -59,17 +61,17 @@ data class StepMetaData(
 
     companion object {
         const val STEP = "step"
-        const val COMPLETED = "completed"
+        const val STEP_STATUS = "step_status"
 
         fun fromStreamInput(si: StreamInput): StepMetaData {
             val name: String? = si.readString()
             val startTime: Long? = si.readLong()
-            val completed: Boolean? = si.readBoolean()
+            val stepStatus: Step.StepStatus? = Step.StepStatus.read(si)
 
             return StepMetaData(
                 requireNotNull(name) { "$NAME is null" },
                 requireNotNull(startTime) { "$START_TIME is null" },
-                requireNotNull(completed) { "$COMPLETED is null" }
+                requireNotNull(stepStatus) { "$STEP_STATUS is null" }
             )
         }
 
@@ -88,7 +90,7 @@ data class StepMetaData(
         fun parse(xcp: XContentParser): StepMetaData {
             var name: String? = null
             var startTime: Long? = null
-            var completed: Boolean? = null
+            var stepStatus: Step.StepStatus? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -98,14 +100,14 @@ data class StepMetaData(
                 when (fieldName) {
                     NAME -> name = xcp.text()
                     START_TIME -> startTime = xcp.longValue()
-                    COMPLETED -> completed = xcp.booleanValue()
+                    STEP_STATUS -> stepStatus = Step.StepStatus.valueOf(xcp.text().toUpperCase(Locale.ROOT))
                 }
             }
 
             return StepMetaData(
                 requireNotNull(name) { "$NAME is null" },
                 requireNotNull(startTime) { "$START_TIME is null" },
-                requireNotNull(completed) { "$COMPLETED is null" }
+                requireNotNull(stepStatus) { "$STEP_STATUS is null" }
             )
         }
     }

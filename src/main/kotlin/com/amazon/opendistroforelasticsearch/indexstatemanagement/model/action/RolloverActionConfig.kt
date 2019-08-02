@@ -34,10 +34,8 @@ data class RolloverActionConfig(
     val minSize: ByteSizeValue?,
     val minDocs: Long?,
     val minAge: TimeValue?,
-    val timeout: ActionTimeout?,
-    val retry: ActionRetry?,
     val index: Int
-) : ToXContentObject, ActionConfig(ActionType.ROLLOVER, timeout, retry, index) {
+) : ToXContentObject, ActionConfig(ActionType.ROLLOVER, index) {
 
     init {
         if (minSize != null) require(minSize.bytes > 0) { "RolloverActionConfig minSize value must be greater than 0" }
@@ -46,9 +44,9 @@ data class RolloverActionConfig(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject().startObject(ROLLOVER_ACTION_TYPE)
-        timeout?.toXContent(builder, params)
-        retry?.toXContent(builder, params)
+        builder.startObject()
+        super.toXContent(builder, params)
+            .startObject(ROLLOVER_ACTION_TYPE)
         if (minSize != null) builder.field(MIN_SIZE_FIELD, minSize.stringRep)
         if (minDocs != null) builder.field(MIN_DOC_COUNT_FIELD, minDocs)
         if (minAge != null) builder.field(MIN_INDEX_AGE_FIELD, minAge.stringRep)
@@ -76,8 +74,6 @@ data class RolloverActionConfig(
             var minSize: ByteSizeValue? = null
             var minDocs: Long? = null
             var minAge: TimeValue? = null
-            var timeout: ActionTimeout? = null
-            var retry: ActionRetry? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -85,8 +81,6 @@ data class RolloverActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
-                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
                     MIN_SIZE_FIELD -> minSize = ByteSizeValue.parseBytesSizeValue(xcp.text(), MIN_SIZE_FIELD)
                     MIN_DOC_COUNT_FIELD -> minDocs = xcp.longValue()
                     MIN_INDEX_AGE_FIELD -> minAge = TimeValue.parseTimeValue(xcp.text(), MIN_INDEX_AGE_FIELD)
@@ -98,8 +92,6 @@ data class RolloverActionConfig(
                 minSize = minSize,
                 minDocs = minDocs,
                 minAge = minAge,
-                timeout = timeout,
-                retry = retry,
                 index = index
             )
         }

@@ -24,7 +24,7 @@ import org.elasticsearch.cluster.service.ClusterService
 
 data class TransitionsActionConfig(
     val transitions: List<Transition>
-) : ActionConfig(ActionType.TRANSITION, null, null, -1) {
+) : ActionConfig(ActionType.TRANSITION, -1) {
 
     override fun toAction(
         clusterService: ClusterService,

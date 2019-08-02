@@ -35,11 +35,9 @@ class AttemptDeleteStep(
 ) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
-    private var failed: Boolean = false
+    private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    // TODO: Incorporate retries from config and consumed retries from metadata
-    // TODO: Needs to return execute status after finishing, i.e. succeeded, noop, failed, failed info to update metadata
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         try {
@@ -47,13 +45,14 @@ class AttemptDeleteStep(
                 .suspendUntil { delete(DeleteIndexRequest(managedIndexMetaData.index), it) }
 
             if (response.isAcknowledged) {
+                stepStatus = StepStatus.COMPLETED
                 info = mapOf("message" to "Deleted index")
             } else {
-                failed = true
+                stepStatus = StepStatus.FAILED
                 info = mapOf("message" to "Failed to delete index")
             }
         } catch (e: Exception) {
-            failed = true
+            stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to delete index")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
@@ -63,8 +62,7 @@ class AttemptDeleteStep(
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            // TODO only update stepStartTime when first try of step and not retries
-            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
             info = info

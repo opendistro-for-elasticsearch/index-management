@@ -38,7 +38,8 @@ data class ActionMetaData(
     val startTime: Long,
     val index: Int,
     val failed: Boolean,
-    val consumedRetries: Int
+    val consumedRetries: Int,
+    val lastRetryTime: Long?
 ) : Writeable, ToXContentFragment {
 
     override fun writeTo(out: StreamOutput) {
@@ -47,6 +48,7 @@ data class ActionMetaData(
         out.writeInt(index)
         out.writeBoolean(failed)
         out.writeInt(consumedRetries)
+        out.writeOptionalLong(lastRetryTime)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -56,6 +58,7 @@ data class ActionMetaData(
             .field(INDEX, index)
             .field(FAILED, failed)
             .field(CONSUMED_RETRIES, consumedRetries)
+            .field(LAST_RETRY_TIME, lastRetryTime)
     }
 
     fun getMapValueString(): String {
@@ -67,6 +70,7 @@ data class ActionMetaData(
         const val INDEX = "index"
         const val FAILED = "failed"
         const val CONSUMED_RETRIES = "consumed_retries"
+        const val LAST_RETRY_TIME = "last_retry_time"
 
         fun fromStreamInput(si: StreamInput): ActionMetaData {
             val name: String? = si.readString()
@@ -74,13 +78,15 @@ data class ActionMetaData(
             val index: Int? = si.readInt()
             val failed: Boolean? = si.readBoolean()
             val consumedRetries: Int? = si.readInt()
+            val lastRetryTime: Long? = si.readOptionalLong()
 
             return ActionMetaData(
                 requireNotNull(name) { "$NAME is null" },
                 requireNotNull(startTime) { "$START_TIME is null" },
                 requireNotNull(index) { "$INDEX is null" },
                 requireNotNull(failed) { "$FAILED is null" },
-                requireNotNull(consumedRetries) { "$CONSUMED_RETRIES is null" }
+                requireNotNull(consumedRetries) { "$CONSUMED_RETRIES is null" },
+                lastRetryTime
             )
         }
 
@@ -102,6 +108,7 @@ data class ActionMetaData(
             var index: Int? = null
             var failed: Boolean? = null
             var consumedRetries: Int? = null
+            var lastRetryTime: Long? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -114,6 +121,7 @@ data class ActionMetaData(
                     INDEX -> index = xcp.intValue()
                     FAILED -> failed = xcp.booleanValue()
                     CONSUMED_RETRIES -> consumedRetries = xcp.intValue()
+                    LAST_RETRY_TIME -> lastRetryTime = xcp.longValue()
                 }
             }
 
@@ -122,7 +130,8 @@ data class ActionMetaData(
                 requireNotNull(startTime) { "$START_TIME is null" },
                 requireNotNull(index) { "$INDEX is null" },
                 requireNotNull(failed) { "$FAILED is null" },
-                requireNotNull(consumedRetries) { "$CONSUMED_RETRIES is null" }
+                requireNotNull(consumedRetries) { "$CONSUMED_RETRIES is null" },
+                lastRetryTime
             )
         }
     }

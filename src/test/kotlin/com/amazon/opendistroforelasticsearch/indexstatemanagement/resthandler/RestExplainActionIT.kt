@@ -173,37 +173,4 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
             assertEquals("Expected and actual values does not match", entry.value, actual[entry.key])
         }
     }
-
-    /**
-     * indexPredicates is a list of pairs where first is index name and second is a list of pairs
-     * where first is key property and second is predicate function to assert on
-     */
-    @Suppress("UNCHECKED_CAST")
-    private fun assertPredicatesOnMetaData(indexPredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, response: Map<String, Any?>) {
-        indexPredicates.forEach { (index, predicates) ->
-            assertTrue("The index: $index was not found in the response", response.containsKey(index))
-            val indexResponse = response[index] as Map<String, String?>
-            assertEquals("The fields do not match, response=($indexResponse) predicates=$predicates", predicates.map { it.first }.toSet(), indexResponse.keys.toSet())
-            predicates.forEach { (fieldName, predicate) ->
-                assertTrue("The key: $fieldName was not found in the response", indexResponse.containsKey(fieldName))
-                assertTrue("Failed predicate assertion for $fieldName response=($indexResponse) predicates=$predicates", predicate(indexResponse[fieldName]))
-            }
-        }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun assertRetryInfo(expectedRetryInfo: PolicyRetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
-        actualRetryInfoMetaDataMap as Map<String, Any>
-        assertEquals(expectedRetryInfo.failed, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.FAILED] as Boolean)
-        assertEquals(expectedRetryInfo.consumedRetries, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.CONSUMED_RETRIES] as Int)
-        return true
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun assertState(expectedState: StateMetaData, actualStateMap: Any?): Boolean {
-        actualStateMap as Map<String, Any>
-        assertEquals(expectedState.name, actualStateMap[ManagedIndexMetaData.NAME] as String)
-        assertTrue((actualStateMap[ManagedIndexMetaData.START_TIME] as Long) < expectedState.startTime)
-        return true
-    }
 }

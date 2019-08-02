@@ -50,9 +50,9 @@ data class ManagedIndexConfig(
 
     init {
         if (enabled) {
-            requireNotNull(jobEnabledTime)
+            requireNotNull(jobEnabledTime) { "jobEnabledTime must be present if the job is enabled" }
         } else {
-            require(jobEnabledTime == null)
+            require(jobEnabledTime == null) { "jobEnabledTime must not be present if the job is disabled" }
         }
     }
 

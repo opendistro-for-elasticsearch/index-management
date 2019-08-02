@@ -19,12 +19,14 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.TransitionsActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
@@ -79,6 +81,26 @@ fun createManagedIndexRequest(managedIndexConfig: ManagedIndexConfig): IndexRequ
             .setIfPrimaryTerm(managedIndexConfig.primaryTerm)
             .setIfSeqNo(managedIndexConfig.seqNo)
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+}
+
+private fun updateEnabledField(uuid: String, enabled: Boolean, enabledTime: Long?): UpdateRequest {
+    val builder = XContentFactory.jsonBuilder()
+        .startObject()
+            .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
+                .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
+                .field(ManagedIndexConfig.ENABLED_FIELD, enabled)
+                .field(ManagedIndexConfig.ENABLED_TIME_FIELD, enabledTime)
+            .endObject()
+        .endObject()
+    return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX, uuid).doc(builder)
+}
+
+fun updateDisableManagedIndexRequest(uuid: String): UpdateRequest {
+    return updateEnabledField(uuid, false, null)
+}
+
+fun updateEnableManagedIndexRequest(uuid: String): UpdateRequest {
+    return updateEnabledField(uuid, true, Instant.now().toEpochMilli())
 }
 
 fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
@@ -281,7 +303,7 @@ fun State.getActionToExecute(
 
         // TODO: Refactor so we can get isLastStep from somewhere besides an instantiated Action class so we can simplify this to a when block
         // If stepCompleted is true and this is the last step of the action then we should get the next action
-        if (managedIndexMetaData.stepMetaData != null && managedIndexMetaData.stepMetaData.completed) {
+        if (managedIndexMetaData.stepMetaData != null && managedIndexMetaData.stepMetaData.stepStatus == Step.StepStatus.COMPLETED) {
             val action = actionConfig.toAction(clusterService, client, managedIndexMetaData)
             if (action.isLastStep(managedIndexMetaData.stepMetaData.name)) {
                 actionConfig = this.actions.getOrNull(managedIndexMetaData.actionMetaData.index + 1) ?: TransitionsActionConfig(this.transitions)
@@ -307,14 +329,20 @@ fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, 
     val actionMetaData = managedIndexMetaData.actionMetaData
 
     return when {
-        stateMetaData?.name != state.name -> ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0)
-        actionMetaData?.index != this.config.actionIndex -> ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0)
+        stateMetaData?.name != state.name ->
+            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0)
+        actionMetaData?.index != this.config.actionIndex ->
+            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0)
         else -> actionMetaData
     }
 }
 
+fun Action.shouldBackoff(actionMetaData: ActionMetaData?, actionRetry: ActionRetry?): Pair<Boolean, Long?>? {
+    return this.config.configRetry?.backoff?.shouldBackoff(actionMetaData, actionRetry)
+}
+
 @Suppress("ReturnCount")
-fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
+fun ManagedIndexMetaData.getStartingManagedIndexMetaData(
     state: State?,
     action: Action?,
     step: Step?
@@ -338,27 +366,52 @@ fun ManagedIndexMetaData.getUpdatedManagedIndexMetaData(
 
     val updatedStateMetaData = state.getUpdatedStateMetaData(this)
     val updatedActionMetaData = action.getUpdatedActionMetaData(this, state)
-    val updatedStepMetaData = step.getUpdatedManagedIndexMetaData(this)
-
-    // TODO Update Action retry logic.
+    val updatedStepMetaData = step.getStartingStepMetaData()
 
     return this.copy(
-        policyCompleted = action.type == ActionConfig.ActionType.TRANSITION && state.transitions.isEmpty(),
-        rolledOver = updatedStepMetaData.rolledOver,
         stateMetaData = updatedStateMetaData,
+        actionMetaData = updatedActionMetaData,
+        stepMetaData = updatedStepMetaData
+    )
+}
+
+@Suppress("ReturnCount")
+fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
+    state: State,
+    action: Action,
+    step: Step,
+    actionMetaData: ActionMetaData
+): ManagedIndexMetaData {
+    val updatedStepMetaData = step.getUpdatedManagedIndexMetaData(this)
+
+    val updatedActionMetaData = if (updatedStepMetaData.stepMetaData?.stepStatus == Step.StepStatus.FAILED) {
+        when {
+            action.config.configRetry == null -> actionMetaData.copy(failed = true)
+            actionMetaData.consumedRetries >= action.config.configRetry!!.count -> actionMetaData.copy(failed = true)
+            else -> actionMetaData.copy(
+                failed = false,
+                consumedRetries = actionMetaData.consumedRetries + 1,
+                lastRetryTime = Instant.now().toEpochMilli())
+        }
+    } else {
+        actionMetaData
+    }
+
+    return this.copy(
+        policyCompleted = actionMetaData.name == ActionConfig.ActionType.TRANSITION.type && state.transitions.isEmpty(),
+        rolledOver = updatedStepMetaData.rolledOver,
         actionMetaData = updatedActionMetaData,
         stepMetaData = updatedStepMetaData.stepMetaData,
         transitionTo = updatedStepMetaData.transitionTo,
-        // TODO: ConsumedRetries
         policyRetryInfo = updatedStepMetaData.policyRetryInfo,
         info = updatedStepMetaData.info
     )
 }
 
 val ManagedIndexMetaData.isSuccessfulDelete: Boolean
-    get() = (this.actionMetaData != null && this.actionMetaData.name == ActionConfig.ActionType.DELETE.type && !this.actionMetaData.failed) &&
-            (this.stepMetaData != null && this.stepMetaData.name == AttemptDeleteStep.name && this.stepMetaData.completed) &&
-            (this.policyRetryInfo != null && !this.policyRetryInfo.failed)
+    get() = (this.actionMetaData?.name == ActionConfig.ActionType.DELETE.type && !this.actionMetaData.failed) &&
+            (this.stepMetaData?.name == AttemptDeleteStep.name && this.stepMetaData.stepStatus == Step.StepStatus.COMPLETED) &&
+            (this.policyRetryInfo?.failed != true)
 
 val ManagedIndexMetaData.isFailed: Boolean
     get() {

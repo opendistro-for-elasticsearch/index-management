@@ -29,14 +29,14 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class ReadWriteActionConfig(
-    val timeout: ActionTimeout?,
-    val retry: ActionRetry?,
     val index: Int
-) : ToXContentObject, ActionConfig(ActionType.READ_WRITE, timeout, retry, index) {
+) : ToXContentObject, ActionConfig(ActionType.READ_WRITE, index) {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject().startObject(ActionType.READ_WRITE.type)
+        builder.startObject()
         super.toXContent(builder, params)
+            .startObject(ActionType.READ_WRITE.type)
+
         return builder.endObject().endObject()
     }
 
@@ -52,22 +52,10 @@ data class ReadWriteActionConfig(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): ReadWriteActionConfig {
-            var timeout: ActionTimeout? = null
-            var retry: ActionRetry? = null
-
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != Token.END_OBJECT) {
-                val fieldName = xcp.currentName()
-                xcp.nextToken()
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
 
-                when (fieldName) {
-                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
-                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ReadWriteActionConfig")
-                }
-            }
-
-            return ReadWriteActionConfig(timeout, retry, index)
+            return ReadWriteActionConfig(index)
         }
     }
 }

@@ -18,8 +18,12 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
@@ -63,14 +67,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         policyId: String = ESTestCase.randomAlphaOfLength(10),
         refresh: Boolean = true
     ): Policy {
-        val response = client()
-            .makeRequest(
-                "PUT",
-                "$POLICY_BASE_URI/$policyId?refresh=$refresh",
-                emptyMap(),
-                policy.toHttpEntity()
-            )
-        assertEquals("Unable to create a new policy", RestStatus.CREATED, response.restStatus())
+        val response = createPolicyJson(policy.toJsonString(), policyId, refresh)
 
         val policyJson = JsonXContent.jsonXContent
             .createParser(
@@ -85,6 +82,22 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             seqNo = (policyJson["_seq_no"] as Int).toLong(),
             primaryTerm = (policyJson["_primary_term"] as Int).toLong()
         )
+    }
+
+    protected fun createPolicyJson(
+        policyString: String,
+        policyId: String,
+        refresh: Boolean = true
+    ): Response {
+        val response = client()
+            .makeRequest(
+                "PUT",
+                "$POLICY_BASE_URI/$policyId?refresh=$refresh",
+                emptyMap(),
+                StringEntity(policyString, APPLICATION_JSON)
+            )
+        assertEquals("Unable to create a new policy", RestStatus.CREATED, response.restStatus())
+        return response
     }
 
     protected fun createRandomPolicy(refresh: Boolean = false): Policy {
@@ -268,5 +281,46 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
                 else -> fail("Unknown field: [$key] or incorrect type for value: [$value]")
             }
         }
+    }
+
+    /**
+     * indexPredicates is a list of pairs where first is index name and second is a list of pairs
+     * where first is key property and second is predicate function to assert on
+     */
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertPredicatesOnMetaData(indexPredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, response: Map<String, Any?>) {
+        indexPredicates.forEach { (index, predicates) ->
+            assertTrue("The index: $index was not found in the response", response.containsKey(index))
+            val indexResponse = response[index] as Map<String, String?>
+            assertEquals("The fields do not match, response=($indexResponse) predicates=$predicates", predicates.map { it.first }.toSet(), indexResponse.keys.toSet())
+            predicates.forEach { (fieldName, predicate) ->
+                assertTrue("The key: $fieldName was not found in the response", indexResponse.containsKey(fieldName))
+                assertTrue("Failed predicate assertion for $fieldName response=($indexResponse) predicates=$predicates", predicate(indexResponse[fieldName]))
+            }
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertRetryInfo(expectedRetryInfo: PolicyRetryInfoMetaData, actualRetryInfoMetaDataMap: Any?): Boolean {
+        actualRetryInfoMetaDataMap as Map<String, Any>
+        assertEquals(expectedRetryInfo.failed, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.FAILED] as Boolean)
+        assertEquals(expectedRetryInfo.consumedRetries, actualRetryInfoMetaDataMap[PolicyRetryInfoMetaData.CONSUMED_RETRIES] as Int)
+        return true
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertState(expectedState: StateMetaData, actualStateMap: Any?): Boolean {
+        actualStateMap as Map<String, Any>
+        assertEquals(expectedState.name, actualStateMap[ManagedIndexMetaData.NAME] as String)
+        assertTrue((actualStateMap[ManagedIndexMetaData.START_TIME] as Long) < expectedState.startTime)
+        return true
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertAction(expectedState: ActionMetaData, actualActionMap: Any?): Boolean {
+        actualActionMap as Map<String, Any>
+        assertEquals(expectedState.name, actualActionMap[ManagedIndexMetaData.NAME] as String)
+        assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedState.startTime)
+        return true
     }
 }

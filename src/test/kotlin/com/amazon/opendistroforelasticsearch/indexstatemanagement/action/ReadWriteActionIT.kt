@@ -32,7 +32,7 @@ class ReadWriteActionIT : IndexStateManagementRestTestCase() {
     fun `test basic workflow`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
-        val actionConfig = ReadWriteActionConfig(null, null, 0)
+        val actionConfig = ReadWriteActionConfig(0)
         val states = listOf(
             State("ReadWriteState", listOf(actionConfig), listOf())
         )

@@ -19,7 +19,7 @@ class AttemptOpenStep(
 ) : Step("attempt_open", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
-    private var failed = false
+    private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
@@ -30,14 +30,15 @@ class AttemptOpenStep(
                 .indices(managedIndexMetaData.index)
 
             val response: OpenIndexResponse = client.admin().indices().suspendUntil { open(openIndexRequest, it) }
-            if (!response.isAcknowledged) {
-                failed = true
-                info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
-            } else {
+            if (response.isAcknowledged) {
+                stepStatus = StepStatus.COMPLETED
                 info = mapOf("message" to "Successfully opened index")
+            } else {
+                stepStatus = StepStatus.FAILED
+                info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
             }
         } catch (e: Exception) {
-            failed = true
+            stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set index to open")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
@@ -47,8 +48,7 @@ class AttemptOpenStep(
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            // TODO only update stepStartTime when first try of step and not retries
-            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
             info = info

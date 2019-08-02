@@ -9,18 +9,18 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-class OpenActionConfig(
-    val timeout: ActionTimeout?,
-    val retry: ActionRetry?,
+data class OpenActionConfig(
     val index: Int
-) : ToXContentObject, ActionConfig(ActionType.OPEN, timeout, retry, index) {
+) : ToXContentObject, ActionConfig(ActionType.OPEN, index) {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject().startObject(ActionType.OPEN.type)
+        builder.startObject()
         super.toXContent(builder, params)
+            .startObject(ActionType.OPEN.type)
         return builder.endObject().endObject()
     }
 
@@ -36,22 +36,10 @@ class OpenActionConfig(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): OpenActionConfig {
-            var timeout: ActionTimeout? = null
-            var retry: ActionRetry? = null
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
 
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
-                val fieldName = xcp.currentName()
-                xcp.nextToken()
-
-                when (fieldName) {
-                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
-                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in OpenActionConfig.")
-                }
-            }
-
-            return OpenActionConfig(timeout, retry, index)
+            return OpenActionConfig(index)
         }
     }
 }

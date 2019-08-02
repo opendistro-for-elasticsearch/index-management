@@ -31,7 +31,7 @@ class OpenActionIT : IndexStateManagementRestTestCase() {
     fun `test basic`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
-        val actionConfig = OpenActionConfig(null, null, 0)
+        val actionConfig = OpenActionConfig(0)
         val states = listOf(
             State("OpenState", listOf(actionConfig), listOf())
         )
@@ -46,12 +46,49 @@ class OpenActionIT : IndexStateManagementRestTestCase() {
             states = states
         )
         createPolicy(policy, policyID)
-        createIndex(indexName, null)
+        createIndex(indexName, policyID)
         closeIndex(indexName)
 
         assertEquals("close", getIndexState(indexName))
+        Thread.sleep(2000)
 
-        addPolicyToIndex(indexName, policyID)
+        val managedIndexConfig = getManagedIndexConfig(indexName)
+        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+
+        Thread.sleep(3000)
+
+        // Need to wait two cycles.
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        Thread.sleep(3000)
+
+        assertEquals("open", getIndexState(indexName))
+    }
+
+    fun `test already open index`() {
+        val indexName = "${testIndexName}_index"
+        val policyID = "${testIndexName}_testPolicyName"
+        val actionConfig = OpenActionConfig(0)
+        val states = listOf(
+            State("OpenState", listOf(actionConfig), listOf())
+        )
+
+        val policy = Policy(
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            defaultNotification = randomDefaultNotification(),
+            defaultState = states[0].name,
+            states = states
+        )
+        createPolicy(policy, policyID)
+        createIndex(indexName, policyID)
+
+        assertEquals("open", getIndexState(indexName))
         Thread.sleep(2000)
 
         val managedIndexConfig = getManagedIndexConfig(indexName)

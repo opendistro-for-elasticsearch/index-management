@@ -23,11 +23,15 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsResponse
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_BLOCKS_WRITE
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.rest.RestStatus
 
 class CallForceMergeStep(
     val clusterService: ClusterService,
@@ -38,32 +42,62 @@ class CallForceMergeStep(
 
     private val logger = LogManager.getLogger(javaClass)
     private var wasReadOnly: Boolean = false
-    private var failed: Boolean = false
-    private var stepCompleted: Boolean = false
+    private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    // TODO: Incorporate retries from config and consumed retries from metadata
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
-        // TODO: Add wasReadOnly to ManagedIndexMetaData and check before setting to read_only
+        val indexName = managedIndexMetaData.index
+
+        logger.info("Attempting to force merge on [$indexName]")
+
+        // If index is already read_only, it is not necessary to set it here
+        // The ManagedIndexMetaData will be updated to denote this so that the index is not set to read_write after a force merge completes
+        if (isReadOnly(indexName)) {
+            logger.info("Index [$indexName] is already read_only, moving on to force merge")
+            wasReadOnly = true
+        } else {
+            logger.info("Attempting to set [$indexName] to read_only")
+            val indexSetToReadOnly = setIndexToReadOnly(indexName)
+
+            // If setIndexToReadOnly() returns false, updating settings failed and failed info was already updated. Can return early.
+            if (!indexSetToReadOnly) return
+        }
+
+        executeForceMerge(indexName)
     }
 
-    // TODO: retries, stepStartTime not resetting when same step
-    override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
-        return currentMetaData.copy(
-            // TODO only update stepStartTime when first try of step and not retries
-            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), !failed),
-            // TODO add wasReadOnly in ManagedIndexMetaData
-            // TODO we should refactor such that transitionTo is not reset in the step.
-            transitionTo = null,
-            info = info
-        )
+    private suspend fun executeForceMerge(indexName: String) {
+        try {
+            val request = ForceMergeRequest(indexName).maxNumSegments(config.maxNumSegments)
+            val response: ForceMergeResponse = client.admin().indices().suspendUntil { forceMerge(request, it) }
+
+            // If response isAcknowledged then the force merge operation has started
+            if (response.status == RestStatus.OK) {
+                stepStatus = StepStatus.COMPLETED
+                info = mapOf("message" to "Started force merge")
+            } else {
+                // Otherwise the request to force merge encountered some problem
+                stepStatus = StepStatus.FAILED
+                info = mapOf(
+                    "message" to "Failed to start force merge",
+                    "status" to response.status,
+                    "shard_failures" to response.shardFailures.map { it.toString() }
+                )
+            }
+        } catch (e: Exception) {
+            stepStatus = StepStatus.FAILED
+            val mutableInfo = mutableMapOf("message" to "Failed to start force merge")
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
+            info = mutableInfo.toMap()
+        }
     }
 
     private suspend fun isReadOnly(indexName: String): Boolean {
         val getSettingsResponse: GetSettingsResponse = client.admin().indices()
             .suspendUntil { getSettings(GetSettingsRequest().indices(indexName), it) }
-        val blocksWrite: String? = getSettingsResponse.getSetting(indexName, INDEX_BLOCKS_WRITE)
+        val blocksWrite: String? = getSettingsResponse.getSetting(indexName, SETTING_BLOCKS_WRITE)
 
         // If the "index.blocks.write" setting is set to "true", the index is read_only
         if (blocksWrite != null && blocksWrite == "true") {
@@ -74,21 +108,46 @@ class CallForceMergeStep(
         return false
     }
 
-    private suspend fun setIndexToReadOnly(indexName: String) {
-        // TODO: Add try/catch and logger.error() if request !isAcknowledged
+    private suspend fun setIndexToReadOnly(indexName: String): Boolean {
+        try {
+            val updateSettingsRequest = UpdateSettingsRequest()
+                .indices(indexName)
+                .settings(
+                    Settings.builder().put(SETTING_BLOCKS_WRITE, true)
+                )
+            val response: AcknowledgedResponse = client.admin().indices()
+                .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
-        val updateSettingsRequest = UpdateSettingsRequest()
-            .indices(indexName)
-            .settings(
-                Settings.builder().put(INDEX_BLOCKS_WRITE, true)
-            )
-        val response: AcknowledgedResponse = client.admin().indices()
-            .suspendUntil { updateSettings(updateSettingsRequest, it) }
+            if (response.isAcknowledged) {
+                logger.info("Successfully set [$indexName] to read_only for force_merge action")
+                return true
+            }
+
+            // If response is not acknowledged, then add failed info
+            stepStatus = StepStatus.FAILED
+            info = mapOf("message" to "Failed to set index to read_only")
+            return false
+        } catch (e: Exception) {
+            stepStatus = StepStatus.FAILED
+            val mutableInfo = mutableMapOf("message" to "Failed to set index to read_only")
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
+            info = mutableInfo.toMap()
+            return false
+        }
+    }
+
+    override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
+        return currentMetaData.copy(
+            wasReadOnly = wasReadOnly,
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
+            // TODO we should refactor such that transitionTo is not reset in the step.
+            transitionTo = null,
+            info = info
+        )
     }
 
     companion object {
         const val name = "call_force_merge"
-
-        const val INDEX_BLOCKS_WRITE = "index.blocks.write"
     }
 }

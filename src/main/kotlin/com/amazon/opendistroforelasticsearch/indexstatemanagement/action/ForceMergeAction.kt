@@ -43,7 +43,9 @@ class ForceMergeAction(
 
         val step = stepMetaData.name
         // If callForceMergeStep has completed, get waitForForceMergeStep to execute
-        if (step == CallForceMergeStep.name && stepMetaData.completed) return waitForForceMergeStep
+        if (step == CallForceMergeStep.name && stepMetaData.stepStatus == Step.StepStatus.COMPLETED) {
+            return waitForForceMergeStep
+        }
 
         // If callForceMergeStep has not completed, return that step
         return callForceMergeStep

@@ -29,21 +29,21 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
 data class ForceMergeActionConfig(
-    val maxNumSegments: Long,
-    val timeout: ActionTimeout?,
-    val retry: ActionRetry?,
+    val maxNumSegments: Int,
     val index: Int
-) : ToXContentObject, ActionConfig(ActionType.FORCE_MERGE, timeout, retry, index) {
+) : ToXContentObject, ActionConfig(ActionType.FORCE_MERGE, index) {
 
     init {
         require(maxNumSegments > 0) { "Force merge {$MAX_NUM_SEGMENTS_FIELD} must be greater than 0" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder.startObject().startObject(ActionType.FORCE_MERGE.type)
+        builder.startObject()
         super.toXContent(builder, params)
-        builder.field(MAX_NUM_SEGMENTS_FIELD, maxNumSegments)
-        return builder.endObject().endObject()
+            .startObject(ActionType.FORCE_MERGE.type)
+                .field(MAX_NUM_SEGMENTS_FIELD, maxNumSegments)
+            .endObject()
+        return builder.endObject()
     }
 
     override fun isFragment(): Boolean = super<ToXContentObject>.isFragment()
@@ -60,9 +60,7 @@ data class ForceMergeActionConfig(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): ForceMergeActionConfig {
-            var maxNumSegments: Long? = null
-            var timeout: ActionTimeout? = null
-            var retry: ActionRetry? = null
+            var maxNumSegments: Int? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -70,17 +68,13 @@ data class ForceMergeActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    ActionTimeout.TIMEOUT_FIELD -> timeout = ActionTimeout.parse(xcp)
-                    ActionRetry.RETRY_FIELD -> retry = ActionRetry.parse(xcp)
-                    MAX_NUM_SEGMENTS_FIELD -> maxNumSegments = xcp.longValue()
+                    MAX_NUM_SEGMENTS_FIELD -> maxNumSegments = xcp.intValue()
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ForceMergeActionConfig.")
                 }
             }
 
             return ForceMergeActionConfig(
                 requireNotNull(maxNumSegments) { "ForceMergeActionConfig maxNumSegments is null" },
-                timeout,
-                retry,
                 index
             )
         }

@@ -39,6 +39,7 @@ data class ManagedIndexMetaData(
     val policyPrimaryTerm: Long?,
     val policyCompleted: Boolean?,
     val rolledOver: Boolean?,
+    val wasReadOnly: Boolean?,
     val transitionTo: String?,
     val stateMetaData: StateMetaData?,
     val actionMetaData: ActionMetaData?,
@@ -56,6 +57,7 @@ data class ManagedIndexMetaData(
             POLICY_PRIMARY_TERM to policyPrimaryTerm?.toString(),
             POLICY_COMPLETED to policyCompleted?.toString(),
             ROLLED_OVER to rolledOver?.toString(),
+            WAS_READ_ONLY to wasReadOnly?.toString(),
             TRANSITION_TO to transitionTo,
             StateMetaData.STATE to stateMetaData?.getMapValueString(),
             ActionMetaData.ACTION to actionMetaData?.getMapValueString(),
@@ -80,6 +82,11 @@ data class ManagedIndexMetaData(
         // Only show rolled_over if we have rolled over or we are in the rollover action
         if (rolledOver == true || (actionMetaData != null && actionMetaData.name == ActionConfig.ActionType.ROLLOVER.type)) {
             builder.field(ROLLED_OVER, rolledOver)
+        }
+
+        // Only show was_read_only if we are on the force_merge action
+        if (actionMetaData != null && actionMetaData.name == ActionConfig.ActionType.FORCE_MERGE.type) {
+            builder.field(WAS_READ_ONLY, wasReadOnly)
         }
 
         if (policyCompleted == true) {
@@ -123,6 +130,7 @@ data class ManagedIndexMetaData(
         streamOutput.writeOptionalLong(policyPrimaryTerm)
         streamOutput.writeOptionalBoolean(policyCompleted)
         streamOutput.writeOptionalBoolean(rolledOver)
+        streamOutput.writeOptionalBoolean(wasReadOnly)
         streamOutput.writeOptionalString(transitionTo)
 
         streamOutput.writeOptionalWriteable { stateMetaData?.writeTo(it) }
@@ -146,6 +154,7 @@ data class ManagedIndexMetaData(
         const val POLICY_PRIMARY_TERM = "policy_primary_term"
         const val POLICY_COMPLETED = "policy_completed"
         const val ROLLED_OVER = "rolled_over"
+        const val WAS_READ_ONLY = "was_read_only"
         const val TRANSITION_TO = "transition_to"
         const val INFO = "info"
 
@@ -157,6 +166,7 @@ data class ManagedIndexMetaData(
             val policyPrimaryTerm: Long? = si.readOptionalLong()
             val policyCompleted: Boolean? = si.readOptionalBoolean()
             val rolledOver: Boolean? = si.readOptionalBoolean()
+            val wasReadOnly: Boolean? = si.readOptionalBoolean()
             val transitionTo: String? = si.readOptionalString()
 
             val state: StateMetaData? = si.readOptionalWriteable { StateMetaData.fromStreamInput(it) }
@@ -174,6 +184,7 @@ data class ManagedIndexMetaData(
                 policyPrimaryTerm,
                 policyCompleted,
                 rolledOver,
+                wasReadOnly,
                 transitionTo,
                 state,
                 action,
@@ -193,6 +204,7 @@ data class ManagedIndexMetaData(
                 map[POLICY_PRIMARY_TERM]?.toLong(),
                 map[POLICY_COMPLETED]?.toBoolean(),
                 map[ROLLED_OVER]?.toBoolean(),
+                map[WAS_READ_ONLY]?.toBoolean(),
                 map[TRANSITION_TO],
                 StateMetaData.fromManagedIndexMetaDataMap(map),
                 ActionMetaData.fromManagedIndexMetaDataMap(map),

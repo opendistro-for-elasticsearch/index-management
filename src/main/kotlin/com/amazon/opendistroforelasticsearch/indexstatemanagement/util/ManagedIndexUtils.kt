@@ -359,6 +359,7 @@ fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
     return this.copy(
         policyCompleted = actionMetaData.name == ActionConfig.ActionType.TRANSITION.type && state.transitions.isEmpty(),
         rolledOver = updatedStepMetaData.rolledOver,
+        wasReadOnly = updatedStepMetaData.wasReadOnly,
         actionMetaData = updatedActionMetaData,
         stepMetaData = updatedStepMetaData.stepMetaData,
         transitionTo = updatedStepMetaData.transitionTo,

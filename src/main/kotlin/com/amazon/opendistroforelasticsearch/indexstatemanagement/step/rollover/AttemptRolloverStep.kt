@@ -128,15 +128,15 @@ class AttemptRolloverStep(
                 "status" to statsResponse.status,
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
-            return null
         } catch (e: Exception) {
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
-            return null
         }
+
+        return null
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {

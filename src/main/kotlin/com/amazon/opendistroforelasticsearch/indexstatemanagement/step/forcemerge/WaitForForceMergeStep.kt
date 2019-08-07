@@ -23,12 +23,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse
-import org.elasticsearch.action.support.master.AcknowledgedResponse
-import org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_BLOCKS_WRITE
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import java.time.Duration
 import java.time.Instant
@@ -38,13 +34,12 @@ class WaitForForceMergeStep(
     val client: Client,
     val config: ForceMergeActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step("wait_for_force_merge", managedIndexMetaData) {
+) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    // TODO: Incorporate retries from config and consumed retries from metadata
     @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index
@@ -58,15 +53,10 @@ class WaitForForceMergeStep(
 
         // If there are no longer shardsStillMergingSegments, then the force merge has completed
         if (shardsStillMergingSegments == 0) {
-            stepStatus = StepStatus.COMPLETED
-            info = mapOf("message" to "Force merge completed")
-
             logger.info("Force merge completed on [$indexName]")
 
-            // If the index was not read_only previous to the force merge, set back to read_write
-            if (managedIndexMetaData.wasReadOnly == false) {
-                setIndexToReadWrite(indexName)
-            }
+            stepStatus = StepStatus.COMPLETED
+            info = mapOf("message" to "Force merge completed")
         } else {
             /*
              * If there are still shards with segments merging then no action is taken and the step will be reevaluated
@@ -103,44 +93,15 @@ class WaitForForceMergeStep(
                 "status" to statsResponse.status,
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
-            return null
         } catch (e: Exception) {
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
-            return null
         }
-    }
 
-    private suspend fun setIndexToReadWrite(indexName: String): Boolean {
-        try {
-            val updateSettingsRequest = UpdateSettingsRequest()
-                .indices(indexName)
-                .settings(
-                    Settings.builder().put(SETTING_BLOCKS_WRITE, false)
-                )
-            val response: AcknowledgedResponse = client.admin().indices()
-                .suspendUntil { updateSettings(updateSettingsRequest, it) }
-
-            if (response.isAcknowledged) {
-                logger.info("Successfully set [$indexName] back to read_write after force_merge")
-                return true
-            }
-
-            // If response is not acknowledged, then add failed info
-            stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "Failed to set index back to read_write")
-            return false
-        } catch (e: Exception) {
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set index back to read_write")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
-            return false
-        }
+        return null
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -154,6 +115,8 @@ class WaitForForceMergeStep(
     }
 
     companion object {
+        const val name = "wait_for_force_merge"
+
         const val FORCE_MERGE_TIMEOUT_IN_SECONDS = 43200L // 12 hours
     }
 }

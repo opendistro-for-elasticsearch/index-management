@@ -19,7 +19,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.CallForceMergeStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.AttemptCallForceMergeStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.AttemptRevertReadOnlyStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.AttemptSetReadOnlyStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
@@ -31,23 +33,42 @@ class ForceMergeAction(
     config: ForceMergeActionConfig
 ) : Action(ActionType.FORCE_MERGE, config, managedIndexMetaData) {
 
-    private val callForceMergeStep = CallForceMergeStep(clusterService, client, config, managedIndexMetaData)
+    private val attemptSetReadOnlyStep = AttemptSetReadOnlyStep(clusterService, client, config, managedIndexMetaData)
+    private val attemptCallForceMergeStep = AttemptCallForceMergeStep(clusterService, client, config, managedIndexMetaData)
     private val waitForForceMergeStep = WaitForForceMergeStep(clusterService, client, config, managedIndexMetaData)
+    private val attemptRevertReadOnlyStep = AttemptRevertReadOnlyStep(clusterService, client, config, managedIndexMetaData)
 
-    private val steps = listOf(callForceMergeStep, waitForForceMergeStep)
+    // Using a LinkedHashMap here to maintain order of steps for getSteps() while providing a convenient way to
+    // get the current Step object using the current steps name in getStepToExecute()
+    private val stepNameToStep: LinkedHashMap<String, Step> = linkedMapOf(
+        AttemptSetReadOnlyStep.name to attemptSetReadOnlyStep,
+        AttemptCallForceMergeStep.name to attemptCallForceMergeStep,
+        WaitForForceMergeStep.name to waitForForceMergeStep,
+        AttemptRevertReadOnlyStep.name to attemptRevertReadOnlyStep
+    )
 
-    override fun getSteps(): List<Step> = steps
+    override fun getSteps(): List<Step> = stepNameToStep.values.toList()
 
+    @Suppress("ReturnCount")
     override fun getStepToExecute(): Step {
-        val stepMetaData = managedIndexMetaData.stepMetaData ?: return callForceMergeStep
+        // If stepMetaData is null, return the first step in ForceMergeAction
+        val stepMetaData = managedIndexMetaData.stepMetaData ?: return attemptSetReadOnlyStep
 
-        val step = stepMetaData.name
-        // If callForceMergeStep has completed, get waitForForceMergeStep to execute
-        if (step == CallForceMergeStep.name && stepMetaData.stepStatus == Step.StepStatus.COMPLETED) {
-            return waitForForceMergeStep
+        val currentStep = stepMetaData.name
+        val currentStepStatus = stepMetaData.stepStatus
+
+        // If the current step has completed, return the next step
+        if (currentStepStatus == Step.StepStatus.COMPLETED) {
+            return when (currentStep) {
+                AttemptSetReadOnlyStep.name -> attemptCallForceMergeStep
+                AttemptCallForceMergeStep.name -> waitForForceMergeStep
+                WaitForForceMergeStep.name -> attemptRevertReadOnlyStep
+                // Shouldn't hit this case but including it so that the when expression is exhaustive
+                else -> stepNameToStep[currentStep]!!
+            }
         }
 
-        // If callForceMergeStep has not completed, return that step
-        return callForceMergeStep
+        // If the current step has not completed, return it
+        return stepNameToStep[currentStep]!!
     }
 }

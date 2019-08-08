@@ -155,12 +155,6 @@
                   "properties": {
                     "max_num_segments": {
                       "type": "integer"
-                    },
-                    "only_expunge_deletes": {
-                      "type": "boolean"
-                    },
-                    "flush": {
-                      "type": "boolean"
                     }
                   }
                 },

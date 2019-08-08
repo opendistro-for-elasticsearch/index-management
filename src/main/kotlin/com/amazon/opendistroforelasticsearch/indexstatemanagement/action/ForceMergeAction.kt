@@ -39,7 +39,7 @@ class ForceMergeAction(
     private val attemptRevertReadOnlyStep = AttemptRevertReadOnlyStep(clusterService, client, config, managedIndexMetaData)
 
     // Using a LinkedHashMap here to maintain order of steps for getSteps() while providing a convenient way to
-    // get the current Step object using the current steps name in getStepToExecute()
+    // get the current Step object using the current step's name in getStepToExecute()
     private val stepNameToStep: LinkedHashMap<String, Step> = linkedMapOf(
         AttemptSetReadOnlyStep.name to attemptSetReadOnlyStep,
         AttemptCallForceMergeStep.name to attemptCallForceMergeStep,

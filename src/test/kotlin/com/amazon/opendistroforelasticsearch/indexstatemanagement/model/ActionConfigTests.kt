@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
@@ -54,6 +55,14 @@ class ActionConfigTests : ESTestCase() {
             IllegalArgumentException::class,
             "Expected IllegalArgumentException for minDoc less than 1") {
             randomRolloverActionConfig(minDocs = 0)
+        }
+    }
+
+    fun `test force merge action max num segments of zero fails`() {
+        assertFailsWith(
+            IllegalArgumentException::class,
+            "Expected IllegalArgumentException for maxNumSegments less than 1") {
+            randomForceMergeActionConfig(maxNumSegments = 0)
         }
     }
 }

@@ -151,6 +151,26 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return index to policyID
     }
 
+    /** Refresh all indices in the cluster */
+    protected fun refresh() {
+        val request = Request("POST", "/_refresh")
+        client().performRequest(request)
+    }
+
+    /**
+     * Inserts [docCount] sample documents into [index], optionally waiting [delay] milliseconds
+     * in between each insertion
+     */
+    protected fun insertSampleData(index: String, docCount: Int, delay: Long = 0) {
+        for (i in 1..docCount) {
+            val request = Request("POST", "/$index/_doc")
+            request.setJsonEntity("{ \"test_field\": \"test_value\" }")
+            client().performRequest(request)
+
+            Thread.sleep(delay)
+        }
+    }
+
     protected fun addPolicyToIndex(
         index: String,
         policyID: String

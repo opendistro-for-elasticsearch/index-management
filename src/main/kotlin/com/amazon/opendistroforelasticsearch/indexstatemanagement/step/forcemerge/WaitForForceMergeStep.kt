@@ -69,9 +69,17 @@ class WaitForForceMergeStep(
              */
             val timeWaitingForForceMerge: Duration = Duration.between(getStepStartTime(), Instant.now())
             if (timeWaitingForForceMerge.toSeconds() > FORCE_MERGE_TIMEOUT_IN_SECONDS) {
+                logger.error(
+                    "Force merge on [$indexName] timed out with [$shardsStillMergingSegments] shards containing unmerged segments"
+                )
+
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Force merge timed out with [$shardsStillMergingSegments] shards containing unmerged segments")
+                info = mapOf("message" to "Force merge timed out")
             } else {
+                logger.debug(
+                    "Force merge still running on [$indexName] with [$shardsStillMergingSegments] shards containing unmerged segments"
+                )
+
                 stepStatus = StepStatus.CONDITION_NOT_MET
                 info = mapOf("message" to "Waiting for force merge to complete")
             }

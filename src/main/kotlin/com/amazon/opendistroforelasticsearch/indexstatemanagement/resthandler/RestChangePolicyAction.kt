@@ -70,8 +70,8 @@ class RestChangePolicyAction(
     private val log = LogManager.getLogger(javaClass)
 
     init {
-        controller.registerHandler(POST, "$ISM_BASE_URI/change_policy", this)
-        controller.registerHandler(POST, "$ISM_BASE_URI/change_policy/{index}", this)
+        controller.registerHandler(POST, CHANGE_POLICY_BASE_URI, this)
+        controller.registerHandler(POST, "$CHANGE_POLICY_BASE_URI/{index}", this)
     }
 
     override fun getName(): String = "change_policy_action"

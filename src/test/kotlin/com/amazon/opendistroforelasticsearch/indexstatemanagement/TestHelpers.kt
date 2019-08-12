@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.A
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
@@ -42,9 +43,6 @@ import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParser.Token
-import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
@@ -129,6 +127,10 @@ fun randomReadOnlyActionConfig(): ReadOnlyActionConfig {
 
 fun randomReadWriteActionConfig(): ReadWriteActionConfig {
     return ReadWriteActionConfig(index = 0)
+}
+
+fun randomReplicaCountActionConfig(): ReplicaCountActionConfig {
+    return ReplicaCountActionConfig(index = 0, numOfReplicas = ESRestTestCase.randomIntBetween(0, 200))
 }
 
 /**
@@ -267,6 +269,11 @@ fun ReadWriteActionConfig.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
+fun ReplicaCountActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
 fun ChangePolicy.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
@@ -275,42 +282,6 @@ fun ChangePolicy.toJsonString(): String {
 fun ManagedIndexConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
-}
-
-fun parseDeleteActionWithType(xcp: XContentParser): DeleteActionConfig {
-    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    val deleteActionConfig = DeleteActionConfig.parse(xcp, 0)
-    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    return deleteActionConfig
-}
-
-fun parseRolloverActionWithType(xcp: XContentParser): RolloverActionConfig {
-    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    val rolloverActionConfig = RolloverActionConfig.parse(xcp, 0)
-    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    return rolloverActionConfig
-}
-
-fun parseReadOnlyActionWithType(xcp: XContentParser): ReadOnlyActionConfig {
-    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    val readOnlyActionConfig = ReadOnlyActionConfig.parse(xcp, 0)
-    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    return readOnlyActionConfig
-}
-
-fun parseReadWriteActionWithType(xcp: XContentParser): ReadWriteActionConfig {
-    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    val readWriteActionConfig = ReadWriteActionConfig.parse(xcp, 0)
-    ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-    return readWriteActionConfig
 }
 
 /**

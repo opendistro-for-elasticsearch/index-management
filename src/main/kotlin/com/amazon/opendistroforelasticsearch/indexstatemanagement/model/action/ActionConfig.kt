@@ -56,7 +56,8 @@ abstract class ActionConfig(
         CLOSE("close"),
         OPEN("open"),
         READ_ONLY("read_only"),
-        READ_WRITE("read_write");
+        READ_WRITE("read_write"),
+        REPLICA_COUNT("replica_count");
 
         override fun toString(): String {
             return type
@@ -85,6 +86,7 @@ abstract class ActionConfig(
                     ActionType.CLOSE.type -> actionConfig = CloseActionConfig.parse(xcp, index)
                     ActionType.READ_ONLY.type -> actionConfig = ReadOnlyActionConfig.parse(xcp, index)
                     ActionType.READ_WRITE.type -> actionConfig = ReadWriteActionConfig.parse(xcp, index)
+                    ActionType.REPLICA_COUNT.type -> actionConfig = ReplicaCountActionConfig.parse(xcp, index)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Action.")
                 }
             }

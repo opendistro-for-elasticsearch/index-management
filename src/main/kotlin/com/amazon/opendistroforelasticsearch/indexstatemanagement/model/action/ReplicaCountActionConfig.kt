@@ -16,12 +16,10 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.RolloverAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.ReplicaCountAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.unit.ByteSizeValue
-import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -30,26 +28,19 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-data class RolloverActionConfig(
-    val minSize: ByteSizeValue?,
-    val minDocs: Long?,
-    val minAge: TimeValue?,
+data class ReplicaCountActionConfig(
+    val numOfReplicas: Int,
     val index: Int
-) : ToXContentObject, ActionConfig(ActionType.ROLLOVER, index) {
+) : ToXContentObject, ActionConfig(ActionType.REPLICA_COUNT, index) {
 
     init {
-        if (minSize != null) require(minSize.bytes > 0) { "RolloverActionConfig minSize value must be greater than 0" }
-
-        if (minDocs != null) require(minDocs > 0) { "RolloverActionConfig minDocs value must be greater than 0" }
+        require(numOfReplicas >= 0) { "ReplicaCountActionConfig number_of_replicas value must be a non-negative number" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-        super.toXContent(builder, params)
-            .startObject(ActionType.ROLLOVER.type)
-        if (minSize != null) builder.field(MIN_SIZE_FIELD, minSize.stringRep)
-        if (minDocs != null) builder.field(MIN_DOC_COUNT_FIELD, minDocs)
-        if (minAge != null) builder.field(MIN_INDEX_AGE_FIELD, minAge.stringRep)
+        super.toXContent(builder, params).startObject(ActionType.REPLICA_COUNT.type)
+        builder.field(NUMBER_OF_REPLICAS_FIELD, numOfReplicas)
         return builder.endObject().endObject()
     }
 
@@ -59,19 +50,15 @@ data class RolloverActionConfig(
         clusterService: ClusterService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
-    ): Action = RolloverAction(clusterService, client, managedIndexMetaData, this)
+    ): Action = ReplicaCountAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
-        const val MIN_SIZE_FIELD = "min_size"
-        const val MIN_DOC_COUNT_FIELD = "min_doc_count"
-        const val MIN_INDEX_AGE_FIELD = "min_index_age"
+        const val NUMBER_OF_REPLICAS_FIELD = "number_of_replicas"
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, index: Int): RolloverActionConfig {
-            var minSize: ByteSizeValue? = null
-            var minDocs: Long? = null
-            var minAge: TimeValue? = null
+        fun parse(xcp: XContentParser, index: Int): ReplicaCountActionConfig {
+            var numOfReplicas: Int? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -79,17 +66,13 @@ data class RolloverActionConfig(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    MIN_SIZE_FIELD -> minSize = ByteSizeValue.parseBytesSizeValue(xcp.text(), MIN_SIZE_FIELD)
-                    MIN_DOC_COUNT_FIELD -> minDocs = xcp.longValue()
-                    MIN_INDEX_AGE_FIELD -> minAge = TimeValue.parseTimeValue(xcp.text(), MIN_INDEX_AGE_FIELD)
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in RolloverActionConfig.")
+                    NUMBER_OF_REPLICAS_FIELD -> numOfReplicas = xcp.intValue()
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ReplicaCountActionConfig.")
                 }
             }
 
-            return RolloverActionConfig(
-                minSize = minSize,
-                minDocs = minDocs,
-                minAge = minAge,
+            return ReplicaCountActionConfig(
+                numOfReplicas = requireNotNull(numOfReplicas) { "$NUMBER_OF_REPLICAS_FIELD is null" },
                 index = index
             )
         }

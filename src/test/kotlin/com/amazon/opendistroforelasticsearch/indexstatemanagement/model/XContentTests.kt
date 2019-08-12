@@ -17,16 +17,13 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseDeleteActionWithType
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseReadOnlyActionWithType
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseReadWriteActionWithType
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.parseRolloverActionWithType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWriteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
@@ -82,7 +79,7 @@ class XContentTests : ESTestCase() {
         val deleteActionConfig = randomDeleteActionConfig()
 
         val deleteActionConfigString = deleteActionConfig.toJsonString()
-        val parsedDeleteActionConfig = parseDeleteActionWithType(parserWithType(deleteActionConfigString))
+        val parsedDeleteActionConfig = ActionConfig.parse(parser(deleteActionConfigString), 0)
         assertEquals("Round tripping DeleteActionConfig doesn't work", deleteActionConfig, parsedDeleteActionConfig)
     }
 
@@ -90,7 +87,7 @@ class XContentTests : ESTestCase() {
         val rolloverActionConfig = randomRolloverActionConfig()
 
         val rolloverActionConfigString = rolloverActionConfig.toJsonString()
-        val parsedRolloverActionConfig = parseRolloverActionWithType(parserWithType(rolloverActionConfigString))
+        val parsedRolloverActionConfig = ActionConfig.parse(parser(rolloverActionConfigString), 0)
         assertEquals("Round tripping RolloverActionConfig doesn't work", rolloverActionConfig, parsedRolloverActionConfig)
     }
 
@@ -98,7 +95,7 @@ class XContentTests : ESTestCase() {
         val readOnlyActionConfig = randomReadOnlyActionConfig()
 
         val readOnlyActionConfigString = readOnlyActionConfig.toJsonString()
-        val parsedReadOnlyActionConfig = parseReadOnlyActionWithType(parserWithType(readOnlyActionConfigString))
+        val parsedReadOnlyActionConfig = ActionConfig.parse(parser(readOnlyActionConfigString), 0)
         assertEquals("Round tripping ReadOnlyActionConfig doesn't work", readOnlyActionConfig, parsedReadOnlyActionConfig)
     }
 
@@ -106,8 +103,16 @@ class XContentTests : ESTestCase() {
         val readWriteActionConfig = randomReadWriteActionConfig()
 
         val readWriteActionConfigString = readWriteActionConfig.toJsonString()
-        val parsedReadWriteActionConfig = parseReadWriteActionWithType(parserWithType(readWriteActionConfigString))
+        val parsedReadWriteActionConfig = ActionConfig.parse(parser(readWriteActionConfigString), 0)
         assertEquals("Round tripping ReadWriteActionConfig doesn't work", readWriteActionConfig, parsedReadWriteActionConfig)
+    }
+
+    fun `test replica_count action config parsing`() {
+        val replicaCountActionConfig = randomReplicaCountActionConfig()
+
+        val replicaCountActionConfigString = replicaCountActionConfig.toJsonString()
+        val parsedReplicaCountActionConfig = ActionConfig.parse(parser(replicaCountActionConfigString), 0)
+        assertEquals("Round tripping ReplicaCountActionConfig doesn't work", replicaCountActionConfig, parsedReplicaCountActionConfig)
     }
 
     fun `test managed index config parsing`() {

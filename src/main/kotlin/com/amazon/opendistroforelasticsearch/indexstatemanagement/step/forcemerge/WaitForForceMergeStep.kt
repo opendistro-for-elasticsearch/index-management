@@ -114,7 +114,6 @@ class WaitForForceMergeStep(
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            wasReadOnly = false, // Resetting this as the force_merge action is over
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,

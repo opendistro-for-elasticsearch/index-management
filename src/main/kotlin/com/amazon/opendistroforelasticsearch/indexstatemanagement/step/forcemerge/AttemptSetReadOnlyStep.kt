@@ -46,16 +46,19 @@ class AttemptSetReadOnlyStep(
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index
 
+        // If isReadOnly returns null, the GetSettings request failed and failed info was already updated, can return early
+        val indexIsReadOnly = isReadOnly(indexName) ?: return
+
         // If index is already read-only, it is not necessary to set it here
         // The ManagedIndexMetaData will be updated to denote this so that the index is not set to read-write after a force merge completes
-        if (isReadOnly(indexName)) {
+        if (indexIsReadOnly) {
             logger.info("Index [$indexName] is already read-only, moving on to force merge")
             wasReadOnly = true
         } else {
             logger.info("Attempting to set [$indexName] to read-only for force_merge action")
             val indexSetToReadOnly = setIndexToReadOnly(indexName)
 
-            // If setIndexToReadOnly returns false, updating settings failed and failed info was already updated. Can return early.
+            // If setIndexToReadOnly returns false, updating settings failed and failed info was already updated, can return early
             if (!indexSetToReadOnly) return
         }
 
@@ -64,18 +67,27 @@ class AttemptSetReadOnlyStep(
         info = mapOf("message" to "Set index to read-only")
     }
 
-    private suspend fun isReadOnly(indexName: String): Boolean {
-        val getSettingsResponse: GetSettingsResponse = client.admin().indices()
-            .suspendUntil { getSettings(GetSettingsRequest().indices(indexName), it) }
-        val blocksWrite: String? = getSettingsResponse.getSetting(indexName, IndexMetaData.SETTING_BLOCKS_WRITE)
+    private suspend fun isReadOnly(indexName: String): Boolean? {
+        try {
+            val getSettingsResponse: GetSettingsResponse = client.admin().indices()
+                .suspendUntil { getSettings(GetSettingsRequest().indices(indexName), it) }
+            val blocksWrite: String? = getSettingsResponse.getSetting(indexName, IndexMetaData.SETTING_BLOCKS_WRITE)
 
-        // If the "index.blocks.write" setting is set to "true", the index is read-only
-        if (blocksWrite != null && blocksWrite == "true") {
-            return true
+            // If the "index.blocks.write" setting is set to "true", the index is read-only
+            if (blocksWrite != null && blocksWrite == "true") {
+                return true
+            }
+
+            // Otherwise if "index.blocks.write" is null or "false", the index is not read-only
+            return false
+        } catch (e: Exception) {
+            stepStatus = StepStatus.FAILED
+            val mutableInfo = mutableMapOf("message" to "Failed to get index settings")
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
+            info = mutableInfo.toMap()
+            return null
         }
-
-        // Otherwise if "index.blocks.write" is null or "false", the index is not read-only
-        return false
     }
 
     private suspend fun setIndexToReadOnly(indexName: String): Boolean {

@@ -53,8 +53,12 @@ class ForceMergeAction(
     override fun getStepToExecute(): Step {
         // If stepMetaData is null, return the first step in ForceMergeAction
         val stepMetaData = managedIndexMetaData.stepMetaData ?: return attemptSetReadOnlyStep
-
         val currentStep = stepMetaData.name
+
+        // If the current step is not from this action (assumed to be from the previous action in the policy), return
+        // the first step in ForceMergeAction
+        if (!stepNameToStep.containsKey(currentStep)) return attemptSetReadOnlyStep
+
         val currentStepStatus = stepMetaData.stepStatus
 
         // If the current step has completed, return the next step

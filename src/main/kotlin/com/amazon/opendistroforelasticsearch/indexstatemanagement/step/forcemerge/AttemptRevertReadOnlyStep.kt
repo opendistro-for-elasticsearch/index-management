@@ -52,7 +52,7 @@ class AttemptRevertReadOnlyStep(
 
             info = mapOf("message" to "Set index to read-write")
         } else {
-            logger.info("The index [$indexName] was read-only prior to the force_merge action, no action necessary")
+            logger.debug("The index [$indexName] was read-only prior to the force_merge action, no action necessary")
             info = mapOf("message" to "Index was read-only before force_merge, no changes made")
         }
 

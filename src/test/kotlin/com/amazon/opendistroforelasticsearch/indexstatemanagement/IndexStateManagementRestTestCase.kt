@@ -243,6 +243,12 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
+    protected fun getNumberOfReplicasSetting(indexName: String): Int {
+        val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
+        return (indexSettings[indexName]!!["settings"]!!["index.number_of_replicas"] as String).toInt()
+    }
+
+    @Suppress("UNCHECKED_CAST")
     protected fun getUuid(indexName: String): String {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
         return indexSettings[indexName]!!["settings"]!!["index.uuid"] as String

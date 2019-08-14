@@ -250,7 +250,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val indexRequest = updateDisableManagedIndexRequest(updatedManagedIndexConfig.indexUuid)
         try {
             val indexResponse: UpdateResponse = client.suspendUntil { update(indexRequest, it) }
-            if (indexResponse.status() == RestStatus.OK) {
+            if (indexResponse.status() != RestStatus.OK) {
                 logger.error("Failed to disable ManagedIndexConfig(${managedIndexConfig.index}) Error : indexResponse.status()")
             }
         } catch (e: Exception) {

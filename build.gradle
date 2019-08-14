@@ -140,7 +140,7 @@ integTestCluster {
     distribution = "oss-zip"
     // Temporary until job-scheduler is published to Maven
     setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${findProperty('pathToJobSchedulerZip')}")
+            "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}")
 }
 
 
@@ -148,7 +148,7 @@ run {
     distribution = "oss-zip"
     // Temporary until job-scheduler is published to Maven
     setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${findProperty('pathToJobSchedulerZip')}")
+            "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}")
 }
 
 afterEvaluate {

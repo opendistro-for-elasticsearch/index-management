@@ -153,6 +153,7 @@ class RestRetryFailedManagedIndexAction(
                         Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData.copy(
                             stepMetaData = null,
                             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+                            actionMetaData = managedIndexMetaData.actionMetaData?.copy(failed = false, consumedRetries = 0, lastRetryTime = null),
                             transitionTo = startState,
                             info = mapOf("message" to "Attempting to retry")
                         ))

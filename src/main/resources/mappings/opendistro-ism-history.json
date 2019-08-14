@@ -1,0 +1,100 @@
+{
+  "dynamic": "strict",
+  "properties": {
+    "managed_index_meta_data": {
+      "properties": {
+        "index": {
+          "type": "keyword"
+        },
+        "index_uuid": {
+          "type": "keyword"
+        },
+        "policy_id": {
+          "type": "keyword"
+        },
+        "policy_seq_no": {
+          "type": "long"
+        },
+        "policy_primary_term": {
+          "type": "long"
+        },
+        "policy_completed": {
+          "type": "boolean"
+        },
+        "rolled_over": {
+          "type": "boolean"
+        },
+        "transition_to": {
+          "type": "keyword"
+        },
+        "state": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "start_time": {
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
+            }
+          }
+        },
+        "action": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "start_time": {
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
+            },
+            "index": {
+              "type": "integer"
+            },
+            "failed": {
+              "type": "boolean"
+            },
+            "consumed_retries": {
+              "type": "integer"
+            },
+            "last_retry_time": {
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
+            }
+          }
+        },
+        "step": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "start_time": {
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
+            },
+            "step_status": {
+              "type": "keyword"
+            }
+          }
+        },
+        "retry_info": {
+          "properties": {
+            "failed": {
+              "type": "boolean"
+            },
+            "consumed_retries": {
+              "type": "integer"
+            }
+          }
+        },
+        "info": {
+          "type": "object",
+          "enabled": false
+        },
+        "history_timestamp": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        }
+      }
+    }
+  }
+}

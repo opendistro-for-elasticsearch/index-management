@@ -60,5 +60,24 @@ class ManagedIndexSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
+
+        val ISM_HISTORY_MAX_DOCS = Setting.longSetting(
+            "opendistro.index_state_management.ism_history_max_docs",
+            1000L,
+            0L,
+            Setting.Property.NodeScope, Setting.Property.Dynamic
+        )
+
+        val ISM_HISTORY_INDEX_MAX_AGE = Setting.positiveTimeSetting(
+            "opendistro.index_state_management.ism_history_max_age",
+            TimeValue.timeValueHours(24),
+            Setting.Property.NodeScope, Setting.Property.Dynamic
+        )
+
+        val ISM_HISTORY_ROLLOVER_CHECK_PERIOD = Setting.positiveTimeSetting(
+            "opendistro.index_state_management.ism_history_rollover_check_period",
+            TimeValue.timeValueHours(8),
+            Setting.Property.NodeScope, Setting.Property.Dynamic
+        )
     }
 }

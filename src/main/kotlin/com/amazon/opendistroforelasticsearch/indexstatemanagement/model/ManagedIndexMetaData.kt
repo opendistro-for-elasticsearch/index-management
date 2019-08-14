@@ -29,6 +29,9 @@ import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.json.JsonXContent
 
 data class ManagedIndexMetaData(
@@ -183,8 +186,64 @@ data class ManagedIndexMetaData(
             )
         }
 
-        fun fromMap(map: Map<String, String?>): ManagedIndexMetaData {
+        @Suppress("ComplexMethod")
+        fun parse(xcp: XContentParser): ManagedIndexMetaData {
+            var index: String? = null
+            var indexUuid: String? = null
+            var policyID: String? = null
+            var policySeqNo: Long? = null
+            var policyPrimaryTerm: Long? = null
+            var policyCompleted: Boolean? = null
+            var rolledOver: Boolean? = null
+            var transitionTo: String? = null
 
+            var state: StateMetaData? = null
+            var action: ActionMetaData? = null
+            var step: StepMetaData? = null
+            var retryInfo: PolicyRetryInfoMetaData? = null
+
+            var info: Map<String, Any>? = null
+
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            while (xcp.nextToken() != Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
+
+                when (fieldName) {
+                    INDEX -> index = xcp.text()
+                    INDEX_UUID -> indexUuid = xcp.text()
+                    POLICY_ID -> policyID = xcp.text()
+                    POLICY_SEQ_NO -> policySeqNo = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
+                    POLICY_PRIMARY_TERM -> policyPrimaryTerm = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
+                    POLICY_COMPLETED -> policyCompleted = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.booleanValue()
+                    ROLLED_OVER -> rolledOver = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.booleanValue()
+                    TRANSITION_TO -> transitionTo = xcp.text()
+                    StateMetaData.STATE -> state = StateMetaData.parse(xcp)
+                    ActionMetaData.ACTION -> action = ActionMetaData.parse(xcp)
+                    StepMetaData.STEP -> step = StepMetaData.parse(xcp)
+                    PolicyRetryInfoMetaData.RETRY_INFO -> retryInfo = PolicyRetryInfoMetaData.parse(xcp)
+                    INFO -> info = xcp.map()
+                }
+            }
+
+            return ManagedIndexMetaData(
+                requireNotNull(index) { "$INDEX is null" },
+                requireNotNull(indexUuid) { "$INDEX_UUID is null" },
+                requireNotNull(policyID) { "$POLICY_ID is null" },
+                policySeqNo,
+                policyPrimaryTerm,
+                policyCompleted,
+                rolledOver,
+                transitionTo,
+                state,
+                action,
+                step,
+                retryInfo,
+                info
+            )
+        }
+
+        fun fromMap(map: Map<String, String?>): ManagedIndexMetaData {
             return ManagedIndexMetaData(
                 requireNotNull(map[INDEX]) { "$INDEX is null" },
                 requireNotNull(map[INDEX_UUID]) { "$INDEX_UUID is null" },

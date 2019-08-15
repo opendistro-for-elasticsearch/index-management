@@ -28,6 +28,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
 data class RolloverActionConfig(
@@ -57,6 +58,7 @@ data class RolloverActionConfig(
 
     override fun toAction(
         clusterService: ClusterService,
+        scriptService: ScriptService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = RolloverAction(clusterService, client, managedIndexMetaData, this)

@@ -144,6 +144,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             .registerClient(client)
             .registerClusterService(clusterService)
             .registerNamedXContentRegistry(xContentRegistry)
+            .registerScriptService(scriptService)
 
         indexStateManagementIndices = IndexStateManagementIndices(client.admin().indices(), clusterService)
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),

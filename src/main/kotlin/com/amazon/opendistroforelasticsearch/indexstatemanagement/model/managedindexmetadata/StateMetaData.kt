@@ -49,9 +49,9 @@ data class StateMetaData(
             .field(START_TIME, startTime)
     }
 
-    fun getMapValueString(): String {
-        return Strings.toString(this, false, false)
-    }
+    fun getMapValueString(): String = Strings.toString(this, false, false)
+
+    fun asTemplateArg(): Map<String, Any> = mapOf(NAME to name, START_TIME to startTime)
 
     companion object {
         const val STATE = "state"

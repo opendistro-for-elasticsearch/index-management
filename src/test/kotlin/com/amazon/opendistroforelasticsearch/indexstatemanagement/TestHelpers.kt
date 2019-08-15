@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Conditions
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
@@ -25,12 +26,18 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transiti
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.NotificationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Chime
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.CustomWebhook
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.DestinationType
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Slack
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
@@ -45,6 +52,8 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.seqno.SequenceNumbers
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptType
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.ZoneId
@@ -55,11 +64,11 @@ fun randomPolicy(
     description: String = ESRestTestCase.randomAlphaOfLength(10),
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-    defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
+    errorNotification: ErrorNotification? = randomErrorNotification(),
     states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
 ): Policy {
     return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            defaultNotification = defaultNotification, defaultState = states[0].name, states = states, description = description)
+            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description)
 }
 
 fun randomState(
@@ -140,6 +149,52 @@ fun randomForceMergeActionConfig(
     return ForceMergeActionConfig(maxNumSegments = maxNumSegments, index = 0)
 }
 
+fun randomNotificationActionConfig(): NotificationActionConfig {
+    return NotificationActionConfig(destination = randomDestination(), messageTemplate = randomTemplateScript("random message"), index = 0)
+}
+
+fun randomDestination(): Destination {
+    val type = randomDestinationType()
+    return Destination(
+        type = type,
+        chime = if (type == DestinationType.CHIME) randomChime() else null,
+        slack = if (type == DestinationType.SLACK) randomSlack() else null,
+        customWebhook = if (type == DestinationType.CUSTOM_WEBHOOK) randomCustomWebhook() else null
+    )
+}
+
+fun randomDestinationType(): DestinationType {
+    val types = listOf(DestinationType.SLACK, DestinationType.CHIME, DestinationType.CUSTOM_WEBHOOK)
+    return ESRestTestCase.randomSubsetOf(1, types).first()
+}
+
+fun randomChime(): Chime {
+    return Chime("https://www.amazon.com")
+}
+
+fun randomSlack(): Slack {
+    return Slack("https://www.amazon.com")
+}
+
+fun randomCustomWebhook(): CustomWebhook {
+    return CustomWebhook(
+        url = "https://www.amazon.com",
+        scheme = null,
+        host = null,
+        port = -1,
+        path = null,
+        queryParams = emptyMap(),
+        headerParams = emptyMap(),
+        username = null,
+        password = null
+    )
+}
+
+fun randomTemplateScript(
+    source: String,
+    params: Map<String, String> = emptyMap()
+): Script = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, source, params)
+
 /**
  * Helper functions for creating a random Conditions object
  */
@@ -170,8 +225,9 @@ fun randomChangePolicy(
     return ChangePolicy(policyID, state, emptyList())
 }
 
-fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class
-    return null // TODO: random DefaultNotification
+// will only return null since we dont want to send actual notifications during integ tests
+fun randomErrorNotification(): ErrorNotification? {
+    return null
 }
 
 fun randomManagedIndexConfig(
@@ -282,6 +338,11 @@ fun ReplicaCountActionConfig.toJsonString(): String {
 }
 
 fun ForceMergeActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun NotificationActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

@@ -307,9 +307,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
                 key == FAILURES && value is Boolean -> assertEquals(expected[key] as Boolean, value)
                 key == UPDATED_INDICES && value is Int -> assertEquals(expected[key] as Int, value)
                 key == FAILED_INDICES && value is List<*> -> {
-                    value as List<Map<String, String>>
-
-                    val actualArray = value.toTypedArray()
+                    val actualArray = (value as List<Map<String, String>>).toTypedArray()
                     actualArray.sortWith(compareBy { it["index_name"] })
                     val expectedArray = (expected[key] as List<Map<String, String>>).toTypedArray()
                     expectedArray.sortWith(compareBy { it["index_name"] })

@@ -47,9 +47,9 @@ data class PolicyRetryInfoMetaData(
             .field(CONSUMED_RETRIES, consumedRetries)
     }
 
-    fun getMapValueString(): String {
-        return Strings.toString(this, false, false)
-    }
+    fun getMapValueString(): String = Strings.toString(this, false, false)
+
+    fun asTemplateArg(): Map<String, Any> = mapOf(FAILED to failed, CONSUMED_RETRIES to consumedRetries)
 
     companion object {
         const val RETRY_INFO = "retry_info"

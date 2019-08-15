@@ -26,6 +26,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
 data class DeleteActionConfig(
@@ -43,6 +44,7 @@ data class DeleteActionConfig(
 
     override fun toAction(
         clusterService: ClusterService,
+        scriptService: ScriptService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = DeleteAction(clusterService, client, managedIndexMetaData, this)

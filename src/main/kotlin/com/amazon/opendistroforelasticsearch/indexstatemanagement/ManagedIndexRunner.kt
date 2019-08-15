@@ -69,6 +69,9 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptService
+import org.elasticsearch.script.TemplateScript
 import java.time.Instant
 
 @Suppress("TooManyFunctions")
@@ -80,10 +83,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private lateinit var clusterService: ClusterService
     private lateinit var client: Client
     private lateinit var xContentRegistry: NamedXContentRegistry
+    private lateinit var scriptService: ScriptService
     @Suppress("MagicNumber")
     private val savePolicyRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     @Suppress("MagicNumber")
     private val updateMetaDataRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
+    @Suppress("MagicNumber")
+    private val errorNotificationRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
         this.clusterService = clusterService
@@ -97,6 +103,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     fun registerNamedXContentRegistry(xContentRegistry: NamedXContentRegistry): ManagedIndexRunner {
         this.xContentRegistry = xContentRegistry
+        return this
+    }
+
+    fun registerScriptService(scriptService: ScriptService): ManagedIndexRunner {
+        this.scriptService = scriptService
         return this
     }
 
@@ -122,7 +133,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     // TODO: Implement logic for when ISM is moved to STOPPING/STOPPED state when we add those APIs
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "ComplexMethod", "LongMethod")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
         // Get current IndexMetaData and ManagedIndexMetaData
         val indexMetaData = clusterService.state().metaData().index(managedIndexConfig.index)
@@ -161,7 +172,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         // If mismatch, update ManagedIndexMetaData with Version Conflict error
 
         val state = policy.getStateToExecute(managedIndexMetaData)
-        val action: Action? = state?.getActionToExecute(clusterService, client, managedIndexMetaData)
+        val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
 
         val shouldBackOff = action?.shouldBackoff(managedIndexMetaData.actionMetaData, action.config.configRetry)
@@ -188,7 +199,18 @@ object ManagedIndexRunner : ScheduledJobRunner,
         if (updateResult && state != null && action != null && step != null && actionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
             step.execute()
-            val executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(state, action, step)
+            var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(state, action, step)
+
+            if (executedManagedIndexMetaData.isFailed) {
+                try {
+                    // if the policy has no error_notification this will do nothing otherwise it will try to send the configured error message
+                    publishErrorNotification(policy, executedManagedIndexMetaData)
+                } catch (e: Exception) {
+                    logger.error("Failed to publish error notification", e)
+                    val errorMessage = e.message ?: "Failed to publish error notification"
+                    executedManagedIndexMetaData = executedManagedIndexMetaData.copy(errorNotificationFailure = errorMessage)
+                }
+            }
 
             // TODO: Check if we can move this into the TransportUpdateManagedIndexMetaDataAction to cover all cases where
             //  IndexMetaData does not exist anymore since if this current execution was a delete step and it was
@@ -223,6 +245,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         initializeManagedIndexMetaData(managedIndexMetaData, managedIndexConfig, policy)
     }
 
+    @Suppress("ReturnCount")
     private suspend fun getPolicy(policyID: String): Policy? {
         try {
             val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyID)
@@ -275,6 +298,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         return savedPolicy
     }
 
+    @Suppress("ComplexMethod")
     private suspend fun initializeManagedIndexMetaData(
         managedIndexMetaData: ManagedIndexMetaData?,
         managedIndexConfig: ManagedIndexConfig,
@@ -301,6 +325,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 actionMetaData = null,
                 stepMetaData = null,
                 policyRetryInfo = PolicyRetryInfoMetaData(failed = policy == null, consumedRetries = 0),
+                errorNotificationFailure = null,
                 info = mapOf(
                     "message" to "${if (policy == null) "Fail to load" else "Successfully initialized"} policy: ${managedIndexConfig.policyID}"
                 )
@@ -440,5 +465,21 @@ object ManagedIndexRunner : ScheduledJobRunner,
         } catch (e: Exception) {
             logger.error("There was an error while trying to update the policy_id ($policyID) setting for $index", e)
         }
+    }
+
+    private suspend fun publishErrorNotification(policy: Policy, managedIndexMetaData: ManagedIndexMetaData) {
+        policy.errorNotification?.run {
+            errorNotificationRetryPolicy.retry(logger) {
+                withContext(Dispatchers.IO) {
+                    destination.publish(null, compileTemplate(messageTemplate, managedIndexMetaData))
+                }
+            }
+        }
+    }
+
+    private fun compileTemplate(template: Script, managedIndexMetaData: ManagedIndexMetaData): String {
+        return scriptService.compile(template, TemplateScript.CONTEXT)
+                .newInstance(template.params + mapOf("ctx" to managedIndexMetaData.asTemplateArg()))
+                .execute()
     }
 }

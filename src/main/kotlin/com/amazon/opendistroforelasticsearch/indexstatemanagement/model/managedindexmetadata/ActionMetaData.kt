@@ -76,6 +76,17 @@ data class ActionMetaData(
         return Strings.toString(this, false, false)
     }
 
+    fun asTemplateArg(): Map<String, Any?> {
+        return mapOf(
+            NAME to name,
+            START_TIME to startTime,
+            INDEX to index,
+            FAILED to failed,
+            CONSUMED_RETRIES to consumedRetries,
+            LAST_RETRY_TIME to lastRetryTime
+        )
+    }
+
     companion object {
         const val ACTION = "action"
         const val INDEX = "index"
@@ -116,6 +127,7 @@ data class ActionMetaData(
             }
         }
 
+        @Suppress("ComplexMethod")
         fun parse(xcp: XContentParser): ActionMetaData {
             var name: String? = null
             var startTime: Long? = null

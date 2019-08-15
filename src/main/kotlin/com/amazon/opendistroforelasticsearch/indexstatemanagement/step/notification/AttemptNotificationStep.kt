@@ -13,26 +13,28 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.replicacount
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.notification
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.NotificationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
-import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptService
+import org.elasticsearch.script.TemplateScript
 
-class AttemptSetReplicaCountStep(
+class AttemptNotificationStep(
     val clusterService: ClusterService,
+    val scriptService: ScriptService,
     val client: Client,
-    val config: ReplicaCountActionConfig,
+    val config: NotificationActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step("attempt_set_replica_count", managedIndexMetaData) {
+) : Step("attempt_notification", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING
@@ -40,28 +42,19 @@ class AttemptSetReplicaCountStep(
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
-        val numOfReplicas = config.numOfReplicas
         try {
             logger.info("Executing $name on ${managedIndexMetaData.index}")
-            val updateSettingsRequest = UpdateSettingsRequest()
-                    .indices(managedIndexMetaData.index)
-                    .settings(Settings.builder().put("index.number_of_replicas", numOfReplicas))
-            val response: AcknowledgedResponse = client.admin().indices()
-                    .suspendUntil { updateSettings(updateSettingsRequest, it) }
-
-            if (response.isAcknowledged) {
-                logger.info("Successfully executed $name on ${managedIndexMetaData.index}")
-                stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Set number_of_replicas to $numOfReplicas")
-            } else {
-                logger.info("Unsuccessfully executed $name on ${managedIndexMetaData.index}")
-                stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to set number_of_replicas to $numOfReplicas")
+            withContext(Dispatchers.IO) {
+                config.destination.publish(null, compileTemplate(config.messageTemplate, managedIndexMetaData))
             }
+
+            // publish internally throws an error for any invalid responses so its safe to assume if we reach this point it was successful
+            stepStatus = StepStatus.COMPLETED
+            info = mapOf("message" to "Successfully sent notification")
         } catch (e: Exception) {
             logger.error("Failed to execute $name on ${managedIndexMetaData.index}")
             stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set number_of_replicas to $numOfReplicas")
+            val mutableInfo = mutableMapOf("message" to "Failed to send notification")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
@@ -74,5 +67,11 @@ class AttemptSetReplicaCountStep(
             transitionTo = null,
             info = info
         )
+    }
+
+    private fun compileTemplate(template: Script, managedIndexMetaData: ManagedIndexMetaData): String {
+        return scriptService.compile(template, TemplateScript.CONTEXT)
+            .newInstance(template.params + mapOf("ctx" to managedIndexMetaData.asTemplateArg()))
+            .execute()
     }
 }

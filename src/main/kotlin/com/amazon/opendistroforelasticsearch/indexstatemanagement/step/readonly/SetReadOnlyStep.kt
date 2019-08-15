@@ -57,7 +57,7 @@ class SetReadOnlyStep(
                 info = mapOf("message" to "Failed to set index to read-only")
             }
         } catch (e: Exception) {
-            stepStatus = StepStatus.STARTING
+            stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set index to read-only")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage

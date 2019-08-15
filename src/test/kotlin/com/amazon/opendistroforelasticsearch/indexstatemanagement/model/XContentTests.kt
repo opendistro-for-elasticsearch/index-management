@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePo
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomNotificationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWriteActionConfig
@@ -122,6 +123,14 @@ class XContentTests : ESTestCase() {
         val forceMergeActionConfigString = forceMergeActionConfig.toJsonString()
         val parsedForceMergeActionConfig = ActionConfig.parse(parser(forceMergeActionConfigString), 0)
         assertEquals("Round tripping ForceMergeActionConfig doesn't work", forceMergeActionConfig, parsedForceMergeActionConfig)
+    }
+
+    fun `test notification action config parsing`() {
+        val notificationActionConfig = randomNotificationActionConfig()
+
+        val notificationActionConfigString = notificationActionConfig.toJsonString()
+        val parsedNotificationActionConfig = ActionConfig.parse(parser(notificationActionConfigString), 0)
+        assertEquals("Round tripping NotificationActionConfig doesn't work", notificationActionConfig, parsedNotificationActionConfig)
     }
 
     fun `test managed index config parsing`() {

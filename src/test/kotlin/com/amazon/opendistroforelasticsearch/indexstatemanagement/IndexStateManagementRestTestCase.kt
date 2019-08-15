@@ -41,6 +41,7 @@ import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
+import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -163,7 +164,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
      */
     protected fun insertSampleData(index: String, docCount: Int, delay: Long = 0) {
         for (i in 1..docCount) {
-            val request = Request("POST", "/$index/_doc")
+            val request = Request("POST", "/$index/_doc?refresh=true")
             request.setJsonEntity("{ \"test_field\": \"test_value\" }")
             client().performRequest(request)
 
@@ -259,7 +260,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     @Suppress("UNCHECKED_CAST")
     protected fun getIndexBlocksWriteSetting(indexName: String): String {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
-        return indexSettings[indexName]!!["settings"]!!["index.blocks.write"] as String
+        return indexSettings[indexName]!!["settings"]!![IndexMetaData.SETTING_BLOCKS_WRITE] as String
     }
 
     @Suppress("UNCHECKED_CAST")

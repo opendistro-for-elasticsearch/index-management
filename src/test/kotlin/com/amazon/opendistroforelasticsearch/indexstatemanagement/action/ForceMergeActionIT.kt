@@ -19,11 +19,10 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDefaultNotification
+import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -34,20 +33,12 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test basic workflow`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_1"
+        val policyID = "${testIndexName}_testPolicyName_1"
 
-        // Create a Policy with two States, one that force_merges and one that deletes the index
+        // Create a Policy with one State that only preforms a force_merge Action
         val forceMergeActionConfig = ForceMergeActionConfig(maxNumSegments = 1, index = 0)
-        val deleteActionConfig = DeleteActionConfig(0)
-        val states = listOf(
-            State(
-                "ForceMergeState",
-                listOf(forceMergeActionConfig),
-                listOf(Transition(stateName = "DeleteState", conditions = null))
-            ),
-            State("DeleteState", listOf(deleteActionConfig), listOf())
-        )
+        val states = listOf(State("ForceMergeState", listOf(forceMergeActionConfig), listOf()))
 
         val policy = Policy(
             id = policyID,
@@ -60,18 +51,15 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         )
 
         createPolicy(policy, policyID)
-        createIndex(indexName, null)
-        refresh()
+        createIndex(indexName, policyID)
 
-        // Add sample data to increase segment count, passing in a delay so that multiple segments get created
+        Thread.sleep(2000)
+
+        // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)
 
         val segmentCount = getSegmentCount(indexName)
         assertTrue("Segment count for [$indexName] was less than expected", segmentCount > 1)
-
-        // Add policy to index after data is loaded
-        addPolicyToIndex(indexName, policyID)
-        Thread.sleep(2000)
 
         val managedIndexConfig = getManagedIndexConfig(indexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
@@ -103,33 +91,15 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         Thread.sleep(3000)
 
         assertEquals("false", getIndexBlocksWriteSetting(indexName))
-
-        // Sixth execution: Transition to DeleteState
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
-
-        // Seventh execution: Delete the index
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
-
-        assertFalse("Index [$indexName] was not deleted", indexExists(indexName))
     }
 
     fun `test force merge on index already in read-only`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_2"
+        val policyID = "${testIndexName}_testPolicyName_2"
 
-        // Create a Policy with two States, one that set index to read-only and one that force-merges
-        val readOnlyActionConfig = ReadOnlyActionConfig(index = 0)
+        // Create a Policy with one State that only preforms a force_merge Action
         val forceMergeActionConfig = ForceMergeActionConfig(maxNumSegments = 1, index = 0)
-        val states = listOf(
-            State(
-                "ReadOnlyState",
-                listOf(readOnlyActionConfig),
-                listOf(Transition(stateName = "ForceMergeState", conditions = null))
-            ),
-            State("ForceMergeState", listOf(forceMergeActionConfig), listOf())
-        )
+        val states = listOf(State("ForceMergeState", listOf(forceMergeActionConfig), listOf()))
 
         val policy = Policy(
             id = policyID,
@@ -142,18 +112,21 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         )
 
         createPolicy(policy, policyID)
-        createIndex(indexName, null)
-        refresh()
+        createIndex(indexName, policyID)
 
-        // Add sample data to increase segment count, passing in a delay so that multiple segments get created
+        Thread.sleep(2000)
+
+        // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)
 
         val segmentCount = getSegmentCount(indexName)
         assertTrue("Segment count for [$indexName] was less than expected", segmentCount > 1)
 
-        // Add policy to index after data is loaded
-        addPolicyToIndex(indexName, policyID)
-        Thread.sleep(2000)
+        // Set index to read-only
+        updateIndexSettings(
+            indexName,
+            Settings.builder().put(IndexMetaData.SETTING_BLOCKS_WRITE, true)
+        )
 
         val managedIndexConfig = getManagedIndexConfig(indexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
@@ -163,34 +136,24 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
-        // Second execution: Index is set to read-only from read_only Action
+        // Second execution: Index was already read-only and should remain so for force_merge
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
         assertEquals("true", getIndexBlocksWriteSetting(indexName))
 
-        // Third execution: Transition to ForceMergeState
+        // Third execution: Force merge operation is kicked off
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
-        // Fourth execution: Index was already read-only and should remain so for force_merge
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
-
-        assertEquals("true", getIndexBlocksWriteSetting(indexName))
-
-        // Fifth execution: Force merge operation is kicked off
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
-
-        // Sixth execution: Waits for force merge to complete, which will happen in this execution since index is small
+        // Fourth execution: Waits for force merge to complete, which will happen in this execution since index is small
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
         val segmentCountAfterForceMerge = getSegmentCount(indexName)
         assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, segmentCountAfterForceMerge)
 
-        // Seventh execution: Index should remain in read-only since it was set before force_merge
+        // Fifth execution: Index should remain in read-only since it was set before force_merge
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 

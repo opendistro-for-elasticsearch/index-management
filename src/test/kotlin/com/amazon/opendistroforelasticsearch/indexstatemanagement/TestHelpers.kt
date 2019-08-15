@@ -137,10 +137,7 @@ fun randomReplicaCountActionConfig(): ReplicaCountActionConfig {
 fun randomForceMergeActionConfig(
     maxNumSegments: Int = ESRestTestCase.randomIntBetween(1, 50)
 ): ForceMergeActionConfig {
-    return ForceMergeActionConfig(
-        maxNumSegments = maxNumSegments,
-        index = 0
-    )
+    return ForceMergeActionConfig(maxNumSegments = maxNumSegments, index = 0)
 }
 
 /**

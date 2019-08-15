@@ -32,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.T
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
@@ -289,9 +290,9 @@ fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, 
 
     return when {
         stateMetaData?.name != state.name ->
-            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0)
+            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
         actionMetaData?.index != this.config.actionIndex ->
-            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0)
+            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
         else -> actionMetaData
     }
 }
@@ -338,10 +339,13 @@ fun ManagedIndexMetaData.getStartingManagedIndexMetaData(
 fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
     state: State,
     action: Action,
-    step: Step,
-    actionMetaData: ActionMetaData
+    step: Step
 ): ManagedIndexMetaData {
     val updatedStepMetaData = step.getUpdatedManagedIndexMetaData(this)
+    val actionMetaData = updatedStepMetaData.actionMetaData ?: return this.copy(
+        policyRetryInfo = PolicyRetryInfoMetaData(true, 0),
+        info = mapOf("message" to "Failed due to ActionMetaData being null")
+    )
 
     val updatedActionMetaData = if (updatedStepMetaData.stepMetaData?.stepStatus == Step.StepStatus.FAILED) {
         when {
@@ -359,7 +363,6 @@ fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
     return this.copy(
         policyCompleted = actionMetaData.name == ActionConfig.ActionType.TRANSITION.type && state.transitions.isEmpty(),
         rolledOver = updatedStepMetaData.rolledOver,
-        wasReadOnly = updatedStepMetaData.wasReadOnly,
         actionMetaData = updatedActionMetaData,
         stepMetaData = updatedStepMetaData.stepMetaData,
         transitionTo = updatedStepMetaData.transitionTo,
@@ -403,3 +406,9 @@ fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMeta
 
     return true
 }
+
+val ManagedIndexMetaData.wasReadOnly: Boolean?
+    get() {
+        // Retrieve wasReadOnly property from ActionProperties found within ActionMetaData
+        return this.actionMetaData?.actionProperties?.getBoolean(ActionProperties.WAS_READ_ONLY)
+    }

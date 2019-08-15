@@ -77,7 +77,10 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                     StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
                         assertStateEquals(StateMetaData("Ingest", Instant.now().toEpochMilli()), stateMetaDataMap),
                     ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
-                        assertActionEquals(ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, true, 2, null), actionMetaDataMap),
+                        assertActionEquals(
+                            ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, true, 2, null, null),
+                            actionMetaDataMap
+                        ),
                     PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                         assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
@@ -145,7 +148,10 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                     StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
                         assertStateEquals(StateMetaData("Ingest", Instant.now().toEpochMilli()), stateMetaDataMap),
                     ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
-                        assertActionEquals(ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, false, 1, null), actionMetaDataMap),
+                        assertActionEquals(
+                            ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, false, 1, null, null),
+                            actionMetaDataMap
+                        ),
                     PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                         assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()

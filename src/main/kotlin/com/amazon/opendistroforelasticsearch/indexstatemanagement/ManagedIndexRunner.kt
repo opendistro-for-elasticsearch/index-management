@@ -188,7 +188,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         if (updateResult && state != null && action != null && step != null && actionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
             step.execute()
-            val executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(state, action, step, actionMetaData)
+            val executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(state, action, step)
 
             // TODO: Check if we can move this into the TransportUpdateManagedIndexMetaDataAction to cover all cases where
             //  IndexMetaData does not exist anymore since if this current execution was a delete step and it was
@@ -296,7 +296,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 policyPrimaryTerm = policy?.primaryTerm,
                 policyCompleted = false,
                 rolledOver = false,
-                wasReadOnly = null,
                 transitionTo = null,
                 stateMetaData = stateMetaData,
                 actionMetaData = null,

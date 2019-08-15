@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.wasReadOnly
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
@@ -89,8 +90,11 @@ class AttemptRevertReadOnlyStep(
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
+        val currentActionMetaData = currentMetaData.actionMetaData
+
         return currentMetaData.copy(
-            wasReadOnly = null, // Resetting this since the force_merge action is over
+            // Resetting actionProperties since the force_merge action is over
+            actionMetaData = currentActionMetaData?.copy(actionProperties = null),
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,

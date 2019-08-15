@@ -45,14 +45,23 @@ class ActionProperties : Writeable, ToXContentFragment {
     }
 
     /*
-     * TODO: Creating a getBoolean method to return a boolean property since only WAS_READ_ONLY is being used for now
-     *  This can later be removed or extended to support returning different types without requiring unchecked casts from the caller
+     * TODO: Creating methods to return specific types as there aren't many properties at the moment
+     *  This can later be removed or extended to support returning multiple types without requiring unchecked casts from the caller
      */
     fun getBoolean(property: String): Boolean {
         require(properties.containsKey(property)) { "No property [$property] in ActionProperties" }
 
         val propertyValue: Any? = properties[property]
         require(propertyValue is Boolean) { "Property [$property]'s value [$propertyValue] is not a Boolean" }
+
+        return propertyValue
+    }
+
+    fun getInt(property: String): Int {
+        require(properties.containsKey(property)) { "No property [$property] in ActionProperties" }
+
+        val propertyValue: Any? = properties[property]
+        require(propertyValue is Int) { "Property [$property]'s value [$propertyValue] is not an Integer" }
 
         return propertyValue
     }
@@ -76,8 +85,12 @@ class ActionProperties : Writeable, ToXContentFragment {
     companion object {
         const val ACTION_PROPERTIES = "action_properties"
         const val WAS_READ_ONLY = "was_read_only"
+        const val MAX_NUM_SEGMENTS = "max_num_segments"
 
-        val supportedProperties = setOf(WAS_READ_ONLY)
+        val supportedProperties = setOf(
+            WAS_READ_ONLY,
+            MAX_NUM_SEGMENTS
+        )
 
         fun fromMap(properties: Map<String, Any>): ActionProperties {
             val actionProperties = ActionProperties()

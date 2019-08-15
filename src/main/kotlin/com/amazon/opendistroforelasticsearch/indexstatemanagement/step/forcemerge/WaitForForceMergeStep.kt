@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemer
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.elasticsearch.client.Client
@@ -46,8 +47,11 @@ class WaitForForceMergeStep(
 
         logger.info("Waiting for force merge to complete on [$indexName]")
 
+        // Retrieve maxNumSegments value from ActionProperties. If ActionProperties is null, update failed info and return early.
+        val maxNumSegments = getMaxNumSegments() ?: return
+
         // Get the number of shards with a segment count greater than maxNumSegments, meaning they are still merging
-        val shardsStillMergingSegments = getShardsStillMergingSegments(indexName, config.maxNumSegments)
+        val shardsStillMergingSegments = getShardsStillMergingSegments(indexName, maxNumSegments)
         // If shardsStillMergingSegments is null, failed info has already been updated and can return early
         shardsStillMergingSegments ?: return
 
@@ -83,6 +87,18 @@ class WaitForForceMergeStep(
                 stepStatus = StepStatus.CONDITION_NOT_MET
                 info = mapOf("message" to "Waiting for force merge to complete")
             }
+        }
+    }
+
+    private fun getMaxNumSegments(): Int? {
+        val actionProperties = managedIndexMetaData.actionMetaData?.actionProperties
+
+        return if (actionProperties != null) {
+            actionProperties.getInt(ActionProperties.MAX_NUM_SEGMENTS)
+        } else {
+            stepStatus = StepStatus.FAILED
+            info = mapOf("message" to "Unable to retrieve [${ActionProperties.MAX_NUM_SEGMENTS}] from ActionProperties=$actionProperties")
+            null
         }
     }
 

@@ -68,7 +68,7 @@ class ForceMergeAction(
                 AttemptCallForceMergeStep.name -> waitForForceMergeStep
                 WaitForForceMergeStep.name -> attemptRevertReadOnlyStep
                 // Shouldn't hit this case but including it so that the when expression is exhaustive
-                else -> throw IllegalArgumentException("Unexpected step: [$currentStep] when getting step to execute for ForceMergeAction")
+                else -> stepNameToStep[currentStep]!!
             }
         }
 

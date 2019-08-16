@@ -345,7 +345,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                             assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
                     ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
                             assertActionEquals(ActionMetaData(name = ActionConfig.ActionType.READ_ONLY.type, startTime = Instant.now().toEpochMilli(), index = 0,
-                                    failed = false, consumedRetries = 0, lastRetryTime = null), actionMetaDataMap)
+                                    failed = false, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
                 )
             ), nextExplainResponse.asMap(), false)
 
@@ -385,7 +385,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                             assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
                     ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
                             assertActionEquals(ActionMetaData(name = ActionConfig.ActionType.TRANSITION.type, startTime = Instant.now().toEpochMilli(), index = 0,
-                                    failed = false, consumedRetries = 0, lastRetryTime = null), actionMetaDataMap)
+                                    failed = false, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
                 )
             ), changedExplainResponse.asMap(), false)
     }

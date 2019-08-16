@@ -57,7 +57,8 @@ abstract class ActionConfig(
         OPEN("open"),
         READ_ONLY("read_only"),
         READ_WRITE("read_write"),
-        REPLICA_COUNT("replica_count");
+        REPLICA_COUNT("replica_count"),
+        FORCE_MERGE("force_merge");
 
         override fun toString(): String {
             return type
@@ -87,6 +88,7 @@ abstract class ActionConfig(
                     ActionType.READ_ONLY.type -> actionConfig = ReadOnlyActionConfig.parse(xcp, index)
                     ActionType.READ_WRITE.type -> actionConfig = ReadWriteActionConfig.parse(xcp, index)
                     ActionType.REPLICA_COUNT.type -> actionConfig = ReplicaCountActionConfig.parse(xcp, index)
+                    ActionType.FORCE_MERGE.type -> actionConfig = ForceMergeActionConfig.parse(xcp, index)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Action.")
                 }
             }

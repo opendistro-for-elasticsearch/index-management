@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
@@ -26,34 +27,32 @@ import kotlin.test.assertFailsWith
 class ActionConfigTests : ESTestCase() {
 
     fun `test invalid timeout for delete action config fails`() {
-        assertFailsWith(
-            IllegalArgumentException::class,
-            "Expected IllegalArgumentException for invalid timeout") {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for invalid timeout") {
             ActionTimeout(timeout = TimeValue.parseTimeValue("invalidTimeout", "timeout_test"))
         }
     }
 
     fun `test action retry count of zero fails`() {
-        assertFailsWith(
-            IllegalArgumentException::class,
-            "Expected IllegalArgumentException for retry count less than 1") {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for retry count less than 1") {
             ActionRetry(count = 0)
         }
     }
 
     fun `test rollover action minimum size of zero fails`() {
-        assertFailsWith(
-            IllegalArgumentException::class,
-            "Expected IllegalArgumentException for minSize less than 1") {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for minSize less than 1") {
             randomRolloverActionConfig(minSize = ByteSizeValue.parseBytesSizeValue("0", "min_size_test"))
         }
     }
 
     fun `test rollover action minimum doc count of zero fails`() {
-        assertFailsWith(
-            IllegalArgumentException::class,
-            "Expected IllegalArgumentException for minDoc less than 1") {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for minDoc less than 1") {
             randomRolloverActionConfig(minDocs = 0)
+        }
+    }
+
+    fun `test force merge action max num segments of zero fails`() {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for maxNumSegments less than 1") {
+            randomForceMergeActionConfig(maxNumSegments = 0)
         }
     }
 }

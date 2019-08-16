@@ -45,7 +45,7 @@ class WaitForForceMergeStep(
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index
 
-        logger.info("Waiting for force merge to complete on [$indexName]")
+        logger.info("Checking if force merge is complete on [$indexName]")
 
         // Retrieve maxNumSegments value from ActionProperties. If ActionProperties is null, update failed info and return early.
         val maxNumSegments = getMaxNumSegments() ?: return
@@ -93,13 +93,13 @@ class WaitForForceMergeStep(
     private fun getMaxNumSegments(): Int? {
         val actionProperties = managedIndexMetaData.actionMetaData?.actionProperties
 
-        return if (actionProperties != null) {
-            actionProperties.getInt(ActionProperties.MAX_NUM_SEGMENTS)
-        } else {
+        if (actionProperties == null) {
             stepStatus = StepStatus.FAILED
             info = mapOf("message" to "Unable to retrieve [${ActionProperties.MAX_NUM_SEGMENTS}] from ActionProperties=$actionProperties")
-            null
+            return null
         }
+
+        return actionProperties.getInt(ActionProperties.MAX_NUM_SEGMENTS)
     }
 
     private suspend fun getShardsStillMergingSegments(indexName: String, maxNumSegments: Int): Int? {
@@ -111,15 +111,17 @@ class WaitForForceMergeStep(
                 return statsResponse.shards.count { it.stats.segments.count > maxNumSegments }
             }
 
+            logger.debug("Failed to get index stats for index: [$indexName], status response: [${statsResponse.status}]")
+
             stepStatus = StepStatus.FAILED
             info = mapOf(
-                "message" to "Failed to get index stats",
-                "status" to statsResponse.status,
+                "message" to "Failed to check segments when waiting for force merge to complete",
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
         } catch (e: Exception) {
+            // TODO: Should add loger.error messages where Exceptions are caught for Steps
             stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
+            val mutableInfo = mutableMapOf("message" to "Failed to check segments when waiting for force merge to complete")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()

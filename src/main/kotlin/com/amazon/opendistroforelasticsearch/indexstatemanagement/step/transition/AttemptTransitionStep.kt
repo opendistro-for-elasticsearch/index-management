@@ -58,10 +58,13 @@ class AttemptTransitionStep(
             val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
             if (statsResponse.status != RestStatus.OK) {
+                logger.debug(
+                    "Failed to get index stats for index: [${managedIndexMetaData.index}], status response: [${statsResponse.status}]"
+                )
+
                 stepStatus = StepStatus.FAILED
                 info = mapOf(
-                    "message" to "Failed to get index stats",
-                    "status" to statsResponse.status,
+                    "message" to "Failed to evaluate conditions for transition",
                     "shard_failures" to statsResponse.shardFailures.map { it.toString() }
                 )
                 return

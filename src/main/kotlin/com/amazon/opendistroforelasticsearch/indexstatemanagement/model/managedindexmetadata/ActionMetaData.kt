@@ -133,7 +133,8 @@ data class ActionMetaData(
                     FAILED -> failed = xcp.booleanValue()
                     CONSUMED_RETRIES -> consumedRetries = xcp.intValue()
                     LAST_RETRY_TIME -> lastRetryTime = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
-                    ActionProperties.ACTION_PROPERTIES -> actionProperties = ActionProperties.parse(xcp)
+                    ActionProperties.ACTION_PROPERTIES ->
+                        actionProperties = if (xcp.currentToken() == Token.VALUE_NULL) null else ActionProperties.parse(xcp)
                 }
             }
 

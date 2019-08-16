@@ -32,7 +32,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.T
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
@@ -407,8 +406,8 @@ fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMeta
     return true
 }
 
-val ManagedIndexMetaData.wasReadOnly: Boolean?
+val ManagedIndexMetaData.wasReadOnly: Boolean
     get() {
         // Retrieve wasReadOnly property from ActionProperties found within ActionMetaData
-        return this.actionMetaData?.actionProperties?.getBoolean(ActionProperties.WAS_READ_ONLY)
+        return this.actionMetaData?.actionProperties?.wasReadOnly == true
     }

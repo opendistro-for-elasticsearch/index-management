@@ -44,17 +44,18 @@ class AttemptRevertReadOnlyStep(
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index
 
-        // If the index was not read-only before the force merge, set back to read-write
-        if (managedIndexMetaData.wasReadOnly == false) {
+        // If the index was read-only before the force merge, no action is necessary
+        if (managedIndexMetaData.wasReadOnly) {
+            logger.debug("The index [$indexName] was read-only prior to the force_merge action, no action necessary")
+            info = mapOf("message" to "Index was read-only before force_merge, no changes made")
+        } else {
+            // Otherwise, set the index back to read-write
             val indexSetToReadWrite = setIndexToReadWrite(indexName)
 
             // If setIndexToReadWrite returns false, updating settings failed and failed info was already updated. Can return early.
             if (!indexSetToReadWrite) return
 
             info = mapOf("message" to "Set index to read-write")
-        } else {
-            logger.debug("The index [$indexName] was read-only prior to the force_merge action, no action necessary")
-            info = mapOf("message" to "Index was read-only before force_merge, no changes made")
         }
 
         stepStatus = StepStatus.COMPLETED

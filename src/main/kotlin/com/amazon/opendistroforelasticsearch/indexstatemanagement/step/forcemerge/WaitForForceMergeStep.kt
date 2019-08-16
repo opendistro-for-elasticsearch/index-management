@@ -97,13 +97,13 @@ class WaitForForceMergeStep(
     private fun getMaxNumSegments(): Int? {
         val actionProperties = managedIndexMetaData.actionMetaData?.actionProperties
 
-        if (actionProperties == null) {
+        if (actionProperties?.maxNumSegments == null) {
             stepStatus = StepStatus.FAILED
             info = mapOf("message" to "Unable to retrieve [${ActionProperties.MAX_NUM_SEGMENTS}] from ActionProperties=$actionProperties")
             return null
         }
 
-        return actionProperties.getInt(ActionProperties.MAX_NUM_SEGMENTS)
+        return actionProperties.maxNumSegments
     }
 
     private suspend fun getShardsStillMergingSegments(indexName: String, maxNumSegments: Int): Int? {

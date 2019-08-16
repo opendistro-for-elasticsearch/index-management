@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.sus
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties.Companion.WAS_READ_ONLY
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
@@ -126,7 +125,7 @@ class AttemptSetReadOnlyStep(
         val currentActionMetaData = currentMetaData.actionMetaData
 
         return currentMetaData.copy(
-            actionMetaData = currentActionMetaData?.copy(actionProperties = ActionProperties().put(WAS_READ_ONLY, wasReadOnly)),
+            actionMetaData = currentActionMetaData?.copy(actionProperties = ActionProperties(wasReadOnly = wasReadOnly)),
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,

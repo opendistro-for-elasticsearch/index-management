@@ -26,96 +26,51 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 /** Properties that will persist across steps of a single Action. Will be stored in the [ActionMetaData]. */
-class ActionProperties : Writeable, ToXContentFragment {
-
-    private val properties: MutableMap<String, Any> = mutableMapOf()
+data class ActionProperties(
+    val wasReadOnly: Boolean? = null,
+    val maxNumSegments: Int? = null
+) : Writeable, ToXContentFragment {
 
     override fun writeTo(out: StreamOutput) {
-        out.writeMap(properties)
+        out.writeOptionalBoolean(wasReadOnly)
+        out.writeOptionalInt(maxNumSegments)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        return builder.map(properties)
+        if (wasReadOnly != null) builder.field(WAS_READ_ONLY, wasReadOnly)
+        if (maxNumSegments != null) builder.field(MAX_NUM_SEGMENTS, maxNumSegments)
+
+        return builder
     }
-
-    fun get(property: String): Any? {
-        require(properties.containsKey(property)) { "No property [$property] in ActionProperties" }
-
-        return properties[property]
-    }
-
-    /*
-     * TODO: Creating methods to return specific types as there aren't many properties at the moment
-     *  This can later be removed or extended to support returning multiple types without requiring unchecked casts from the caller
-     */
-    fun getBoolean(property: String): Boolean {
-        require(properties.containsKey(property)) { "No property [$property] in ActionProperties" }
-
-        val propertyValue: Any? = properties[property]
-        require(propertyValue is Boolean) { "Property [$property]'s value [$propertyValue] is not a Boolean" }
-
-        return propertyValue
-    }
-
-    fun getInt(property: String): Int {
-        require(properties.containsKey(property)) { "No property [$property] in ActionProperties" }
-
-        val propertyValue: Any? = properties[property]
-        require(propertyValue is Int) { "Property [$property]'s value [$propertyValue] is not an Integer" }
-
-        return propertyValue
-    }
-
-    fun put(property: String, value: Any): ActionProperties {
-        require(supportedProperties.contains(property)) { "[$property] is not a supported Action property" }
-
-        properties[property] = value
-        return this
-    }
-
-    override fun equals(other: Any?): Boolean =
-        if (other is ActionProperties) {
-            this.properties == other.properties
-        } else {
-            false
-        }
-
-    override fun hashCode(): Int = properties.hashCode()
 
     companion object {
         const val ACTION_PROPERTIES = "action_properties"
         const val WAS_READ_ONLY = "was_read_only"
         const val MAX_NUM_SEGMENTS = "max_num_segments"
 
-        val supportedProperties = setOf(
-            WAS_READ_ONLY,
-            MAX_NUM_SEGMENTS
-        )
-
-        fun fromMap(properties: Map<String, Any>): ActionProperties {
-            val actionProperties = ActionProperties()
-
-            for ((k, v) in properties) {
-                actionProperties.put(k, v)
-            }
-
-            return actionProperties
-        }
-
         fun fromStreamInput(si: StreamInput): ActionProperties {
-            val properties: Map<String, Any>? = si.readMap()
+            val wasReadOnly: Boolean? = si.readBoolean()
+            val maxNumSegments: Int? = si.readInt()
 
-            requireNotNull(properties) { "Properties are null" }
-
-            return ActionProperties.fromMap(properties)
+            return ActionProperties(wasReadOnly, maxNumSegments)
         }
 
         fun parse(xcp: XContentParser): ActionProperties {
+            var wasReadOnly: Boolean? = null
+            var maxNumSegments: Int? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            val properties: MutableMap<String, Any> = xcp.map()
+            while (xcp.nextToken() != Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
 
-            return ActionProperties.fromMap(properties)
+                when (fieldName) {
+                    WAS_READ_ONLY -> wasReadOnly = xcp.booleanValue()
+                    MAX_NUM_SEGMENTS -> maxNumSegments = xcp.intValue()
+                }
+            }
+
+            return ActionProperties(wasReadOnly, maxNumSegments)
         }
     }
 }

@@ -63,7 +63,11 @@ data class ActionMetaData(
             .field(CONSUMED_RETRIES, consumedRetries)
             .field(LAST_RETRY_TIME, lastRetryTime)
 
-        if (actionProperties != null) builder.field(ActionProperties.ACTION_PROPERTIES, actionProperties)
+        if (actionProperties != null) {
+            builder.startObject(ActionProperties.ACTION_PROPERTIES)
+            actionProperties.toXContent(builder, params)
+            builder.endObject()
+        }
 
         return builder
     }

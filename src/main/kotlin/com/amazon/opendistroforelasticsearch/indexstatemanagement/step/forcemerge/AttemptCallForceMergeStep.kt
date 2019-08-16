@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemer
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.elasticsearch.client.Client
@@ -76,7 +75,7 @@ class AttemptCallForceMergeStep(
         val currentActionMetaData = currentMetaData.actionMetaData
         val actionProperties = currentActionMetaData
             ?.actionProperties
-            ?.put(ActionProperties.MAX_NUM_SEGMENTS, config.maxNumSegments)
+            ?.copy(maxNumSegments = config.maxNumSegments)
 
         return currentMetaData.copy(
             actionMetaData = currentActionMetaData?.copy(actionProperties = actionProperties),

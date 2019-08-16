@@ -164,7 +164,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
      */
     protected fun insertSampleData(index: String, docCount: Int, delay: Long = 0) {
         for (i in 1..docCount) {
-            val request = Request("POST", "/$index/_doc?refresh=true")
+            val request = Request("POST", "/$index/_doc/?refresh=true")
             request.setJsonEntity("{ \"test_field\": \"test_value\" }")
             client().performRequest(request)
 

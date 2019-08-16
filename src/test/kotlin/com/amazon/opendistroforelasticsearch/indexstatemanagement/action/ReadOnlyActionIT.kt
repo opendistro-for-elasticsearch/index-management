@@ -16,14 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDefaultNotification
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -68,28 +63,6 @@ class ReadOnlyActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         Thread.sleep(3000)
-
-        val historySearchResponse = getHistorySearchResponse(indexName)
-        assertEquals(3, historySearchResponse.hits.totalHits.value)
-        val actualHistory = getLatestHistory(historySearchResponse)
-
-        val expectedHistory = ManagedIndexMetaData(
-            indexName,
-            getUuid(indexName),
-            policyID,
-            0,
-            policyPrimaryTerm = 1,
-            policyCompleted = null,
-            rolledOver = null,
-            transitionTo = null,
-            stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
-            actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0),
-            stepMetaData = null,
-            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Set index to read-only")
-        )
-
-        assertEquals(expectedHistory, actualHistory)
 
         assertEquals("true", getIndexBlocksWriteSetting(indexName))
     }

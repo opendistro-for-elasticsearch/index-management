@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_HISTORY_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
@@ -25,10 +25,6 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
-import org.elasticsearch.action.DocWriteRequest
-import org.elasticsearch.action.bulk.BulkRequest
-import org.elasticsearch.action.bulk.BulkResponse
-import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.action.support.master.TransportMasterNodeAction
@@ -42,11 +38,8 @@ import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.metadata.MetaData
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportService
-import java.time.Instant
 import java.util.function.Supplier
 
 class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<UpdateManagedIndexMetaDataRequest, AcknowledgedResponse> {
@@ -59,7 +52,8 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         transportService: TransportService,
         actionFilters: ActionFilters,
         indexNameExpressionResolver: IndexNameExpressionResolver,
-        indexStateManagementIndices: IndexStateManagementIndices
+        indexStateManagementIndices: IndexStateManagementIndices,
+        indexStateManagementHistory: IndexStateManagementHistory
     ) : super(
         UpdateManagedIndexMetaDataAction.name(),
         transportService,
@@ -71,11 +65,13 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
     ) {
         this.client = client
         this.indexStateManagementIndices = indexStateManagementIndices
+        this.indexStateManagementHistory = indexStateManagementHistory
     }
 
     private val log = LogManager.getLogger(javaClass)
     private val client: Client
     private val indexStateManagementIndices: IndexStateManagementIndices
+    private val indexStateManagementHistory: IndexStateManagementHistory
 
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {
         // https://github.com/elastic/elasticsearch/commit/ae14b4e6f96b554ca8f4aaf4039b468f52df0123
@@ -111,41 +107,9 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
 
         // Adding history is a best effort task.
         GlobalScope.launch(Dispatchers.IO + CoroutineName("ManagedIndexMetaData-AddHistory")) {
-            addHistory(request)
+            val managedIndexMetaData = request.listOfIndexMetadata.map { it.second }
+            indexStateManagementHistory.addHistory(managedIndexMetaData)
         }
-    }
-
-    private suspend fun addHistory(request: UpdateManagedIndexMetaDataRequest) {
-        indexStateManagementIndices.initHistoryIndex()
-        val docWriteRequest: List<DocWriteRequest<*>> = request.listOfIndexMetadata.map { indexHistory(it.second) }
-
-        val bulkRequest = BulkRequest().add(docWriteRequest)
-        client.bulk(bulkRequest, ActionListener.wrap(::onBulkResponse, ::onFailure))
-    }
-
-    private fun indexHistory(managedIndexMetaData: ManagedIndexMetaData): IndexRequest {
-        val builder = XContentFactory.jsonBuilder()
-            .startObject()
-                .startObject(INDEX_STATE_MANAGEMENT_HISTORY_TYPE)
-        managedIndexMetaData.toXContent(builder, ToXContent.EMPTY_PARAMS)
-        builder
-            .field("history_timestamp", Instant.now().toEpochMilli())
-                .endObject()
-            .endObject()
-        return IndexRequest(IndexStateManagementIndices.HISTORY_WRITE_INDEX)
-            .source(builder)
-    }
-
-    private fun onBulkResponse(bulkResponse: BulkResponse) {
-        for (bulkItemResponse in bulkResponse) {
-            if (bulkItemResponse.isFailed) {
-                log.error("Failed to add history. Id: ${bulkItemResponse.id}, failureMessage: ${bulkItemResponse.failureMessage}")
-            }
-        }
-    }
-
-    private fun onFailure(e: Exception) {
-        log.error("failed to index indexMetaData History.", e)
     }
 
     override fun newResponse(): AcknowledgedResponse {

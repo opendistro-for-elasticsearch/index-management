@@ -147,11 +147,14 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             .registerClusterService(clusterService)
             .registerNamedXContentRegistry(xContentRegistry)
 
-        indexStateManagementIndices = IndexStateManagementIndices(settings, client.admin().indices(), threadPool, clusterService)
+        indexStateManagementIndices = IndexStateManagementIndices(client.admin().indices(), clusterService)
+        val indexStateManagementHistory =
+            IndexStateManagementHistory(settings, client, threadPool, clusterService, indexStateManagementIndices)
+
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
                 client, clusterService, threadPool, indexStateManagementIndices)
 
-        return listOf(managedIndexRunner, indexStateManagementIndices, managedIndexCoordinator)
+        return listOf(managedIndexRunner, indexStateManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
     }
 
     override fun getSettings(): List<Setting<*>> {
@@ -162,9 +165,11 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
             ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS,
+            ManagedIndexSettings.ISM_HISTORY_ENABLED,
             ManagedIndexSettings.ISM_HISTORY_MAX_DOCS,
             ManagedIndexSettings.ISM_HISTORY_INDEX_MAX_AGE,
-            ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD
+            ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD,
+            ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD
         )
     }
 

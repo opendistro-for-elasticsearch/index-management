@@ -166,6 +166,18 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return indexSettings[index]!!["settings"]!![ManagedIndexSettings.POLICY_ID.key] as? String
     }
 
+    protected fun updateClusterSetting(key: String, value: String) {
+        val request = """
+            {
+                "persistent": {
+                    "$key": "$value"
+                }
+            }
+        """.trimIndent()
+        val response = client().makeRequest("PUT", "_cluster/settings", emptyMap(),
+            StringEntity(request, APPLICATION_JSON))
+    }
+
     protected fun getManagedIndexConfig(index: String): ManagedIndexConfig? {
         val request = """
             {

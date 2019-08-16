@@ -66,13 +66,17 @@ class WaitForForceMergeStep(
              * If there are still shards with segments merging then no action is taken and the step will be reevaluated
              * on the next run of the ManagedIndexRunner.
              *
-             * However, if an internal timeout of 12 hours is reached, the force_merge action will be marked as failed.
-             * This is for cases where the force merge stops silently, such as when nodes relocate during a force
-             * merge operation. Without a timeout, the segment count would stop going down as merging would no longer
+             * However, if a given ActionTimeout or an internal timeout of 12 hours is reached, the force_merge action
+             * will be marked as failed. The internal timeout is for cases where the force merge stops silently,
+             * such as when shards relocate to different nodes during a force merge operation. Since ActionTimeout
+             * is optional, if no timeout is given, the segment count would stop going down as merging would no longer
              * occur and the managed index would become stuck in this action.
              */
-            val timeWaitingForForceMerge: Duration = Duration.between(getStepStartTime(), Instant.now())
-            if (timeWaitingForForceMerge.toSeconds() > FORCE_MERGE_TIMEOUT_IN_SECONDS) {
+            val timeWaitingForForceMerge: Duration = Duration.between(getActionStartTime(), Instant.now())
+            // Get ActionTimeout if given, otherwise use default timeout of 12 hours
+            val timeoutInSeconds: Long = config.configTimeout?.timeout?.seconds ?: FORCE_MERGE_TIMEOUT_IN_SECONDS
+
+            if (timeWaitingForForceMerge.toSeconds() > timeoutInSeconds) {
                 logger.error(
                     "Force merge on [$indexName] timed out with [$shardsStillMergingSegments] shards containing unmerged segments"
                 )
@@ -128,6 +132,14 @@ class WaitForForceMergeStep(
         }
 
         return null
+    }
+
+    private fun getActionStartTime(): Instant {
+        if (managedIndexMetaData.actionMetaData == null) {
+            return Instant.now()
+        }
+
+        return Instant.ofEpochMilli(managedIndexMetaData.actionMetaData.startTime)
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {

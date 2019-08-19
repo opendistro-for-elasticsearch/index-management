@@ -226,9 +226,7 @@ fun randomChangePolicy(
 }
 
 // will only return null since we dont want to send actual notifications during integ tests
-fun randomErrorNotification(): ErrorNotification? {
-    return null
-}
+fun randomErrorNotification(): ErrorNotification? = null
 
 fun randomManagedIndexConfig(
     name: String = ESRestTestCase.randomAlphaOfLength(10),

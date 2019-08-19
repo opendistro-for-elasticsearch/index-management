@@ -78,11 +78,12 @@ data class Destination(
                 }
             }
 
-            if (chime == null && slack == null && customWebhook == null) {
-                throw IllegalArgumentException("Must specify at a destination type")
+            val type = when {
+                chime != null -> DestinationType.CHIME
+                slack != null -> DestinationType.SLACK
+                customWebhook != null -> DestinationType.CUSTOM_WEBHOOK
+                else -> throw IllegalArgumentException("Must specify a destination type")
             }
-
-            val type = if (chime != null) DestinationType.CHIME else if (slack != null) DestinationType.SLACK else DestinationType.CUSTOM_WEBHOOK
 
             return Destination(
                 type,

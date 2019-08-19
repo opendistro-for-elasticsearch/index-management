@@ -31,7 +31,7 @@ data class ErrorNotification(
 ) : ToXContentObject {
 
     init {
-        require(messageTemplate.lang == MUSTACHE) { "ErrorNotification message template be a mustache script" }
+        require(messageTemplate.lang == MUSTACHE) { "ErrorNotification message template must be a mustache script" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

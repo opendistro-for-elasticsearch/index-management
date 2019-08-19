@@ -38,7 +38,7 @@ data class NotificationActionConfig(
 ) : ToXContentObject, ActionConfig(ActionType.NOTIFICATION, index) {
 
     init {
-        require(messageTemplate.lang == MUSTACHE) { "Notification message template be a mustache script" }
+        require(messageTemplate.lang == MUSTACHE) { "Notification message template must be a mustache script" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

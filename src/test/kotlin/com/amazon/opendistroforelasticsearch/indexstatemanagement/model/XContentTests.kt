@@ -134,7 +134,6 @@ class XContentTests : ESTestCase() {
     }
 
     fun `test managed index config parsing`() {
-
         val config = randomManagedIndexConfig()
         val configTwo = config.copy(changePolicy = null)
         var configThree = config.copy()

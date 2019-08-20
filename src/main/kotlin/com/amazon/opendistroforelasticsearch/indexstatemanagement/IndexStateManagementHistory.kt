@@ -6,11 +6,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.Manag
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
 import org.elasticsearch.action.bulk.BulkRequest
@@ -38,7 +35,6 @@ class IndexStateManagementHistory(
 
     private val logger = LogManager.getLogger(javaClass)
     private var scheduledRollover: Scheduler.Cancellable? = null
-    private var scheduledOldHistoryCleaner: Scheduler.Cancellable? = null
 
     @Volatile private var historyEnabled = ManagedIndexSettings.ISM_HISTORY_ENABLED.get(settings)
 
@@ -52,7 +48,10 @@ class IndexStateManagementHistory(
 
     init {
         clusterService.addLocalNodeMasterListener(this)
-        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_ENABLED) { historyEnabled = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_ENABLED) {
+            historyEnabled = it
+            if (!it) scheduledRollover?.cancel()
+    }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_MAX_DOCS) { historyMaxDocs = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_INDEX_MAX_AGE) { historyMaxAge = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD) {
@@ -61,7 +60,6 @@ class IndexStateManagementHistory(
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD) {
             historyRetentionPeriod = it
-            rescheduleDeleteOldHistory()
         }
     }
 
@@ -71,7 +69,6 @@ class IndexStateManagementHistory(
             rolloverHistoryIndex()
             // schedule the next rollover for approx MAX_AGE later
             scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverHistoryIndex() }, historyRolloverCheckPeriod, executorName())
-            scheduledOldHistoryCleaner = threadPool.scheduleWithFixedDelay({ deleteOldHistoryIndex() }, historyRolloverCheckPeriod, executorName())
         } catch (e: Exception) {
             // This should be run on cluster startup
             logger.error("Error creating ISM history index.", e)
@@ -80,7 +77,6 @@ class IndexStateManagementHistory(
 
     override fun offMaster() {
         scheduledRollover?.cancel()
-        scheduledOldHistoryCleaner?.cancel()
     }
 
     override fun executorName(): String {
@@ -90,8 +86,13 @@ class IndexStateManagementHistory(
     private fun rescheduleRollover() {
         if (clusterService.state().nodes.isLocalNodeElectedMaster) {
             scheduledRollover?.cancel()
-            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverHistoryIndex() }, historyRolloverCheckPeriod, executorName())
+            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverAndDeleteHistoryIndex() }, historyRolloverCheckPeriod, executorName())
         }
+    }
+
+    private fun rolloverAndDeleteHistoryIndex() {
+        if (historyEnabled) rolloverHistoryIndex()
+        deleteOldHistoryIndex()
     }
 
     private fun rolloverHistoryIndex(): Boolean {
@@ -110,13 +111,6 @@ class IndexStateManagementHistory(
             logger.info("${IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS} not rolled over. Conditions were: ${response.conditionStatus}")
         }
         return response.isRolledOver
-    }
-
-    private fun rescheduleDeleteOldHistory() {
-        if (clusterService.state().nodes.isLocalNodeElectedMaster) {
-            scheduledOldHistoryCleaner?.cancel()
-            scheduledOldHistoryCleaner = threadPool.scheduleWithFixedDelay({ deleteOldHistoryIndex() }, historyRolloverCheckPeriod, executorName())
-        }
     }
 
     @Suppress("SpreadOperator")
@@ -178,7 +172,7 @@ class IndexStateManagementHistory(
                         logger.error("Failed to add history. Id: ${bulkItemResponse.id}, failureMessage: ${bulkItemResponse.failureMessage}")
                     }
                 }
-            } catch(e: Exception) {
+            } catch (e: Exception) {
                 logger.error("failed to index indexMetaData History.", e)
             }
         }

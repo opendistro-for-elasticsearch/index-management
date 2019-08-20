@@ -60,6 +60,8 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.action.update.UpdateResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.block.ClusterBlockException
+import org.elasticsearch.cluster.health.ClusterHealthStatus
+import org.elasticsearch.cluster.health.ClusterStateHealth
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -123,6 +125,12 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     @Suppress("ReturnCount")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
+        // doing a check of local cluster health as we do not want to overload master node with potentially a lot of calls
+        if (clusterIsRed()) {
+            logger.debug("Skipping current execution of ${managedIndexConfig.index} because of red cluster health")
+            return
+        }
+
         // Get current IndexMetaData and ManagedIndexMetaData
         val indexMetaData = clusterService.state().metaData().index(managedIndexConfig.index)
         if (indexMetaData == null) {
@@ -432,4 +440,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.error("There was an error while trying to update the policy_id ($policyID) setting for $index", e)
         }
     }
+
+    private fun clusterIsRed(): Boolean = ClusterStateHealth(clusterService.state()).status == ClusterHealthStatus.RED
 }

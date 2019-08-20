@@ -145,7 +145,7 @@ class AttemptRolloverStep(
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
-            // TODO we should refactor such that transitionTo is not reset in the step.
+            rolledOver = if (currentMetaData.rolledOver == true) true else stepStatus == StepStatus.COMPLETED,
             transitionTo = null,
             info = info
         )

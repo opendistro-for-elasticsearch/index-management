@@ -42,6 +42,7 @@ import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
+import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -150,6 +151,26 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }.build()
         createIndex(index, settings)
         return index to policyID
+    }
+
+    /** Refresh all indices in the cluster */
+    protected fun refresh() {
+        val request = Request("POST", "/_refresh")
+        client().performRequest(request)
+    }
+
+    /**
+     * Inserts [docCount] sample documents into [index], optionally waiting [delay] milliseconds
+     * in between each insertion
+     */
+    protected fun insertSampleData(index: String, docCount: Int, delay: Long = 0) {
+        for (i in 1..docCount) {
+            val request = Request("POST", "/$index/_doc/?refresh=true")
+            request.setJsonEntity("{ \"test_field\": \"test_value\" }")
+            client().performRequest(request)
+
+            Thread.sleep(delay)
+        }
     }
 
     protected fun addPolicyToIndex(
@@ -282,7 +303,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     @Suppress("UNCHECKED_CAST")
     protected fun getIndexBlocksWriteSetting(indexName: String): String {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
-        return indexSettings[indexName]!!["settings"]!!["index.blocks.write"] as String
+        return indexSettings[indexName]!!["settings"]!![IndexMetaData.SETTING_BLOCKS_WRITE] as String
     }
 
     @Suppress("UNCHECKED_CAST")

@@ -237,8 +237,6 @@ fun Policy.getStateToExecute(managedIndexMetaData: ManagedIndexMetaData): State?
     return this.states.find { managedIndexMetaData.stateMetaData != null && it.name == managedIndexMetaData.stateMetaData.name }
 }
 
-// TODO: This doesn't look great because it thinks actionIndex can be null while action is not (should never happen)
-//  Should further break down ManagedIndexMetaData into StateMetaData, ActionMetaData, StepMetaData
 fun State.getActionToExecute(
     clusterService: ClusterService,
     client: Client,
@@ -289,9 +287,9 @@ fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, 
 
     return when {
         stateMetaData?.name != state.name ->
-            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0)
+            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
         actionMetaData?.index != this.config.actionIndex ->
-            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0)
+            ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
         else -> actionMetaData
     }
 }
@@ -339,10 +337,13 @@ fun ManagedIndexMetaData.getStartingManagedIndexMetaData(
 fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
     state: State,
     action: Action,
-    step: Step,
-    actionMetaData: ActionMetaData
+    step: Step
 ): ManagedIndexMetaData {
     val updatedStepMetaData = step.getUpdatedManagedIndexMetaData(this)
+    val actionMetaData = updatedStepMetaData.actionMetaData ?: return this.copy(
+        policyRetryInfo = PolicyRetryInfoMetaData(true, 0),
+        info = mapOf("message" to "Failed due to ActionMetaData being null")
+    )
 
     val updatedActionMetaData = if (updatedStepMetaData.stepMetaData?.stepStatus == Step.StepStatus.FAILED) {
         when {
@@ -403,3 +404,9 @@ fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMeta
 
     return true
 }
+
+val ManagedIndexMetaData.wasReadOnly: Boolean
+    get() {
+        // Retrieve wasReadOnly property from ActionProperties found within ActionMetaData
+        return this.actionMetaData?.actionProperties?.wasReadOnly == true
+    }

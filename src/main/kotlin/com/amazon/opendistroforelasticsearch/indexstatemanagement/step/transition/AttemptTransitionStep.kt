@@ -45,12 +45,11 @@ class AttemptTransitionStep(
 ) : Step("attempt_transition", managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
-    // TODO: Update ManagedIndexMetaData start times to be Long, move to extension function on MetaData
     private var stateName: String? = null
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         try {
             val statsRequest = IndicesStatsRequest()
@@ -58,10 +57,13 @@ class AttemptTransitionStep(
             val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
             if (statsResponse.status != RestStatus.OK) {
+                logger.debug(
+                    "Failed to get index stats for index: [${managedIndexMetaData.index}], status response: [${statsResponse.status}]"
+                )
+
                 stepStatus = StepStatus.FAILED
                 info = mapOf(
-                    "message" to "Failed to get index stats",
-                    "status" to statsResponse.status,
+                    "message" to "Failed to evaluate conditions for transition",
                     "shard_failures" to statsResponse.shardFailures.map { it.toString() }
                 )
                 return
@@ -73,7 +75,6 @@ class AttemptTransitionStep(
 
             // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true
             stateName = config.transitions.find { it.evaluateConditions(indexCreationDate, numDocs, indexSize, getStepStartTime()) }?.stateName
-            // TODO: Style of message, past tense, present tense, etc.
             val message = if (stateName == null) {
                 stepStatus = StepStatus.CONDITION_NOT_MET
                 "Attempting to transition"

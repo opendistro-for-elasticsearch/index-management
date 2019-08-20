@@ -45,7 +45,7 @@ class AttemptRolloverStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         // If we have already rolled over this index then fail as we only allow an index to be rolled over once
         if (managedIndexMetaData.rolledOver == true) {
@@ -122,27 +122,30 @@ class AttemptRolloverStep(
                 return statsResponse
             }
 
+            logger.debug(
+                "Failed to get index stats for index: [${managedIndexMetaData.index}], status response: [${statsResponse.status}]"
+            )
+
             stepStatus = StepStatus.FAILED
             info = mapOf(
-                "message" to "Failed to get index stats",
-                "status" to statsResponse.status,
+                "message" to "Failed to evaluate conditions for rollover",
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
-            return null
         } catch (e: Exception) {
             stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to get index stats")
+            val mutableInfo = mutableMapOf("message" to "Failed to evaluate conditions for rollover")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
-            return null
         }
+
+        return null
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
-            // TODO we should refactor such that transitionTo is not reset in the step.
+            rolledOver = if (currentMetaData.rolledOver == true) true else stepStatus == StepStatus.COMPLETED,
             transitionTo = null,
             info = info
         )

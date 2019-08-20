@@ -32,7 +32,6 @@ import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.XContentType
 
-// TODO: Handle updating mappings on newer versions
 @OpenForTesting
 class IndexStateManagementIndices(
     private val client: IndicesAdminClient,

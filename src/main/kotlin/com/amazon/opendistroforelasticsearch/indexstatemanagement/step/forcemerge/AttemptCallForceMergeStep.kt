@@ -13,24 +13,24 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.delete
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
-import org.apache.logging.log4j.LogManager
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
-import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
-import java.lang.Exception
+import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest
+import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse
+import org.elasticsearch.rest.RestStatus
 
-class AttemptDeleteStep(
+class AttemptCallForceMergeStep(
     val clusterService: ClusterService,
     val client: Client,
-    val config: DeleteActionConfig,
+    val config: ForceMergeActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
 ) : Step(name, managedIndexMetaData) {
 
@@ -41,19 +41,28 @@ class AttemptDeleteStep(
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         try {
-            val response: AcknowledgedResponse = client.admin().indices()
-                .suspendUntil { delete(DeleteIndexRequest(managedIndexMetaData.index), it) }
+            val indexName = managedIndexMetaData.index
 
-            if (response.isAcknowledged) {
+            logger.info("Attempting to force merge on [$indexName]")
+            val request = ForceMergeRequest(indexName).maxNumSegments(config.maxNumSegments)
+            val response: ForceMergeResponse = client.admin().indices().suspendUntil { forceMerge(request, it) }
+
+            // If response is OK then the force merge operation has started
+            if (response.status == RestStatus.OK) {
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Deleted index")
+                info = mapOf("message" to "Started force merge")
             } else {
+                // Otherwise the request to force merge encountered some problem
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to delete index")
+                info = mapOf(
+                    "message" to "Failed to start force merge",
+                    "status" to response.status,
+                    "shard_failures" to response.shardFailures.map { it.toString() }
+                )
             }
         } catch (e: Exception) {
             stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to delete index")
+            val mutableInfo = mutableMapOf("message" to "Failed to start force merge")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
@@ -61,7 +70,15 @@ class AttemptDeleteStep(
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
+        // Saving maxNumSegments in ActionProperties after the force merge operation has begun so that if a ChangePolicy occurred
+        // in between this step and WaitForForceMergeStep, a cached segment count expected from the operation is available
+        val currentActionMetaData = currentMetaData.actionMetaData
+        val actionProperties = currentActionMetaData
+            ?.actionProperties
+            ?.copy(maxNumSegments = config.maxNumSegments)
+
         return currentMetaData.copy(
+            actionMetaData = currentActionMetaData?.copy(actionProperties = actionProperties),
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             transitionTo = null,
             info = info
@@ -69,6 +86,6 @@ class AttemptDeleteStep(
     }
 
     companion object {
-        const val name = "attempt_delete"
+        const val name = "attempt_call_force_merge"
     }
 }

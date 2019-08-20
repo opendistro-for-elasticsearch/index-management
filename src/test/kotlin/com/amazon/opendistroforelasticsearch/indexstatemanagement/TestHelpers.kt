@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
@@ -54,7 +55,7 @@ fun randomPolicy(
     description: String = ESRestTestCase.randomAlphaOfLength(10),
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-    defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
+    defaultNotification: Map<String, Any>? = randomDefaultNotification(),
     states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
 ): Policy {
     return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
@@ -133,6 +134,12 @@ fun randomReplicaCountActionConfig(): ReplicaCountActionConfig {
     return ReplicaCountActionConfig(index = 0, numOfReplicas = ESRestTestCase.randomIntBetween(0, 200))
 }
 
+fun randomForceMergeActionConfig(
+    maxNumSegments: Int = ESRestTestCase.randomIntBetween(1, 50)
+): ForceMergeActionConfig {
+    return ForceMergeActionConfig(maxNumSegments = maxNumSegments, index = 0)
+}
+
 /**
  * Helper functions for creating a random Conditions object
  */
@@ -163,8 +170,8 @@ fun randomChangePolicy(
     return ChangePolicy(policyID, state, emptyList())
 }
 
-fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class
-    return null // TODO: random DefaultNotification
+fun randomDefaultNotification(): Map<String, Any>? {
+    return null
 }
 
 fun randomManagedIndexConfig(
@@ -270,6 +277,11 @@ fun ReadWriteActionConfig.toJsonString(): String {
 }
 
 fun ReplicaCountActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun ForceMergeActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

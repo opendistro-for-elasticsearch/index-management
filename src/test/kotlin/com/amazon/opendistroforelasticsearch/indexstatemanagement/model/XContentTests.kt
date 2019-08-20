@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.A
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
@@ -113,6 +114,14 @@ class XContentTests : ESTestCase() {
         val replicaCountActionConfigString = replicaCountActionConfig.toJsonString()
         val parsedReplicaCountActionConfig = ActionConfig.parse(parser(replicaCountActionConfigString), 0)
         assertEquals("Round tripping ReplicaCountActionConfig doesn't work", replicaCountActionConfig, parsedReplicaCountActionConfig)
+    }
+
+    fun `test force_merge action config parsing`() {
+        val forceMergeActionConfig = randomForceMergeActionConfig()
+
+        val forceMergeActionConfigString = forceMergeActionConfig.toJsonString()
+        val parsedForceMergeActionConfig = ActionConfig.parse(parser(forceMergeActionConfigString), 0)
+        assertEquals("Round tripping ForceMergeActionConfig doesn't work", forceMergeActionConfig, parsedForceMergeActionConfig)
     }
 
     fun `test managed index config parsing`() {

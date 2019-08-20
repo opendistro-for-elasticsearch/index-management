@@ -41,7 +41,7 @@ class WaitForForceMergeStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index
 
@@ -123,7 +123,6 @@ class WaitForForceMergeStep(
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
         } catch (e: Exception) {
-            // TODO: Should add loger.error messages where Exceptions are caught for Steps
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to check segments when waiting for force merge to complete")
             val errorMessage = e.message
@@ -145,7 +144,6 @@ class WaitForForceMergeStep(
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
-            // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
             info = info
         )

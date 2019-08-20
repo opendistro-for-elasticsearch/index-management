@@ -55,7 +55,7 @@ fun randomPolicy(
     description: String = ESRestTestCase.randomAlphaOfLength(10),
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-    defaultNotification: Map<String, Any>? = randomDefaultNotification(), // TODO: DefaultNotification
+    defaultNotification: Map<String, Any>? = randomDefaultNotification(),
     states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
 ): Policy {
     return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
@@ -170,8 +170,8 @@ fun randomChangePolicy(
     return ChangePolicy(policyID, state, emptyList())
 }
 
-fun randomDefaultNotification(): Map<String, Any>? { // TODO: DefaultNotification data class
-    return null // TODO: random DefaultNotification
+fun randomDefaultNotification(): Map<String, Any>? {
+    return null
 }
 
 fun randomManagedIndexConfig(

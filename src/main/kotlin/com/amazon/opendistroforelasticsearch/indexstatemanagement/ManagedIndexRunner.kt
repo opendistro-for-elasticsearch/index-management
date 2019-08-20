@@ -123,7 +123,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
     }
 
-    // TODO: Implement logic for when ISM is moved to STOPPING/STOPPED state when we add those APIs
     @Suppress("ReturnCount")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
         // doing a check of local cluster health as we do not want to overload master node with potentially a lot of calls
@@ -165,9 +164,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
-        // TODO: Compare policy version of ManagedIndexMetaData with policy version of job
-        // If mismatch, update ManagedIndexMetaData with Version Conflict error
-
         val state = policy.getStateToExecute(managedIndexMetaData)
         val action: Action? = state?.getActionToExecute(clusterService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
@@ -179,8 +175,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
-        // If Step status is still in Start it means we have failed to update the IndexMetaData.
-        // TODO: In case the step is Idempotent we can retry. ie. open, close, read_only, read_write, etc...
         if (managedIndexMetaData.stepMetaData?.stepStatus == Step.StepStatus.STARTING) {
             val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
             updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
@@ -198,9 +192,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
             step.execute()
             val executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(state, action, step)
 
-            // TODO: Check if we can move this into the TransportUpdateManagedIndexMetaDataAction to cover all cases where
-            //  IndexMetaData does not exist anymore since if this current execution was a delete step and it was
-            //  successful then the IndexMetaData will be wiped and will throw a NPE if we attempt to update it
             if (executedManagedIndexMetaData.isSuccessfulDelete) {
                 return
             }

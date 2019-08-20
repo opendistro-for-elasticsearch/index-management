@@ -50,7 +50,6 @@ class IndexStateManagementHistory(
         clusterService.addLocalNodeMasterListener(this)
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_ENABLED) {
             historyEnabled = it
-            if (!it) scheduledRollover?.cancel()
     }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_MAX_DOCS) { historyMaxDocs = it }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_INDEX_MAX_AGE) { historyMaxAge = it }
@@ -68,7 +67,7 @@ class IndexStateManagementHistory(
             // try to rollover immediately as we might be restarting the cluster
             rolloverHistoryIndex()
             // schedule the next rollover for approx MAX_AGE later
-            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverHistoryIndex() }, historyRolloverCheckPeriod, executorName())
+            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverAndDeleteHistoryIndex() }, historyRolloverCheckPeriod, executorName())
         } catch (e: Exception) {
             // This should be run on cluster startup
             logger.error("Error creating ISM history index.", e)

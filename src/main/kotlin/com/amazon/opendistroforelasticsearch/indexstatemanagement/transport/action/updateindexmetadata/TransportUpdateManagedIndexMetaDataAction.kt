@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementHistory
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import kotlinx.coroutines.CoroutineName
@@ -52,7 +51,6 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         transportService: TransportService,
         actionFilters: ActionFilters,
         indexNameExpressionResolver: IndexNameExpressionResolver,
-        indexStateManagementIndices: IndexStateManagementIndices,
         indexStateManagementHistory: IndexStateManagementHistory
     ) : super(
         UpdateManagedIndexMetaDataAction.name(),
@@ -64,13 +62,11 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         Supplier { UpdateManagedIndexMetaDataRequest() }
     ) {
         this.client = client
-        this.indexStateManagementIndices = indexStateManagementIndices
         this.indexStateManagementHistory = indexStateManagementHistory
     }
 
     private val log = LogManager.getLogger(javaClass)
     private val client: Client
-    private val indexStateManagementIndices: IndexStateManagementIndices
     private val indexStateManagementHistory: IndexStateManagementHistory
 
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {

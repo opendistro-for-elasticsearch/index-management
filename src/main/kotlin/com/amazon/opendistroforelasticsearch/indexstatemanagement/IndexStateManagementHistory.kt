@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
@@ -121,7 +122,6 @@ class IndexStateManagementHistory(
     @Suppress("SpreadOperator")
     private fun deleteOldHistoryIndex() {
         val indexToDelete = mutableListOf<String>()
-        var alias: String? = null
 
         val clusterStateRequest = ClusterStateRequest()
         clusterStateRequest.clear().indices(IndexStateManagementIndices.HISTORY_ALL).metaData(true)
@@ -131,41 +131,18 @@ class IndexStateManagementHistory(
 
         val clusterStateResponse = client.admin().cluster().state(clusterStateRequest).actionGet()
 
-        if (clusterStateResponse.state.metaData.indices().size() == 1) {
-            if (historyEnabled) {
-                // In odd cases user can set Max age greater than the retention period making the history index not rollover.
-                // In case there is only one history index we need to make sure history is not enabled before removing the only index.
-                return
-            }
-
-            // In case there is only 1 index and history is not enabled. This will be the final index that is left.
-            // Need to clean the the alias.
-
-            val indexMetaData = clusterStateResponse.state.metaData.indices().first().value
-            for (aliasEntry in indexMetaData.aliases) {
-                val aliasMetaData = aliasEntry.value
-                if (IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS == aliasMetaData.alias) {
-                    alias = aliasMetaData.alias
-                    break
-                }
-            }
-
-            if (alias != null) {
-                val indicesAliasesRequest = IndicesAliasesRequest()
-                indicesAliasesRequest.addAliasAction(AliasActions.remove().index(indexMetaData.index.name).aliases(alias))
-                val aliasesAcknowledgedResponse = client.admin().indices().aliases(indicesAliasesRequest).actionGet()
-                if (!aliasesAcknowledgedResponse.isAcknowledged) {
-                    logger.error("could not delete ISM history alias")
-                }
-            }
-        }
-
         for (entry in clusterStateResponse.state.metaData.indices()) {
             val indexMetaData = entry.value
             val creationTime = indexMetaData.creationDate
 
             logger.info("CreationTime $creationTime $historyRetentionPeriod.millis}")
             if ((Instant.now().toEpochMilli() - creationTime) > historyRetentionPeriod.millis) {
+                val alias = indexMetaData.aliases.firstOrNull { IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS == it.value.alias }
+                if (alias != null && historyEnabled) {
+                    // If index has write alias and history is enable, don't delete the index.
+                    break
+                }
+
                 indexToDelete.add(indexMetaData.index.name)
             }
         }
@@ -180,7 +157,6 @@ class IndexStateManagementHistory(
     }
 
     suspend fun addHistory(managedIndexMetaData: List<ManagedIndexMetaData>) {
-        deleteOldHistoryIndex()
         if (!historyEnabled) {
             logger.debug("Index State Management history is not enabled")
             return
@@ -193,7 +169,18 @@ class IndexStateManagementHistory(
 
         if (docWriteRequest.isNotEmpty()) {
             val bulkRequest = BulkRequest().add(docWriteRequest)
-            client.bulk(bulkRequest, ActionListener.wrap(::onBulkResponse, ::onFailure))
+
+            try {
+                val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
+
+                for (bulkItemResponse in bulkResponse) {
+                    if (bulkItemResponse.isFailed) {
+                        logger.error("Failed to add history. Id: ${bulkItemResponse.id}, failureMessage: ${bulkItemResponse.failureMessage}")
+                    }
+                }
+            } catch(e: Exception) {
+                logger.error("failed to index indexMetaData History.", e)
+            }
         }
     }
 
@@ -216,17 +203,5 @@ class IndexStateManagementHistory(
             .endObject()
         return IndexRequest(IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS)
             .source(builder)
-    }
-
-    private fun onBulkResponse(bulkResponse: BulkResponse) {
-        for (bulkItemResponse in bulkResponse) {
-            if (bulkItemResponse.isFailed) {
-                logger.error("Failed to add history. Id: ${bulkItemResponse.id}, failureMessage: ${bulkItemResponse.failureMessage}")
-            }
-        }
-    }
-
-    private fun onFailure(e: Exception) {
-        logger.error("failed to index indexMetaData History.", e)
     }
 }

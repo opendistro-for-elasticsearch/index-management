@@ -32,6 +32,15 @@ data class State(
 
     init {
         require(name.isNotBlank()) { "State must contain a valid name" }
+        var hasDelete = false
+        actions.forEach { actionConfig ->
+            // dont allow actions after delete as they will never happen
+            require(!hasDelete) { "State=$name must not contain an action after a delete action" }
+            hasDelete = actionConfig.type == ActionConfig.ActionType.DELETE
+        }
+
+        // dont allow transitions if state contains delete
+        if (hasDelete) require(transitions.isEmpty()) { "State=$name cannot contain transitions if using delete action" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

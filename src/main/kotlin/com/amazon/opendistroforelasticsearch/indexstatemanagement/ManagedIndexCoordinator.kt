@@ -361,18 +361,20 @@ class ManagedIndexCoordinator(
      * Finds indices that no longer have a policy set to them but still have [ManagedIndexMetaData] meaning the
      * [ManagedIndexMetaData] needs to be cleaned up.
      */
+    @OpenForTesting
     fun getIndicesToDeleteManagedIndexMetaDataFrom(clusterState: ClusterState): List<Index> {
         return clusterState.metaData().indices().values().mapNotNull {
             val policyID = it.value.getPolicyID()
             val managedIndexMetaData = it.value.getManagedIndexMetaData()
 
-            if (policyID == null && managedIndexMetaData != null ) it.value.index else null
+            if (policyID == null && managedIndexMetaData != null) it.value.index else null
         }
     }
 
     /**
      * Removes the [ManagedIndexMetaData] from the given list of [Index]es.
      */
+    @OpenForTesting
     @Suppress("TooGenericExceptionCaught")
     suspend fun clearManagedIndexMetaData(indices: List<Index>) {
         try {
@@ -381,13 +383,12 @@ class ManagedIndexCoordinator(
             retryPolicy.retry(logger) {
                 val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
 
-                if(!response.isAcknowledged) logger.error("Failed to remove ManagedIndexMetaData")
+                if (!response.isAcknowledged) logger.error("Failed to remove ManagedIndexMetaData")
             }
         } catch (e: Exception) {
             logger.error("Failed to remove ManagedIndexMetaData", e)
         }
     }
-
 
     companion object {
         const val MAX_HITS = 10_000

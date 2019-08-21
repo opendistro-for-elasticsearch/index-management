@@ -24,38 +24,56 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.index.Index
 
 class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndexMetaDataRequest> {
-    lateinit var listOfIndexMetadata: List<Pair<Index, ManagedIndexMetaData>>
+
+    lateinit var indicesToAddManagedIndexMetaDataTo: List<Pair<Index, ManagedIndexMetaData>>
+        private set
+
+    lateinit var indicesToRemoveManagedIndexMetaDataFrom: List<Index>
         private set
 
     constructor()
 
-    constructor(listOfIndexMetadata: List<Pair<Index, ManagedIndexMetaData>>) {
-        this.listOfIndexMetadata = listOfIndexMetadata
+    constructor(
+        indicesToAddManagedIndexMetaDataTo: List<Pair<Index, ManagedIndexMetaData>> = listOf(),
+        indicesToRemoveManagedIndexMetaDataFrom: List<Index> = listOf()
+    ) {
+        this.indicesToAddManagedIndexMetaDataTo = indicesToAddManagedIndexMetaDataTo
+        this.indicesToRemoveManagedIndexMetaDataFrom = indicesToRemoveManagedIndexMetaDataFrom
     }
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (!this::listOfIndexMetadata.isInitialized) {
-            validationException = addValidationError("must specify index List for UpdateManagedIndexMetaData", validationException)
+        if (!this::indicesToAddManagedIndexMetaDataTo.isInitialized && !this::indicesToRemoveManagedIndexMetaDataFrom.isInitialized) {
+            validationException = addValidationError(
+                "Must specify at least one index List for UpdateManagedIndexMetaData",
+                validationException
+            )
         }
         return validationException
     }
 
     override fun writeTo(streamOutput: StreamOutput) {
         super.writeTo(streamOutput)
-        streamOutput.writeCollection(listOfIndexMetadata) { so, pair ->
+
+        streamOutput.writeCollection(indicesToAddManagedIndexMetaDataTo) { so, pair ->
             pair.first.writeTo(so)
             pair.second.writeTo(so)
+        }
+
+        streamOutput.writeCollection(indicesToRemoveManagedIndexMetaDataFrom) { so, index ->
+            index.writeTo(so)
         }
     }
 
     override fun readFrom(streamInput: StreamInput) {
         super.readFrom(streamInput)
 
-        listOfIndexMetadata = streamInput.readList {
+        indicesToAddManagedIndexMetaDataTo = streamInput.readList {
             val index = Index(it)
             val managedIndexMetaData = ManagedIndexMetaData.fromStreamInput(it)
             Pair(index, managedIndexMetaData)
         }
+
+        indicesToRemoveManagedIndexMetaDataFrom = streamInput.readList { Index(it) }
     }
 }

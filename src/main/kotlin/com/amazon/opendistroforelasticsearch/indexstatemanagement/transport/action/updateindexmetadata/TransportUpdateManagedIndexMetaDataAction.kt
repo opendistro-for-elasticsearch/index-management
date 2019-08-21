@@ -72,7 +72,10 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {
         // https://github.com/elastic/elasticsearch/commit/ae14b4e6f96b554ca8f4aaf4039b468f52df0123
         // This commit will help us to give each individual index name and the error that is cause it. For now it will be a generic error message.
-        val indices = request.listOfIndexMetadata.map { it.first.name }.toTypedArray()
+        val indicesToAddTo = request.indicesToAddManagedIndexMetaDataTo.map { it.first.name }.toTypedArray()
+        val indicesToRemoveFrom = request.indicesToRemoveManagedIndexMetaDataFrom.map { it.name }.toTypedArray()
+        val indices = indicesToAddTo + indicesToRemoveFrom
+
         return state.blocks.indicesBlockedException(ClusterBlockLevel.METADATA_WRITE, indices)
     }
 
@@ -87,9 +90,16 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
                 override fun execute(currentState: ClusterState): ClusterState {
                     val metaDataBuilder = MetaData.builder(currentState.metaData)
 
-                    for (pair in request.listOfIndexMetadata) {
+                    for (pair in request.indicesToAddManagedIndexMetaDataTo) {
                         metaDataBuilder.put(IndexMetaData.builder(currentState.metaData.index(pair.first))
                             .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, pair.second.toMap()))
+                    }
+
+                    for (index in request.indicesToRemoveManagedIndexMetaDataFrom) {
+                        val indexMetaDataBuilder = IndexMetaData.builder(currentState.metaData.index(index.name))
+                        indexMetaDataBuilder.removeCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+
+                        metaDataBuilder.put(indexMetaDataBuilder)
                     }
 
                     return ClusterState.builder(currentState).metaData(metaDataBuilder).build()

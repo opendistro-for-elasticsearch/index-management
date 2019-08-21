@@ -383,7 +383,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
         var result = false
         try {
             val request = UpdateManagedIndexMetaDataRequest(
-                    listOf(Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData))
+                indicesToAddManagedIndexMetaDataTo = listOf(
+                    Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData)
+                )
             )
             updateMetaDataRetryPolicy.retry(logger) {
                 val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }

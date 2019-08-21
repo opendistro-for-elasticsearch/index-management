@@ -117,10 +117,11 @@ class IndexStateManagementHistory(
         val indexToDelete = mutableListOf<String>()
 
         val clusterStateRequest = ClusterStateRequest()
-        clusterStateRequest.clear().indices(IndexStateManagementIndices.HISTORY_ALL).metaData(true)
-        clusterStateRequest.local(true)
-        val strictExpandIndicesOptions = IndicesOptions.strictExpand()
-        clusterStateRequest.indicesOptions(strictExpandIndicesOptions)
+            .clear()
+            .indices(IndexStateManagementIndices.HISTORY_ALL)
+            .metaData(true)
+            .local(true)
+            .indicesOptions(IndicesOptions.strictExpand())
 
         val clusterStateResponse = client.admin().cluster().state(clusterStateRequest).actionGet()
 
@@ -128,7 +129,6 @@ class IndexStateManagementHistory(
             val indexMetaData = entry.value
             val creationTime = indexMetaData.creationDate
 
-            logger.info("CreationTime $creationTime $historyRetentionPeriod.millis}")
             if ((Instant.now().toEpochMilli() - creationTime) > historyRetentionPeriod.millis) {
                 val alias = indexMetaData.aliases.firstOrNull { IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS == it.value.alias }
                 if (alias != null && historyEnabled) {

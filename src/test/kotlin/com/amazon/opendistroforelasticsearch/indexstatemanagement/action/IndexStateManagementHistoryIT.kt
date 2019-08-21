@@ -24,8 +24,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test basic workflow`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_1"
+        val policyID = "${testIndexName}_testPolicyName_1"
         val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(
             State("ReadOnlyState", listOf(actionConfig), listOf())
@@ -86,8 +86,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test short retention period and history enabled`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_2"
+        val policyID = "${testIndexName}_testPolicyName_2"
         val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(
             State("ReadOnlyState", listOf(actionConfig), listOf())
@@ -152,8 +152,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test small doc count rolledover index`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_3"
+        val policyID = "${testIndexName}_testPolicyNam_3"
         val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(
             State("ReadOnlyState", listOf(actionConfig), listOf())
@@ -218,8 +218,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test short retention period and rolledover index`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_4"
+        val policyID = "${testIndexName}_testPolicyNam_4"
         val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(
             State("ReadOnlyState", listOf(actionConfig), listOf())
@@ -285,8 +285,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test short retention period and history disabled`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_5"
+        val policyID = "${testIndexName}_testPolicyName_5"
         val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(
             State("ReadOnlyState", listOf(actionConfig), listOf())

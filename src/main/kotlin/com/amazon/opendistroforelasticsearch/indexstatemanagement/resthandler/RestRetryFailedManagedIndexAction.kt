@@ -139,7 +139,6 @@ class RestRetryFailedManagedIndexAction(
             val requestsToRetry = createEnableBulkRequest(documentIds)
             val bulkRequest = BulkRequest().add(requestsToRetry)
 
-            // TODO add ES retryPolicy on RestStatus.TOO_MANY_REQUESTS
             client.bulk(bulkRequest, ActionListener.wrap(::onBulkResponse, ::onFailure))
         }
 

@@ -35,7 +35,6 @@ data class Policy(
     val description: String,
     val schemaVersion: Long,
     val lastUpdatedTime: Instant,
-    // TODO: Implement DefaultNotification(destination, message)
     val defaultNotification: Map<String, Any>?,
     val defaultState: String,
     val states: List<State>
@@ -96,7 +95,6 @@ data class Policy(
         ): Policy {
             var description: String? = null
             var defaultState: String? = null
-            // TODO Implement DefaultNotification(destination, message)
             var defaultNotification: Map<String, Any>? = null
             var lastUpdatedTime: Instant? = null
             var schemaVersion: Long = 1
@@ -112,7 +110,6 @@ data class Policy(
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
                     POLICY_ID_FIELD -> { /* do nothing as this is an internal field */ }
                     DESCRIPTION_FIELD -> description = xcp.text()
-                    // TODO: DefaultNotification.parse(xcp)
                     DEFAULT_NOTIFICATION_FIELD -> defaultNotification = null
                     DEFAULT_STATE_FIELD -> defaultState = xcp.text()
                     STATES_FIELD -> {

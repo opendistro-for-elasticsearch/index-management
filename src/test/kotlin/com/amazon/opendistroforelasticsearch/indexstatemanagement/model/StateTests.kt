@@ -15,6 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 
@@ -27,6 +31,18 @@ class StateTests : ESTestCase() {
 
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for empty state name") {
             State("", emptyList(), emptyList())
+        }
+    }
+
+    fun `test transitions disallowed if using delete`() {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for transitions when using delete") {
+            randomState(actions = listOf(randomDeleteActionConfig()), transitions = listOf(randomTransition()))
+        }
+    }
+
+    fun `test action disallowed if used after delete`() {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for action if used after delete") {
+            randomState(actions = listOf(randomDeleteActionConfig(), randomReplicaCountActionConfig()))
         }
     }
 }

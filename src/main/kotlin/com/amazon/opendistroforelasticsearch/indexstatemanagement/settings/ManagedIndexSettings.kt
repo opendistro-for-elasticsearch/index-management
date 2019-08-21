@@ -70,7 +70,7 @@ class ManagedIndexSettings {
         )
 
         val ISM_HISTORY_MAX_DOCS = Setting.longSetting(
-            "opendistro.index_state_management.ism_history_max_docs",
+            "opendistro.index_state_management.history_max_docs",
             2500000L, // 1 doc is ~10kb or less. This many doc is roughly 25gb
             0L,
             Setting.Property.NodeScope,
@@ -78,21 +78,21 @@ class ManagedIndexSettings {
         )
 
         val ISM_HISTORY_INDEX_MAX_AGE = Setting.positiveTimeSetting(
-            "opendistro.index_state_management.ism_history_max_age",
+            "opendistro.index_state_management.history_max_age",
             TimeValue.timeValueHours(24),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
 
         val ISM_HISTORY_ROLLOVER_CHECK_PERIOD = Setting.positiveTimeSetting(
-            "opendistro.index_state_management.ism_history_rollover_check_period",
+            "opendistro.index_state_management.history_rollover_check_period",
             TimeValue.timeValueHours(8),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
 
         val ISM_HISTORY_RETENTION_PERIOD = Setting.positiveTimeSetting(
-            "opendistro.index_state_management.ism_history_rollover_retention_period",
+            "opendistro.index_state_management.history_rollover_retention_period",
             TimeValue(30, TimeUnit.DAYS),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic

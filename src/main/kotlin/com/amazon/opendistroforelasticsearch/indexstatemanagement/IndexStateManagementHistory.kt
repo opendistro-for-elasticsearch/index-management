@@ -21,6 +21,7 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
@@ -112,7 +113,7 @@ class IndexStateManagementHistory(
         return response.isRolledOver
     }
 
-    @Suppress("SpreadOperator")
+    @Suppress("SpreadOperator", "NestedBlockDepth")
     private fun deleteOldHistoryIndex() {
         val indexToDelete = mutableListOf<String>()
 
@@ -144,11 +145,23 @@ class IndexStateManagementHistory(
             val deleteRequest = DeleteIndexRequest(*indexToDelete.toTypedArray())
             val deleteResponse = client.admin().indices().delete(deleteRequest).actionGet()
             if (!deleteResponse.isAcknowledged) {
-                logger.error("could not delete one or more ISM history index. $indexToDelete")
+                logger.error("could not delete one or more ISM history index. $indexToDelete. Retrying one by one.")
+                for (index in indexToDelete) {
+                    try {
+                        val singleDeleteRequest = DeleteIndexRequest(*indexToDelete.toTypedArray())
+                        val singleDeleteResponse = client.admin().indices().delete(singleDeleteRequest).actionGet()
+                        if (!singleDeleteResponse.isAcknowledged) {
+                            logger.error("could not delete one or more ISM history index. $index.")
+                        }
+                    } catch (e: IndexNotFoundException) {
+                        logger.debug("$index was already delete. ${e.message}")
+                    }
+                }
             }
         }
     }
 
+    @Suppress("NestedBlockDepth")
     suspend fun addHistory(managedIndexMetaData: List<ManagedIndexMetaData>) {
         if (!historyEnabled) {
             logger.debug("Index State Management history is not enabled")

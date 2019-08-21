@@ -4,13 +4,23 @@
     "managed_index_meta_data": {
       "properties": {
         "index": {
-          "type": "keyword"
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          }
         },
         "index_uuid": {
           "type": "keyword"
         },
         "policy_id": {
-          "type": "keyword"
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword"
+            }
+          }
         },
         "policy_seq_no": {
           "type": "long"
@@ -30,7 +40,12 @@
         "state": {
           "properties": {
             "name": {
-              "type": "keyword"
+              "type": "text",
+              "fields": {
+                "raw": {
+                  "type": "keyword"
+                }
+              }
             },
             "start_time": {
               "type": "date",
@@ -59,6 +74,16 @@
             "last_retry_time": {
               "type": "date",
               "format": "strict_date_time||epoch_millis"
+            },
+            "action_properties": {
+              "properties": {
+                "was_read_only": {
+                  "type": "boolean"
+                },
+                "max_num_segments": {
+                  "type": "integer"
+                }
+              }
             }
           }
         },

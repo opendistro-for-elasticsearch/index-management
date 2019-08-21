@@ -241,8 +241,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         restAdminSettings()
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "true")
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "2s")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "1s")
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_MAX_DOCS.key, "1")
+        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "1s")
 
         Thread.sleep(2000)
 
@@ -324,8 +324,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         assertTrue("History index does not exist.", indexExists(historyIndexName))
 
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "false")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "2s")
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "1s")
+        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "2s")
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
@@ -340,7 +340,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
     private fun resetHistorySetting() {
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "true")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "60s")
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "60s")
+        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "60s")
     }
 }

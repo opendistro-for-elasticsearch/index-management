@@ -10,7 +10,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.R
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDefaultNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import java.time.Clock
 import java.time.Instant
@@ -36,7 +36,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )
@@ -98,7 +98,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )
@@ -164,7 +164,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )
@@ -230,7 +230,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )
@@ -297,7 +297,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )

@@ -154,7 +154,7 @@ class IndexStateManagementHistory(
                             logger.error("could not delete one or more ISM history index. $index.")
                         }
                     } catch (e: IndexNotFoundException) {
-                        logger.debug("$index was already delete. ${e.message}")
+                        logger.debug("$index was already deleted. ${e.message}")
                     }
                 }
             }

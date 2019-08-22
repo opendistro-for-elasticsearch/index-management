@@ -49,7 +49,7 @@ data class Policy(
                 }
             }
         }
-        require(distinctStateNames.size == states.size) { "Policy cannot have duplicate state names"}
+        require(distinctStateNames.size == states.size) { "Policy cannot have duplicate state names" }
         require(states.isNotEmpty()) { "Policy must contain at least one State" }
         requireNotNull(states.find { it.name == defaultState }) { "Policy must have a valid default state" }
     }

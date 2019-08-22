@@ -27,8 +27,8 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         {"name":"Delete","actions":[{"delete":{}}],"transitions":[]}]}}
         """.trimIndent()
 
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_1"
+        val policyID = "${testIndexName}_testPolicyName_1"
 
         val policyResponse = createPolicyJson(testPolicy, policyID)
         val policyResponseMap = policyResponse.asMap()
@@ -98,8 +98,8 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         {"name":"Delete","actions":[{"delete":{}}],"transitions":[]}]}}
         """.trimIndent()
 
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_2"
+        val policyID = "${testIndexName}_testPolicyName_2"
 
         val policyResponse = createPolicyJson(testPolicy, policyID)
         val policyResponseMap = policyResponse.asMap()

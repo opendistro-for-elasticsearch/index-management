@@ -71,6 +71,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
+import org.elasticsearch.index.engine.VersionConflictEngineException
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
@@ -294,6 +295,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 val indexResponse: IndexResponse = client.suspendUntil { index(indexRequest, it) }
                 savedPolicy = indexResponse.status() == RestStatus.OK
             }
+        } catch (e: VersionConflictEngineException) {
+            logger.error("Failed to save policy(${policy.id}) to ManagedIndexConfig(${managedIndexConfig.index}). ${e.message}")
         } catch (e: Exception) {
             logger.error("Failed to save policy(${policy.id}) to ManagedIndexConfig(${managedIndexConfig.index})", e)
         }

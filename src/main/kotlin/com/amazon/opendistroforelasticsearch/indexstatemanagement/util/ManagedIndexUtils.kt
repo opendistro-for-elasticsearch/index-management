@@ -337,7 +337,6 @@ fun ManagedIndexMetaData.getStartingManagedIndexMetaData(
 
 @Suppress("ReturnCount")
 fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
-    state: State,
     action: Action,
     step: Step
 ): ManagedIndexMetaData {

@@ -238,8 +238,6 @@ fun Policy.getStateToExecute(managedIndexMetaData: ManagedIndexMetaData): State?
     return this.states.find { managedIndexMetaData.stateMetaData != null && it.name == managedIndexMetaData.stateMetaData.name }
 }
 
-// TODO: This doesn't look great because it thinks actionIndex can be null while action is not (should never happen)
-//  Should further break down ManagedIndexMetaData into StateMetaData, ActionMetaData, StepMetaData
 fun State.getActionToExecute(
     clusterService: ClusterService,
     scriptService: ScriptService,

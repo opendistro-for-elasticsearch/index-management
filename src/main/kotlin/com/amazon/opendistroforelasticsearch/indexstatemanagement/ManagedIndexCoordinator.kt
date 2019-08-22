@@ -178,8 +178,6 @@ class ManagedIndexCoordinator(
                     .map { deleteManagedIndexRequest(it.uuid) }
 
         /*
-        * TODO: Test performance this has on master
-        *
         * Update existing indices that have added or removed policy_ids
         * There doesn't seem to be a fast way of finding indices that meet the above conditions without
         * iterating over every index in cluster state and comparing current policy_id with previous policy_id
@@ -191,7 +189,6 @@ class ManagedIndexCoordinator(
         val requests: List<DocWriteRequest<*>> = event.state().metaData().indices().mapNotNull {
             val previousIndexMetaData = event.previousState().metaData().index(it.value.index)
             val policyID = it.value.getPolicyID()
-            // TODO: Hard delete (unsafe) vs delayed delete (safe, but index is still managed)
             val request: DocWriteRequest<*>? = when {
                 it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyID != null -> {
                     hasCreateRequests = true
@@ -216,7 +213,6 @@ class ManagedIndexCoordinator(
     @OpenForTesting
     fun initBackgroundSweep() {
         // If ISM is disabled return early
-        // TODO: Should we have separate ISM-enabled and Coordinator-enabled flags?
         if (!isIndexStateManagementEnabled()) return
 
         // Do not setup background sweep if we're not the elected master node
@@ -259,7 +255,6 @@ class ManagedIndexCoordinator(
      */
     @OpenForTesting
     suspend fun sweep() {
-        // TODO: Cleanup ManagedIndexMetaData for non-existing indices once ManagedIndexMetaData is implemented
         val currentManagedIndices = sweepManagedIndexJobs(client, ismIndices.indexStateManagementIndexExists())
         val clusterStateManagedIndices = sweepClusterState(clusterService.state())
 
@@ -323,7 +318,6 @@ class ManagedIndexCoordinator(
 
     @OpenForTesting
     suspend fun updateManagedIndices(requests: List<DocWriteRequest<*>>, hasCreateRequests: Boolean = false) {
-        // TODO: Deleting ISM index causes index to be recreated with new jobs which will have version conflict in MetaData
         var requestsToRetry = requests
         if (requestsToRetry.isEmpty()) return
 

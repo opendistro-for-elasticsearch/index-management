@@ -40,7 +40,7 @@ class AttemptRevertReadOnlyStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    @Suppress("TooGenericExceptionCaught") // TODO see if we can refactor to catch GenericException in Runner.
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index
 
@@ -97,7 +97,6 @@ class AttemptRevertReadOnlyStep(
             // Resetting actionProperties since the force_merge action is over
             actionMetaData = currentActionMetaData?.copy(actionProperties = null),
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
-            // TODO we should refactor such that transitionTo is not reset in the step.
             transitionTo = null,
             info = info
         )

@@ -41,7 +41,15 @@ data class Policy(
 ) : ToXContentObject {
 
     init {
-        // TODO: Unique valid state names, transitions point to an existing state name
+        val distinctStateNames = states.map { it.name }.distinct()
+        states.forEach { state ->
+            state.transitions.forEach { transition ->
+                require(distinctStateNames.contains(transition.stateName)) {
+                    "Policy contains a transition in state=${state.name} pointing to a nonexistent state=${transition.stateName}"
+                }
+            }
+        }
+        require(distinctStateNames.size == states.size) { "Policy cannot have duplicate state names"}
         require(states.isNotEmpty()) { "Policy must contain at least one State" }
         requireNotNull(states.find { it.name == defaultState }) { "Policy must have a valid default state" }
     }

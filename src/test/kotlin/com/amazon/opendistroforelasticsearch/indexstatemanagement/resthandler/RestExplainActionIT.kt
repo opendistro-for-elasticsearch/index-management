@@ -68,8 +68,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     fun `test index pattern`() {
         val indexName1 = "${testIndexName}_video"
-        val indexName2 = "${testIndexName}_video_2"
-        val indexName3 = "${testIndexName}_video_3"
+        val indexName2 = "${indexName1}_2"
+        val indexName3 = "${indexName1}_3"
         createIndex(indexName1, null)
         createIndex(indexName2, null)
         createIndex(indexName3, null)

@@ -24,18 +24,12 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.Manag
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
-import org.junit.Before
 import java.time.Instant
+import java.util.Locale
 
 class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
-    @Before
-    fun setup() {
-        createIndex("movies", null)
-        createIndex("movies_1", null)
-        createIndex("movies_2", null)
-        createIndex("other_index", null)
-    }
+    private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test missing indices`() {
         try {
@@ -59,10 +53,12 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test single index`() {
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/movies")
+        val indexName = "${testIndexName}_movies"
+        createIndex(indexName, null)
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
-            "movies" to mapOf<String, String?>(
+            indexName to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
             )
         )
@@ -71,16 +67,22 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index pattern`() {
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/movies*")
+        val indexName1 = "${testIndexName}_video_1"
+        val indexName2 = "${testIndexName}_video_2"
+        val indexName3 = "${testIndexName}_video_3"
+        createIndex(indexName1, null)
+        createIndex(indexName2, null)
+        createIndex(indexName3, null)
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/${testIndexName}_video*")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
-            "movies" to mapOf<String, String?>(
+            indexName1 to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
             ),
-            "movies_1" to mapOf<String, String?>(
+            indexName2 to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
             ),
-            "movies_2" to mapOf<String, String?>(
+            indexName3 to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
             )
         )
@@ -89,27 +91,27 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test attached policy`() {
-        val policyIndexName = "test_policy_index"
+        val indexName = "${testIndexName}_watermelon"
         val policy = createRandomPolicy(refresh = true)
-        createIndex(policyIndexName, policy.id)
+        createIndex(indexName, policy.id)
 
         Thread.sleep(2000)
 
-        val managedIndexConfig = getManagedIndexConfig(policyIndexName)
+        val managedIndexConfig = getManagedIndexConfig(indexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
         // change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
 
         Thread.sleep(3000)
 
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
 
         val expectedInfoString = mapOf("message" to "Successfully initialized policy: ${policy.id}").toString()
         val actual = response.asMap()
         assertPredicatesOnMetaData(
             listOf(
-                policyIndexName to listOf(
+                indexName to listOf(
                     ManagedIndexSettings.POLICY_ID.key to policy.id::equals,
                     ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
                     ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
@@ -126,27 +128,27 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test failed policy`() {
-        val policyIndexName = "test_failed_policy_index"
+        val indexName = "${testIndexName}_melon"
         val policyID = "does_not_exist"
-        createIndex(policyIndexName, policyID)
+        createIndex(indexName, policyID)
 
         Thread.sleep(2000)
 
-        val managedIndexConfig = getManagedIndexConfig(policyIndexName)
+        val managedIndexConfig = getManagedIndexConfig(indexName)
         assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
         // change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
 
         Thread.sleep(3000)
 
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$policyIndexName")
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
 
         val expectedInfoString = mapOf("message" to "Fail to load policy: $policyID").toString()
         val actual = response.asMap()
         assertPredicatesOnMetaData(
             listOf(
-                policyIndexName to listOf(
+                indexName to listOf(
                     ManagedIndexSettings.POLICY_ID.key to policyID::equals,
                     ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
                     ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,

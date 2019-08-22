@@ -28,7 +28,7 @@
           "type": "date",
           "format": "strict_date_time||epoch_millis"
         },
-        "default_notification": {
+        "error_notification": {
           "properties": {
             "destination": {
               "properties": {
@@ -115,8 +115,9 @@
                 }
               }
             },
-            "message": {
-              "type": "text"
+            "message_template": {
+              "type": "object",
+              "enabled": false
             }
           }
         },
@@ -290,8 +291,9 @@
                         }
                       }
                     },
-                    "message": {
-                      "type": "text"
+                    "message_template": {
+                      "type": "object",
+                      "enabled": false
                     }
                   }
                 }

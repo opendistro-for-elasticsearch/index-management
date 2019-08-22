@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.script.ScriptService
 
 data class TransitionsActionConfig(
     val transitions: List<Transition>
@@ -28,6 +29,7 @@ data class TransitionsActionConfig(
 
     override fun toAction(
         clusterService: ClusterService,
+        scriptService: ScriptService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = TransitionsAction(clusterService, client, managedIndexMetaData, this)

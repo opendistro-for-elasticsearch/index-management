@@ -11,6 +11,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
 data class OpenActionConfig(
@@ -28,6 +29,7 @@ data class OpenActionConfig(
 
     override fun toAction(
         clusterService: ClusterService,
+        scriptService: ScriptService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = OpenAction(clusterService, client, managedIndexMetaData, this)

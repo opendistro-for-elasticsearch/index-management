@@ -23,7 +23,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         val testPolicy = """
         {"policy":{"description":"Default policy","default_state":"Ingest","states":[
         {"name":"Ingest","actions":[{"retry":{"count":2,"backoff":"constant","delay":"1s"},"rollover":{"min_doc_count":100}}],"transitions":[{"state_name":"Search"}]},
-        {"name":"Search","actions":[],"transitions":[{"state_name":"Delete","conditions":{"index_age":"30d"}}]},
+        {"name":"Search","actions":[],"transitions":[{"state_name":"Delete","conditions":{"min_index_age":"30d"}}]},
         {"name":"Delete","actions":[{"delete":{}}],"transitions":[]}]}}
         """.trimIndent()
 
@@ -94,7 +94,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         val testPolicy = """
         {"policy":{"description":"Default policy","default_state":"Ingest","states":[
         {"name":"Ingest","actions":[{"retry":{"count":2,"backoff":"exponential","delay":"1m"},"rollover":{"min_doc_count":100}}],"transitions":[{"state_name":"Search"}]},
-        {"name":"Search","actions":[],"transitions":[{"state_name":"Delete","conditions":{"index_age":"30d"}}]},
+        {"name":"Search","actions":[],"transitions":[{"state_name":"Delete","conditions":{"min_index_age":"30d"}}]},
         {"name":"Delete","actions":[{"delete":{}}],"transitions":[]}]}}
         """.trimIndent()
 

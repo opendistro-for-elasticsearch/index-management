@@ -19,7 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDefaultNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -41,7 +41,7 @@ class ReadOnlyActionIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )

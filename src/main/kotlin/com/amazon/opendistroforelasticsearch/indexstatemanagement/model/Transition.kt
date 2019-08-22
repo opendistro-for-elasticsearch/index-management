@@ -89,17 +89,17 @@ data class Conditions(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-        if (indexAge != null) builder.field(INDEX_AGE_FIELD, indexAge.stringRep)
-        if (docCount != null) builder.field(DOC_COUNT_FIELD, docCount)
-        if (size != null) builder.field(SIZE_FIELD, size.stringRep)
+        if (indexAge != null) builder.field(MIN_INDEX_AGE_FIELD, indexAge.stringRep)
+        if (docCount != null) builder.field(MIN_DOC_COUNT_FIELD, docCount)
+        if (size != null) builder.field(MIN_SIZE_FIELD, size.stringRep)
         if (cron != null) builder.field(CRON_FIELD, cron)
         return builder.endObject()
     }
 
     companion object {
-        const val INDEX_AGE_FIELD = "index_age"
-        const val DOC_COUNT_FIELD = "doc_count"
-        const val SIZE_FIELD = "size"
+        const val MIN_INDEX_AGE_FIELD = "min_index_age"
+        const val MIN_DOC_COUNT_FIELD = "min_doc_count"
+        const val MIN_SIZE_FIELD = "min_size"
         const val CRON_FIELD = "cron"
 
         @JvmStatic
@@ -116,9 +116,9 @@ data class Conditions(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    INDEX_AGE_FIELD -> indexAge = TimeValue.parseTimeValue(xcp.text(), INDEX_AGE_FIELD)
-                    DOC_COUNT_FIELD -> docCount = xcp.longValue()
-                    SIZE_FIELD -> size = ByteSizeValue.parseBytesSizeValue(xcp.text(), SIZE_FIELD)
+                    MIN_INDEX_AGE_FIELD -> indexAge = TimeValue.parseTimeValue(xcp.text(), MIN_INDEX_AGE_FIELD)
+                    MIN_DOC_COUNT_FIELD -> docCount = xcp.longValue()
+                    MIN_SIZE_FIELD -> size = ByteSizeValue.parseBytesSizeValue(xcp.text(), MIN_SIZE_FIELD)
                     CRON_FIELD -> cron = ScheduleParser.parse(xcp) as? CronSchedule
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Conditions.")
                 }

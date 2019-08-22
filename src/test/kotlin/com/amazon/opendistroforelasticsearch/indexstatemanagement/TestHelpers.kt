@@ -94,9 +94,9 @@ fun randomConditions(
     val value = condition.second
 
     return when (type) {
-        Conditions.INDEX_AGE_FIELD -> Conditions(indexAge = value as TimeValue)
-        Conditions.DOC_COUNT_FIELD -> Conditions(docCount = value as Long)
-        Conditions.SIZE_FIELD -> Conditions(size = value as ByteSizeValue)
+        Conditions.MIN_INDEX_AGE_FIELD -> Conditions(indexAge = value as TimeValue)
+        Conditions.MIN_DOC_COUNT_FIELD -> Conditions(docCount = value as Long)
+        Conditions.MIN_SIZE_FIELD -> Conditions(size = value as ByteSizeValue)
 //        Conditions.CRON_FIELD -> Conditions(cron = value as CronSchedule) // TODO: Uncomment after issues are fixed
         else -> throw IllegalArgumentException("Invalid field: [$type] given for random Conditions.")
     }
@@ -143,11 +143,11 @@ fun randomForceMergeActionConfig(
 /**
  * Helper functions for creating a random Conditions object
  */
-fun randomIndexAge(indexAge: TimeValue = randomTimeValueObject()) = Conditions.INDEX_AGE_FIELD to indexAge
+fun randomIndexAge(indexAge: TimeValue = randomTimeValueObject()) = Conditions.MIN_INDEX_AGE_FIELD to indexAge
 
-fun randomDocCount(docCount: Long = ESRestTestCase.randomLongBetween(1, 1000)) = Conditions.DOC_COUNT_FIELD to docCount
+fun randomDocCount(docCount: Long = ESRestTestCase.randomLongBetween(1, 1000)) = Conditions.MIN_DOC_COUNT_FIELD to docCount
 
-fun randomSize(size: ByteSizeValue = randomByteSizeValue()) = Conditions.SIZE_FIELD to size
+fun randomSize(size: ByteSizeValue = randomByteSizeValue()) = Conditions.MIN_SIZE_FIELD to size
 
 fun randomCronSchedule(cron: CronSchedule = CronSchedule("0 * * * *", ZoneId.of("UTC"))) =
     Conditions.CRON_FIELD to cron

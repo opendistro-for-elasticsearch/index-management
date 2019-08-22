@@ -38,8 +38,8 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
 
     fun `test index list`() {
         val indexName = "${testIndexName}_movies"
-        val indexName1 = "${testIndexName}_movies_1"
-        val indexName2 = "${testIndexName}_movies_2"
+        val indexName1 = "${indexName}_1"
+        val indexName2 = "${indexName}_2"
         val indexName3 = "${testIndexName}_some_other_test"
         createIndex(indexName, null)
         createIndex(indexName1, "somePolicy")
@@ -72,8 +72,8 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
 
     fun `test index pattern`() {
         val indexName = "${testIndexName}_video"
-        val indexName1 = "${testIndexName}_video_1"
-        val indexName2 = "${testIndexName}_video_2"
+        val indexName1 = "${indexName}_1"
+        val indexName2 = "${indexName}_2"
         val indexName3 = "${testIndexName}_some_other_test_2"
         createIndex(indexName, null)
         createIndex(indexName1, null)

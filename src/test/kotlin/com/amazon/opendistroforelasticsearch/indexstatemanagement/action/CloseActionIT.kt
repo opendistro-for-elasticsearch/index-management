@@ -16,10 +16,12 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.CloseActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -49,22 +51,24 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName, policyID)
 
         assertEquals("open", getIndexState(indexName))
-        Thread.sleep(2000)
 
-        val managedIndexConfig = getManagedIndexConfig(indexName)
-        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        Thread.sleep(3000)
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(indexName),
+                strict = false
+            )
+        }
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        Thread.sleep(3000)
-
-        assertEquals("close", getIndexState(indexName))
+        waitFor { assertEquals("close", getIndexState(indexName)) }
     }
 
     fun `test already closed index`() {
@@ -89,21 +93,23 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
 
         closeIndex(indexName)
         assertEquals("close", getIndexState(indexName))
-        Thread.sleep(2000)
 
-        val managedIndexConfig = getManagedIndexConfig(indexName)
-        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        Thread.sleep(3000)
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(indexName),
+                strict = false
+            )
+        }
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        Thread.sleep(3000)
-
-        assertEquals("close", getIndexState(indexName))
+        waitFor { assertEquals("close", getIndexState(indexName)) }
     }
 }

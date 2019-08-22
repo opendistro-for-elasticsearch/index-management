@@ -139,8 +139,8 @@ fun randomReadWriteActionConfig(): ReadWriteActionConfig {
     return ReadWriteActionConfig(index = 0)
 }
 
-fun randomReplicaCountActionConfig(): ReplicaCountActionConfig {
-    return ReplicaCountActionConfig(index = 0, numOfReplicas = ESRestTestCase.randomIntBetween(0, 200))
+fun randomReplicaCountActionConfig(numOfReplicas: Int = ESRestTestCase.randomIntBetween(0, 200)): ReplicaCountActionConfig {
+    return ReplicaCountActionConfig(index = 0, numOfReplicas = numOfReplicas)
 }
 
 fun randomForceMergeActionConfig(
@@ -399,4 +399,22 @@ fun RestClient.makeRequest(
         request.entity = entity
     }
     return performRequest(request)
+}
+
+fun <T> waitFor(
+    timeout: Instant = Instant.ofEpochSecond(5),
+    block: () -> T
+): T {
+    val startTime = Instant.now().toEpochMilli()
+    do {
+        try {
+            return block()
+        } catch (e: Throwable) {
+            if ((Instant.now().toEpochMilli() - startTime) > timeout.toEpochMilli()) {
+                throw e
+            } else {
+                Thread.sleep(100L)
+            }
+        }
+    } while (true)
 }

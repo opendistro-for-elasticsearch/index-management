@@ -16,10 +16,12 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -49,21 +51,23 @@ class ReplicaCountActionIT : IndexStateManagementRestTestCase() {
 
         assertEquals("Index did not default to 1 replica", 1, getNumberOfReplicasSetting(indexName))
 
-        // give time for coordinator to create managed index job
-        Thread.sleep(2000)
-
-        val managedIndexConfig = getManagedIndexConfig(indexName)
-        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(indexName),
+                strict = false
+            )
+        }
 
         // Need to speed up to second execution where it will trigger the first execution of the action which
         // should set the replica count to the desired number
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
 
-        assertEquals("Index did not set number_of_replicas to ${actionConfig.numOfReplicas}", actionConfig.numOfReplicas, getNumberOfReplicasSetting(indexName))
+        waitFor { assertEquals("Index did not set number_of_replicas to ${actionConfig.numOfReplicas}", actionConfig.numOfReplicas, getNumberOfReplicasSetting(indexName)) }
     }
 }

@@ -17,10 +17,12 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
@@ -58,22 +60,26 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)
 
-        val segmentCount = getSegmentCount(indexName)
-        assertTrue("Segment count for [$indexName] was less than expected", segmentCount > 1)
+        waitFor { assertTrue("Segment count for [$indexName] was less than expected", getSegmentCount(indexName) > 1) }
 
-        val managedIndexConfig = getManagedIndexConfig(indexName)
-        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Will change the startTime each execution so that it triggers in 2 seconds
         // First execution: Policy is initialized
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(indexName),
+                strict = false
+            )
+        }
 
         // Second execution: Index is set to read-only for force_merge
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
 
-        assertEquals("true", getIndexBlocksWriteSetting(indexName))
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
 
         // Third execution: Force merge operation is kicked off
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
@@ -83,14 +89,12 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
-        val segmentCountAfterForceMerge = getSegmentCount(indexName)
-        assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, segmentCountAfterForceMerge)
+        waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
 
         // Fifth execution: Set index back to read-write since it was not originally read-only
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
 
-        assertEquals("false", getIndexBlocksWriteSetting(indexName))
+        waitFor { assertEquals("false", getIndexBlocksWriteSetting(indexName)) }
     }
 
     fun `test force merge on index already in read-only`() {
@@ -119,8 +123,7 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)
 
-        val segmentCount = getSegmentCount(indexName)
-        assertTrue("Segment count for [$indexName] was less than expected", segmentCount > 1)
+        waitFor { assertTrue("Segment count for [$indexName] was less than expected", getSegmentCount(indexName) > 1) }
 
         // Set index to read-only
         updateIndexSettings(
@@ -128,19 +131,24 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
             Settings.builder().put(IndexMetaData.SETTING_BLOCKS_WRITE, true)
         )
 
-        val managedIndexConfig = getManagedIndexConfig(indexName)
-        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Will change the startTime each execution so that it triggers in 2 seconds
         // First execution: Policy is initialized
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(indexName),
+                strict = false
+            )
+        }
 
         // Second execution: Index was already read-only and should remain so for force_merge
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
 
-        assertEquals("true", getIndexBlocksWriteSetting(indexName))
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
 
         // Third execution: Force merge operation is kicked off
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
@@ -150,14 +158,12 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
-        val segmentCountAfterForceMerge = getSegmentCount(indexName)
-        assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, segmentCountAfterForceMerge)
+        waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
 
         // Fifth execution: Index should remain in read-only since it was set before force_merge
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
 
-        assertEquals("true", getIndexBlocksWriteSetting(indexName))
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 
     @Suppress("UNCHECKED_CAST")

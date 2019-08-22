@@ -44,7 +44,6 @@ data class ManagedIndexMetaData(
     val actionMetaData: ActionMetaData?,
     val stepMetaData: StepMetaData?,
     val policyRetryInfo: PolicyRetryInfoMetaData?,
-    val errorNotificationFailure: String?,
     val info: Map<String, Any>?
 ) : Writeable, ToXContentFragment {
 
@@ -56,7 +55,6 @@ data class ManagedIndexMetaData(
             POLICY_SEQ_NO to policySeqNo?.toString(),
             POLICY_PRIMARY_TERM to policyPrimaryTerm?.toString(),
             POLICY_COMPLETED to policyCompleted?.toString(),
-            ERROR_NOTIFICATION_FAILURE to errorNotificationFailure,
             ROLLED_OVER to rolledOver?.toString(),
             TRANSITION_TO to transitionTo,
             StateMetaData.STATE to stateMetaData?.getMapValueString(),
@@ -64,23 +62,6 @@ data class ManagedIndexMetaData(
             StepMetaData.STEP to stepMetaData?.getMapValueString(),
             PolicyRetryInfoMetaData.RETRY_INFO to policyRetryInfo?.getMapValueString(),
             INFO to info?.let { Strings.toString(XContentFactory.jsonBuilder().map(it)) }
-        )
-    }
-
-    fun asTemplateArg(): Map<String, Any?> {
-        return mapOf(
-            INDEX to index,
-            INDEX_UUID to indexUuid,
-            POLICY_ID to policyID,
-            POLICY_SEQ_NO to policySeqNo?.toString(),
-            POLICY_PRIMARY_TERM to policyPrimaryTerm?.toString(),
-            POLICY_COMPLETED to policyCompleted?.toString(),
-            ROLLED_OVER to rolledOver?.toString(),
-            TRANSITION_TO to transitionTo,
-            StateMetaData.STATE to stateMetaData?.asTemplateArg(),
-            ActionMetaData.ACTION to actionMetaData?.asTemplateArg(),
-            PolicyRetryInfoMetaData.RETRY_INFO to policyRetryInfo?.asTemplateArg(),
-            INFO to info
         )
     }
 
@@ -100,8 +81,6 @@ data class ManagedIndexMetaData(
         if (rolledOver == true || (actionMetaData != null && actionMetaData.name == ActionConfig.ActionType.ROLLOVER.type)) {
             builder.field(ROLLED_OVER, rolledOver)
         }
-
-        if (errorNotificationFailure != null) builder.field(ERROR_NOTIFICATION_FAILURE, errorNotificationFailure)
 
         if (policyCompleted == true) {
             builder.field(POLICY_COMPLETED, policyCompleted)
@@ -143,7 +122,6 @@ data class ManagedIndexMetaData(
         streamOutput.writeOptionalLong(policySeqNo)
         streamOutput.writeOptionalLong(policyPrimaryTerm)
         streamOutput.writeOptionalBoolean(policyCompleted)
-        streamOutput.writeOptionalString(errorNotificationFailure)
         streamOutput.writeOptionalBoolean(rolledOver)
         streamOutput.writeOptionalString(transitionTo)
 
@@ -167,7 +145,6 @@ data class ManagedIndexMetaData(
         const val POLICY_SEQ_NO = "policy_seq_no"
         const val POLICY_PRIMARY_TERM = "policy_primary_term"
         const val POLICY_COMPLETED = "policy_completed"
-        const val ERROR_NOTIFICATION_FAILURE = "error_notification_failure"
         const val ROLLED_OVER = "rolled_over"
         const val TRANSITION_TO = "transition_to"
         const val INFO = "info"
@@ -179,7 +156,6 @@ data class ManagedIndexMetaData(
             val policySeqNo: Long? = si.readOptionalLong()
             val policyPrimaryTerm: Long? = si.readOptionalLong()
             val policyCompleted: Boolean? = si.readOptionalBoolean()
-            val errorNotificationFailure: String? = si.readOptionalString()
             val rolledOver: Boolean? = si.readOptionalBoolean()
             val transitionTo: String? = si.readOptionalString()
 
@@ -197,7 +173,6 @@ data class ManagedIndexMetaData(
                 policySeqNo = policySeqNo,
                 policyPrimaryTerm = policyPrimaryTerm,
                 policyCompleted = policyCompleted,
-                errorNotificationFailure = errorNotificationFailure,
                 rolledOver = rolledOver,
                 transitionTo = transitionTo,
                 stateMetaData = state,
@@ -217,7 +192,6 @@ data class ManagedIndexMetaData(
                 policySeqNo = map[POLICY_SEQ_NO]?.toLong(),
                 policyPrimaryTerm = map[POLICY_PRIMARY_TERM]?.toLong(),
                 policyCompleted = map[POLICY_COMPLETED]?.toBoolean(),
-                errorNotificationFailure = map[ERROR_NOTIFICATION_FAILURE],
                 rolledOver = map[ROLLED_OVER]?.toBoolean(),
                 transitionTo = map[TRANSITION_TO],
                 stateMetaData = StateMetaData.fromManagedIndexMetaDataMap(map),

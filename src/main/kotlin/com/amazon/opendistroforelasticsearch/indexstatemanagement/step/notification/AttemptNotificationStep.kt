@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.notification
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.NotificationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
@@ -71,7 +72,7 @@ class AttemptNotificationStep(
 
     private fun compileTemplate(template: Script, managedIndexMetaData: ManagedIndexMetaData): String {
         return scriptService.compile(template, TemplateScript.CONTEXT)
-            .newInstance(template.params + mapOf("ctx" to managedIndexMetaData.asTemplateArg()))
+            .newInstance(template.params + mapOf("ctx" to managedIndexMetaData.convertToMap()))
             .execute()
     }
 }

@@ -29,8 +29,8 @@ class OpenActionIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test basic`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_1"
+        val policyID = "${testIndexName}_testPolicyName_1"
         val actionConfig = OpenActionConfig(0)
         val states = listOf(
             State("OpenState", listOf(actionConfig), listOf())
@@ -69,8 +69,8 @@ class OpenActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test already open index`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_2"
+        val policyID = "${testIndexName}_testPolicyName_2"
         val actionConfig = OpenActionConfig(0)
         val states = listOf(
             State("OpenState", listOf(actionConfig), listOf())

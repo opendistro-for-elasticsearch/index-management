@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
@@ -208,7 +209,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 } catch (e: Exception) {
                     logger.error("Failed to publish error notification", e)
                     val errorMessage = e.message ?: "Failed to publish error notification"
-                    executedManagedIndexMetaData = executedManagedIndexMetaData.copy(errorNotificationFailure = errorMessage)
+                    val mutableInfo = executedManagedIndexMetaData.info?.toMutableMap() ?: mutableMapOf()
+                    mutableInfo["errorNotificationFailure"] = errorMessage
+                    executedManagedIndexMetaData = executedManagedIndexMetaData.copy(info = mutableInfo.toMap())
                 }
             }
 
@@ -325,7 +328,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 actionMetaData = null,
                 stepMetaData = null,
                 policyRetryInfo = PolicyRetryInfoMetaData(failed = policy == null, consumedRetries = 0),
-                errorNotificationFailure = null,
                 info = mapOf(
                     "message" to "${if (policy == null) "Fail to load" else "Successfully initialized"} policy: ${managedIndexConfig.policyID}"
                 )
@@ -478,8 +480,14 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     private fun compileTemplate(template: Script, managedIndexMetaData: ManagedIndexMetaData): String {
-        return scriptService.compile(template, TemplateScript.CONTEXT)
-                .newInstance(template.params + mapOf("ctx" to managedIndexMetaData.asTemplateArg()))
-                .execute()
+        return try {
+            scriptService.compile(template, TemplateScript.CONTEXT)
+                    .newInstance(template.params + mapOf("ctx" to managedIndexMetaData.convertToMap()))
+                    .execute()
+        } catch (e: Exception) {
+            val message = "There was an error compiling mustache template"
+            logger.error(message, e)
+            e.message ?: message
+        }
     }
 }

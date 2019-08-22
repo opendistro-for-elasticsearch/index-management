@@ -15,12 +15,19 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.action.support.master.TransportMasterNodeAction
+import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.AckedClusterStateUpdateTask
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
@@ -38,11 +45,13 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
 
     @Inject
     constructor(
+        client: Client,
         threadPool: ThreadPool,
         clusterService: ClusterService,
         transportService: TransportService,
         actionFilters: ActionFilters,
-        indexNameExpressionResolver: IndexNameExpressionResolver
+        indexNameExpressionResolver: IndexNameExpressionResolver,
+        indexStateManagementHistory: IndexStateManagementHistory
     ) : super(
         UpdateManagedIndexMetaDataAction.name(),
         transportService,
@@ -51,7 +60,14 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         actionFilters,
         indexNameExpressionResolver,
         Supplier { UpdateManagedIndexMetaDataRequest() }
-    )
+    ) {
+        this.client = client
+        this.indexStateManagementHistory = indexStateManagementHistory
+    }
+
+    private val log = LogManager.getLogger(javaClass)
+    private val client: Client
+    private val indexStateManagementHistory: IndexStateManagementHistory
 
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {
         // https://github.com/elastic/elasticsearch/commit/ae14b4e6f96b554ca8f4aaf4039b468f52df0123
@@ -84,6 +100,12 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
                 }
             }
         )
+
+        // Adding history is a best effort task.
+        GlobalScope.launch(Dispatchers.IO + CoroutineName("ManagedIndexMetaData-AddHistory")) {
+            val managedIndexMetaData = request.listOfIndexMetadata.map { it.second }
+            indexStateManagementHistory.addHistory(managedIndexMetaData)
+        }
     }
 
     override fun newResponse(): AcknowledgedResponse {

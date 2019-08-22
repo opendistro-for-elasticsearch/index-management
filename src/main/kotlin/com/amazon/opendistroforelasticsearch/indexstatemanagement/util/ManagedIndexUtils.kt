@@ -328,7 +328,8 @@ fun ManagedIndexMetaData.getStartingManagedIndexMetaData(
     return this.copy(
         stateMetaData = updatedStateMetaData,
         actionMetaData = updatedActionMetaData,
-        stepMetaData = updatedStepMetaData
+        stepMetaData = updatedStepMetaData,
+        info = mapOf("message" to "Starting action ${action.type} and working on ${step.name}")
     )
 }
 

@@ -116,6 +116,7 @@ data class ActionMetaData(
             }
         }
 
+        @Suppress("ComplexMethod")
         fun parse(xcp: XContentParser): ActionMetaData {
             var name: String? = null
             var startTime: Long? = null

@@ -70,6 +70,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         const val POLICY_BASE_URI = "$ISM_BASE_URI/policies"
         const val INDEX_STATE_MANAGEMENT_INDEX = ".opendistro-ism-config"
         const val INDEX_STATE_MANAGEMENT_JOB_TYPE = "opendistro-managed-index"
+        const val INDEX_STATE_MANAGEMENT_HISTORY_TYPE = "managed_index_meta_data"
     }
 
     override fun getJobIndex(): String {
@@ -139,6 +140,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         nodeEnvironment: NodeEnvironment,
         namedWriteableRegistry: NamedWriteableRegistry
     ): Collection<Any> {
+        val settings = environment.settings()
         this.clusterService = clusterService
         val managedIndexRunner = ManagedIndexRunner
             .registerClient(client)
@@ -146,10 +148,13 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             .registerNamedXContentRegistry(xContentRegistry)
 
         indexStateManagementIndices = IndexStateManagementIndices(client.admin().indices(), clusterService)
+        val indexStateManagementHistory =
+            IndexStateManagementHistory(settings, client, threadPool, clusterService, indexStateManagementIndices)
+
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
                 client, clusterService, threadPool, indexStateManagementIndices)
 
-        return listOf(managedIndexRunner, indexStateManagementIndices, managedIndexCoordinator)
+        return listOf(managedIndexRunner, indexStateManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
     }
 
     override fun getSettings(): List<Setting<*>> {
@@ -159,7 +164,12 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
-            ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS
+            ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS,
+            ManagedIndexSettings.ISM_HISTORY_ENABLED,
+            ManagedIndexSettings.ISM_HISTORY_MAX_DOCS,
+            ManagedIndexSettings.ISM_HISTORY_INDEX_MAX_AGE,
+            ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD,
+            ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD
         )
     }
 

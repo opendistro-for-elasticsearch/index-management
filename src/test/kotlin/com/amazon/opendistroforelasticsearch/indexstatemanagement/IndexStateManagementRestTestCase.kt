@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_HISTORY_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
@@ -186,6 +187,18 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return indexSettings[index]!!["settings"]!![ManagedIndexSettings.POLICY_ID.key] as? String
     }
 
+    protected fun updateClusterSetting(key: String, value: String) {
+        val request = """
+            {
+                "persistent": {
+                    "$key": "$value"
+                }
+            }
+        """.trimIndent()
+        val response = client().makeRequest("PUT", "_cluster/settings", emptyMap(),
+            StringEntity(request, APPLICATION_JSON))
+    }
+
     protected fun getManagedIndexConfig(index: String): ManagedIndexConfig? {
         val request = """
             {
@@ -206,6 +219,36 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return hit?.run {
             val xcp = createParser(jsonXContent, this.sourceRef)
             ManagedIndexConfig.parseWithType(xcp, id, seqNo, primaryTerm)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getHistorySearchResponse(index: String): SearchResponse {
+        val request = """
+            {
+                "seq_no_primary_term": true,
+                "sort": [
+                    {"$INDEX_STATE_MANAGEMENT_HISTORY_TYPE.history_timestamp": {"order": "desc"}}
+                ],
+                "query": {
+                    "term": {
+                        "$INDEX_STATE_MANAGEMENT_HISTORY_TYPE.index": "$index"
+                    }
+                }
+            }
+        """.trimIndent()
+        val response = client().makeRequest("POST", "${IndexStateManagementIndices.HISTORY_ALL}/_search", emptyMap(),
+            StringEntity(request, APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+        return SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
+    }
+
+    protected fun getLatestHistory(searchResponse: SearchResponse): ManagedIndexMetaData {
+        val hit = searchResponse.hits.hits.first()
+        return hit.run {
+            val xcp = createParser(jsonXContent, this.sourceRef)
+            xcp.nextToken()
+            ManagedIndexMetaData.parse(xcp)
         }
     }
 

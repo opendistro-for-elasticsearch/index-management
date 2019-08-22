@@ -68,10 +68,10 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index pattern`() {
-        val indexName = "movies"
-        val indexName1 = "movies_1"
-        val indexName2 = "movies_2"
-        val indexName3 = "some_other_test"
+        val indexName = "video"
+        val indexName1 = "video_1"
+        val indexName2 = "video_2"
+        val indexName3 = "some_other_test_2"
         createIndex(indexName, null)
         createIndex(indexName1, null)
         createIndex(indexName2, "somePolicy")
@@ -107,7 +107,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index not being managed`() {
-        val indexName = "movies"
+        val indexName = "games"
         createIndex(indexName, null)
         val response = client().makeRequest(
             RestRequest.Method.POST.toString(),
@@ -129,7 +129,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index has no metadata`() {
-        val indexName = "movies"
+        val indexName = "players"
         createIndex(indexName, "somePolicy")
         val response = client().makeRequest(
             RestRequest.Method.POST.toString(),
@@ -151,7 +151,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index not failed`() {
-        val indexName = "movies"
+        val indexName = "classic"
         val policy = createRandomPolicy(refresh = true)
         createIndex(indexName, policyID = policy.id)
 
@@ -187,7 +187,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index failed`() {
-        val indexName = "movies"
+        val indexName = "blueberry"
         createIndex(indexName, "invalid_policy")
 
         Thread.sleep(2000)

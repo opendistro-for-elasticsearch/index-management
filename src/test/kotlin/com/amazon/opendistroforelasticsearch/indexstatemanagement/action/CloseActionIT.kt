@@ -29,8 +29,8 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test basic`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_1"
+        val policyID = "${testIndexName}_testPolicyName_1"
         val actionConfig = CloseActionConfig(0)
         val states = listOf(
             State("CloseState", listOf(actionConfig), listOf())
@@ -68,8 +68,8 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test already closed index`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index_2"
+        val policyID = "${testIndexName}_testPolicyName_2"
         val actionConfig = CloseActionConfig(0)
         val states = listOf(
             State("CloseState", listOf(actionConfig), listOf())

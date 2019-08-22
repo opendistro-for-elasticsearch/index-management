@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.settings
 
 import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.unit.TimeValue
+import java.util.concurrent.TimeUnit
 
 class ManagedIndexSettings {
     companion object {
@@ -57,6 +58,42 @@ class ManagedIndexSettings {
         val COORDINATOR_BACKOFF_COUNT = Setting.intSetting(
             "opendistro.index_state_management.coordinator.backoff_count",
             2,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val ISM_HISTORY_ENABLED = Setting.boolSetting(
+            "opendistro.index_state_management.ism_history.enabled",
+            true,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val ISM_HISTORY_MAX_DOCS = Setting.longSetting(
+            "opendistro.index_state_management.history_max_docs",
+            2500000L, // 1 doc is ~10kb or less. This many doc is roughly 25gb
+            0L,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val ISM_HISTORY_INDEX_MAX_AGE = Setting.positiveTimeSetting(
+            "opendistro.index_state_management.history_max_age",
+            TimeValue.timeValueHours(24),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val ISM_HISTORY_ROLLOVER_CHECK_PERIOD = Setting.positiveTimeSetting(
+            "opendistro.index_state_management.history_rollover_check_period",
+            TimeValue.timeValueHours(8),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val ISM_HISTORY_RETENTION_PERIOD = Setting.positiveTimeSetting(
+            "opendistro.index_state_management.history_rollover_retention_period",
+            TimeValue(30, TimeUnit.DAYS),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )

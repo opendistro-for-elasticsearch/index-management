@@ -49,9 +49,7 @@ data class StateMetaData(
             .field(START_TIME, startTime)
     }
 
-    fun getMapValueString(): String {
-        return Strings.toString(this, false, false)
-    }
+    fun getMapValueString(): String = Strings.toString(this, false, false)
 
     companion object {
         const val STATE = "state"

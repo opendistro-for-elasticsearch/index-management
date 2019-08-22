@@ -25,6 +25,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
 abstract class ActionConfig(
@@ -45,6 +46,7 @@ abstract class ActionConfig(
 
     abstract fun toAction(
         clusterService: ClusterService,
+        scriptService: ScriptService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action
@@ -58,7 +60,8 @@ abstract class ActionConfig(
         READ_ONLY("read_only"),
         READ_WRITE("read_write"),
         REPLICA_COUNT("replica_count"),
-        FORCE_MERGE("force_merge");
+        FORCE_MERGE("force_merge"),
+        NOTIFICATION("notification");
 
         override fun toString(): String {
             return type
@@ -66,6 +69,7 @@ abstract class ActionConfig(
     }
 
     companion object {
+        @Suppress("ComplexMethod")
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): ActionConfig {
@@ -89,6 +93,7 @@ abstract class ActionConfig(
                     ActionType.READ_WRITE.type -> actionConfig = ReadWriteActionConfig.parse(xcp, index)
                     ActionType.REPLICA_COUNT.type -> actionConfig = ReplicaCountActionConfig.parse(xcp, index)
                     ActionType.FORCE_MERGE.type -> actionConfig = ForceMergeActionConfig.parse(xcp, index)
+                    ActionType.NOTIFICATION.type -> actionConfig = NotificationActionConfig.parse(xcp, index)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Action.")
                 }
             }

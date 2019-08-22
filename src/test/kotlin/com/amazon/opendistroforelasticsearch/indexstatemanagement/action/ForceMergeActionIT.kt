@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDefaultNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
@@ -45,7 +45,7 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )
@@ -106,7 +106,7 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )

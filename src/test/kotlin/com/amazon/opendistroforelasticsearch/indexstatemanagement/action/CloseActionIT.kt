@@ -19,7 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.CloseActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDefaultNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -29,8 +29,8 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test basic`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index1"
+        val policyID = "${testIndexName}_testPolicyName1"
         val actionConfig = CloseActionConfig(0)
         val states = listOf(
             State("CloseState", listOf(actionConfig), listOf())
@@ -41,7 +41,7 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )
@@ -68,8 +68,8 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test already closed index`() {
-        val indexName = "${testIndexName}_index"
-        val policyID = "${testIndexName}_testPolicyName"
+        val indexName = "${testIndexName}_index2"
+        val policyID = "${testIndexName}_testPolicyName2"
         val actionConfig = CloseActionConfig(0)
         val states = listOf(
             State("CloseState", listOf(actionConfig), listOf())
@@ -80,7 +80,7 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
             description = "$testIndexName description",
             schemaVersion = 1L,
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-            defaultNotification = randomDefaultNotification(),
+            errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states
         )

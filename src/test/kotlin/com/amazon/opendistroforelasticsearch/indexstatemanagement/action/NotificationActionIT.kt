@@ -18,21 +18,46 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.NotificationActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.CustomWebhook
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Destination
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.DestinationType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptType
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Locale
+import java.util.*
 
-class ReplicaCountActionIT : IndexStateManagementRestTestCase() {
+class NotificationActionIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    fun `test basic replica count`() {
+    // cannot test chime/slack in integ tests, but can test a custom webhook by
+    // using the POST call to write to the local integTest cluster and verify that index exists
+    fun `test custom webhook notification`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
-        val actionConfig = ReplicaCountActionConfig(10, 0)
-        val states = listOf(State(name = "ReplicaCountState", actions = listOf(actionConfig), transitions = listOf()))
+        val notificationIndex = "notification_index"
+        val destination = Destination(
+            type = DestinationType.CUSTOM_WEBHOOK,
+            chime = null,
+            slack = null,
+            customWebhook = CustomWebhook(
+                url = "http://${System.getProperty("tests.rest.cluster")}/$notificationIndex/_doc",
+                scheme = null,
+                host = null,
+                port = -1,
+                path = null,
+                queryParams = emptyMap(),
+                headerParams = mapOf("Content-Type" to "application/json"),
+                username = null,
+                password = null
+            )
+        )
+        val messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "{ \"testing\": 5 }", emptyMap())
+        val actionConfig = NotificationActionConfig(destination = destination, messageTemplate = messageTemplate, index = 0)
+        val states = listOf(State(name = "NotificationState", actions = listOf(actionConfig), transitions = emptyList()))
         val policy = Policy(
             id = policyID,
             description = "$testIndexName description",
@@ -44,10 +69,7 @@ class ReplicaCountActionIT : IndexStateManagementRestTestCase() {
         )
 
         createPolicy(policy, policyID)
-        // create index defaults to 1 replica
         createIndex(indexName, policyID)
-
-        assertEquals("Index did not default to 1 replica", 1, getNumberOfReplicasSetting(indexName))
 
         // give time for coordinator to create managed index job
         Thread.sleep(2000)
@@ -59,11 +81,15 @@ class ReplicaCountActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
-        // Need to speed up to second execution where it will trigger the first execution of the action which
-        // should set the replica count to the desired number
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
+        // verify index does not exist
+        assertFalse("Notification index exists before notification has been sent", indexExists(notificationIndex))
 
-        assertEquals("Index did not set number_of_replicas to ${actionConfig.numOfReplicas}", actionConfig.numOfReplicas, getNumberOfReplicasSetting(indexName))
+        // Speed up to second execution where it will trigger the first execution of the action which
+        // should call notification custom webhook and create the doc in notification_index
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        Thread.sleep(5000)
+
+        // verify index does exist
+        assertTrue("Notification index does not exist", indexExists(notificationIndex))
     }
 }

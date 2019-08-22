@@ -49,6 +49,7 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -239,6 +240,7 @@ fun Policy.getStateToExecute(managedIndexMetaData: ManagedIndexMetaData): State?
 
 fun State.getActionToExecute(
     clusterService: ClusterService,
+    scriptService: ScriptService,
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData
 ): Action? {
@@ -261,14 +263,14 @@ fun State.getActionToExecute(
         // TODO: Refactor so we can get isLastStep from somewhere besides an instantiated Action class so we can simplify this to a when block
         // If stepCompleted is true and this is the last step of the action then we should get the next action
         if (managedIndexMetaData.stepMetaData != null && managedIndexMetaData.stepMetaData.stepStatus == Step.StepStatus.COMPLETED) {
-            val action = actionConfig.toAction(clusterService, client, managedIndexMetaData)
+            val action = actionConfig.toAction(clusterService, scriptService, client, managedIndexMetaData)
             if (action.isLastStep(managedIndexMetaData.stepMetaData.name)) {
                 actionConfig = this.actions.getOrNull(managedIndexMetaData.actionMetaData.index + 1) ?: TransitionsActionConfig(this.transitions)
             }
         }
     }
 
-    return actionConfig.toAction(clusterService, client, managedIndexMetaData)
+    return actionConfig.toAction(clusterService, scriptService, client, managedIndexMetaData)
 }
 
 fun State.getUpdatedStateMetaData(managedIndexMetaData: ManagedIndexMetaData): StateMetaData {

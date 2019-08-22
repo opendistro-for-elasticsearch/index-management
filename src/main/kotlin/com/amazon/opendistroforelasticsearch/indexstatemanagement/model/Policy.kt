@@ -35,7 +35,7 @@ data class Policy(
     val description: String,
     val schemaVersion: Long,
     val lastUpdatedTime: Instant,
-    val defaultNotification: Map<String, Any>?,
+    val errorNotification: ErrorNotification?,
     val defaultState: String,
     val states: List<State>
 ) : ToXContentObject {
@@ -65,7 +65,7 @@ data class Policy(
             .field(DESCRIPTION_FIELD, description)
             .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
             .field(SCHEMA_VERSION_FIELD, schemaVersion)
-            .field(DEFAULT_NOTIFICATION_FIELD, defaultNotification)
+            .field(ERROR_NOTIFICATION_FIELD, errorNotification)
             .field(DEFAULT_STATE_FIELD, defaultState)
             .field(STATES_FIELD, states.toTypedArray())
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
@@ -79,7 +79,7 @@ data class Policy(
         const val NO_ID = ""
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
         const val SCHEMA_VERSION_FIELD = "schema_version"
-        const val DEFAULT_NOTIFICATION_FIELD = "default_notification"
+        const val ERROR_NOTIFICATION_FIELD = "error_notification"
         const val DEFAULT_STATE_FIELD = "default_state"
         const val STATES_FIELD = "states"
 
@@ -95,7 +95,7 @@ data class Policy(
         ): Policy {
             var description: String? = null
             var defaultState: String? = null
-            var defaultNotification: Map<String, Any>? = null
+            var errorNotification: ErrorNotification? = null
             var lastUpdatedTime: Instant? = null
             var schemaVersion: Long = 1
             val states: MutableList<State> = mutableListOf()
@@ -110,7 +110,7 @@ data class Policy(
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
                     POLICY_ID_FIELD -> { /* do nothing as this is an internal field */ }
                     DESCRIPTION_FIELD -> description = xcp.text()
-                    DEFAULT_NOTIFICATION_FIELD -> defaultNotification = null
+                    ERROR_NOTIFICATION_FIELD -> errorNotification = if (xcp.currentToken() == Token.VALUE_NULL) null else ErrorNotification.parse(xcp)
                     DEFAULT_STATE_FIELD -> defaultState = xcp.text()
                     STATES_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
@@ -129,7 +129,7 @@ data class Policy(
                 requireNotNull(description) { "$DESCRIPTION_FIELD is null" },
                 schemaVersion,
                 lastUpdatedTime ?: Instant.now(),
-                defaultNotification,
+                errorNotification,
                 requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
                 states.toList()
             )

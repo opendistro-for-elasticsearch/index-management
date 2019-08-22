@@ -26,6 +26,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
 data class ForceMergeActionConfig(
@@ -50,6 +51,7 @@ data class ForceMergeActionConfig(
 
     override fun toAction(
         clusterService: ClusterService,
+        scriptService: ScriptService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = ForceMergeAction(clusterService, client, managedIndexMetaData, this)

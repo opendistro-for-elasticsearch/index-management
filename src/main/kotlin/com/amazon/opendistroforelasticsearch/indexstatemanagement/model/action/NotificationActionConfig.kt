@@ -16,8 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.ReplicaCountAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.NotificationAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Destination
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContent
@@ -26,23 +27,28 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
-data class ReplicaCountActionConfig(
-    val numOfReplicas: Int,
+data class NotificationActionConfig(
+    val destination: Destination,
+    val messageTemplate: Script,
     val index: Int
-) : ToXContentObject, ActionConfig(ActionType.REPLICA_COUNT, index) {
+) : ToXContentObject, ActionConfig(ActionType.NOTIFICATION, index) {
 
     init {
-        require(numOfReplicas >= 0) { "ReplicaCountActionConfig number_of_replicas value must be a non-negative number" }
+        require(messageTemplate.lang == MUSTACHE) { "Notification message template must be a mustache script" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-        super.toXContent(builder, params).startObject(ActionType.REPLICA_COUNT.type)
-        builder.field(NUMBER_OF_REPLICAS_FIELD, numOfReplicas)
-        return builder.endObject().endObject()
+        super.toXContent(builder, params).startObject(ActionType.NOTIFICATION.type)
+        builder.field(DESTINATION_FIELD, destination)
+                .field(MESSAGE_TEMPLATE_FIELD, messageTemplate)
+                .endObject()
+                .endObject()
+        return builder
     }
 
     override fun isFragment(): Boolean = super<ToXContentObject>.isFragment()
@@ -52,29 +58,34 @@ data class ReplicaCountActionConfig(
         scriptService: ScriptService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
-    ): Action = ReplicaCountAction(clusterService, client, managedIndexMetaData, this)
+    ): Action = NotificationAction(clusterService, scriptService, client, managedIndexMetaData, this)
 
     companion object {
-        const val NUMBER_OF_REPLICAS_FIELD = "number_of_replicas"
+        const val DESTINATION_FIELD = "destination"
+        const val MESSAGE_TEMPLATE_FIELD = "message_template"
+        const val MUSTACHE = "mustache"
 
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, index: Int): ReplicaCountActionConfig {
-            var numOfReplicas: Int? = null
+        fun parse(xcp: XContentParser, index: Int): NotificationActionConfig {
+            var destination: Destination? = null
+            var messageTemplate: Script? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != Token.END_OBJECT) {
+            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 
                 when (fieldName) {
-                    NUMBER_OF_REPLICAS_FIELD -> numOfReplicas = xcp.intValue()
-                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ReplicaCountActionConfig.")
+                    DESTINATION_FIELD -> destination = Destination.parse(xcp)
+                    MESSAGE_TEMPLATE_FIELD -> messageTemplate = Script.parse(xcp, Script.DEFAULT_TEMPLATE_LANG)
+                    else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in NotificationActionConfig.")
                 }
             }
 
-            return ReplicaCountActionConfig(
-                numOfReplicas = requireNotNull(numOfReplicas) { "$NUMBER_OF_REPLICAS_FIELD is null" },
+            return NotificationActionConfig(
+                destination = requireNotNull(destination) { "NotificationActionConfig destination is null" },
+                messageTemplate = requireNotNull(messageTemplate) { "NotificationActionConfig message template is null" },
                 index = index
             )
         }

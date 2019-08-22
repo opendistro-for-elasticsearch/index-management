@@ -170,19 +170,19 @@ data class ManagedIndexMetaData(
             val info = si.readOptionalString()?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) }?.toMap()
 
             return ManagedIndexMetaData(
-                requireNotNull(index) { "$INDEX is null" },
-                requireNotNull(indexUuid) { "$INDEX_UUID is null" },
-                requireNotNull(policyID) { "$POLICY_ID is null" },
-                policySeqNo,
-                policyPrimaryTerm,
-                policyCompleted,
-                rolledOver,
-                transitionTo,
-                state,
-                action,
-                step,
-                retryInfo,
-                info
+                index = requireNotNull(index) { "$INDEX is null" },
+                indexUuid = requireNotNull(indexUuid) { "$INDEX_UUID is null" },
+                policyID = requireNotNull(policyID) { "$POLICY_ID is null" },
+                policySeqNo = policySeqNo,
+                policyPrimaryTerm = policyPrimaryTerm,
+                policyCompleted = policyCompleted,
+                rolledOver = rolledOver,
+                transitionTo = transitionTo,
+                stateMetaData = state,
+                actionMetaData = action,
+                stepMetaData = step,
+                policyRetryInfo = retryInfo,
+                info = info
             )
         }
 
@@ -245,19 +245,19 @@ data class ManagedIndexMetaData(
 
         fun fromMap(map: Map<String, String?>): ManagedIndexMetaData {
             return ManagedIndexMetaData(
-                requireNotNull(map[INDEX]) { "$INDEX is null" },
-                requireNotNull(map[INDEX_UUID]) { "$INDEX_UUID is null" },
-                requireNotNull(map[POLICY_ID]) { "$POLICY_ID is null" },
-                map[POLICY_SEQ_NO]?.toLong(),
-                map[POLICY_PRIMARY_TERM]?.toLong(),
-                map[POLICY_COMPLETED]?.toBoolean(),
-                map[ROLLED_OVER]?.toBoolean(),
-                map[TRANSITION_TO],
-                StateMetaData.fromManagedIndexMetaDataMap(map),
-                ActionMetaData.fromManagedIndexMetaDataMap(map),
-                StepMetaData.fromManagedIndexMetaDataMap(map),
-                PolicyRetryInfoMetaData.fromManagedIndexMetaDataMap(map),
-                map[INFO]?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) }
+                index = requireNotNull(map[INDEX]) { "$INDEX is null" },
+                indexUuid = requireNotNull(map[INDEX_UUID]) { "$INDEX_UUID is null" },
+                policyID = requireNotNull(map[POLICY_ID]) { "$POLICY_ID is null" },
+                policySeqNo = map[POLICY_SEQ_NO]?.toLong(),
+                policyPrimaryTerm = map[POLICY_PRIMARY_TERM]?.toLong(),
+                policyCompleted = map[POLICY_COMPLETED]?.toBoolean(),
+                rolledOver = map[ROLLED_OVER]?.toBoolean(),
+                transitionTo = map[TRANSITION_TO],
+                stateMetaData = StateMetaData.fromManagedIndexMetaDataMap(map),
+                actionMetaData = ActionMetaData.fromManagedIndexMetaDataMap(map),
+                stepMetaData = StepMetaData.fromManagedIndexMetaDataMap(map),
+                policyRetryInfo = PolicyRetryInfoMetaData.fromManagedIndexMetaDataMap(map),
+                info = map[INFO]?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) }
             )
         }
     }

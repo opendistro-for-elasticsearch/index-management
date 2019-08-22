@@ -54,12 +54,11 @@ class AttemptSetReplicaCountStep(
                 stepStatus = StepStatus.COMPLETED
                 info = mapOf("message" to "Set number_of_replicas to $numOfReplicas")
             } else {
-                logger.info("Unsuccessfully executed $name on ${managedIndexMetaData.index}")
                 stepStatus = StepStatus.FAILED
                 info = mapOf("message" to "Failed to set number_of_replicas to $numOfReplicas")
             }
         } catch (e: Exception) {
-            logger.error("Failed to execute $name on ${managedIndexMetaData.index}")
+            logger.error("Failed to set number_of_replicas [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set number_of_replicas to $numOfReplicas")
             val errorMessage = e.message

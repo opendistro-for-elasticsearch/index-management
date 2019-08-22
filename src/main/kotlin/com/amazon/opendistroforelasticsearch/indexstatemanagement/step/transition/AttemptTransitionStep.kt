@@ -84,6 +84,7 @@ class AttemptTransitionStep(
             }
             info = mapOf("message" to message)
         } catch (e: Exception) {
+            logger.error("Failed to transition index [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to transition index")
             val errorMessage = e.message

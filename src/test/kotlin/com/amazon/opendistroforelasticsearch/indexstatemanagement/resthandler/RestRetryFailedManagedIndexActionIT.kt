@@ -9,8 +9,11 @@ import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
+import java.util.Locale
 
 class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
+
+    private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test missing indices`() {
         try {
@@ -34,10 +37,10 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index list`() {
-        val indexName = "movies"
-        val indexName1 = "movies_1"
-        val indexName2 = "movies_2"
-        val indexName3 = "some_other_test"
+        val indexName = "${testIndexName}_movies"
+        val indexName1 = "${testIndexName}_movies_1"
+        val indexName2 = "${testIndexName}_movies_2"
+        val indexName3 = "${testIndexName}_some_other_test"
         createIndex(indexName, null)
         createIndex(indexName1, "somePolicy")
         createIndex(indexName2, null)
@@ -68,10 +71,10 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index pattern`() {
-        val indexName = "video"
-        val indexName1 = "video_1"
-        val indexName2 = "video_2"
-        val indexName3 = "some_other_test_2"
+        val indexName = "${testIndexName}_video"
+        val indexName1 = "${testIndexName}_video_1"
+        val indexName2 = "${testIndexName}_video_2"
+        val indexName3 = "${testIndexName}_some_other_test_2"
         createIndex(indexName, null)
         createIndex(indexName1, null)
         createIndex(indexName2, "somePolicy")
@@ -107,7 +110,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index not being managed`() {
-        val indexName = "games"
+        val indexName = "${testIndexName}_games"
         createIndex(indexName, null)
         val response = client().makeRequest(
             RestRequest.Method.POST.toString(),
@@ -129,7 +132,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index has no metadata`() {
-        val indexName = "players"
+        val indexName = "${testIndexName}_players"
         createIndex(indexName, "somePolicy")
         val response = client().makeRequest(
             RestRequest.Method.POST.toString(),
@@ -151,7 +154,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index not failed`() {
-        val indexName = "classic"
+        val indexName = "${testIndexName}_classic"
         val policy = createRandomPolicy(refresh = true)
         createIndex(indexName, policyID = policy.id)
 
@@ -187,7 +190,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index failed`() {
-        val indexName = "blueberry"
+        val indexName = "${testIndexName}_blueberry"
         createIndex(indexName, "invalid_policy")
 
         Thread.sleep(2000)

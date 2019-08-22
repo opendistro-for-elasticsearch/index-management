@@ -67,13 +67,13 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test index pattern`() {
-        val indexName1 = "${testIndexName}_video_1"
+        val indexName1 = "${testIndexName}_video"
         val indexName2 = "${testIndexName}_video_2"
         val indexName3 = "${testIndexName}_video_3"
         createIndex(indexName1, null)
         createIndex(indexName2, null)
         createIndex(indexName3, null)
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/${testIndexName}_video*")
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName1*")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             indexName1 to mapOf<String, String?>(

@@ -76,7 +76,7 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         waitFor {
             assertPredicatesOnMetaData(

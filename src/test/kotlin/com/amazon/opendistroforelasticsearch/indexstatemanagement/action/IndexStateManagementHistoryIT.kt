@@ -75,8 +75,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             indexName,
             getUuid(indexName),
             policyID,
-            0,
-            policyPrimaryTerm = 1,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
             policyCompleted = null,
             rolledOver = null,
             transitionTo = null,
@@ -89,7 +89,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         assertEquals(expectedHistory, actualHistory)
 
-        assertEquals("true", getIndexBlocksWriteSetting(indexName))
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 
     fun `test short retention period and history enabled`() {
@@ -145,8 +145,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             indexName,
             getUuid(indexName),
             policyID,
-            0,
-            policyPrimaryTerm = 1,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
             policyCompleted = null,
             rolledOver = null,
             transitionTo = null,
@@ -159,7 +159,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         assertEquals(expectedHistory, actualHistory)
 
-        assertEquals("true", getIndexBlocksWriteSetting(indexName))
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 
     fun `test small doc count rolledover index`() {
@@ -215,8 +215,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             indexName,
             getUuid(indexName),
             policyID,
-            0,
-            policyPrimaryTerm = 1,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
             policyCompleted = null,
             rolledOver = null,
             transitionTo = null,
@@ -229,7 +229,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         assertEquals(expectedHistory, actualHistory)
 
-        assertEquals("true", getIndexBlocksWriteSetting(indexName))
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 
     fun `test short retention period and rolledover index`() {
@@ -267,13 +267,11 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         // Change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
-
         Thread.sleep(3000)
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-
         Thread.sleep(3000)
 
         val historySearchResponse: SearchResponse = waitFor {
@@ -288,8 +286,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             indexName,
             getUuid(indexName),
             policyID,
-            0,
-            policyPrimaryTerm = 1,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
             policyCompleted = null,
             rolledOver = null,
             transitionTo = null,
@@ -302,7 +300,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         assertEquals(expectedHistory, actualHistory)
 
-        assertEquals("true", getIndexBlocksWriteSetting(indexName))
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 
     fun `test short retention period and history disabled`() {

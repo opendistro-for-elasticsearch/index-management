@@ -122,7 +122,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
 
         // Adding history is a best effort task.
         GlobalScope.launch(Dispatchers.IO + CoroutineName("ManagedIndexMetaData-AddHistory")) {
-            val managedIndexMetaData = request.listOfIndexMetadata.map { it.second }
+            val managedIndexMetaData = request.indicesToAddManagedIndexMetaDataTo.map { it.second }
             indexStateManagementHistory.addHistory(managedIndexMetaData)
         }
     }

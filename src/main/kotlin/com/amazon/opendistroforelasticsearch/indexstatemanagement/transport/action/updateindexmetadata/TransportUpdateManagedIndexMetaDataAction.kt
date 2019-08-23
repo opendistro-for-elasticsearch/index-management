@@ -88,6 +88,15 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
             IndexStateManagementPlugin.PLUGIN_NAME,
             object : AckedClusterStateUpdateTask<AcknowledgedResponse>(request, listener) {
                 override fun execute(currentState: ClusterState): ClusterState {
+                    // If there are no indices to make changes to, return early.
+                    // Also doing this because when creating a metaDataBuilder and making no changes to it, for some
+                    // reason the task does not complete, leading to indefinite suspension.
+                    if (request.indicesToAddManagedIndexMetaDataTo.isEmpty() &&
+                        request.indicesToRemoveManagedIndexMetaDataFrom.isEmpty()
+                    ) {
+                        return currentState
+                    }
+
                     val metaDataBuilder = MetaData.builder(currentState.metaData)
 
                     for (pair in request.indicesToAddManagedIndexMetaDataTo) {
@@ -96,7 +105,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
                     }
 
                     for (index in request.indicesToRemoveManagedIndexMetaDataFrom) {
-                        val indexMetaDataBuilder = IndexMetaData.builder(currentState.metaData.index(index.name))
+                        val indexMetaDataBuilder = IndexMetaData.builder(currentState.metaData.index(index))
                         indexMetaDataBuilder.removeCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
 
                         metaDataBuilder.put(indexMetaDataBuilder)

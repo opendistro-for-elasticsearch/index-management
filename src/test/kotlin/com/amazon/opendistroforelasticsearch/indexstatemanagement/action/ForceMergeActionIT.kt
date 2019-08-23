@@ -55,8 +55,6 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         createPolicy(policy, policyID)
         createIndex(indexName, policyID)
 
-        Thread.sleep(2000)
-
         // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)
 
@@ -117,8 +115,6 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
 
         createPolicy(policy, policyID)
         createIndex(indexName, policyID)
-
-        Thread.sleep(2000)
 
         // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)

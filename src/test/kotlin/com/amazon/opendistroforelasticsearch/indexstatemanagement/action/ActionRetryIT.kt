@@ -9,6 +9,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
+import org.elasticsearch.client.Response
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
@@ -61,12 +62,14 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         // Fourth execution is to fail the step third time and finally fail the action.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
+
+        val response: Response = waitFor {
+            val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
+            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+            response
+        }
 
         // At this point we should see in the explain API the action has failed with correct number of consumed retries.
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-
         val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
         val actual = response.asMap()
         assertPredicatesOnMetaData(
@@ -136,10 +139,12 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         // Fourth execution should not run job since we have the retry backoff.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
 
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+        val response: Response = waitFor {
+            val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
+            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+            response
+        }
 
         // even if we ran couple times we should have backed off and only retried once.
         val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()

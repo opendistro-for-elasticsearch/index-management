@@ -19,39 +19,41 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
-import java.util.*
+import java.util.Locale
 
 class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
     fun `test creating index with valid policy_id`() {
         val (index, policyID) = createIndex()
-        Thread.sleep(2000)
-        val managedIndexConfig = getManagedIndexConfig(index)
-        assertNotNull("Did not create ManagedIndexConfig", managedIndexConfig)
-        assertNotNull("Invalid policy_id used", policyID)
-        assertEquals("Has incorrect policy_id", policyID, managedIndexConfig!!.policyID)
-        assertEquals("Has incorrect index", index, managedIndexConfig.index)
-        assertEquals("Has incorrect name", index, managedIndexConfig.name)
+        waitFor {
+            val managedIndexConfig = getManagedIndexConfig(index)
+            assertNotNull("Did not create ManagedIndexConfig", managedIndexConfig)
+            assertNotNull("Invalid policy_id used", policyID)
+            assertEquals("Has incorrect policy_id", policyID, managedIndexConfig!!.policyID)
+            assertEquals("Has incorrect index", index, managedIndexConfig.index)
+            assertEquals("Has incorrect name", index, managedIndexConfig.name)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
     fun `test creating index with valid policy_id creates ism index with correct mappings`() {
         createIndex()
-        Thread.sleep(2000)
-
-        val response = client().makeRequest("GET", "/$INDEX_STATE_MANAGEMENT_INDEX/_mapping")
-        val parserMap = createParser(XContentType.JSON.xContent(),
+        waitFor {
+            val response = client().makeRequest("GET", "/$INDEX_STATE_MANAGEMENT_INDEX/_mapping")
+            val parserMap = createParser(XContentType.JSON.xContent(),
                 response.entity.content).map() as Map<String, Map<String, Map<String, Any>>>
-        val mappingsMap = parserMap[INDEX_STATE_MANAGEMENT_INDEX]?.getValue("mappings")!!
+            val mappingsMap = parserMap[INDEX_STATE_MANAGEMENT_INDEX]?.getValue("mappings")!!
 
-        val expected = createParser(
+            val expected = createParser(
                 XContentType.JSON.xContent(),
                 javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText())
 
-        val expectedMap = expected.map()
-        assertEquals("Mappings are different", expectedMap, mappingsMap)
+            val expectedMap = expected.map()
+            assertEquals("Mappings are different", expectedMap, mappingsMap)
+        }
     }
 
     fun `test creating index with invalid policy_id`() {
@@ -63,19 +65,22 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         createIndex(indexTwo, Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, "").build())
         createIndex(indexThree, Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key).build())
 
-        Thread.sleep(2000)
-
-        assertFalse("ISM index created for invalid policies", indexExists(INDEX_STATE_MANAGEMENT_INDEX))
+        waitFor {
+            assertFalse("ISM index created for invalid policies", indexExists(INDEX_STATE_MANAGEMENT_INDEX))
+        }
     }
 
     fun `test deleting index with policy_id`() {
         val (index) = createIndex(policyID = "some_policy")
-        Thread.sleep(2000)
-        val afterCreateConfig = getManagedIndexConfig(index)
-        assertNotNull("Did not create ManagedIndexConfig", afterCreateConfig)
-        deleteIndex(index)
-        Thread.sleep(2000)
-        val afterDeleteConfig = getManagedIndexConfig(index)
-        assertNull("Did not delete ManagedIndexConfig", afterDeleteConfig)
+        waitFor {
+            val afterCreateConfig = getManagedIndexConfig(index)
+            assertNotNull("Did not create ManagedIndexConfig", afterCreateConfig)
+            deleteIndex(index)
+        }
+
+        waitFor {
+            val afterDeleteConfig = getManagedIndexConfig(index)
+            assertNull("Did not delete ManagedIndexConfig", afterDeleteConfig)
+        }
     }
 }

@@ -304,7 +304,6 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         assertAffectedIndicesResponseIsEqual(expectedErrorMessage, response.asMap())
 
         // verify actionStartTime was reset to null
-        val resetExplainResponse = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertPredicatesOnMetaData(
             listOf(
                 indexName to listOf(
@@ -314,7 +313,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                         return actionMetaDataMap[ManagedIndexMetaData.START_TIME] as Long? == null
                     }
                 )
-            ), resetExplainResponse.asMap(), false)
+            ), getExplainMap(indexName), false)
 
         // should execute and set the startTime again
         updateManagedIndexConfigStartTime(
@@ -324,7 +323,6 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
 
         // the new startTime should be greater than the first start time
         waitFor {
-            val lastExplainResponse = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
             assertPredicatesOnMetaData(
                 listOf(
                     indexName to listOf(
@@ -334,7 +332,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                             return actionMetaDataMap[ManagedIndexMetaData.START_TIME] as Long > firstStartTime
                         }
                     )
-                ), lastExplainResponse.asMap(), false)
+                ), getExplainMap(indexName), false)
         }
     }
 }

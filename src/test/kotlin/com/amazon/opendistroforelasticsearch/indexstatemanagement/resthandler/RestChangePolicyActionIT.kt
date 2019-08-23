@@ -328,7 +328,6 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         }
 
         // We should expect the explain API to show us in the ReadOnlyAction
-        val nextExplainResponse = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$index")
         assertPredicatesOnMetaData(
             listOf(
                 index to listOf(
@@ -342,7 +341,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                             assertActionEquals(ActionMetaData(name = ActionConfig.ActionType.READ_ONLY.type, startTime = Instant.now().toEpochMilli(), index = 0,
                                     failed = false, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
                 )
-            ), nextExplainResponse.asMap(), false)
+            ), getExplainMap(index), false)
 
         // speed up to third execution so that we try to move to transitions and trigger a change policy
         updateManagedIndexConfigStartTime(
@@ -361,7 +360,6 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         }
 
         // We should expect the explain API to show us with the new policy
-        val changedExplainResponse = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$index")
         assertPredicatesOnMetaData(
             listOf(
                 index to listOf(
@@ -375,7 +373,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                             assertActionEquals(ActionMetaData(name = ActionConfig.ActionType.TRANSITION.type, startTime = Instant.now().toEpochMilli(), index = 0,
                                     failed = false, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
                 )
-            ), changedExplainResponse.asMap(), false)
+            ), getExplainMap(index), false)
     }
 
     fun `test change policy API should only apply to indices in the state filter`() {
@@ -513,7 +511,6 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         }
 
         // should expect to see us starting in the state mentioned in changepolicy
-        val explainResponse = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$index")
         assertPredicatesOnMetaData(
             listOf(
                 index to listOf(
@@ -522,6 +519,6 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                     StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
                             assertStateEquals(StateMetaData("some_other_state", Instant.now().toEpochMilli()), stateMetaDataMap)
                 )
-            ), explainResponse.asMap(), false)
+            ), getExplainMap(index), false)
     }
 }

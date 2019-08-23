@@ -42,8 +42,11 @@ import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.junit.Before
 import java.time.Instant
+import java.util.Locale
 
 class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
+
+    private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     @Before
     fun setup() {
@@ -165,7 +168,8 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
     fun `test changing policy on an index that hasn't initialized yet`() {
         val policy = createRandomPolicy(refresh = true)
         val newPolicy = createPolicy(randomPolicy(), "new_policy", true)
-        val (index) = createIndex("a_new_index", policy.id)
+        val indexName = "${testIndexName}_computer"
+        val (index) = createIndex(indexName, policy.id)
 
         val managedIndexConfig = getExistingManagedIndexConfig(index)
         assertNull("Change policy is not null", managedIndexConfig.changePolicy)
@@ -203,7 +207,8 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
     fun `test changing policy on a valid index and log pattern`() {
         val policy = createRandomPolicy(refresh = true)
         val newPolicy = createPolicy(randomPolicy(), "new_policy", true)
-        val (index) = createIndex("a_new_index", policy.id)
+        val indexName = "${testIndexName}_keyboard"
+        val (index) = createIndex(indexName, policy.id)
 
         val managedIndexConfig = getExistingManagedIndexConfig(index)
         assertNull("Change policy is not null", managedIndexConfig.changePolicy)
@@ -254,7 +259,8 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         val stateWithDeleteAction = randomState(actions = listOf(DeleteActionConfig(index = 0)))
         val updatedStateWithReadOnlyAction = stateWithReadOnlyAction.copy(transitions = listOf(Transition(stateWithDeleteAction.name, null)))
         val newPolicy = createPolicy(randomPolicy(states = listOf(updatedStateWithReadOnlyAction, stateWithDeleteAction)), "new_policy", true)
-        val (index) = createIndex("a_new_index", policy.id)
+        val indexName = "${testIndexName}_mouse"
+        val (index) = createIndex(indexName, policy.id)
 
         // Set index to read-write
         updateIndexSettings(
@@ -477,7 +483,8 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
     fun `test starting from a specific state using change policy API`() {
         val policy = createRandomPolicy(refresh = true)
         val newPolicy = createPolicy(randomPolicy(), "new_policy", true)
-        val (index) = createIndex("a_new_index", policy.id)
+        val indexName = "${testIndexName}_laptop"
+        val (index) = createIndex(indexName, policy.id)
 
         val managedIndexConfig = getExistingManagedIndexConfig(index)
         assertNull("Change policy is not null", managedIndexConfig.changePolicy)

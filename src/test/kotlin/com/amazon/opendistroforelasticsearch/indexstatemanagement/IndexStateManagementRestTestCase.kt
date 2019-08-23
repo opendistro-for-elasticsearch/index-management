@@ -142,7 +142,8 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
     protected fun createIndex(
         index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
-        policyID: String? = randomAlphaOfLength(10)
+        policyID: String? = randomAlphaOfLength(10),
+        alias: String? = null
     ): Pair<String, String?> {
         val settings = Settings.builder().let {
             if (policyID == null) {
@@ -150,8 +151,14 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             } else {
                 it.put(ManagedIndexSettings.POLICY_ID.key, policyID)
             }
+            if (alias == null) {
+                it.putNull(ManagedIndexSettings.ROLLOVER_ALIAS.key)
+            } else {
+                it.put(ManagedIndexSettings.ROLLOVER_ALIAS.key, alias)
+            }
         }.build()
-        createIndex(index, settings)
+        val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
+        createIndex(index, settings, "", aliases)
         return index to policyID
     }
 
@@ -197,7 +204,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
                 }
             }
         """.trimIndent()
-        val response = client().makeRequest("PUT", "_cluster/settings", emptyMap(),
+        client().makeRequest("PUT", "_cluster/settings", emptyMap(),
             StringEntity(request, APPLICATION_JSON))
     }
 

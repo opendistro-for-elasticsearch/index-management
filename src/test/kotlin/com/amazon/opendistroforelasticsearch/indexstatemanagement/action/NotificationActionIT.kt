@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.NotificationActionConfig
@@ -23,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destinat
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.DestinationType
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import java.time.Instant
@@ -71,15 +73,18 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
         createPolicy(policy, policyID)
         createIndex(indexName, policyID)
 
-        // give time for coordinator to create managed index job
-        Thread.sleep(2000)
-
-        val managedIndexConfig = getManagedIndexConfig(indexName)
-        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
+
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(indexName),
+                strict = false
+            )
+        }
 
         // verify index does not exist
         assertFalse("Notification index exists before notification has been sent", indexExists(notificationIndex))
@@ -87,9 +92,8 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
         // Speed up to second execution where it will trigger the first execution of the action which
         // should call notification custom webhook and create the doc in notification_index
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(5000)
 
         // verify index does exist
-        assertTrue("Notification index does not exist", indexExists(notificationIndex))
+        waitFor { assertTrue("Notification index does not exist", indexExists(notificationIndex)) }
     }
 }

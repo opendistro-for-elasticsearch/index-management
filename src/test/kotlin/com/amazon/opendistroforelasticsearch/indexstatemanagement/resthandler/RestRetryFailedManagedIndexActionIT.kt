@@ -5,6 +5,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
@@ -158,64 +159,58 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val policy = createRandomPolicy(refresh = true)
         createIndex(indexName, policyID = policy.id)
 
-        Thread.sleep(2000)
-
-        val managedIndexConfig = getManagedIndexConfig(indexName)
-        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(
-            managedIndexConfig!!,
+            managedIndexConfig,
             Instant.now().minusSeconds(58).toEpochMilli()
         )
 
-        Thread.sleep(3000)
-
-        val response = client().makeRequest(
-            RestRequest.Method.POST.toString(),
-            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
-        )
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-        val actualMessage = response.asMap()
-        val expectedErrorMessage = mapOf(
-            FAILURES to true,
-            FAILED_INDICES to listOf(
-                mapOf(
-                    "index_name" to indexName,
-                    "index_uuid" to getUuid(indexName),
-                    "reason" to "This index is not in failed state."
+        waitFor {
+            val response = client().makeRequest(
+                RestRequest.Method.POST.toString(),
+                "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+            )
+            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+            val actualMessage = response.asMap()
+            val expectedErrorMessage = mapOf(
+                FAILURES to true,
+                FAILED_INDICES to listOf(
+                    mapOf(
+                        "index_name" to indexName,
+                        "index_uuid" to getUuid(indexName),
+                        "reason" to "This index is not in failed state."
+                    )
                 )
             )
-        )
-        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
+            assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
+        }
     }
 
     fun `test index failed`() {
         val indexName = "${testIndexName}_blueberry"
         createIndex(indexName, "invalid_policy")
 
-        Thread.sleep(2000)
-
-        val managedIndexConfig = getManagedIndexConfig(indexName)
-        assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(
-            managedIndexConfig!!,
+            managedIndexConfig,
             Instant.now().minusSeconds(58).toEpochMilli()
         )
 
-        Thread.sleep(3000)
-
-        val response = client().makeRequest(
-            RestRequest.Method.POST.toString(),
-            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
-        )
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-        val actualMessage = response.asMap()
-        val expectedErrorMessage = mapOf(
-            UPDATED_INDICES to 1,
-            FAILURES to false,
-            FAILED_INDICES to emptyList<Map<String, Any>>()
-        )
-        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
+        waitFor {
+            val response = client().makeRequest(
+                RestRequest.Method.POST.toString(),
+                "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+            )
+            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+            val actualMessage = response.asMap()
+            val expectedErrorMessage = mapOf(
+                UPDATED_INDICES to 1,
+                FAILURES to false,
+                FAILED_INDICES to emptyList<Map<String, Any>>()
+            )
+            assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
+        }
     }
 }

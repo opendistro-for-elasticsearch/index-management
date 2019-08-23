@@ -184,6 +184,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.error("Action=${action.type.type} has timed out")
             val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(actionMetaData = managedIndexMetaData.actionMetaData?.copy(failed = true), info = info))
             if (updated) disableManagedIndexConfig(managedIndexConfig)
+            return
         }
       
         if (managedIndexConfig.shouldChangePolicy(managedIndexMetaData, action)) {

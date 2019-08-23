@@ -27,9 +27,6 @@ import java.util.Locale
 class ActionTimeoutIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    /**
-     * We are forcing RollOver to fail in this Integ test.
-     */
     fun `test failed action`() {
         val indexName = "${testIndexName}_index_1"
         val policyID = "${testIndexName}_testPolicyName_1"
@@ -59,10 +56,10 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         // the second execution we move into rollover action, we won't hit the timeout as this is the execution that sets the startTime
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
+        val expectedInfoString = mapOf("message" to "Attempting to rollover").toString()
         waitFor {
             assertPredicatesOnMetaData(
-                listOf(indexName to listOf(StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
-                    assertStateEquals(StateMetaData("rolloverstate", Instant.now().toEpochMilli()), stateMetaDataMap))),
+                listOf(indexName to listOf(ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString())),
                 getExplainMap(indexName),
                 strict = false
             )
@@ -70,7 +67,6 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
 
         // the third execution we should hit the 1 second action timeout and fail
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-
         waitFor {
             assertPredicatesOnMetaData(
                 listOf(indexName to listOf(ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =

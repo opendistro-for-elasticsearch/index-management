@@ -35,7 +35,7 @@ import java.nio.charset.StandardCharsets
 
 data class ActionMetaData(
     val name: String,
-    val startTime: Long,
+    val startTime: Long?,
     val index: Int,
     val failed: Boolean,
     val consumedRetries: Int,
@@ -45,7 +45,7 @@ data class ActionMetaData(
 
     override fun writeTo(out: StreamOutput) {
         out.writeString(name)
-        out.writeLong(startTime)
+        out.writeOptionalLong(startTime)
         out.writeInt(index)
         out.writeBoolean(failed)
         out.writeInt(consumedRetries)
@@ -85,7 +85,7 @@ data class ActionMetaData(
 
         fun fromStreamInput(si: StreamInput): ActionMetaData {
             val name: String? = si.readString()
-            val startTime: Long? = si.readLong()
+            val startTime: Long? = si.readOptionalLong()
             val index: Int? = si.readInt()
             val failed: Boolean? = si.readBoolean()
             val consumedRetries: Int? = si.readInt()
@@ -95,7 +95,7 @@ data class ActionMetaData(
 
             return ActionMetaData(
                 requireNotNull(name) { "$NAME is null" },
-                requireNotNull(startTime) { "$START_TIME is null" },
+                startTime,
                 requireNotNull(index) { "$INDEX is null" },
                 requireNotNull(failed) { "$FAILED is null" },
                 requireNotNull(consumedRetries) { "$CONSUMED_RETRIES is null" },
@@ -133,7 +133,7 @@ data class ActionMetaData(
 
                 when (fieldName) {
                     NAME -> name = xcp.text()
-                    START_TIME -> startTime = xcp.longValue()
+                    START_TIME -> startTime = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
                     INDEX -> index = xcp.intValue()
                     FAILED -> failed = xcp.booleanValue()
                     CONSUMED_RETRIES -> consumedRetries = xcp.intValue()
@@ -145,7 +145,7 @@ data class ActionMetaData(
 
             return ActionMetaData(
                 requireNotNull(name) { "$NAME is null" },
-                requireNotNull(startTime) { "$START_TIME is null" },
+                startTime,
                 requireNotNull(index) { "$INDEX is null" },
                 requireNotNull(failed) { "$FAILED is null" },
                 requireNotNull(consumedRetries) { "$CONSUMED_RETRIES is null" },

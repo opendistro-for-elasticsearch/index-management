@@ -53,7 +53,7 @@ class AttemptNotificationStep(
             stepStatus = StepStatus.COMPLETED
             info = mapOf("message" to "Successfully sent notification")
         } catch (e: Exception) {
-            logger.error("Failed to execute $name on ${managedIndexMetaData.index}")
+            logger.error("Failed to send notification [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to send notification")
             val errorMessage = e.message

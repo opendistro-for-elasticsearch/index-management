@@ -80,6 +80,7 @@ class AttemptRevertReadOnlyStep(
             stepStatus = StepStatus.FAILED
             info = mapOf("message" to "Failed to set index back to read_write")
         } catch (e: Exception) {
+            logger.error("Failed to set index back to read_write [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set index back to read_write")
             val errorMessage = e.message

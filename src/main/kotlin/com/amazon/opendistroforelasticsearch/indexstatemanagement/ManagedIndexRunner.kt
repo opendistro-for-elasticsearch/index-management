@@ -38,6 +38,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStartingManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStateToExecute
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCompletedManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasTimedOut
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSuccessfulDelete
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.shouldBackoff
@@ -178,6 +179,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
 
+        if (action?.hasTimedOut(managedIndexMetaData.actionMetaData) == true) {
+            val info = mapOf("message" to "Action timed out")
+            logger.error("Action=${action.type.type} has timed out")
+            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(actionMetaData = managedIndexMetaData.actionMetaData?.copy(failed = true), info = info))
+            if (updated) disableManagedIndexConfig(managedIndexConfig)
+        }
+      
         if (managedIndexConfig.shouldChangePolicy(managedIndexMetaData, action)) {
             initChangePolicy(managedIndexConfig, managedIndexMetaData, action)
             return

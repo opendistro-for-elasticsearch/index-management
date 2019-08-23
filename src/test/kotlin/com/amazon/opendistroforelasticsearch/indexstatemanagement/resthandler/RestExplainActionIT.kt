@@ -56,15 +56,12 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     fun `test single index`() {
         val indexName = "${testIndexName}_movies"
         createIndex(indexName, null)
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             indexName to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
             )
         )
-        val actual = response.asMap()
-        assertResponseMap(expected, actual)
+        assertResponseMap(expected, getExplainMap(indexName))
     }
 
     fun `test index pattern`() {
@@ -74,8 +71,6 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName1, null)
         createIndex(indexName2, null)
         createIndex(indexName3, null)
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName1*")
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val expected = mapOf(
             indexName1 to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
@@ -87,8 +82,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                 ManagedIndexSettings.POLICY_ID.key to null
             )
         )
-        val actual = response.asMap()
-        assertResponseMap(expected, actual)
+        assertResponseMap(expected, getExplainMap("$indexName1*"))
     }
 
     fun `test attached policy`() {
@@ -102,11 +96,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         waitFor {
-            val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-
             val expectedInfoString = mapOf("message" to "Successfully initialized policy: ${policy.id}").toString()
-            val actual = response.asMap()
             assertPredicatesOnMetaData(
                 listOf(
                     indexName to listOf(
@@ -122,7 +112,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                                 assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                         ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                     )
-                ), actual)
+                ), getExplainMap(indexName))
         }
     }
 
@@ -136,12 +126,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         waitFor {
-            val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-
             val expectedInfoString = mapOf("message" to "Fail to load policy: $policyID").toString()
-            val actual = response.asMap()
-
             assertPredicatesOnMetaData(
                 listOf(
                     indexName to listOf(
@@ -153,7 +138,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                                 assertRetryInfoEquals(PolicyRetryInfoMetaData(true, 0), retryInfoMetaDataMap),
                         ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                     )
-                ), actual)
+                ), getExplainMap(indexName))
         }
     }
 

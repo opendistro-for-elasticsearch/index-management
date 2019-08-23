@@ -38,6 +38,7 @@ class AttemptCloseStep(
                 info = mapOf("message" to "Failed to close index: ${managedIndexMetaData.index}")
             }
         } catch (e: Exception) {
+            logger.error("Failed to set index to close [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set index to close")
             val errorMessage = e.message

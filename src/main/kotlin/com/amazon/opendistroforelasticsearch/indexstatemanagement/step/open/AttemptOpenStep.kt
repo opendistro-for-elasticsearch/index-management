@@ -38,6 +38,7 @@ class AttemptOpenStep(
                 info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
             }
         } catch (e: Exception) {
+            logger.error("Failed to set index to open [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set index to open")
             val errorMessage = e.message

@@ -2,6 +2,15 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
@@ -211,6 +220,119 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 FAILED_INDICES to emptyList<Map<String, Any>>()
             )
             assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
+        }
+    }
+
+    fun `test reset action start time`() {
+        val indexName = "${testIndexName}_drewberry"
+        val policyID = "${testIndexName}_policy_1"
+        val policy = randomPolicy(states = listOf(randomState(actions = listOf(randomForceMergeActionConfig(maxNumSegments = 1)))))
+        createPolicy(policy, policyId = policyID, refresh = true)
+        createIndex(indexName, policyID)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        // init policy on job
+        updateManagedIndexConfigStartTime(
+            managedIndexConfig,
+            Instant.now().minusSeconds(58).toEpochMilli()
+        )
+
+        // verify we have policy
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(indexName),
+                false
+            )
+        }
+
+        // speed up to execute first action, readonly
+        updateManagedIndexConfigStartTime(
+            managedIndexConfig,
+            Instant.now().minusSeconds(58).toEpochMilli()
+        )
+
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(
+                    indexName to listOf(
+                        ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
+                            assertActionEquals(ActionMetaData(name = "force_merge", startTime = Instant.now().toEpochMilli(), failed = false,
+                                index = 0, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
+                    )
+                ), getExplainMap(indexName), false)
+        }
+
+        // close the index to cause next execution to fail
+        closeIndex(indexName)
+
+        // speed up to execute first action and fail, call force merge
+        updateManagedIndexConfigStartTime(
+            managedIndexConfig,
+            Instant.now().minusSeconds(58).toEpochMilli()
+        )
+
+        // verify failed and save the startTime
+        var firstStartTime: Long = Long.MAX_VALUE
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(
+                    indexName to listOf(
+                        ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean {
+                            @Suppress("UNCHECKED_CAST")
+                            actionMetaDataMap as Map<String, Any>
+                            firstStartTime = actionMetaDataMap[ManagedIndexMetaData.START_TIME] as Long
+                            return assertActionEquals(ActionMetaData(name = "force_merge", startTime = Instant.now().toEpochMilli(), failed = true,
+                                index = 0, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
+                        }
+                    )
+                ), getExplainMap(indexName), false)
+        }
+
+        // retry
+        val response = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+        )
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+        val expectedErrorMessage = mapOf(
+            UPDATED_INDICES to 1,
+            FAILURES to false,
+            FAILED_INDICES to emptyList<Map<String, Any>>()
+        )
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, response.asMap())
+
+        // verify actionStartTime was reset to null
+        assertPredicatesOnMetaData(
+            listOf(
+                indexName to listOf(
+                    ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean {
+                        @Suppress("UNCHECKED_CAST")
+                        actionMetaDataMap as Map<String, Any>
+                        return actionMetaDataMap[ManagedIndexMetaData.START_TIME] as Long? == null
+                    }
+                )
+            ), getExplainMap(indexName), false)
+
+        // should execute and set the startTime again
+        updateManagedIndexConfigStartTime(
+            managedIndexConfig,
+            Instant.now().minusSeconds(58).toEpochMilli()
+        )
+
+        // the new startTime should be greater than the first start time
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(
+                    indexName to listOf(
+                        ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean {
+                            @Suppress("UNCHECKED_CAST")
+                            actionMetaDataMap as Map<String, Any>
+                            return actionMetaDataMap[ManagedIndexMetaData.START_TIME] as Long > firstStartTime
+                        }
+                    )
+                ), getExplainMap(indexName), false)
         }
     }
 }

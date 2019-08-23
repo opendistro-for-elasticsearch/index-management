@@ -95,15 +95,8 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         // Fourth execution is to fail the step third time and finally fail the action.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        val response: Response = waitFor {
-            val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-            response
-        }
-
         // At this point we should see in the explain API the action has failed with correct number of consumed retries.
         val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
-        val actual = response.asMap()
         assertPredicatesOnMetaData(
             listOf(
                 indexName to listOf(
@@ -126,7 +119,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
             ),
-            actual
+            getExplainMap(indexName)
         )
     }
 
@@ -172,15 +165,8 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         // Fourth execution should not run job since we have the retry backoff.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        val response: Response = waitFor {
-            val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-            response
-        }
-
         // even if we ran couple times we should have backed off and only retried once.
         val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
-        val actual = response.asMap()
         assertPredicatesOnMetaData(
             listOf(
                 indexName to listOf(
@@ -202,8 +188,6 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                         assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
-            ),
-            actual
-        )
+            ), getExplainMap(indexName))
     }
 }

@@ -292,12 +292,20 @@ fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, 
             ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
         actionMetaData?.index != this.config.actionIndex ->
             ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
-        else -> actionMetaData
+        // RetryAPI will reset startTime to null for actionMetaData and we'll reset it to "now" here
+        else -> actionMetaData.copy(startTime = actionMetaData.startTime ?: Instant.now().toEpochMilli())
     }
 }
 
 fun Action.shouldBackoff(actionMetaData: ActionMetaData?, actionRetry: ActionRetry?): Pair<Boolean, Long?>? {
     return this.config.configRetry?.backoff?.shouldBackoff(actionMetaData, actionRetry)
+}
+
+fun Action.hasTimedOut(actionMetaData: ActionMetaData?): Boolean {
+    if (actionMetaData == null) return false
+    val configTimeout = this.config.configTimeout
+    if (configTimeout == null) return false
+    return (Instant.now().toEpochMilli() - actionMetaData.startTime) > configTimeout.timeout.millis
 }
 
 @Suppress("ReturnCount")

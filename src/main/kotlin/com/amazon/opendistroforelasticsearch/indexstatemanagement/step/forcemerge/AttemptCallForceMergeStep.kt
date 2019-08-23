@@ -61,6 +61,7 @@ class AttemptCallForceMergeStep(
                 )
             }
         } catch (e: Exception) {
+            logger.error("Failed to start force merge [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to start force merge")
             val errorMessage = e.message

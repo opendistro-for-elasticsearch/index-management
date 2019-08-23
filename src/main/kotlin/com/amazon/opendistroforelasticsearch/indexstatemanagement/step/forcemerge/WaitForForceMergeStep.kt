@@ -135,7 +135,7 @@ class WaitForForceMergeStep(
     }
 
     private fun getActionStartTime(): Instant {
-        if (managedIndexMetaData.actionMetaData == null) {
+        if (managedIndexMetaData.actionMetaData?.startTime == null) {
             return Instant.now()
         }
 

@@ -292,7 +292,8 @@ fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, 
             ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
         actionMetaData?.index != this.config.actionIndex ->
             ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
-        else -> actionMetaData
+        // RetryAPI will reset startTime to null for actionMetaData and we'll reset it to "now" here
+        else -> actionMetaData.copy(startTime = actionMetaData.startTime ?: Instant.now().toEpochMilli())
     }
 }
 

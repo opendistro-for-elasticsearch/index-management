@@ -64,11 +64,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         Thread.sleep(3000)
 
         // At this point we should see in the explain API the action has failed with correct number of consumed retries.
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-
         val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
-        val actual = response.asMap()
         assertPredicatesOnMetaData(
             listOf(
                 indexName to listOf(
@@ -91,7 +87,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
             ),
-            actual
+            getExplainMap(indexName)
         )
     }
 
@@ -138,12 +134,8 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         Thread.sleep(3000)
 
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-
         // even if we ran couple times we should have backed off and only retried once.
         val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
-        val actual = response.asMap()
         assertPredicatesOnMetaData(
             listOf(
                 indexName to listOf(
@@ -165,8 +157,6 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                         assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                     ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                 )
-            ),
-            actual
-        )
+            ), getExplainMap(indexName))
     }
 }

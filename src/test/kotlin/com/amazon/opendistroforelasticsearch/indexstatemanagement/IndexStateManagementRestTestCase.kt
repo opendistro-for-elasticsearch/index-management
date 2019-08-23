@@ -433,7 +433,11 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     protected fun assertActionEquals(expectedAction: ActionMetaData, actualActionMap: Any?): Boolean {
         actualActionMap as Map<String, Any>
         assertEquals(expectedAction.name, actualActionMap[ManagedIndexMetaData.NAME] as String)
-        assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedAction.startTime)
+        assertEquals(expectedAction.failed, actualActionMap[ActionMetaData.FAILED] as Boolean)
+        val expectedStartTime = expectedAction.startTime
+        if (expectedStartTime != null) {
+            assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
+        }
         return true
     }
 }

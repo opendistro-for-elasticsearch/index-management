@@ -47,11 +47,18 @@ class AttemptTransitionStep(
     private val logger = LogManager.getLogger(javaClass)
     private var stateName: String? = null
     private var stepStatus = StepStatus.STARTING
+    private var policyCompleted: Boolean = false
     private var info: Map<String, Any>? = null
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         try {
+            if (config.transitions.isEmpty()) {
+                policyCompleted = true
+                stepStatus = StepStatus.COMPLETED
+                return
+            }
+
             val statsRequest = IndicesStatsRequest()
                 .indices(managedIndexMetaData.index).clear().docs(true)
             val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
@@ -94,6 +101,7 @@ class AttemptTransitionStep(
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
+            policyCompleted = policyCompleted,
             transitionTo = stateName,
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             info = info

@@ -27,6 +27,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.sus
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
@@ -167,11 +169,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
             updateIndexPolicyIDSetting(managedIndexConfig.index, managedIndexConfig.policyID)
         }
 
-        if (managedIndexConfig.shouldChangePolicy(managedIndexMetaData)) {
-            initChangePolicy(managedIndexConfig, managedIndexMetaData)
-            return
-        }
-
         // If the policy was completed or failed then return early and disable job so it stops scheduling work
         if (managedIndexMetaData.policyCompleted == true || managedIndexMetaData.isFailed) {
             disableManagedIndexConfig(managedIndexConfig)
@@ -187,6 +184,10 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.error("Action=${action.type.type} has timed out")
             val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(actionMetaData = managedIndexMetaData.actionMetaData?.copy(failed = true), info = info))
             if (updated) disableManagedIndexConfig(managedIndexConfig)
+        }
+      
+        if (managedIndexConfig.shouldChangePolicy(managedIndexMetaData, action)) {
+            initChangePolicy(managedIndexConfig, managedIndexMetaData, action)
             return
         }
 
@@ -212,7 +213,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         if (updateResult && state != null && action != null && step != null && actionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
             step.execute()
-            var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(state, action, step)
+            var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(action, step)
 
             if (executedManagedIndexMetaData.isFailed) {
                 try {
@@ -403,7 +404,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
      * Initializes the change policy process where we will get the policy using the change policy's policyID, update the [ManagedIndexMetaData]
      * to reflect the new policy, and save the new policy to the [ManagedIndexConfig] while resetting the change policy to null
      */
-    private suspend fun initChangePolicy(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData) {
+    private suspend fun initChangePolicy(
+        managedIndexConfig: ManagedIndexConfig,
+        managedIndexMetaData: ManagedIndexMetaData,
+        actionToExecute: Action?
+    ) {
 
         // should never happen since we only call this if there is a changePolicy, but we'll do it to make changePolicy non null
         val changePolicy = managedIndexConfig.changePolicy
@@ -422,9 +427,19 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 policyRetryInfo = PolicyRetryInfoMetaData(failed = true, consumedRetries = 0)
             )
         } else {
+            // if the action to execute is transition then set the actionMetaData to a new transition metadata to reflect we are
+            // in transition (in case we triggered change policy from entering transition) or to reflect this is a new policy transition phase
+            val newTransitionMetaData = ActionMetaData(ActionConfig.ActionType.TRANSITION.type, Instant.now().toEpochMilli(), -1,
+                false, 0, 0, null)
+            val actionMetaData = if (actionToExecute?.type == ActionConfig.ActionType.TRANSITION) {
+                newTransitionMetaData
+            } else {
+                managedIndexMetaData.actionMetaData
+            }
             managedIndexMetaData.copy(
                 info = mapOf("message" to "Attempting to change policy to ${policy.id}"),
                 transitionTo = changePolicy.state,
+                actionMetaData = actionMetaData,
                 stepMetaData = null,
                 policyCompleted = false,
                 policySeqNo = policy.seqNo,

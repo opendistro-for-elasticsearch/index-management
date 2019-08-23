@@ -344,7 +344,6 @@ fun ManagedIndexMetaData.getStartingManagedIndexMetaData(
 
 @Suppress("ReturnCount")
 fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
-    state: State,
     action: Action,
     step: Step
 ): ManagedIndexMetaData {
@@ -368,7 +367,7 @@ fun ManagedIndexMetaData.getCompletedManagedIndexMetaData(
     }
 
     return this.copy(
-        policyCompleted = actionMetaData.name == ActionConfig.ActionType.TRANSITION.type && state.transitions.isEmpty(),
+        policyCompleted = updatedStepMetaData.policyCompleted,
         rolledOver = updatedStepMetaData.rolledOver,
         actionMetaData = updatedActionMetaData,
         stepMetaData = updatedStepMetaData.stepMetaData,
@@ -402,9 +401,15 @@ val ManagedIndexMetaData.isFailed: Boolean
  * @return {@code true} if we should change policy, {@code false} if not
  */
 @Suppress("ReturnCount")
-fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMetaData): Boolean {
+fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMetaData, actionToExecute: Action?): Boolean {
     if (this.changePolicy == null) {
         return false
+    }
+
+    // we need this in so that we can change policy before the first transition happens so policy doesnt get completed
+    // before we have a chance to change policy
+    if (actionToExecute?.type == ActionConfig.ActionType.TRANSITION) {
+        return true
     }
 
     if (managedIndexMetaData.actionMetaData?.name != ActionConfig.ActionType.TRANSITION.type) {

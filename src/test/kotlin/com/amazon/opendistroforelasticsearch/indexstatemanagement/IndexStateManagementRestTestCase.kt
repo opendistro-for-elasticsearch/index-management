@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.StateFil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
@@ -53,6 +54,7 @@ import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
+import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
@@ -259,6 +261,14 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
     }
 
+    protected fun getExistingManagedIndexConfig(index: String): ManagedIndexConfig {
+        return waitFor {
+            val config = getManagedIndexConfig(index)
+            assertNotNull("ManagedIndexConfig is null", config)
+            config!!
+        }
+    }
+
     protected fun updateManagedIndexConfigStartTime(update: ManagedIndexConfig, desiredStartTimeMillis: Long) {
         val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
             StringEntity(
@@ -323,6 +333,12 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     protected fun getUuid(indexName: String): String {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
         return indexSettings[indexName]!!["settings"]!!["index.uuid"] as String
+    }
+
+    protected fun getExplainMap(indexName: String): Map<String, Any> {
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+        return response.asMap()
     }
 
     /**

@@ -402,7 +402,7 @@ fun RestClient.makeRequest(
 }
 
 fun <T> waitFor(
-    timeout: Instant = Instant.ofEpochSecond(5),
+    timeout: Instant = Instant.ofEpochSecond(10),
     block: () -> T
 ): T {
     val startTime = Instant.now().toEpochMilli()

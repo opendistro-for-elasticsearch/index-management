@@ -27,9 +27,6 @@ import java.util.Locale
 class ActionTimeoutIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    /**
-     * We are forcing RollOver to fail in this Integ test.
-     */
     fun `test failed action`() {
         val indexName = "${testIndexName}_index_1"
         val policyID = "${testIndexName}_testPolicyName_1"
@@ -67,6 +64,9 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
                 strict = false
             )
         }
+
+        // TODO: temporary
+        Thread.sleep(2000)
 
         // the third execution we should hit the 1 second action timeout and fail
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())

@@ -302,7 +302,7 @@ fun Action.shouldBackoff(actionMetaData: ActionMetaData?, actionRetry: ActionRet
 }
 
 fun Action.hasTimedOut(actionMetaData: ActionMetaData?): Boolean {
-    if (actionMetaData == null) return false
+    if (actionMetaData?.startTime == null) return false
     val configTimeout = this.config.configTimeout
     if (configTimeout == null) return false
     return (Instant.now().toEpochMilli() - actionMetaData.startTime) > configTimeout.timeout.millis

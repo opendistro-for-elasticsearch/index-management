@@ -190,6 +190,11 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         updateIndexSettings(index, settings)
     }
 
+    protected fun removePolicyFromIndex(index: String) {
+        val settings = Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key)
+        updateIndexSettings(index, settings)
+    }
+
     @Suppress("UNCHECKED_CAST")
     protected fun getPolicyFromIndex(index: String): String? {
         val indexSettings = getIndexSettings(index) as Map<String, Map<String, Map<String, Any?>>>

@@ -52,6 +52,7 @@ class AttemptDeleteStep(
                 info = mapOf("message" to "Failed to delete index")
             }
         } catch (e: Exception) {
+            logger.error("Failed to delete index [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to delete index")
             val errorMessage = e.message

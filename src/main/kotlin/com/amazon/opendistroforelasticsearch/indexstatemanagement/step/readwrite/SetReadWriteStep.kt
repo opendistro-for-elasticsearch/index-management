@@ -57,6 +57,7 @@ class SetReadWriteStep(
                 info = mapOf("message" to "Failed to set index to read-write")
             }
         } catch (e: Exception) {
+            logger.error("Failed to set index to read-write [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set index to read-write")
             val errorMessage = e.message

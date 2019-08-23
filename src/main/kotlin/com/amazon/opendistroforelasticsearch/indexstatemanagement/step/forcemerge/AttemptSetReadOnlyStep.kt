@@ -82,6 +82,7 @@ class AttemptSetReadOnlyStep(
             // Otherwise if "index.blocks.write" is null or "false", the index is not read-only
             return false
         } catch (e: Exception) {
+            logger.error("Failed to get index settings [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to get index settings")
             val errorMessage = e.message
@@ -111,6 +112,7 @@ class AttemptSetReadOnlyStep(
             stepStatus = StepStatus.FAILED
             info = mapOf("message" to "Failed to set index to read-only")
         } catch (e: Exception) {
+            logger.error("Failed to set index to read-only [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to set index to read-only")
             val errorMessage = e.message

@@ -123,6 +123,7 @@ class WaitForForceMergeStep(
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
         } catch (e: Exception) {
+            logger.error("Failed to check segments when waiting for force merge to complete [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to check segments when waiting for force merge to complete")
             val errorMessage = e.message

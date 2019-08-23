@@ -93,6 +93,7 @@ class AttemptRolloverStep(
                 info = mapOf("message" to "New index created (${response.newIndex}), but failed to update alias")
             }
         } catch (e: Exception) {
+            logger.error("Failed to rollover index [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to rollover index")
             val errorMessage = e.message
@@ -132,6 +133,7 @@ class AttemptRolloverStep(
                 "shard_failures" to statsResponse.shardFailures.map { it.toString() }
             )
         } catch (e: Exception) {
+            logger.error("Failed to evaluate conditions for rollover [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to evaluate conditions for rollover")
             val errorMessage = e.message

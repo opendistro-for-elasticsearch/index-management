@@ -386,47 +386,23 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         val firstManagedIndexConfig = getExistingManagedIndexConfig(firstIndex)
 
         // speed up to first execution where we initialize the policy on the job
-        updateManagedIndexConfigStartTime(
-            firstManagedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(firstManagedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(firstIndex to listOf(ManagedIndexMetaData.POLICY_ID to policy.id::equals)),
-                getExplainMap(firstIndex),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policy.id, getExplainManagedIndexMetaData(firstIndex).policyID) }
 
         // speed up to second execution where we attempt transition which should succeed
         // and transitionTo should be set
-        updateManagedIndexConfigStartTime(
-            firstManagedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(firstManagedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(firstIndex to listOf(ManagedIndexMetaData.TRANSITION_TO to secondState.name::equals)),
-                getExplainMap(firstIndex),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(secondState.name, getExplainManagedIndexMetaData(firstIndex).transitionTo) }
 
         // speed up to third execution where we transition to second state
-        updateManagedIndexConfigStartTime(
-            firstManagedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(firstManagedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         waitFor {
-            assertPredicatesOnMetaData(
-                listOf(firstIndex to listOf(StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
-                    assertStateEquals(StateMetaData(secondState.name, Instant.now().toEpochMilli()), stateMetaDataMap))),
-                getExplainMap(firstIndex),
-                strict = false
-            )
+            getExplainManagedIndexMetaData(firstIndex).let {
+                assertEquals(it.copy(stateMetaData = it.stateMetaData?.copy(name = secondState.name)), it)
+            }
         }
 
         // create second index
@@ -435,18 +411,9 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         val secondManagedIndexConfig = getExistingManagedIndexConfig(secondIndex)
 
         // speed up to first execution where we initialize the policy on the job
-        updateManagedIndexConfigStartTime(
-            secondManagedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(secondManagedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(secondIndex to listOf(ManagedIndexMetaData.POLICY_ID to policy.id::equals)),
-                getExplainMap(secondIndex),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policy.id, getExplainManagedIndexMetaData(secondIndex).policyID) }
 
         val newPolicy = createRandomPolicy(refresh = true)
         val changePolicy = ChangePolicy(newPolicy.id, null, listOf(StateFilter(state = firstState.name)))
@@ -492,10 +459,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         waitFor { assertNotNull(getExistingManagedIndexConfig(index).changePolicy) }
 
         // speed up to first execution where we initialize the policy on the job
-        updateManagedIndexConfigStartTime(
-            managedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         // The initialized policy should be the change policy one
         val updatedManagedIndexConfig: ManagedIndexConfig = waitFor {

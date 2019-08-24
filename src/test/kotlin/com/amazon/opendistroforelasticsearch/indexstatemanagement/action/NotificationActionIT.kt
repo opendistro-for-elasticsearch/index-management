@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.NotificationActionConfig
@@ -78,13 +77,7 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
         // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // verify index does not exist
         assertFalse("Notification index exists before notification has been sent", indexExists(notificationIndex))

@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
@@ -56,13 +55,7 @@ class ReplicaCountActionIT : IndexStateManagementRestTestCase() {
         // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Need to speed up to second execution where it will trigger the first execution of the action which
         // should set the replica count to the desired number

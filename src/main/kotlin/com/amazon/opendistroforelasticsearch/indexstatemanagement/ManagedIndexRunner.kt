@@ -186,7 +186,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             if (updated) disableManagedIndexConfig(managedIndexConfig)
             return
         }
-      
+
         if (managedIndexConfig.shouldChangePolicy(managedIndexMetaData, action)) {
             initChangePolicy(managedIndexConfig, managedIndexMetaData, action)
             return

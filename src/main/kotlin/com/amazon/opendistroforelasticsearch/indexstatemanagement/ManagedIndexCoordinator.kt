@@ -378,15 +378,18 @@ class ManagedIndexCoordinator(
     @Suppress("TooGenericExceptionCaught")
     suspend fun clearManagedIndexMetaData(indices: List<Index>) {
         try {
+            // If list of indices is empty, no request necessary
+            if (indices.isEmpty()) return
+
             val request = UpdateManagedIndexMetaDataRequest(indicesToRemoveManagedIndexMetaDataFrom = indices)
 
             retryPolicy.retry(logger) {
                 val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
 
-                if (!response.isAcknowledged) logger.error("Failed to remove ManagedIndexMetaData")
+                if (!response.isAcknowledged) logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]")
             }
         } catch (e: Exception) {
-            logger.error("Failed to remove ManagedIndexMetaData", e)
+            logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]", e)
         }
     }
 

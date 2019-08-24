@@ -43,12 +43,21 @@ class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndex
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (!this::indicesToAddManagedIndexMetaDataTo.isInitialized && !this::indicesToRemoveManagedIndexMetaDataFrom.isInitialized) {
+
+        if (!this::indicesToAddManagedIndexMetaDataTo.isInitialized || !this::indicesToRemoveManagedIndexMetaDataFrom.isInitialized) {
             validationException = addValidationError(
-                "Must specify at least one index List for UpdateManagedIndexMetaData",
+                "Both Lists for UpdateManagedIndexMetaDataRequest must be initialized",
                 validationException
             )
         }
+
+        if (this.indicesToAddManagedIndexMetaDataTo.isEmpty() && this.indicesToRemoveManagedIndexMetaDataFrom.isEmpty()) {
+            validationException = addValidationError(
+                "At least one non-empty List must be given for UpdateManagedIndexMetaDataRequest",
+                validationException
+            )
+        }
+
         return validationException
     }
 

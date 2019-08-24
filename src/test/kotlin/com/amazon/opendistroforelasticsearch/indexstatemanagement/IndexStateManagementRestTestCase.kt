@@ -190,6 +190,11 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         updateIndexSettings(index, settings)
     }
 
+    protected fun removePolicyFromIndex(index: String) {
+        val settings = Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key)
+        updateIndexSettings(index, settings)
+    }
+
     @Suppress("UNCHECKED_CAST")
     protected fun getPolicyFromIndex(index: String): String? {
         val indexSettings = getIndexSettings(index) as Map<String, Map<String, Map<String, Any?>>>
@@ -339,6 +344,29 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         return response.asMap()
+    }
+
+    // Calls explain API for a single concrete index and converts the response into a ManagedIndexMetaData
+    // This only works for indices with a ManagedIndexMetaData that has been initialized
+    protected fun getExplainManagedIndexMetaData(indexName: String): ManagedIndexMetaData {
+        if (indexName.contains("*") || indexName.contains(",")) {
+            throw IllegalArgumentException("This method is only for a single concrete index")
+        }
+
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+
+        lateinit var metadata: ManagedIndexMetaData
+        val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
+        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        while (xcp.nextToken() != Token.END_OBJECT) {
+            val fieldName = xcp.currentName()
+            logger.info("current fieldname: $fieldName")
+            xcp.nextToken()
+
+            metadata = ManagedIndexMetaData.parse(xcp)
+        }
+        return metadata
     }
 
     /**

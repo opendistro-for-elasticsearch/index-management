@@ -18,10 +18,12 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.coordinator
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
+import java.time.Instant
 import java.util.Locale
 
 class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
@@ -81,6 +83,42 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         waitFor {
             val afterDeleteConfig = getManagedIndexConfig(index)
             assertNull("Did not delete ManagedIndexConfig", afterDeleteConfig)
+        }
+    }
+
+    fun `test managed index metadata is cleaned up after removing policy_id`() {
+        val policyID = "some_policy"
+        val (index) = createIndex(policyID = policyID)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(index)
+
+        // Speed up execution to initialize policy on job
+        // Loading policy will fail but ManagedIndexMetaData will be updated
+        updateManagedIndexConfigStartTime(
+            managedIndexConfig,
+            Instant.now().minusSeconds(58).toEpochMilli()
+        )
+
+        // Verify ManagedIndexMetaData contains information
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(index to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(index),
+                false
+            )
+        }
+
+        // Remove policy_id from index
+        removePolicyFromIndex(index)
+
+        // Verify ManagedIndexMetaData has been cleared
+        // Only ManagedIndexSettings.POLICY_ID set to null should be left in explain output
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(index to listOf(ManagedIndexSettings.POLICY_ID.key to fun(policyID: Any?): Boolean = policyID == null)),
+                getExplainMap(index),
+                true
+            )
         }
     }
 }

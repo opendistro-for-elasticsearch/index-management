@@ -184,8 +184,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.error("Action=${action.type.type} has timed out")
             val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(actionMetaData = managedIndexMetaData.actionMetaData?.copy(failed = true), info = info))
             if (updated) disableManagedIndexConfig(managedIndexConfig)
+            return
         }
-      
+
         if (managedIndexConfig.shouldChangePolicy(managedIndexMetaData, action)) {
             initChangePolicy(managedIndexConfig, managedIndexMetaData, action)
             return
@@ -382,7 +383,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
         var result = false
         try {
             val request = UpdateManagedIndexMetaDataRequest(
-                    listOf(Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData))
+                indicesToAddManagedIndexMetaDataTo = listOf(
+                    Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData)
+                )
             )
             updateMetaDataRetryPolicy.retry(logger) {
                 val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }

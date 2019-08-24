@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
@@ -66,13 +65,7 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         // First execution: Policy is initialized
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Second execution: Index is set to read-only for force_merge
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
@@ -122,10 +115,7 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         waitFor { assertTrue("Segment count for [$indexName] was less than expected", getSegmentCount(indexName) > 1) }
 
         // Set index to read-only
-        updateIndexSettings(
-            indexName,
-            Settings.builder().put(IndexMetaData.SETTING_BLOCKS_WRITE, true)
-        )
+        updateIndexSettings(indexName, Settings.builder().put(IndexMetaData.SETTING_BLOCKS_WRITE, true))
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
@@ -133,13 +123,7 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         // First execution: Policy is initialized
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Second execution: Index was already read-only and should remain so for force_merge
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())

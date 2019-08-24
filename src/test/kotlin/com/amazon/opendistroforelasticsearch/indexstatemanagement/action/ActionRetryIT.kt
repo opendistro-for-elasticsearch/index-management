@@ -1,12 +1,10 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.client.Response
@@ -44,53 +42,71 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         // First execution. We need to initialize the policy.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Second execution is to fail the step once.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        Thread.sleep(3000)
+
+        // At this point we should see in the explain API the action has failed with correct number of consumed retries.
+        waitFor {
+            val expectedInfoStringOneRetry = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
+            assertPredicatesOnMetaData(
+                listOf(
+                    indexName to listOf(
+                        ManagedIndexSettings.POLICY_ID.key to policyID::equals,
+                        ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
+                        ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
+                        ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
+                        ManagedIndexMetaData.POLICY_SEQ_NO to policySeq::equals,
+                        ManagedIndexMetaData.POLICY_PRIMARY_TERM to policyPrimaryTerm::equals,
+                        ManagedIndexMetaData.ROLLED_OVER to false::equals,
+                        StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
+                            assertStateEquals(StateMetaData("Ingest", Instant.now().toEpochMilli()), stateMetaDataMap),
+                        ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
+                            assertActionEquals(
+                                ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, false, 1, null, null),
+                                actionMetaDataMap
+                            ),
+                        PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
+                            assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoStringOneRetry == info.toString()
+                    )
+                ),
+                getExplainMap(indexName)
+            )
+        }
 
         // Third execution is to fail the step second time.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
-        val responseFirst: Response = waitFor {
-            val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
-            assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-            response
-        }
 
         // At this point we should see in the explain API the action has failed with correct number of consumed retries.
-        val expectedInfoStringOneRetry = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
-        val actualOneRetry = responseFirst.asMap()
-        assertPredicatesOnMetaData(
-            listOf(
-                indexName to listOf(
-                    ManagedIndexSettings.POLICY_ID.key to policyID::equals,
-                    ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
-                    ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
-                    ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
-                    ManagedIndexMetaData.POLICY_SEQ_NO to policySeq::equals,
-                    ManagedIndexMetaData.POLICY_PRIMARY_TERM to policyPrimaryTerm::equals,
-                    ManagedIndexMetaData.ROLLED_OVER to false::equals,
-                    StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
-                        assertStateEquals(StateMetaData("Ingest", Instant.now().toEpochMilli()), stateMetaDataMap),
-                    ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
-                        assertActionEquals(
-                            ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, true, 1, null, null),
-                            actionMetaDataMap
-                        ),
-                    PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
-                        assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
-                    ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoStringOneRetry == info.toString()
-                )
-            ),
-            actualOneRetry
-        )
+        waitFor {
+            val expectedInfoStringOneRetry = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
+            assertPredicatesOnMetaData(
+                listOf(
+                    indexName to listOf(
+                        ManagedIndexSettings.POLICY_ID.key to policyID::equals,
+                        ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
+                        ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
+                        ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
+                        ManagedIndexMetaData.POLICY_SEQ_NO to policySeq::equals,
+                        ManagedIndexMetaData.POLICY_PRIMARY_TERM to policyPrimaryTerm::equals,
+                        ManagedIndexMetaData.ROLLED_OVER to false::equals,
+                        StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
+                            assertStateEquals(StateMetaData("Ingest", Instant.now().toEpochMilli()), stateMetaDataMap),
+                        ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
+                            assertActionEquals(
+                                ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, false, 2, null, null),
+                                actionMetaDataMap
+                            ),
+                        PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
+                            assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoStringOneRetry == info.toString()
+                    )
+                ),
+                getExplainMap(indexName)
+            )
+        }
 
         // Fourth execution is to fail the step third time and finally fail the action.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
@@ -146,13 +162,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
         // First execution. We need to initialize the policy.
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Second execution is to fail the step once.
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
@@ -166,28 +176,30 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         // even if we ran couple times we should have backed off and only retried once.
-        val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
-        assertPredicatesOnMetaData(
-            listOf(
-                indexName to listOf(
-                    ManagedIndexSettings.POLICY_ID.key to policyID::equals,
-                    ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
-                    ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
-                    ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
-                    ManagedIndexMetaData.POLICY_SEQ_NO to policySeq::equals,
-                    ManagedIndexMetaData.POLICY_PRIMARY_TERM to policyPrimaryTerm::equals,
-                    ManagedIndexMetaData.ROLLED_OVER to false::equals,
-                    StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
-                        assertStateEquals(StateMetaData("Ingest", Instant.now().toEpochMilli()), stateMetaDataMap),
-                    ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
-                        assertActionEquals(
-                            ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, false, 1, null, null),
-                            actionMetaDataMap
-                        ),
-                    PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
-                        assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
-                    ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
-                )
-            ), getExplainMap(indexName))
+        waitFor {
+            val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
+            assertPredicatesOnMetaData(
+                listOf(
+                    indexName to listOf(
+                        ManagedIndexSettings.POLICY_ID.key to policyID::equals,
+                        ManagedIndexMetaData.INDEX to managedIndexConfig.index::equals,
+                        ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
+                        ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
+                        ManagedIndexMetaData.POLICY_SEQ_NO to policySeq::equals,
+                        ManagedIndexMetaData.POLICY_PRIMARY_TERM to policyPrimaryTerm::equals,
+                        ManagedIndexMetaData.ROLLED_OVER to false::equals,
+                        StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
+                            assertStateEquals(StateMetaData("Ingest", Instant.now().toEpochMilli()), stateMetaDataMap),
+                        ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
+                            assertActionEquals(
+                                ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, false, 1, null, null),
+                                actionMetaDataMap
+                            ),
+                        PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
+                            assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
+                    )
+                ), getExplainMap(indexName))
+        }
     }
 }

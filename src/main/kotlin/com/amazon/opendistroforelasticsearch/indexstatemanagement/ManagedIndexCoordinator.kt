@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
@@ -24,12 +25,15 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.sho
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.POLICY_ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.createManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.deleteManagedIndexRequest
@@ -48,6 +52,7 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterState
@@ -63,6 +68,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.Index
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
@@ -102,8 +108,7 @@ class ManagedIndexCoordinator(
     @Volatile private var indexStateManagementEnabled = INDEX_STATE_MANAGEMENT_ENABLED.get(settings)
     @Volatile private var sweepPeriod = SWEEP_PERIOD.get(settings)
     @Volatile private var retryPolicy =
-            BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings),
-                    COORDINATOR_BACKOFF_COUNT.get(settings))
+            BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings), COORDINATOR_BACKOFF_COUNT.get(settings))
 
     init {
         clusterService.addListener(this)
@@ -186,6 +191,7 @@ class ManagedIndexCoordinator(
         * any changes from users that ignore and use the ES settings API
         * */
         var hasCreateRequests = false
+        var indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
         val requests: List<DocWriteRequest<*>> = event.state().metaData().indices().mapNotNull {
             val previousIndexMetaData = event.previousState().metaData().index(it.value.index)
             val policyID = it.value.getPolicyID()
@@ -194,14 +200,17 @@ class ManagedIndexCoordinator(
                     hasCreateRequests = true
                     createManagedIndexRequest(it.value.index.name, it.value.indexUUID, policyID)
                 }
-                it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
+                it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) -> {
+                    indicesToRemoveManagedIndexMetaDataFrom.add(it.value.index)
                     deleteManagedIndexRequest(it.value.indexUUID)
+                }
                 else -> null
             }
             request
         }
 
         updateManagedIndices(requests + indicesDeletedRequests, hasCreateRequests)
+        clearManagedIndexMetaData(indicesToRemoveManagedIndexMetaDataFrom)
     }
 
     /**
@@ -245,7 +254,7 @@ class ManagedIndexCoordinator(
     }
 
     private fun getFullSweepElapsedTime(): TimeValue =
-            TimeValue.timeValueNanos(System.nanoTime() - lastFullSweepTimeNano)
+        TimeValue.timeValueNanos(System.nanoTime() - lastFullSweepTimeNano)
 
     /**
      * Sweeps the [INDEX_STATE_MANAGEMENT_INDEX] and cluster state.
@@ -264,8 +273,11 @@ class ManagedIndexCoordinator(
         val deleteManagedIndexRequests =
                 getDeleteManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
 
+        val indicesToDeleteManagedIndexMetaDataFrom = getIndicesToDeleteManagedIndexMetaDataFrom(clusterService.state())
+
         val requests = createManagedIndexRequests + deleteManagedIndexRequests
         updateManagedIndices(requests, createManagedIndexRequests.isNotEmpty())
+        clearManagedIndexMetaData(indicesToDeleteManagedIndexMetaDataFrom)
         lastFullSweepTimeNano = System.nanoTime()
     }
 
@@ -340,6 +352,44 @@ class ManagedIndexCoordinator(
                 val retryCause = failedResponses.first { it.status() == RestStatus.TOO_MANY_REQUESTS }.failure.cause
                 throw ExceptionsHelper.convertToElastic(retryCause)
             }
+        }
+    }
+
+    /**
+     * Returns a list of [Index]es that need to have their [ManagedIndexMetaData] removed.
+     *
+     * Finds indices that no longer have a policy set to them but still have [ManagedIndexMetaData] meaning the
+     * [ManagedIndexMetaData] needs to be cleaned up.
+     */
+    @OpenForTesting
+    fun getIndicesToDeleteManagedIndexMetaDataFrom(clusterState: ClusterState): List<Index> {
+        return clusterState.metaData().indices().values().mapNotNull {
+            val policyID = it.value.getPolicyID()
+            val managedIndexMetaData = it.value.getManagedIndexMetaData()
+
+            if (policyID == null && managedIndexMetaData != null) it.value.index else null
+        }
+    }
+
+    /**
+     * Removes the [ManagedIndexMetaData] from the given list of [Index]es.
+     */
+    @OpenForTesting
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun clearManagedIndexMetaData(indices: List<Index>) {
+        try {
+            // If list of indices is empty, no request necessary
+            if (indices.isEmpty()) return
+
+            val request = UpdateManagedIndexMetaDataRequest(indicesToRemoveManagedIndexMetaDataFrom = indices)
+
+            retryPolicy.retry(logger) {
+                val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
+
+                if (!response.isAcknowledged) logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]")
+            }
+        } catch (e: Exception) {
+            logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]", e)
         }
     }
 

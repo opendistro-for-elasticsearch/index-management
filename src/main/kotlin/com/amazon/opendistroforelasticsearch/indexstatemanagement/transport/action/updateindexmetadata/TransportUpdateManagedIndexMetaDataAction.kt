@@ -72,7 +72,10 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {
         // https://github.com/elastic/elasticsearch/commit/ae14b4e6f96b554ca8f4aaf4039b468f52df0123
         // This commit will help us to give each individual index name and the error that is cause it. For now it will be a generic error message.
-        val indices = request.listOfIndexMetadata.map { it.first.name }.toTypedArray()
+        val indicesToAddTo = request.indicesToAddManagedIndexMetaDataTo.map { it.first.name }.toTypedArray()
+        val indicesToRemoveFrom = request.indicesToRemoveManagedIndexMetaDataFrom.map { it.name }.toTypedArray()
+        val indices = indicesToAddTo + indicesToRemoveFrom
+
         return state.blocks.indicesBlockedException(ClusterBlockLevel.METADATA_WRITE, indices)
     }
 
@@ -85,11 +88,27 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
             IndexStateManagementPlugin.PLUGIN_NAME,
             object : AckedClusterStateUpdateTask<AcknowledgedResponse>(request, listener) {
                 override fun execute(currentState: ClusterState): ClusterState {
+                    // If there are no indices to make changes to, return early.
+                    // Also doing this because when creating a metaDataBuilder and making no changes to it, for some
+                    // reason the task does not complete, leading to indefinite suspension.
+                    if (request.indicesToAddManagedIndexMetaDataTo.isEmpty() &&
+                        request.indicesToRemoveManagedIndexMetaDataFrom.isEmpty()
+                    ) {
+                        return currentState
+                    }
+
                     val metaDataBuilder = MetaData.builder(currentState.metaData)
 
-                    for (pair in request.listOfIndexMetadata) {
+                    for (pair in request.indicesToAddManagedIndexMetaDataTo) {
                         metaDataBuilder.put(IndexMetaData.builder(currentState.metaData.index(pair.first))
                             .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, pair.second.toMap()))
+                    }
+
+                    for (index in request.indicesToRemoveManagedIndexMetaDataFrom) {
+                        val indexMetaDataBuilder = IndexMetaData.builder(currentState.metaData.index(index))
+                        indexMetaDataBuilder.removeCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+
+                        metaDataBuilder.put(indexMetaDataBuilder)
                     }
 
                     return ClusterState.builder(currentState).metaData(metaDataBuilder).build()
@@ -103,7 +122,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
 
         // Adding history is a best effort task.
         GlobalScope.launch(Dispatchers.IO + CoroutineName("ManagedIndexMetaData-AddHistory")) {
-            val managedIndexMetaData = request.listOfIndexMetadata.map { it.second }
+            val managedIndexMetaData = request.indicesToAddManagedIndexMetaDataTo.map { it.second }
             indexStateManagementHistory.addHistory(managedIndexMetaData)
         }
     }

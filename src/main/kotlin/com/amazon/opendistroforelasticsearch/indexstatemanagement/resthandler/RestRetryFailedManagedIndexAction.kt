@@ -113,6 +113,7 @@ class RestRetryFailedManagedIndexAction(
                 updateBulkRequest(listOfIndexMetaDataBulk.map { it.indexUuid })
             } else {
                 val builder = channel.newBuilder().startObject()
+                builder.field(UPDATED_INDICES, 0)
                 buildInvalidIndexResponse(builder, failedIndices)
                 return channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
             }
@@ -170,6 +171,7 @@ class RestRetryFailedManagedIndexAction(
                 )
             } else {
                 val builder = channel.newBuilder().startObject()
+                builder.field(UPDATED_INDICES, 0)
                 buildInvalidIndexResponse(builder, failedIndices)
                 return channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
             }
@@ -184,6 +186,7 @@ class RestRetryFailedManagedIndexAction(
             if (response.isAcknowledged) {
                 builder.field(UPDATED_INDICES, listOfIndexMetaData.size)
             } else {
+                builder.field(UPDATED_INDICES, 0)
                 failedIndices.addAll(listOfIndexMetaData.map {
                     FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetaData")
                 })
@@ -202,6 +205,7 @@ class RestRetryFailedManagedIndexAction(
                     })
                 }
 
+                builder.field(UPDATED_INDICES, 0)
                 buildInvalidIndexResponse(builder, failedIndices)
                 return channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
             } catch (inner: Exception) {

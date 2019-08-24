@@ -107,6 +107,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
                                 if (response.isAcknowledged) {
                                     builder.field(UPDATED_INDICES, indicesToRemovePolicyFrom.size)
                                 } else {
+                                    builder.field(UPDATED_INDICES, 0)
                                     failedIndices.addAll(indicesToRemovePolicyFrom.map {
                                         FailedIndex(it.name, it.uuid, "Failed to remove policy")
                                     })
@@ -122,10 +123,12 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
                         FailedIndex(it.name, it.uuid, "Failed to remove policy due to ClusterBlockException: ${e.message}")
                     })
 
+                    builder.field(UPDATED_INDICES, 0)
                     buildInvalidIndexResponse(builder, failedIndices)
                     channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
                 }
             } else {
+                builder.field(UPDATED_INDICES, 0)
                 buildInvalidIndexResponse(builder, failedIndices)
                 channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
             }

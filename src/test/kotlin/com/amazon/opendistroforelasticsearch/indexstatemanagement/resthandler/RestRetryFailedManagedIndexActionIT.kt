@@ -60,6 +60,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
+            UPDATED_INDICES to 0,
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
@@ -94,6 +95,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
+            UPDATED_INDICES to 0,
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
@@ -126,6 +128,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
+            UPDATED_INDICES to 0,
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
@@ -148,6 +151,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
+            UPDATED_INDICES to 0,
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexName,
@@ -180,6 +184,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             val actualMessage = response.asMap()
             val expectedErrorMessage = mapOf(
                 FAILURES to true,
+                UPDATED_INDICES to 0,
                 FAILED_INDICES to listOf(
                     mapOf(
                         "index_name" to indexName,

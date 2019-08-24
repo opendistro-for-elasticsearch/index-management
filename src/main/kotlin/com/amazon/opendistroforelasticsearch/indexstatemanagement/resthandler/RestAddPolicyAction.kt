@@ -134,6 +134,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
                                 if (response.isAcknowledged) {
                                     builder.field(UPDATED_INDICES, indicesToAddPolicyTo.size)
                                 } else {
+                                    builder.field(UPDATED_INDICES, 0)
                                     failedIndices.addAll(indicesToAddPolicyTo.map {
                                         FailedIndex(it.name, it.uuid, "Failed to add policy")
                                     })
@@ -150,10 +151,12 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
                         )
                     })
 
+                    builder.field(UPDATED_INDICES, 0)
                     buildInvalidIndexResponse(builder, failedIndices)
                     channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
                 }
             } else {
+                builder.field(UPDATED_INDICES, 0)
                 buildInvalidIndexResponse(builder, failedIndices)
                 channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
             }

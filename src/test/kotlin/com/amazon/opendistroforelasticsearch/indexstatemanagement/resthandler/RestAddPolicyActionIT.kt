@@ -63,6 +63,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
         val actualMessage = response.asMap()
         val expectedMessage = mapOf(
             FAILURES to true,
+            UPDATED_INDICES to 0,
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to index,
@@ -88,6 +89,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
         val actualMessage = response.asMap()
         val expectedMessage = mapOf(
             FAILURES to true,
+            UPDATED_INDICES to 0,
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to index,
@@ -118,6 +120,7 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
         val actualMessage = response.asMap()
         val expectedMessage = mapOf(
             FAILURES to true,
+            UPDATED_INDICES to 0,
             FAILED_INDICES to listOf(
                 mapOf(
                     "index_name" to indexOne,

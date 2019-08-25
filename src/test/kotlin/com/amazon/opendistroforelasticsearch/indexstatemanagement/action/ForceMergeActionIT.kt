@@ -82,10 +82,8 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
 
         waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
 
-        // Fifth execution: Set index back to read-write since it was not originally read-only
-        updateManagedIndexConfigStartTime(managedIndexConfig)
-
-        waitFor { assertEquals("false", getIndexBlocksWriteSetting(indexName)) }
+        // index should still be readonly after force merge finishes
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 
     fun `test force merge on index already in read-only`() {
@@ -139,10 +137,6 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         Thread.sleep(3000)
 
         waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
-
-        // Fifth execution: Index should remain in read-only since it was set before force_merge
-        updateManagedIndexConfigStartTime(managedIndexConfig)
-
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 

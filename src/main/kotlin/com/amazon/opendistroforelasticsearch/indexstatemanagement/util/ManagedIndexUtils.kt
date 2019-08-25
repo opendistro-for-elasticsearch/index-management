@@ -424,12 +424,6 @@ fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMeta
     return true
 }
 
-val ManagedIndexMetaData.wasReadOnly: Boolean
-    get() {
-        // Retrieve wasReadOnly property from ActionProperties found within ActionMetaData
-        return this.actionMetaData?.actionProperties?.wasReadOnly == true
-    }
-
 fun ManagedIndexMetaData.hasVersionConflict(managedIndexConfig: ManagedIndexConfig): Boolean =
     this.policySeqNo != managedIndexConfig.policySeqNo || this.policyPrimaryTerm != managedIndexConfig.policyPrimaryTerm
 

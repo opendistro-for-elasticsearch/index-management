@@ -361,7 +361,6 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         while (xcp.nextToken() != Token.END_OBJECT) {
             val fieldName = xcp.currentName()
-            logger.info("current fieldname: $fieldName")
             xcp.nextToken()
 
             metadata = ManagedIndexMetaData.parse(xcp)

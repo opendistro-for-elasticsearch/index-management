@@ -7,7 +7,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.close.CloseIndexRequest
-import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.action.admin.indices.close.CloseIndexResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
@@ -29,7 +29,7 @@ class AttemptCloseStep(
             val closeIndexRequest = CloseIndexRequest()
                 .indices(managedIndexMetaData.index)
 
-            val response: AcknowledgedResponse = client.admin().indices().suspendUntil { close(closeIndexRequest, it) }
+            val response: CloseIndexResponse = client.admin().indices().suspendUntil { close(closeIndexRequest, it) }
             if (response.isAcknowledged) {
                 stepStatus = StepStatus.COMPLETED
                 info = mapOf("message" to "Successfully closed index")

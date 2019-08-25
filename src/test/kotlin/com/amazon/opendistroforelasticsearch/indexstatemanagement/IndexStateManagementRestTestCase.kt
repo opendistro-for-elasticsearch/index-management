@@ -360,7 +360,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         while (xcp.nextToken() != Token.END_OBJECT) {
-            val fieldName = xcp.currentName()
+            xcp.currentName()
             xcp.nextToken()
 
             metadata = ManagedIndexMetaData.parse(xcp)

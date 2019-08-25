@@ -26,7 +26,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         val indexName = "${testIndexName}_index_1"
         val policyID = "${testIndexName}_testPolicyName_1"
-        val policyResponse = createPolicyJson(testPolicy, policyID)
+        createPolicyJson(testPolicy, policyID)
         val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
 
         createIndex(indexName, policyID)

@@ -43,7 +43,6 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         waitFor {
             val managedIndexMetaData = getExplainManagedIndexMetaData(indexName)
-            logger.info("print managedIndexMetaData $managedIndexMetaData")
             assertEquals(
                 ActionMetaData("rollover", managedIndexMetaData.actionMetaData?.startTime, 0, false, 1,
                     managedIndexMetaData.actionMetaData?.lastRetryTime, null),
@@ -58,7 +57,6 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         waitFor {
             val managedIndexMetaData = getExplainManagedIndexMetaData(indexName)
-            logger.info("print managedIndexMetaData $managedIndexMetaData")
             assertEquals(
                 ActionMetaData("rollover", managedIndexMetaData.actionMetaData?.startTime, 0, false, 2,
                     managedIndexMetaData.actionMetaData?.lastRetryTime, null),
@@ -73,7 +71,6 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         waitFor {
             val managedIndexMetaData = getExplainManagedIndexMetaData(indexName)
-            logger.info("print managedIndexMetaData $managedIndexMetaData")
             assertEquals(
                 ActionMetaData("rollover", managedIndexMetaData.actionMetaData?.startTime, 0, true, 2,
                     managedIndexMetaData.actionMetaData?.lastRetryTime, null),

@@ -2,7 +2,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
@@ -45,14 +44,10 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         createIndex(indexName, policyID)
         resetHistorySetting()
 
-        val managedIndexConfig: ManagedIndexConfig? = waitFor {
-            val managedIndexConfig = getManagedIndexConfig(indexName)
-            assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
-            managedIndexConfig
-        }
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         Thread.sleep(3000)
 
@@ -115,14 +110,10 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "5s")
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "5s")
 
-        val managedIndexConfig: ManagedIndexConfig? = waitFor {
-            val managedIndexConfig = getManagedIndexConfig(indexName)
-            assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
-            managedIndexConfig
-        }
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         Thread.sleep(3000)
 
@@ -185,14 +176,10 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "5s")
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_MAX_DOCS.key, "1")
 
-        val managedIndexConfig: ManagedIndexConfig? = waitFor {
-            val managedIndexConfig = getManagedIndexConfig(indexName)
-            assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
-            managedIndexConfig
-        }
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         Thread.sleep(3000)
 
@@ -255,14 +242,10 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "true")
 
-        val managedIndexConfig: ManagedIndexConfig? = waitFor {
-            val managedIndexConfig = getManagedIndexConfig(indexName)
-            assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
-            managedIndexConfig
-        }
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
@@ -357,14 +340,10 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         restAdminSettings()
         resetHistorySetting()
 
-        val managedIndexConfig: ManagedIndexConfig? = waitFor {
-            val managedIndexConfig = getManagedIndexConfig(indexName)
-            assertNotNull("ManagedIndexConfig is null", managedIndexConfig)
-            managedIndexConfig
-        }
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)

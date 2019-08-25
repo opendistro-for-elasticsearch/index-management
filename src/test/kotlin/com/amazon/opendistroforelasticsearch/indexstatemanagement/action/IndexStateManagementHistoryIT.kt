@@ -52,7 +52,10 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         // Change the start time so the job will trigger in 2 seconds.
         updateManagedIndexConfigStartTime(managedIndexConfig!!, Instant.now().minusSeconds(58).toEpochMilli())
 
-        Thread.sleep(3000)
+        waitFor {
+            val historySearchResponse = getHistorySearchResponse(indexName)
+            assertEquals(1, historySearchResponse.hits.totalHits.value)
+        }
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.

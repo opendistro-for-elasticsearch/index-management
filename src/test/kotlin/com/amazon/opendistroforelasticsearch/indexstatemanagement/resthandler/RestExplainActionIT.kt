@@ -118,7 +118,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     fun `test failed policy`() {
         val indexName = "${testIndexName}_melon"
-        val policyID = "does_not_exist"
+        val policyID = "${testIndexName}_does_not_exist"
         createIndex(indexName, policyID)
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)

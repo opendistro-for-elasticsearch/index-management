@@ -13,4 +13,4 @@
  * permissions and limitations under the License.
  */
 
-rootProject.name = 'opendistro-for-elasticsearch-index-state-management'
+rootProject.name = 'opendistro-for-elasticsearch-index-management'

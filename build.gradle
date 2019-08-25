@@ -29,31 +29,21 @@ buildscript {
     dependencies {
         classpath "org.elasticsearch.gradle:build-tools:${es_version}"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
+        classpath "org.jetbrains.kotlin:kotlin-allopen:${kotlin_version}"
+        classpath "io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.0.0-RC15"
+        classpath "org.jacoco:org.jacoco.agent:0.8.4"
     }
 }
 
-plugins {
-    id 'java-library'
-    id 'idea'
-    id 'org.jetbrains.kotlin.jvm' version '1.3.31'
-    id "org.jetbrains.kotlin.plugin.allopen" version "1.3.31"
-    id "io.gitlab.arturbosch.detekt" version "1.0.0-RC15"
-    id 'jacoco'
-}
-
+apply plugin: 'java'
+apply plugin: 'jacoco'
+apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
-apply from: 'build-tools/esplugin-coverage.gradle'
+apply plugin: 'io.gitlab.arturbosch.detekt'
+apply plugin: 'org.jetbrains.kotlin.jvm'
+apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
 
-jacoco {
-    toolVersion = "0.8.4"
-    tasks.withType(Test) {
-        jacoco { append = false }
-    }
-    // For some reason this dependency isn't getting setup automatically by the jacoco plugin
-    tasks.withType(JacocoReport) {
-        dependsOn tasks.withType(Test)
-    }
-}
+apply from: 'build-tools/esplugin-coverage.gradle'
 
 check.dependsOn jacocoTestReport
 

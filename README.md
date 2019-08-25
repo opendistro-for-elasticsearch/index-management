@@ -14,7 +14,7 @@ Each policy contains a default state and a list of states that you define for th
 
 Within each state you can define a list of actions to perform and transitions to enter a new state based off certain conditions.
 
-The current support actions are:
+The current supported actions are:
 
 * Delete
 * Close
@@ -26,7 +26,7 @@ The current support actions are:
 * Replica count
 * Rollover
 
-The current support transition conditions are:
+The current supported transition conditions are:
 
 * Index doc count
 * Index size
@@ -40,16 +40,16 @@ Please see our [documentation](https://opendistro.github.io/for-elasticsearch-do
 ## Setup
 
 1. Check out this package from version control.
-1. Launch Intellij IDEA, choose **Import Project**, and select the `settings.gradle` file in the root of this package. 
-1. To build from the command line, set `JAVA_HOME` to point to a JDK >= 12 before running `./gradlew`.
+2. Launch Intellij IDEA, choose **Import Project**, and select the `settings.gradle` file in the root of this package. 
+3. To build from the command line, set `JAVA_HOME` to point to a JDK >= 12 before running `./gradlew`.
   - Unix System
-    1. `export JAVA_HOME=jdk-install-dir`: Replace `jdk-install-dir` by the JAVA_HOME directory of your system.
-    1. `export PATH=$JAVA_HOME/bin:$PATH`
+    1. `export JAVA_HOME=jdk-install-dir`: Replace `jdk-install-dir` with the JAVA_HOME directory of your system.
+    2. `export PATH=$JAVA_HOME/bin:$PATH`
  
   - Windows System
     1. Find **My Computers** from file directory, right click and select **properties**.
-    1. Select the **Advanced** tab, select **Environment variables**.
-    1. Edit **JAVA_HOME** to path of where JDK software is installed.
+    2. Select the **Advanced** tab, select **Environment variables**.
+    3. Edit **JAVA_HOME** to path of where JDK software is installed.
 
 ## Build
 

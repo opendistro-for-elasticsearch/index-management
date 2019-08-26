@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.CloseActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
@@ -98,5 +99,49 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
 
         waitFor { assertEquals("close", getIndexState(indexName)) }
+    }
+
+    fun `test transitioning a closed index`() {
+        val indexName = "${testIndexName}_index_3"
+        val policyID = "${testIndexName}_testPolicyName_3"
+        val actionConfig = CloseActionConfig(0)
+        val secondState = State("LastState", emptyList(), emptyList())
+        val firstState = State("CloseState", listOf(actionConfig), listOf(Transition(stateName = secondState.name, conditions = null)))
+        val states = listOf(firstState, secondState)
+
+        val policy = Policy(
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states
+        )
+        createPolicy(policy, policyID)
+        createIndex(indexName, policyID)
+
+        assertEquals("open", getIndexState(indexName))
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+        // Change the start time so the job will trigger in 2 seconds and init policy
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
+
+        // Change the start time so the job will trigger in 2 seconds and close the index
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        waitFor { assertEquals("close", getIndexState(indexName)) }
+
+        // Change the start time so the job will trigger in 2 seconds and attempt transitions
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        waitFor { assertEquals(secondState.name, getExplainManagedIndexMetaData(indexName).transitionTo) }
+
+        // Change the start time so the job will trigger in 2 seconds and transition to next state (which should complete policy)
+        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+
+        waitFor { assertEquals(true, getExplainManagedIndexMetaData(indexName).policyCompleted) }
     }
 }

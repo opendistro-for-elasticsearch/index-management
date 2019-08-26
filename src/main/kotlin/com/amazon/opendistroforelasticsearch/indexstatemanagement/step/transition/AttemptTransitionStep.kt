@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.T
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.evaluateConditions
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasStatsConditions
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse
@@ -59,29 +60,34 @@ class AttemptTransitionStep(
                 return
             }
 
-            val statsRequest = IndicesStatsRequest()
-                .indices(managedIndexMetaData.index).clear().docs(true)
-            val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
+            var numDocs: Long? = null
+            var indexSize: ByteSizeValue? = null
 
-            if (statsResponse.status != RestStatus.OK) {
-                logger.debug(
-                    "Failed to get index stats for index: [${managedIndexMetaData.index}], status response: [${statsResponse.status}]"
-                )
+            if (config.transitions.any { it.hasStatsConditions() }) {
+                val statsRequest = IndicesStatsRequest()
+                    .indices(managedIndexMetaData.index).clear().docs(true)
+                val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
-                stepStatus = StepStatus.FAILED
-                info = mapOf(
-                    "message" to "Failed to evaluate conditions for transition",
-                    "shard_failures" to statsResponse.shardFailures.map { it.toString() }
-                )
-                return
+                if (statsResponse.status != RestStatus.OK) {
+                    logger.debug(
+                        "Failed to get index stats for index: [${managedIndexMetaData.index}], status response: [${statsResponse.status}]"
+                    )
+
+                    stepStatus = StepStatus.FAILED
+                    info = mapOf(
+                        "message" to "Failed to evaluate conditions for transition",
+                        "shard_failures" to statsResponse.shardFailures.map { it.toString() }
+                    )
+                    return
+                }
+
+                numDocs = statsResponse.primaries.docs.count
+                indexSize = ByteSizeValue(statsResponse.primaries.docs.totalSizeInBytes)
+                // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true
             }
 
-            val indexCreationDate = Instant.ofEpochMilli(clusterService.state().metaData().index(managedIndexMetaData.index).creationDate)
-            val numDocs = statsResponse.primaries.docs.count
-            val indexSize = ByteSizeValue(statsResponse.primaries.docs.totalSizeInBytes)
-
             // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true
-            stateName = config.transitions.find { it.evaluateConditions(indexCreationDate, numDocs, indexSize, getStepStartTime()) }?.stateName
+            stateName = config.transitions.find { it.evaluateConditions(getIndexCreationDate(), numDocs, indexSize, getStepStartTime()) }?.stateName
             val message = if (stateName == null) {
                 stepStatus = StepStatus.CONDITION_NOT_MET
                 "Attempting to transition"
@@ -99,6 +105,9 @@ class AttemptTransitionStep(
             info = mutableInfo.toMap()
         }
     }
+
+    private fun getIndexCreationDate(): Instant =
+        Instant.ofEpochMilli(clusterService.state().metaData().index(managedIndexMetaData.index).creationDate)
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(

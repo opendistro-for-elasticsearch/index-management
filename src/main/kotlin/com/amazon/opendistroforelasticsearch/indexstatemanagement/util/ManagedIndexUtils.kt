@@ -178,14 +178,14 @@ fun getSweptManagedIndexSearchRequest(): SearchRequest {
 @Suppress("ReturnCount")
 fun Transition.evaluateConditions(
     indexCreationDate: Instant,
-    numDocs: Long,
-    indexSize: ByteSizeValue,
+    numDocs: Long?,
+    indexSize: ByteSizeValue?,
     transitionStartTime: Instant
 ): Boolean {
     // If there are no conditions, treat as always true
     if (this.conditions == null) return true
 
-    if (this.conditions.docCount != null) {
+    if (this.conditions.docCount != null && numDocs != null) {
         return this.conditions.docCount <= numDocs
     }
 
@@ -194,7 +194,7 @@ fun Transition.evaluateConditions(
         return this.conditions.indexAge.millis <= elapsedTime
     }
 
-    if (this.conditions.size != null) {
+    if (this.conditions.size != null && indexSize != null) {
         return this.conditions.size <= indexSize
     }
 
@@ -206,6 +206,8 @@ fun Transition.evaluateConditions(
     // We should never reach this
     return false
 }
+
+fun Transition.hasStatsConditions(): Boolean = this.conditions?.docCount != null || this.conditions?.size != null
 
 @Suppress("ReturnCount")
 fun RolloverActionConfig.evaluateConditions(

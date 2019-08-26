@@ -51,7 +51,7 @@ data class ActionMetaData(
         out.writeInt(consumedRetries)
         out.writeOptionalLong(lastRetryTime)
 
-        out.writeOptionalWriteable { actionProperties?.writeTo(it) }
+        out.writeOptionalWriteable(actionProperties)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

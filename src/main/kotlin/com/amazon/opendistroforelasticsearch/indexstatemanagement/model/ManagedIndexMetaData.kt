@@ -128,12 +128,17 @@ data class ManagedIndexMetaData(
         streamOutput.writeOptionalBoolean(rolledOver)
         streamOutput.writeOptionalString(transitionTo)
 
-        streamOutput.writeOptionalWriteable { stateMetaData?.writeTo(it) }
-        streamOutput.writeOptionalWriteable { actionMetaData?.writeTo(it) }
-        streamOutput.writeOptionalWriteable { stepMetaData?.writeTo(it) }
-        streamOutput.writeOptionalWriteable { policyRetryInfo?.writeTo(it) }
+        streamOutput.writeOptionalWriteable(stateMetaData)
+        streamOutput.writeOptionalWriteable(actionMetaData)
+        streamOutput.writeOptionalWriteable(stepMetaData)
+        streamOutput.writeOptionalWriteable(policyRetryInfo)
 
-        streamOutput.writeOptionalString(info?.toString())
+        if (info == null) {
+            streamOutput.writeBoolean(false)
+        } else {
+            streamOutput.writeBoolean(true)
+            streamOutput.writeMap(info)
+        }
     }
 
     companion object {
@@ -167,7 +172,11 @@ data class ManagedIndexMetaData(
             val step: StepMetaData? = si.readOptionalWriteable { StepMetaData.fromStreamInput(it) }
             val retryInfo: PolicyRetryInfoMetaData? = si.readOptionalWriteable { PolicyRetryInfoMetaData.fromStreamInput(it) }
 
-            val info = si.readOptionalString()?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) }?.toMap()
+            val info = if (si.readBoolean()) {
+                si.readMap()
+            } else {
+                null
+            }
 
             return ManagedIndexMetaData(
                 index = requireNotNull(index) { "$INDEX is null" },

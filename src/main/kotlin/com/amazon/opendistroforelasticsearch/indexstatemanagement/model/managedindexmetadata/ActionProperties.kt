@@ -49,8 +49,8 @@ data class ActionProperties(
         const val MAX_NUM_SEGMENTS = "max_num_segments"
 
         fun fromStreamInput(si: StreamInput): ActionProperties {
-            val wasReadOnly: Boolean? = si.readBoolean()
-            val maxNumSegments: Int? = si.readInt()
+            val wasReadOnly: Boolean? = si.readOptionalBoolean()
+            val maxNumSegments: Int? = si.readOptionalInt()
 
             return ActionProperties(wasReadOnly, maxNumSegments)
         }

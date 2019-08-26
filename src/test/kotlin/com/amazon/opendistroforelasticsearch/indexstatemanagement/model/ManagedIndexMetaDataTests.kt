@@ -1,6 +1,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
@@ -45,6 +46,26 @@ class ManagedIndexMetaDataTests : ESTestCase() {
             transitionTo = null,
             stateMetaData = StateMetaData("close-index", 1234),
             actionMetaData = ActionMetaData("close", 4321, 0, false, 0, 0, null),
+            stepMetaData = null,
+            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+            info = mapOf("message" to "Successfully closed index")
+        )
+
+        roundTripManagedIndexMetaData(expectedManagedIndexMetaData)
+    }
+
+    fun `test action property`() {
+        val expectedManagedIndexMetaData = ManagedIndexMetaData(
+            index = "movies",
+            indexUuid = "ahPcR4fNRrSe-Q7czV3VPQ",
+            policyID = "close_policy",
+            policySeqNo = 0,
+            policyPrimaryTerm = 1,
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = null,
+            stateMetaData = StateMetaData("close-index", 1234),
+            actionMetaData = ActionMetaData("close", 4321, 0, false, 0, 0, ActionProperties(null, 3)),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
             info = mapOf("message" to "Successfully closed index")

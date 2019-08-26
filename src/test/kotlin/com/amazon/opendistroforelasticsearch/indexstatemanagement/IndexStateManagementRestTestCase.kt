@@ -285,9 +285,20 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
+    protected fun updateManagedIndexConfigPolicySeqNo(update: ManagedIndexConfig) {
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
+            StringEntity(
+                "{\"doc\":{\"managed_index\":{\"policy_seq_no\":\"${update.policySeqNo}\"}}}",
+                APPLICATION_JSON
+            ))
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
+
     protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)
 
     protected fun Policy.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
+
+    protected fun ManagedIndexConfig.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
 
     protected fun ChangePolicy.toHttpEntity(): HttpEntity {
         var string = "{\"${ChangePolicy.POLICY_ID_FIELD}\":\"$policyID\","

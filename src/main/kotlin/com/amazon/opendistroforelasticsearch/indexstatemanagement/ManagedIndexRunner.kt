@@ -39,6 +39,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStarti
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStateToExecute
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCompletedManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasTimedOut
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasVersionConflict
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSuccessfulDelete
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.shouldBackoff
@@ -175,6 +176,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
+        if (managedIndexMetaData.hasVersionConflict(managedIndexConfig)) {
+            val info = mapOf("message" to "There is a version conflict between your previous execution and your managed index")
+            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+            if (updated) disableManagedIndexConfig(managedIndexConfig)
+            return
+        }
+
         val state = policy.getStateToExecute(managedIndexMetaData)
         val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
@@ -201,7 +209,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         if (managedIndexMetaData.stepMetaData?.stepStatus == Step.StepStatus.STARTING) {
             val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
-            updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+            if (updated) disableManagedIndexConfig(managedIndexConfig)
             return
         }
 

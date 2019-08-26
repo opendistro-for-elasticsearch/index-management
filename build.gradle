@@ -48,7 +48,7 @@ apply from: 'build-tools/esplugin-coverage.gradle'
 check.dependsOn jacocoTestReport
 
 esplugin {
-    name 'opendistro_index-management'
+    name 'opendistro_index_management'
     description 'Open Distro Index State Management Plugin'
     classname 'com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin'
     extendedPlugins = ['opendistro-job-scheduler']

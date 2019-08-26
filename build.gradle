@@ -48,7 +48,7 @@ apply from: 'build-tools/esplugin-coverage.gradle'
 check.dependsOn jacocoTestReport
 
 esplugin {
-    name 'opendistro-index-state-management'
+    name 'opendistro_index_management'
     description 'Open Distro Index State Management Plugin'
     classname 'com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin'
     extendedPlugins = ['opendistro-job-scheduler']
@@ -158,20 +158,20 @@ run {
 }
 
 afterEvaluate {
-    project.tasks.getByName("run#installOpendistroForElasticsearchIndexStateManagementPlugin").dependsOn("run#installPlugin")
-    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroForElasticsearchIndexStateManagementPlugin"))
+    project.tasks.getByName("run#installOpendistroForElasticsearchIndexManagementPlugin").dependsOn("run#installPlugin")
+    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroForElasticsearchIndexManagementPlugin"))
     project.tasks.getByName("run#installPlugin").dependsOn("run#copyPlugins")
     project.tasks.getByName("run#start").dependsOn.remove(project.tasks.getByName("run#installPlugin"))
-    project.tasks.getByName("run#start").dependsOn("run#installOpendistroForElasticsearchIndexStateManagementPlugin")
+    project.tasks.getByName("run#start").dependsOn("run#installOpendistroForElasticsearchIndexManagementPlugin")
 }
 
 tasks.whenTaskAdded { task ->
     if (task.name == "integTestCluster#wait") {
-        project.tasks.getByName("integTestCluster#installOpendistroForElasticsearchIndexStateManagementPlugin").dependsOn("integTestCluster#installPlugin")
-        project.tasks.getByName("integTestCluster#installPlugin").dependsOn.remove(project.tasks.getByName("integTestCluster#installOpendistroForElasticsearchIndexStateManagementPlugin"))
+        project.tasks.getByName("integTestCluster#installOpendistroForElasticsearchIndexManagementPlugin").dependsOn("integTestCluster#installPlugin")
+        project.tasks.getByName("integTestCluster#installPlugin").dependsOn.remove(project.tasks.getByName("integTestCluster#installOpendistroForElasticsearchIndexManagementPlugin"))
         project.tasks.getByName("integTestCluster#installPlugin").dependsOn("integTestCluster#copyPlugins")
         project.tasks.getByName("integTestCluster#start").dependsOn.remove(project.tasks.getByName("integTestCluster#installPlugin"))
-        project.tasks.getByName("integTestCluster#start").dependsOn("integTestCluster#installOpendistroForElasticsearchIndexStateManagementPlugin")
+        project.tasks.getByName("integTestCluster#start").dependsOn("integTestCluster#installOpendistroForElasticsearchIndexManagementPlugin")
     }
 }
 

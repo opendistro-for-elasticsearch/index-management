@@ -401,13 +401,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 if (response.isAcknowledged) {
                     result = true
                 } else {
-                    logger.error("Failed to save ManagedIndexMetaData")
+                    logger.error("Failed to save ManagedIndexMetaData for [index=${managedIndexMetaData.index}]")
                 }
             }
         } catch (e: ClusterBlockException) {
             logger.error("There was ClusterBlockException trying to update the metadata for ${managedIndexMetaData.index}. Message: ${e.message}", e)
         } catch (e: Exception) {
-            logger.error("Failed to save ManagedIndexMetaData", e)
+            logger.error("Failed to save ManagedIndexMetaData for [index=${managedIndexMetaData.index}]", e)
         }
         return result
     }

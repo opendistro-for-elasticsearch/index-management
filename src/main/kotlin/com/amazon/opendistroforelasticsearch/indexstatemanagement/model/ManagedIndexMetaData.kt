@@ -50,8 +50,8 @@ data class ManagedIndexMetaData(
     val info: Map<String, Any>?
 ) : Writeable, ToXContentFragment {
 
-    fun toMap(): Map<String, String?> {
-        val resultMap = mutableMapOf<String, String?> ()
+    fun toMap(): Map<String, String> {
+        val resultMap = mutableMapOf<String, String> ()
         resultMap[INDEX] = index
         resultMap[INDEX_UUID] = indexUuid
         resultMap[POLICY_ID] = policyID

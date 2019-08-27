@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordin
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -34,6 +35,7 @@ data class SweptManagedIndexConfig(
     val primaryTerm: Long,
     val uuid: String,
     val policyID: String,
+    val policy: Policy?,
     val changePolicy: ChangePolicy?
 ) {
 
@@ -44,6 +46,7 @@ data class SweptManagedIndexConfig(
             lateinit var index: String
             lateinit var uuid: String
             lateinit var policyID: String
+            var policy: Policy? = null
             var changePolicy: ChangePolicy? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -55,6 +58,9 @@ data class SweptManagedIndexConfig(
                     ManagedIndexConfig.INDEX_FIELD -> index = xcp.text()
                     ManagedIndexConfig.INDEX_UUID_FIELD -> uuid = xcp.text()
                     ManagedIndexConfig.POLICY_ID_FIELD -> policyID = xcp.text()
+                    ManagedIndexConfig.POLICY_FIELD -> {
+                        policy = if (xcp.currentToken() == Token.VALUE_NULL) null else Policy.parse(xcp)
+                    }
                     ManagedIndexConfig.CHANGE_POLICY_FIELD -> {
                         changePolicy = if (xcp.currentToken() == Token.VALUE_NULL) null else ChangePolicy.parse(xcp)
                     }
@@ -62,12 +68,13 @@ data class SweptManagedIndexConfig(
             }
 
             return SweptManagedIndexConfig(
-                    requireNotNull(index) { "SweptManagedIndexConfig index is null" },
-                    seqNo,
-                    primaryTerm,
-                    requireNotNull(uuid) { "SweptManagedIndexConfig uuid is null" },
-                    requireNotNull(policyID) { "SweptManagedIndexConfig policy id is null" },
-                    changePolicy
+                requireNotNull(index) { "SweptManagedIndexConfig index is null" },
+                seqNo,
+                primaryTerm,
+                requireNotNull(uuid) { "SweptManagedIndexConfig uuid is null" },
+                requireNotNull(policyID) { "SweptManagedIndexConfig policy id is null" },
+                policy,
+                changePolicy
             )
         }
 

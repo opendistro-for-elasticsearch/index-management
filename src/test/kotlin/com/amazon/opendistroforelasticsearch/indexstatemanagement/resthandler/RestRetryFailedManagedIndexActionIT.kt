@@ -222,7 +222,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val indexName = "${testIndexName}_drewberry"
         val policyID = "${testIndexName}_policy_1"
         val policy = randomPolicy(states = listOf(randomState(actions = listOf(randomForceMergeActionConfig(maxNumSegments = 1)))))
-        createPolicy(policy, policyId = policyID, refresh = true)
+        createPolicy(policy, policyId = policyID)
         createIndex(indexName, policyID)
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)

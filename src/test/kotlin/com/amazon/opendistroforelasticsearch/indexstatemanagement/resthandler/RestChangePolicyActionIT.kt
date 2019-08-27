@@ -24,7 +24,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.StateFil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.OpenActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
@@ -77,9 +79,23 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         }
     }
 
+    fun `test nonexistent policy`() {
+        val changePolicy = ChangePolicy("doesnt_exist", null, emptyList(), false)
+        try {
+            val policy = randomPolicy(id = "some_id")
+            createPolicy(policy, policy.id)
+            client().makeRequest(RestRequest.Method.POST.toString(),
+                "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/other_index", emptyMap(), changePolicy.toHttpEntity())
+            fail("Excepted a failure.")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected RestStatus.", RestStatus.NOT_FOUND, e.response.restStatus())
+            assertEquals("Could not find policy=${changePolicy.policyID}", e.response.entity.content.bufferedReader().use { it.readText() })
+        }
+    }
+
     fun `test nonexistent ism config index`() {
         try {
-            val changePolicy = ChangePolicy("some_id", null, emptyList())
+            val changePolicy = ChangePolicy("some_id", null, emptyList(), false)
             client().makeRequest(RestRequest.Method.POST.toString(),
                     "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/other_index", emptyMap(), changePolicy.toHttpEntity())
             fail("Excepted a failure.")
@@ -93,7 +109,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                             "type" to "index_not_found_exception",
                             "index_uuid" to "_na_",
                             "index" to ".opendistro-ism-config",
-                            "resource.type" to "index_or_alias",
+                            "resource.type" to "index_expression",
                             "resource.id" to ".opendistro-ism-config",
                             "reason" to "no such index [.opendistro-ism-config]"
                         )
@@ -101,7 +117,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                     "type" to "index_not_found_exception",
                     "index_uuid" to "_na_",
                     "index" to ".opendistro-ism-config",
-                    "resource.type" to "index_or_alias",
+                    "resource.type" to "index_expression",
                     "resource.id" to ".opendistro-ism-config",
                     "reason" to "no such index [.opendistro-ism-config]"
                 ),
@@ -113,7 +129,8 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
 
     fun `test nonexistent index`() {
         try {
-            val changePolicy = ChangePolicy("some_id", null, emptyList())
+            val policy = createRandomPolicy()
+            val changePolicy = ChangePolicy(policy.id, null, emptyList(), false)
             client().makeRequest(RestRequest.Method.POST.toString(),
                     "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/this_does_not_exist", emptyMap(), changePolicy.toHttpEntity())
             fail("Excepted a failure.")
@@ -147,8 +164,8 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
 
     fun `test index not being managed`() {
         // Create a random policy to init .opendistro-ism-config index
-        createRandomPolicy()
-        val changePolicy = ChangePolicy("some_id", null, emptyList())
+        val policy = createRandomPolicy()
+        val changePolicy = ChangePolicy(policy.id, null, emptyList(), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/movies", emptyMap(), changePolicy.toHttpEntity())
         val expectedResponse = mapOf(
@@ -177,7 +194,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertEquals("Policy id does not match", policy.id, managedIndexConfig.policyID)
 
         // if we try to change policy now, it'll have no ManagedIndexMetaData yet and should succeed
-        val changePolicy = ChangePolicy(newPolicy.id, null, emptyList())
+        val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
 
@@ -212,7 +229,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertEquals("Policy id does not match", policy.id, managedIndexConfig.policyID)
 
         // if we try to change policy now, it'll have no ManagedIndexMetaData yet and should go through
-        val changePolicy = ChangePolicy(newPolicy.id, null, emptyList())
+        val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index,movi*", emptyMap(), changePolicy.toHttpEntity())
         val expectedResponse = mapOf(
@@ -250,11 +267,15 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         // Creates a policy that has one state with one action (sets index to read only)
         val stateWithReadOnlyAction = randomState(actions = listOf(ReadOnlyActionConfig(index = 0)))
         val randomPolicy = randomPolicy(states = listOf(stateWithReadOnlyAction))
-        val policy = createPolicy(randomPolicy, refresh = true)
+        val policy = createPolicy(randomPolicy)
 
         // Creates new policy that has two states, same as before except a second state with a delete action and a transition from readonly to delete states
+        // we will also add a new action to readonly state otherwise an immediate change policy is triggered
         val stateWithDeleteAction = randomState(actions = listOf(DeleteActionConfig(index = 0)))
-        val updatedStateWithReadOnlyAction = stateWithReadOnlyAction.copy(transitions = listOf(Transition(stateWithDeleteAction.name, null)))
+        val updatedStateWithReadOnlyAction = stateWithReadOnlyAction.copy(
+            actions = listOf(stateWithReadOnlyAction.actions.first(), OpenActionConfig(index = 1)),
+            transitions = listOf(Transition(stateWithDeleteAction.name, null))
+        )
         val newPolicy = createPolicy(randomPolicy(states = listOf(updatedStateWithReadOnlyAction, stateWithDeleteAction)), "new_policy", true)
         val indexName = "${testIndexName}_mouse"
         val (index) = createIndex(indexName, policy.id)
@@ -299,7 +320,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                 )
             ), explainResponseMap, false)
 
-        val changePolicy = ChangePolicy(newPolicy.id, null, emptyList())
+        val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
         val expectedResponse = mapOf(
@@ -410,7 +431,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         waitFor { assertEquals(policy.id, getExplainManagedIndexMetaData(secondIndex).policyID) }
 
         val newPolicy = createRandomPolicy()
-        val changePolicy = ChangePolicy(newPolicy.id, null, listOf(StateFilter(state = firstState.name)))
+        val changePolicy = ChangePolicy(newPolicy.id, null, listOf(StateFilter(state = firstState.name)), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$firstIndex,$secondIndex", emptyMap(), changePolicy.toHttpEntity())
         val expectedResponse = mapOf(
@@ -445,7 +466,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertEquals("Policy id does not match", policy.id, managedIndexConfig.policyID)
 
         // if we try to change policy now, it'll have no ManagedIndexMetaData yet and should succeed
-        val changePolicy = ChangePolicy(newPolicy.id, "some_other_state", emptyList())
+        val changePolicy = ChangePolicy(newPolicy.id, "some_other_state", emptyList(), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
 
@@ -479,5 +500,67 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                             assertStateEquals(StateMetaData("some_other_state", Instant.now().toEpochMilli()), stateMetaDataMap)
                 )
             ), getExplainMap(index), false)
+    }
+
+    fun `test allowing change policy to happen in middle of state if same state structure`() {
+        // Creates a policy that has one state with rollover
+        val actionConfig = RolloverActionConfig(index = 0, minDocs = 100_000_000, minAge = null, minSize = null)
+        val stateWithReadOnlyAction = randomState(actions = listOf(actionConfig))
+        val randomPolicy = randomPolicy(states = listOf(stateWithReadOnlyAction))
+        val policy = createPolicy(randomPolicy)
+        val indexName = "${testIndexName}_safe-1"
+        val (index) = createIndex(indexName, policy.id, "some_alias")
+
+        val managedIndexConfig = getExistingManagedIndexConfig(index)
+
+        // Change the start time so the job will trigger in 2 seconds and init policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(policy.id, getExplainManagedIndexMetaData(index).policyID) }
+
+        // We should expect the explain API to show an initialized ManagedIndexMetaData with the default state from the initial policy
+        waitFor { assertEquals(policy.defaultState, getExplainManagedIndexMetaData(indexName).stateMetaData?.name) }
+
+        // add 10 documents which is not enough to trigger the 100 million rollover condition
+        insertSampleData(indexName, docCount = 10)
+
+        // Change the start time so the job will execute the rollover action
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        // verify we are in rollover and have not completed it yet
+        waitFor {
+            assertEquals(ActionConfig.ActionType.ROLLOVER.type, getExplainManagedIndexMetaData(indexName).actionMetaData?.name)
+            assertEquals("Attempting to rollover", getExplainManagedIndexMetaData(indexName).info?.get("message"))
+        }
+
+        val newStateWithReadOnlyAction = randomState(name = stateWithReadOnlyAction.name,actions = listOf(actionConfig.copy(minDocs = 5)))
+        val newRandomPolicy = randomPolicy(states = listOf(newStateWithReadOnlyAction))
+        val newPolicy = createPolicy(newRandomPolicy)
+        val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
+        val response = client().makeRequest(RestRequest.Method.POST.toString(),
+            "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
+        val expectedResponse = mapOf(
+            FAILURES to false,
+            FAILED_INDICES to emptyList<Any>(),
+            UPDATED_INDICES to 1
+        )
+        assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
+
+        // the change policy REST API should of set safe to true as the policies have the same state/actions
+        waitFor { assertEquals(true, getManagedIndexConfig(indexName)?.changePolicy?.safe) }
+
+        // speed up to next execution where we should swap the policy even while in the middle of the
+        // rollover action and fix our minDocs being too high
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor {
+            assertNull(getManagedIndexConfig(indexName)?.changePolicy)
+            assertEquals(newPolicy.id, getManagedIndexConfig(indexName)?.policyID)
+            assertEquals(newPolicy.id, getExplainManagedIndexMetaData(indexName).policyID)
+        }
+
+        // speed up to next execution where we should now execute with the updated policy
+        // which should now actually rollover because 5 docs is less than 10 docs
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor { assertEquals("Rolled over index", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
     }
 }

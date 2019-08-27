@@ -65,7 +65,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         val uuid = randomAlphaOfLength(10)
         val policyID = randomAlphaOfLength(10)
         val sweptManagedIndexConfig = SweptManagedIndexConfig(index = index, uuid = uuid, policyID = policyID,
-                primaryTerm = 1, seqNo = 1, changePolicy = randomChangePolicy(policyID = policyID))
+                primaryTerm = 1, seqNo = 1, changePolicy = randomChangePolicy(policyID = policyID), policy = null)
         val updateRequest = updateManagedIndexRequest(sweptManagedIndexConfig)
 
         assertNotNull("UpdateRequest not created", updateRequest)

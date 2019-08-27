@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ErrorNot
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.StateFilter
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
@@ -220,9 +221,11 @@ fun randomByteSizeValue() =
 
 fun randomChangePolicy(
     policyID: String = ESRestTestCase.randomAlphaOfLength(10),
-    state: String? = if (ESRestTestCase.randomBoolean()) ESRestTestCase.randomAlphaOfLength(10) else null
+    state: String? = if (ESRestTestCase.randomBoolean()) ESRestTestCase.randomAlphaOfLength(10) else null,
+    include: List<StateFilter> = emptyList(),
+    safe: Boolean = false
 ): ChangePolicy {
-    return ChangePolicy(policyID, state, emptyList())
+    return ChangePolicy(policyID, state, include, safe)
 }
 
 // will only return null since we dont want to send actual notifications during integ tests
@@ -278,7 +281,8 @@ fun randomSweptManagedIndexConfig(
     policyID: String = ESRestTestCase.randomAlphaOfLength(10),
     seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
-    changePolicy: ChangePolicy? = null
+    changePolicy: ChangePolicy? = null,
+    policy: Policy? = null
 ): SweptManagedIndexConfig {
     return SweptManagedIndexConfig(
         index = index,
@@ -286,6 +290,7 @@ fun randomSweptManagedIndexConfig(
         policyID = policyID,
         seqNo = seqNo,
         primaryTerm = primaryTerm,
+        policy = policy,
         changePolicy = changePolicy
     )
 }

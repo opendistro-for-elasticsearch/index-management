@@ -27,17 +27,14 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 /** Properties that will persist across steps of a single Action. Will be stored in the [ActionMetaData]. */
 data class ActionProperties(
-    val wasReadOnly: Boolean? = null,
     val maxNumSegments: Int? = null
 ) : Writeable, ToXContentFragment {
 
     override fun writeTo(out: StreamOutput) {
-        out.writeOptionalBoolean(wasReadOnly)
         out.writeOptionalInt(maxNumSegments)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        if (wasReadOnly != null) builder.field(WAS_READ_ONLY, wasReadOnly)
         if (maxNumSegments != null) builder.field(MAX_NUM_SEGMENTS, maxNumSegments)
 
         return builder
@@ -45,18 +42,15 @@ data class ActionProperties(
 
     companion object {
         const val ACTION_PROPERTIES = "action_properties"
-        const val WAS_READ_ONLY = "was_read_only"
         const val MAX_NUM_SEGMENTS = "max_num_segments"
 
         fun fromStreamInput(si: StreamInput): ActionProperties {
-            val wasReadOnly: Boolean? = si.readOptionalBoolean()
             val maxNumSegments: Int? = si.readOptionalInt()
 
-            return ActionProperties(wasReadOnly, maxNumSegments)
+            return ActionProperties(maxNumSegments)
         }
 
         fun parse(xcp: XContentParser): ActionProperties {
-            var wasReadOnly: Boolean? = null
             var maxNumSegments: Int? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -65,12 +59,11 @@ data class ActionProperties(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    WAS_READ_ONLY -> wasReadOnly = xcp.booleanValue()
                     MAX_NUM_SEGMENTS -> maxNumSegments = xcp.intValue()
                 }
             }
 
-            return ActionProperties(wasReadOnly, maxNumSegments)
+            return ActionProperties(maxNumSegments)
         }
     }
 }

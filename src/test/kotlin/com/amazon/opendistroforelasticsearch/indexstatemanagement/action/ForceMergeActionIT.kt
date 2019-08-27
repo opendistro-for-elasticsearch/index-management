@@ -75,17 +75,24 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         // Third execution: Force merge operation is kicked off
         updateManagedIndexConfigStartTime(managedIndexConfig)
         Thread.sleep(3000)
+        // verify we set maxNumSegments in action properties when kicking off force merge
+        waitFor {
+            assertEquals(
+                "maxNumSegments not set in ActionProperties",
+                forceMergeActionConfig.maxNumSegments,
+                getExplainManagedIndexMetaData(indexName).actionMetaData?.actionProperties?.maxNumSegments
+            )
+        }
 
         // Fourth execution: Waits for force merge to complete, which will happen in this execution since index is small
         updateManagedIndexConfigStartTime(managedIndexConfig)
         Thread.sleep(3000)
 
         waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
-
-        // Fifth execution: Set index back to read-write since it was not originally read-only
-        updateManagedIndexConfigStartTime(managedIndexConfig)
-
-        waitFor { assertEquals("false", getIndexBlocksWriteSetting(indexName)) }
+        // verify we reset actionproperties at end of forcemerge
+        waitFor { assertNull("maxNumSegments was not reset", getExplainManagedIndexMetaData(indexName).actionMetaData?.actionProperties) }
+        // index should still be readonly after force merge finishes
+        waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 
     fun `test force merge on index already in read-only`() {
@@ -139,10 +146,6 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         Thread.sleep(3000)
 
         waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
-
-        // Fifth execution: Index should remain in read-only since it was set before force_merge
-        updateManagedIndexConfigStartTime(managedIndexConfig)
-
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 

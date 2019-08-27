@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.A
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.AttemptCallForceMergeStep
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.AttemptRevertReadOnlyStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.AttemptSetReadOnlyStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
 import org.elasticsearch.client.Client
@@ -36,15 +35,13 @@ class ForceMergeAction(
     private val attemptSetReadOnlyStep = AttemptSetReadOnlyStep(clusterService, client, config, managedIndexMetaData)
     private val attemptCallForceMergeStep = AttemptCallForceMergeStep(clusterService, client, config, managedIndexMetaData)
     private val waitForForceMergeStep = WaitForForceMergeStep(clusterService, client, config, managedIndexMetaData)
-    private val attemptRevertReadOnlyStep = AttemptRevertReadOnlyStep(clusterService, client, config, managedIndexMetaData)
 
     // Using a LinkedHashMap here to maintain order of steps for getSteps() while providing a convenient way to
     // get the current Step object using the current step's name in getStepToExecute()
     private val stepNameToStep: LinkedHashMap<String, Step> = linkedMapOf(
         AttemptSetReadOnlyStep.name to attemptSetReadOnlyStep,
         AttemptCallForceMergeStep.name to attemptCallForceMergeStep,
-        WaitForForceMergeStep.name to waitForForceMergeStep,
-        AttemptRevertReadOnlyStep.name to attemptRevertReadOnlyStep
+        WaitForForceMergeStep.name to waitForForceMergeStep
     )
 
     override fun getSteps(): List<Step> = stepNameToStep.values.toList()
@@ -66,7 +63,6 @@ class ForceMergeAction(
             return when (currentStep) {
                 AttemptSetReadOnlyStep.name -> attemptCallForceMergeStep
                 AttemptCallForceMergeStep.name -> waitForForceMergeStep
-                WaitForForceMergeStep.name -> attemptRevertReadOnlyStep
                 // Shouldn't hit this case but including it so that the when expression is exhaustive
                 else -> stepNameToStep[currentStep]!!
             }

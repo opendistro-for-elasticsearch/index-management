@@ -147,7 +147,7 @@ class WaitForForceMergeStep(
         val currentActionMetaData = currentMetaData.actionMetaData
         val updatedActionMetaData = currentActionMetaData?.let {
             if (stepStatus != StepStatus.COMPLETED) it
-            else currentActionMetaData.copy(actionProperties = ActionProperties(maxNumSegments = config.maxNumSegments))
+            else currentActionMetaData.copy(actionProperties = null)
         }
         return currentMetaData.copy(
             actionMetaData = updatedActionMetaData,

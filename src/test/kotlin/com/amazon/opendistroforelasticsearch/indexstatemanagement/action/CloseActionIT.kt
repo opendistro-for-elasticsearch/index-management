@@ -54,13 +54,13 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("close", getIndexState(indexName)) }
     }
@@ -90,13 +90,13 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("close", getIndexState(indexName)) }
     }
@@ -125,22 +125,22 @@ class CloseActionIT : IndexStateManagementRestTestCase() {
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds and init policy
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Change the start time so the job will trigger in 2 seconds and close the index
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("close", getIndexState(indexName)) }
 
         // Change the start time so the job will trigger in 2 seconds and attempt transitions
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(secondState.name, getExplainManagedIndexMetaData(indexName).transitionTo) }
 
         // Change the start time so the job will trigger in 2 seconds and transition to next state (which should complete policy)
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(true, getExplainManagedIndexMetaData(indexName).policyCompleted) }
     }

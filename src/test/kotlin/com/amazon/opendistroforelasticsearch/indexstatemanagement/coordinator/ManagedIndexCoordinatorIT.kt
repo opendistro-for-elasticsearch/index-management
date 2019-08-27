@@ -23,7 +23,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.Manag
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
-import java.time.Instant
 import java.util.Locale
 
 class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
@@ -94,10 +93,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
         // Speed up execution to initialize policy on job
         // Loading policy will fail but ManagedIndexMetaData will be updated
-        updateManagedIndexConfigStartTime(
-            managedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // Verify ManagedIndexMetaData contains information
         waitFor {

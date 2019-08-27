@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit
 
 class ManagedIndexSettings {
     companion object {
+        const val DEFAULT_JOB_INTERVAL = 5
+
         val INDEX_STATE_MANAGEMENT_ENABLED = Setting.boolSetting(
             "opendistro.index_state_management.enabled",
             true,
@@ -37,6 +39,14 @@ class ManagedIndexSettings {
         val ROLLOVER_ALIAS = Setting.simpleString(
             "index.opendistro.index_state_management.rollover_alias",
             Setting.Property.IndexScope,
+            Setting.Property.Dynamic
+        )
+
+        val JOB_INTERVAL = Setting.intSetting(
+            "opendistro.index_state_management.job_interval",
+            DEFAULT_JOB_INTERVAL,
+            1,
+            Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
 

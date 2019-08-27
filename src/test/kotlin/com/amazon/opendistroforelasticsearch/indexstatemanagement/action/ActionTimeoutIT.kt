@@ -42,7 +42,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds.
         // First execution. We need to initialize the policy.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             assertPredicatesOnMetaData(
@@ -53,7 +53,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         }
 
         // the second execution we move into rollover action, we won't hit the timeout as this is the execution that sets the startTime
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val expectedInfoString = mapOf("message" to "Attempting to rollover").toString()
         waitFor {
@@ -65,7 +65,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         }
 
         // the third execution we should hit the 1 second action timeout and fail
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             assertPredicatesOnMetaData(
                 listOf(indexName to listOf(ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =

@@ -87,13 +87,13 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     fun `test attached policy`() {
         val indexName = "${testIndexName}_watermelon"
-        val policy = createRandomPolicy(refresh = true)
+        val policy = createRandomPolicy()
         createIndex(indexName, policy.id)
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             val expectedInfoString = mapOf("message" to "Successfully initialized policy: ${policy.id}").toString()
@@ -123,7 +123,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             val expectedInfoString = mapOf("message" to "Fail to load policy: $policyID").toString()

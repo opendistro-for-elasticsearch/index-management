@@ -106,7 +106,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 
     @Throws(Exception::class)
     fun `test mappings after policy creation`() {
-        createRandomPolicy(refresh = true)
+        createRandomPolicy()
 
         val response = client().makeRequest("GET", "/$INDEX_STATE_MANAGEMENT_INDEX/_mapping")
         val parserMap = createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
@@ -121,7 +121,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 
     @Throws(Exception::class)
     fun `test update policy with wrong seq_no and primary_term`() {
-        val policy = createRandomPolicy(refresh = true)
+        val policy = createRandomPolicy()
 
         try {
             client().makeRequest("PUT",
@@ -135,7 +135,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 
     @Throws(Exception::class)
     fun `test update policy with correct seq_no and primary_term`() {
-        val policy = createRandomPolicy(refresh = true)
+        val policy = createRandomPolicy()
         val updateResponse = client().makeRequest("PUT",
                 "$POLICY_BASE_URI/${policy.id}?refresh=true&if_seq_no=${policy.seqNo}&if_primary_term=${policy.primaryTerm}",
                 emptyMap(), policy.toHttpEntity())
@@ -206,7 +206,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 
     @Throws(Exception::class)
     fun `test able to fuzzy search policies`() {
-        val policy = createRandomPolicy(refresh = true)
+        val policy = createRandomPolicy()
 
         val request = """
             {

@@ -34,12 +34,12 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds.
         // First execution. We need to initialize the policy.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Second execution is to fail the step once.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             val managedIndexMetaData = getExplainManagedIndexMetaData(indexName)
@@ -53,7 +53,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         }
 
         // Third execution is to fail the step second time.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             val managedIndexMetaData = getExplainManagedIndexMetaData(indexName)
@@ -67,7 +67,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         }
 
         // Fourth execution is to fail the step third time and finally fail the action.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             val managedIndexMetaData = getExplainManagedIndexMetaData(indexName)
@@ -101,21 +101,21 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
         // First execution. We need to initialize the policy.
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Second execution is to fail the step once.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
         Thread.sleep(3000)
 
         // Third execution should not run job since we have the retry backoff.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
         Thread.sleep(3000)
 
         // Fourth execution should not run job since we have the retry backoff.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // even if we ran couple times we should have backed off and only retried once.
         waitFor {

@@ -35,6 +35,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_I
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
@@ -59,6 +60,8 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.rules.DisableOnDebug
+import java.time.Duration
+import java.time.Instant
 import java.util.Locale
 
 abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
@@ -106,7 +109,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return response
     }
 
-    protected fun createRandomPolicy(refresh: Boolean = false): Policy {
+    protected fun createRandomPolicy(refresh: Boolean = true): Policy {
         val policy = randomPolicy()
         val policyId = createPolicy(policy, refresh = refresh).id
         return getPolicy(policyId = policyId)
@@ -274,11 +277,14 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
     }
 
-    protected fun updateManagedIndexConfigStartTime(update: ManagedIndexConfig, desiredStartTimeMillis: Long) {
+    protected fun updateManagedIndexConfigStartTime(update: ManagedIndexConfig, desiredStartTimeMillis: Long? = null) {
+        val intervalSchedule = (update.jobSchedule as IntervalSchedule)
+        val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
+        val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
         val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
             StringEntity(
                 "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
-                    "\"$desiredStartTimeMillis\"}}}}}",
+                    "\"$startTimeMillis\"}}}}}",
                 APPLICATION_JSON
             ))
 

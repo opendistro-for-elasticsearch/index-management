@@ -36,7 +36,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         val index = randomAlphaOfLength(10)
         val uuid = randomAlphaOfLength(10)
         val policyID = randomAlphaOfLength(10)
-        val createRequest = createManagedIndexRequest(index, uuid, policyID)
+        val createRequest = managedIndexConfigIndexRequest(index, uuid, policyID, 5)
 
         assertNotNull("IndexRequest not created", createRequest)
         assertEquals("Incorrect ism index used in request", INDEX_STATE_MANAGEMENT_INDEX, createRequest.index())
@@ -108,7 +108,8 @@ class ManagedIndexUtilsTests : ESTestCase() {
                 sweptConfigToDelete.uuid to sweptConfigToDelete,
                 sweptConfigToBeUpdated.uuid to sweptConfigToBeUpdated,
                 sweptConfigBeingUpdated.uuid to sweptConfigBeingUpdated
-            )
+            ),
+            5
         )
 
         assertEquals("Too many requests", 1, requests.size)

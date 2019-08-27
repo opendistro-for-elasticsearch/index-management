@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.acti
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.retry
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
@@ -32,12 +33,14 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.createManagedIndexRequest
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.managedIndexConfigIndexRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getActionToExecute
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStartingManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStateToExecute
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCompletedManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasDifferentJobInterval
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasTimedOut
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasVersionConflict
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
@@ -49,6 +52,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContex
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -76,7 +80,11 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
 import org.elasticsearch.index.engine.VersionConflictEngineException
@@ -85,6 +93,7 @@ import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.script.TemplateScript
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 @Suppress("TooManyFunctions")
 object ManagedIndexRunner : ScheduledJobRunner,
@@ -96,12 +105,15 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private lateinit var client: Client
     private lateinit var xContentRegistry: NamedXContentRegistry
     private lateinit var scriptService: ScriptService
+    private lateinit var settings: Settings
     @Suppress("MagicNumber")
     private val savePolicyRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     @Suppress("MagicNumber")
     private val updateMetaDataRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     @Suppress("MagicNumber")
     private val errorNotificationRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
+    @Suppress("MagicNumber")
+    private var jobInterval: Int = 5
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
         this.clusterService = clusterService
@@ -120,6 +132,20 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     fun registerScriptService(scriptService: ScriptService): ManagedIndexRunner {
         this.scriptService = scriptService
+        return this
+    }
+
+    fun registerSettings(settings: Settings): ManagedIndexRunner {
+        this.settings = settings
+        return this
+    }
+
+    // must be called after registerSettings and registerClusterService in IndexStateManagementPlugin
+    fun registerConsumers(): ManagedIndexRunner {
+        jobInterval = JOB_INTERVAL.get(settings)
+        clusterService.clusterSettings.addSettingsUpdateConsumer(JOB_INTERVAL) {
+            jobInterval = it
+        }
         return this
     }
 
@@ -246,7 +272,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
             }
 
             if (!updateManagedIndexMetaData(executedManagedIndexMetaData)) {
-                logger.error("failed to update ManagedIndexMetaData after executing the Step : ${step.name}")
+                logger.error("Failed to update ManagedIndexMetaData after executing the Step : ${step.name}")
+            }
+
+            if (managedIndexConfig.hasDifferentJobInterval(jobInterval)) {
+                updateJobInterval(managedIndexConfig, jobInterval)
             }
         }
     }
@@ -311,7 +341,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private suspend fun savePolicyToManagedIndexConfig(managedIndexConfig: ManagedIndexConfig, policy: Policy): Boolean {
         val updatedManagedIndexConfig = managedIndexConfig.copy(policyID = policy.id, policy = policy,
                 policySeqNo = policy.seqNo, policyPrimaryTerm = policy.primaryTerm, changePolicy = null)
-        val indexRequest = createManagedIndexRequest(updatedManagedIndexConfig)
+        val indexRequest = managedIndexConfigIndexRequest(updatedManagedIndexConfig)
         var savedPolicy = false
         try {
             savePolicyRetryPolicy.retry(logger) {
@@ -324,6 +354,23 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.error("Failed to save policy(${policy.id}) to ManagedIndexConfig(${managedIndexConfig.index})", e)
         }
         return savedPolicy
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun updateJobInterval(managedIndexConfig: ManagedIndexConfig, jobInterval: Int) {
+        try {
+            val updatedManagedIndexConfig = managedIndexConfig
+                .copy(jobSchedule = IntervalSchedule(getIntervalStartTime(managedIndexConfig), jobInterval, ChronoUnit.MINUTES))
+            val indexRequest = managedIndexConfigIndexRequest(updatedManagedIndexConfig)
+            val indexResponse: IndexResponse = client.suspendUntil { index(indexRequest, it) }
+            if (indexResponse.status() != RestStatus.OK) {
+                logger.error("Failed to update ManagedIndexConfig(${managedIndexConfig.index}) job interval")
+            }
+        } catch (e: VersionConflictEngineException) {
+            logger.error("Failed to update ManagedIndexConfig(${managedIndexConfig.index}) job interval. ${e.message}")
+        } catch (e: Exception) {
+            logger.error("Failed to update ManagedIndexConfig(${managedIndexConfig.index}) job interval", e)
+        }
     }
 
     @Suppress("ComplexMethod")
@@ -555,5 +602,27 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
 
         return indexMetaData
+    }
+
+    // TODO: This is a hacky solution to get the current start time off the job interval as job-scheduler currently does not
+    //  make this public, long term solution is to make the changes in job-scheduler, cherry-pick back into ISM supported versions and
+    //  republish job-scheduler spi to maven, in the interim we will parse the current interval start time
+    private suspend fun getIntervalStartTime(managedIndexConfig: ManagedIndexConfig): Instant {
+        return withContext(Dispatchers.IO) {
+            val intervalJsonString = managedIndexConfig.schedule.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
+            val xcp = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, intervalJsonString)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation) // start of schedule block
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation) // "interval"
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation) // start of interval block
+            var startTime: Long? = null
+            while (xcp.nextToken() != Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
+                when (fieldName) {
+                    "start_time" -> startTime = xcp.longValue()
+                }
+            }
+            Instant.ofEpochMilli(requireNotNull(startTime))
+        }
     }
 }

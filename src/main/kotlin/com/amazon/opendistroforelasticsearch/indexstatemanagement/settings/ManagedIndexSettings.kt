@@ -40,6 +40,14 @@ class ManagedIndexSettings {
             Setting.Property.Dynamic
         )
 
+        val JOB_INTERVAL = Setting.intSetting(
+            "opendistro.index_state_management.job_interval",
+            5,
+            1,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
         val SWEEP_PERIOD = Setting.positiveTimeSetting(
             "opendistro.index_state_management.coordinator.sweep_period",
             TimeValue.timeValueMinutes(5),

@@ -63,27 +63,27 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
 
         // Will change the startTime each execution so that it triggers in 2 seconds
         // First execution: Policy is initialized
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Second execution: Index is set to read-only for force_merge
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
 
         // Third execution: Force merge operation is kicked off
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
         Thread.sleep(3000)
 
         // Fourth execution: Waits for force merge to complete, which will happen in this execution since index is small
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
         Thread.sleep(3000)
 
         waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
 
         // Fifth execution: Set index back to read-write since it was not originally read-only
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("false", getIndexBlocksWriteSetting(indexName)) }
     }
@@ -121,27 +121,27 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
 
         // Will change the startTime each execution so that it triggers in 2 seconds
         // First execution: Policy is initialized
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Second execution: Index was already read-only and should remain so for force_merge
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
 
         // Third execution: Force merge operation is kicked off
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
         Thread.sleep(3000)
 
         // Fourth execution: Waits for force merge to complete, which will happen in this execution since index is small
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
         Thread.sleep(3000)
 
         waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
 
         // Fifth execution: Index should remain in read-only since it was set before force_merge
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }

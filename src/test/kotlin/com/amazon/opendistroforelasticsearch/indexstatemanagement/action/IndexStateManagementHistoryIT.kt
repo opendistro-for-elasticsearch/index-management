@@ -47,13 +47,13 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
@@ -113,13 +113,13 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
@@ -179,13 +179,13 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
@@ -245,7 +245,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
@@ -275,7 +275,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val historySearchResponse1: SearchResponse = waitFor {
             val historySearchResponse1 = getHistorySearchResponse(indexName)
@@ -343,7 +343,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
@@ -377,7 +377,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertFalse("History index does exist.", aliasExists(IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS)) }
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }

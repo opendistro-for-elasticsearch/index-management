@@ -30,12 +30,13 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordina
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.POLICY_ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.createManagedIndexRequest
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.managedIndexConfigIndexRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCreateManagedIndexRequests
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getDeleteManagedIndexRequests
@@ -109,6 +110,7 @@ class ManagedIndexCoordinator(
     @Volatile private var sweepPeriod = SWEEP_PERIOD.get(settings)
     @Volatile private var retryPolicy =
             BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings), COORDINATOR_BACKOFF_COUNT.get(settings))
+    @Volatile private var jobInterval = JOB_INTERVAL.get(settings)
 
     init {
         clusterService.addListener(this)
@@ -117,6 +119,9 @@ class ManagedIndexCoordinator(
         clusterService.clusterSettings.addSettingsUpdateConsumer(SWEEP_PERIOD) {
             sweepPeriod = it
             initBackgroundSweep()
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(JOB_INTERVAL) {
+            jobInterval = it
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_STATE_MANAGEMENT_ENABLED) {
             indexStateManagementEnabled = it
@@ -199,7 +204,7 @@ class ManagedIndexCoordinator(
             val request: DocWriteRequest<*>? = when {
                 it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyID != null -> {
                     hasCreateRequests = true
-                    createManagedIndexRequest(it.value.index.name, it.value.indexUUID, policyID)
+                    managedIndexConfigIndexRequest(it.value.index.name, it.value.indexUUID, policyID, jobInterval)
                 }
                 it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
                     deleteManagedIndexRequest(it.value.indexUUID)
@@ -270,7 +275,7 @@ class ManagedIndexCoordinator(
         val clusterStateManagedIndices = sweepClusterState(clusterService.state())
 
         val createManagedIndexRequests =
-                getCreateManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
+                getCreateManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices, jobInterval)
 
         val deleteManagedIndexRequests =
                 getDeleteManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)

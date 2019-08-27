@@ -147,6 +147,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             .registerClusterService(clusterService)
             .registerNamedXContentRegistry(xContentRegistry)
             .registerScriptService(scriptService)
+            .registerSettings(settings)
+            .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
 
         indexStateManagementIndices = IndexStateManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =
@@ -163,6 +165,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             ManagedIndexSettings.POLICY_ID,
             ManagedIndexSettings.ROLLOVER_ALIAS,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
+            ManagedIndexSettings.JOB_INTERVAL,
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
             ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS,

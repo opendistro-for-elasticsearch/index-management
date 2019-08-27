@@ -165,15 +165,12 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
 
     fun `test index not failed`() {
         val indexName = "${testIndexName}_classic"
-        val policy = createRandomPolicy(refresh = true)
+        val policy = createRandomPolicy()
         createIndex(indexName, policyID = policy.id)
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(
-            managedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             val response = client().makeRequest(
@@ -203,10 +200,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // change the start time so the job will trigger in 2 seconds.
-        updateManagedIndexConfigStartTime(
-            managedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             val response = client().makeRequest(
@@ -234,10 +228,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // init policy on job
-        updateManagedIndexConfigStartTime(
-            managedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // verify we have policy
         waitFor {
@@ -249,10 +240,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         }
 
         // speed up to execute first action, readonly
-        updateManagedIndexConfigStartTime(
-            managedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             assertPredicatesOnMetaData(
@@ -269,10 +257,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         closeIndex(indexName)
 
         // speed up to execute first action and fail, call force merge
-        updateManagedIndexConfigStartTime(
-            managedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // verify failed and save the startTime
         var firstStartTime: Long = Long.MAX_VALUE
@@ -317,10 +302,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             ), getExplainMap(indexName), false)
 
         // should execute and set the startTime again
-        updateManagedIndexConfigStartTime(
-            managedIndexConfig,
-            Instant.now().minusSeconds(58).toEpochMilli()
-        )
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // the new startTime should be greater than the first start time
         waitFor {

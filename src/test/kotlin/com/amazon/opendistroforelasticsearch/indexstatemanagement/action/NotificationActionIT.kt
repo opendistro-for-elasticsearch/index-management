@@ -75,7 +75,7 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
@@ -84,7 +84,7 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
 
         // Speed up to second execution where it will trigger the first execution of the action which
         // should call notification custom webhook and create the doc in notification_index
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // verify index does exist
         waitFor { assertTrue("Notification index does not exist", indexExists(notificationIndex)) }

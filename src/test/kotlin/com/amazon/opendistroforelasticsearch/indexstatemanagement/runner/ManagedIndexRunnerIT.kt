@@ -22,7 +22,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.OpenActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -50,7 +52,7 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
         // init policy on managed index
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
             assertPredicatesOnMetaData(
@@ -64,7 +66,7 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigPolicySeqNo(managedIndexConfig.copy(policySeqNo = 17))
 
         // start execution to see if it moves to failed because of version conflict
-        updateManagedIndexConfigStartTime(managedIndexConfig, Instant.now().minusSeconds(58).toEpochMilli())
+        updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val expectedInfoString = mapOf("message" to "There is a version conflict between your previous execution and your managed index").toString()
         waitFor {
@@ -78,5 +80,27 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
                 strict = false
             )
         }
+    }
+
+    fun `test job interval changing`() {
+        val indexName = "job_interval_index_"
+
+        val createdPolicy = createRandomPolicy()
+        createIndex(indexName, createdPolicy.id)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        assertEquals("Created managed index did not default to 5 minutes", 5, (managedIndexConfig.jobSchedule as IntervalSchedule).interval)
+
+        // init policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(createdPolicy.id, getManagedIndexConfig(indexName)?.policyID) }
+
+        // change cluster job interval setting to 2 (minutes)
+        updateClusterSetting(ManagedIndexSettings.JOB_INTERVAL.key, "2")
+
+        // fast forward to next execution where at the end we should change the job interval time
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { (getManagedIndexConfig(indexName)?.jobSchedule as? IntervalSchedule)?.interval == 2 }
     }
 }

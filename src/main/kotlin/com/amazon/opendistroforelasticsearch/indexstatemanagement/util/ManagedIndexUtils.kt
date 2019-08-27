@@ -54,13 +54,13 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-fun createManagedIndexRequest(index: String, uuid: String, policyID: String): IndexRequest {
+fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String, jobInterval: Int): IndexRequest {
     val managedIndexConfig = ManagedIndexConfig(
         jobName = index,
         index = index,
         indexUuid = uuid,
         enabled = true,
-        jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+        jobSchedule = IntervalSchedule(Instant.now(), jobInterval, ChronoUnit.MINUTES),
         jobLastUpdatedTime = Instant.now(),
         jobEnabledTime = Instant.now(),
         policyID = policyID,
@@ -76,7 +76,7 @@ fun createManagedIndexRequest(index: String, uuid: String, policyID: String): In
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
-fun createManagedIndexRequest(managedIndexConfig: ManagedIndexConfig): IndexRequest {
+fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): IndexRequest {
     return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
             .id(managedIndexConfig.indexUuid)
             .setIfPrimaryTerm(managedIndexConfig.primaryTerm)
@@ -123,16 +123,18 @@ fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig):
  *
  * @param clusterStateManagedIndexConfigs map of IndexUuid to [ClusterStateManagedIndexConfig].
  * @param currentManagedIndexConfigs map of IndexUuid to [SweptManagedIndexConfig].
+ * @param jobInterval dynamic int setting from cluster settings
  * @return list of [DocWriteRequest].
  */
 @OpenForTesting
 fun getCreateManagedIndexRequests(
     clusterStateManagedIndexConfigs: Map<String, ClusterStateManagedIndexConfig>,
-    currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>
+    currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>,
+    jobInterval: Int
 ): List<DocWriteRequest<*>> {
     return clusterStateManagedIndexConfigs.filter { (uuid) ->
         !currentManagedIndexConfigs.containsKey(uuid)
-    }.map { createManagedIndexRequest(it.value.index, it.value.uuid, it.value.policyID) }
+    }.map { managedIndexConfigIndexRequest(it.value.index, it.value.uuid, it.value.policyID, jobInterval) }
 }
 
 /**
@@ -430,3 +432,13 @@ val ManagedIndexMetaData.wasReadOnly: Boolean
 
 fun ManagedIndexMetaData.hasVersionConflict(managedIndexConfig: ManagedIndexConfig): Boolean =
     this.policySeqNo != managedIndexConfig.policySeqNo || this.policyPrimaryTerm != managedIndexConfig.policyPrimaryTerm
+
+fun ManagedIndexConfig.hasDifferentJobInterval(jobInterval: Int): Boolean {
+    val schedule = this.schedule
+    when (schedule) {
+        is IntervalSchedule -> {
+            return schedule.interval != jobInterval
+        }
+    }
+    return false
+}

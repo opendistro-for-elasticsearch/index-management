@@ -101,6 +101,11 @@ class ManagedIndexMetaDataTests : ESTestCase() {
         val input = InputStreamStreamInput(ByteArrayInputStream(baos.toByteArray()))
 
         val actualManagedIndexMetaData = ManagedIndexMetaData.fromStreamInput(input)
+        for (entry in actualManagedIndexMetaData.toMap()) {
+            // Ensure the values are not null.
+            // If any of the CustomMetaData map value is null Diffable map will throw an exception.
+            assertNotNull("Expected Non null map value.", entry.value)
+        }
         assertEquals(expectedManagedIndexMetaData, actualManagedIndexMetaData)
     }
 }

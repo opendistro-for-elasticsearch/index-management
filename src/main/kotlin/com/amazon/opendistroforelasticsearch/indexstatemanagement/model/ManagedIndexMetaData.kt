@@ -50,22 +50,23 @@ data class ManagedIndexMetaData(
     val info: Map<String, Any>?
 ) : Writeable, ToXContentFragment {
 
-    fun toMap(): Map<String, String?> {
-        return mapOf(
-            INDEX to index,
-            INDEX_UUID to indexUuid,
-            POLICY_ID to policyID,
-            POLICY_SEQ_NO to policySeqNo?.toString(),
-            POLICY_PRIMARY_TERM to policyPrimaryTerm?.toString(),
-            POLICY_COMPLETED to policyCompleted?.toString(),
-            ROLLED_OVER to rolledOver?.toString(),
-            TRANSITION_TO to transitionTo,
-            StateMetaData.STATE to stateMetaData?.getMapValueString(),
-            ActionMetaData.ACTION to actionMetaData?.getMapValueString(),
-            StepMetaData.STEP to stepMetaData?.getMapValueString(),
-            PolicyRetryInfoMetaData.RETRY_INFO to policyRetryInfo?.getMapValueString(),
-            INFO to info?.let { Strings.toString(XContentFactory.jsonBuilder().map(it)) }
-        )
+    fun toMap(): Map<String, String> {
+        val resultMap = mutableMapOf<String, String> ()
+        resultMap[INDEX] = index
+        resultMap[INDEX_UUID] = indexUuid
+        resultMap[POLICY_ID] = policyID
+        if (policySeqNo != null) resultMap[POLICY_SEQ_NO] = policySeqNo.toString()
+        if (policyPrimaryTerm != null) resultMap[POLICY_PRIMARY_TERM] = policyPrimaryTerm.toString()
+        if (policyCompleted != null) resultMap[POLICY_COMPLETED] = policyCompleted.toString()
+        if (rolledOver != null) resultMap[ROLLED_OVER] = rolledOver.toString()
+        if (transitionTo != null) resultMap[TRANSITION_TO] = transitionTo
+        if (stateMetaData != null) resultMap[StateMetaData.STATE] = stateMetaData.getMapValueString()
+        if (actionMetaData != null) resultMap[ActionMetaData.ACTION] = actionMetaData.getMapValueString()
+        if (stepMetaData != null) resultMap[StepMetaData.STEP] = stepMetaData.getMapValueString()
+        if (policyRetryInfo != null) resultMap[PolicyRetryInfoMetaData.RETRY_INFO] = policyRetryInfo.getMapValueString()
+        if (info != null) resultMap[INFO] = Strings.toString(XContentFactory.jsonBuilder().map(info))
+
+        return resultMap
     }
 
     @Suppress("ComplexMethod")

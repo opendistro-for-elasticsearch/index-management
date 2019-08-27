@@ -84,6 +84,7 @@ class RestRetryFailedManagedIndexAction(
         clusterStateRequest.clear()
             .indices(*indices)
             .metaData(true)
+            .local(false)
             .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
             .indicesOptions(strictExpandIndicesOptions)
 

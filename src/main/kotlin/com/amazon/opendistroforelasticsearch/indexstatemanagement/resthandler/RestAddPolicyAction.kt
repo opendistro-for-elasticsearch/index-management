@@ -83,6 +83,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
             .clear()
             .indices(*indices)
             .metaData(true)
+            .local(false)
             .waitForTimeout(TimeValue.timeValueMillis(ADD_POLICY_TIMEOUT_IN_MILLIS))
             .indicesOptions(strictExpandOptions)
 

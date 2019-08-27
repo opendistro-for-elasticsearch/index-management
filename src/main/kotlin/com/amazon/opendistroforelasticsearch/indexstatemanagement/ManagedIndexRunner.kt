@@ -541,6 +541,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 .clear()
                 .indices(index)
                 .metaData(true)
+                .local(false)
                 .indicesOptions(IndicesOptions.strictExpand())
 
             val response: ClusterStateResponse = client.admin().cluster().suspendUntil { state(clusterStateRequest, it) }

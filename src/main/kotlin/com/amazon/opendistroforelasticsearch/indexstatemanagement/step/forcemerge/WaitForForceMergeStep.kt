@@ -143,7 +143,14 @@ class WaitForForceMergeStep(
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
+        // if the step is completed set actionProperties back to null
+        val currentActionMetaData = currentMetaData.actionMetaData
+        val updatedActionMetaData = currentActionMetaData?.let {
+            if (stepStatus != StepStatus.COMPLETED) it
+            else currentActionMetaData.copy(actionProperties = ActionProperties(maxNumSegments = config.maxNumSegments))
+        }
         return currentMetaData.copy(
+            actionMetaData = updatedActionMetaData,
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             transitionTo = null,
             info = info

@@ -158,6 +158,15 @@ fun IndexMetaData.shouldDeleteManagedIndexConfig(previousIndexMetaData: IndexMet
 }
 
 /**
+ * Checks to see if the [ManagedIndexMetaData] should be removed.
+ *
+ * If [getPolicyID] returns null but [ManagedIndexMetaData] is not null then the policy was removed and
+ * the [ManagedIndexMetaData] remains and should be removed.
+ */
+fun IndexMetaData.shouldDeleteManagedIndexMetaData(): Boolean =
+    this.getPolicyID() == null && this.getManagedIndexMetaData() != null
+
+/**
  * Returns the current policy_id if it exists and is valid otherwise returns null.
  * */
 fun IndexMetaData.getPolicyID(): String? {

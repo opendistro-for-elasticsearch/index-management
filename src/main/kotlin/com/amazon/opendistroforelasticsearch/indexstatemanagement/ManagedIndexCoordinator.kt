@@ -17,11 +17,11 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldDeleteManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldDeleteManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
@@ -191,8 +191,9 @@ class ManagedIndexCoordinator(
         * any changes from users that ignore and use the ES settings API
         * */
         var hasCreateRequests = false
-        var indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
-        val requests: List<DocWriteRequest<*>> = event.state().metaData().indices().mapNotNull {
+        val updateManagedIndicesRequests = mutableListOf<DocWriteRequest<*>>()
+        val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
+        event.state().metaData().indices().forEach {
             val previousIndexMetaData = event.previousState().metaData().index(it.value.index)
             val policyID = it.value.getPolicyID()
             val request: DocWriteRequest<*>? = when {
@@ -200,16 +201,17 @@ class ManagedIndexCoordinator(
                     hasCreateRequests = true
                     createManagedIndexRequest(it.value.index.name, it.value.indexUUID, policyID)
                 }
-                it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) -> {
-                    indicesToRemoveManagedIndexMetaDataFrom.add(it.value.index)
+                it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
                     deleteManagedIndexRequest(it.value.indexUUID)
-                }
                 else -> null
             }
-            request
+
+            if (request != null) updateManagedIndicesRequests.add(request)
+
+            if (it.value.shouldDeleteManagedIndexMetaData()) indicesToRemoveManagedIndexMetaDataFrom.add(it.value.index)
         }
 
-        updateManagedIndices(requests + indicesDeletedRequests, hasCreateRequests)
+        updateManagedIndices(updateManagedIndicesRequests + indicesDeletedRequests, hasCreateRequests)
         clearManagedIndexMetaData(indicesToRemoveManagedIndexMetaDataFrom)
     }
 
@@ -355,25 +357,15 @@ class ManagedIndexCoordinator(
         }
     }
 
-    /**
-     * Returns a list of [Index]es that need to have their [ManagedIndexMetaData] removed.
-     *
-     * Finds indices that no longer have a policy set to them but still have [ManagedIndexMetaData] meaning the
-     * [ManagedIndexMetaData] needs to be cleaned up.
-     */
+    /** Returns a list of [Index]es that need to have their [ManagedIndexMetaData] removed. */
     @OpenForTesting
     fun getIndicesToDeleteManagedIndexMetaDataFrom(clusterState: ClusterState): List<Index> {
         return clusterState.metaData().indices().values().mapNotNull {
-            val policyID = it.value.getPolicyID()
-            val managedIndexMetaData = it.value.getManagedIndexMetaData()
-
-            if (policyID == null && managedIndexMetaData != null) it.value.index else null
+            if (it.value.shouldDeleteManagedIndexMetaData()) it.value.index else null
         }
     }
 
-    /**
-     * Removes the [ManagedIndexMetaData] from the given list of [Index]es.
-     */
+    /** Removes the [ManagedIndexMetaData] from the given list of [Index]es. */
     @OpenForTesting
     @Suppress("TooGenericExceptionCaught")
     suspend fun clearManagedIndexMetaData(indices: List<Index>) {

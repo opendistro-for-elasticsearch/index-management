@@ -100,15 +100,23 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
                     val metaDataBuilder = MetaData.builder(currentState.metaData)
 
                     for (pair in request.indicesToAddManagedIndexMetaDataTo) {
-                        metaDataBuilder.put(IndexMetaData.builder(currentState.metaData.index(pair.first))
-                            .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, pair.second.toMap()))
+                        if (currentState.metaData.hasIndex(pair.first.name)) {
+                            metaDataBuilder.put(IndexMetaData.builder(currentState.metaData.index(pair.first))
+                                .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, pair.second.toMap()))
+                        } else {
+                            log.debug("No IndexMetaData found for [${pair.first.name}] when updating ManagedIndexMetaData")
+                        }
                     }
 
                     for (index in request.indicesToRemoveManagedIndexMetaDataFrom) {
-                        val indexMetaDataBuilder = IndexMetaData.builder(currentState.metaData.index(index))
-                        indexMetaDataBuilder.removeCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+                        if (currentState.metaData.hasIndex(index.name)) {
+                            val indexMetaDataBuilder = IndexMetaData.builder(currentState.metaData.index(index))
+                            indexMetaDataBuilder.removeCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
 
-                        metaDataBuilder.put(indexMetaDataBuilder)
+                            metaDataBuilder.put(indexMetaDataBuilder)
+                        } else {
+                            log.debug("No IndexMetaData found for [${index.name}] when removing ManagedIndexMetaData")
+                        }
                     }
 
                     return ClusterState.builder(currentState).metaData(metaDataBuilder).build()

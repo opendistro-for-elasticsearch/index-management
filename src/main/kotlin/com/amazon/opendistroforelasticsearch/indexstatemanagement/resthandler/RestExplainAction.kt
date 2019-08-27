@@ -67,6 +67,7 @@ class RestExplainAction(
         clusterStateRequest.clear()
             .indices(*indices)
             .metaData(true)
+            .local(false)
             .local(request.paramAsBoolean("local", clusterStateRequest.local()))
             .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
             .indicesOptions(strictExpandIndicesOptions)

@@ -70,6 +70,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
             .clear()
             .indices(*indices)
             .metaData(true)
+            .local(false)
             .indicesOptions(strictExpandOptions)
 
         return RestChannelConsumer {

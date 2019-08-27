@@ -56,17 +56,21 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
+import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexResponse
+import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.action.update.UpdateResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.health.ClusterHealthStatus
 import org.elasticsearch.cluster.health.ClusterStateHealth
+import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -149,9 +153,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
 
         // Get current IndexMetaData and ManagedIndexMetaData
-        val indexMetaData = clusterService.state().metaData().index(managedIndexConfig.index)
+        val indexMetaData = getIndexMetaData(managedIndexConfig.index)
         if (indexMetaData == null) {
-            logger.error("Could not find IndexMetaData in cluster state for ${managedIndexConfig.index}")
             return
         }
         val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
@@ -530,4 +533,27 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     private fun clusterIsRed(): Boolean = ClusterStateHealth(clusterService.state()).status == ClusterHealthStatus.RED
+
+    private suspend fun getIndexMetaData(index: String): IndexMetaData? {
+        var indexMetaData: IndexMetaData? = null
+        try {
+            val clusterStateRequest = ClusterStateRequest()
+                .clear()
+                .indices(index)
+                .metaData(true)
+                .local(false)
+                .indicesOptions(IndicesOptions.strictExpand())
+
+            val response: ClusterStateResponse = client.admin().cluster().suspendUntil { state(clusterStateRequest, it) }
+
+            indexMetaData = response.state.metaData.indices.firstOrNull()?.value
+            if (indexMetaData == null) {
+                logger.error("Could not find IndexMetaData in master cluster state for $index")
+            }
+        } catch (e: Exception) {
+            logger.error("Failed to get IndexMetaData from master cluster state for index=$index", e)
+        }
+
+        return indexMetaData
+    }
 }

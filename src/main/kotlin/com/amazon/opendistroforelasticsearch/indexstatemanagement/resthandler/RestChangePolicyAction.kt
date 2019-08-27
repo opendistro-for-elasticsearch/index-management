@@ -108,6 +108,7 @@ class RestChangePolicyAction(
                 .clear()
                 .indices(*indices)
                 .metaData(true)
+                .local(false)
                 .indicesOptions(IndicesOptions.strictExpand())
 
             client.admin().cluster().state(clusterStateRequest, ActionListener.wrap(::processResponse, ::onFailure))

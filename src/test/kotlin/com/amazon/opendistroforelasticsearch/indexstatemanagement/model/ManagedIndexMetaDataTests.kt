@@ -65,7 +65,7 @@ class ManagedIndexMetaDataTests : ESTestCase() {
             rolledOver = null,
             transitionTo = null,
             stateMetaData = StateMetaData("close-index", 1234),
-            actionMetaData = ActionMetaData("close", 4321, 0, false, 0, 0, ActionProperties(null, 3)),
+            actionMetaData = ActionMetaData("close", 4321, 0, false, 0, 0, ActionProperties(3)),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
             info = mapOf("message" to "Successfully closed index")

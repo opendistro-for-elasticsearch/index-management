@@ -531,7 +531,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
             assertEquals("Attempting to rollover", getExplainManagedIndexMetaData(indexName).info?.get("message"))
         }
 
-        val newStateWithReadOnlyAction = randomState(name = stateWithReadOnlyAction.name,actions = listOf(actionConfig.copy(minDocs = 5)))
+        val newStateWithReadOnlyAction = randomState(name = stateWithReadOnlyAction.name, actions = listOf(actionConfig.copy(minDocs = 5)))
         val newRandomPolicy = randomPolicy(states = listOf(newStateWithReadOnlyAction))
         val newPolicy = createPolicy(newRandomPolicy)
         val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)

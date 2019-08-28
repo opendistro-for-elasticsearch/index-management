@@ -363,6 +363,9 @@
             },
             "state": {
               "type": "keyword"
+            },
+            "is_safe": {
+              "type": "boolean"
             }
           }
         },

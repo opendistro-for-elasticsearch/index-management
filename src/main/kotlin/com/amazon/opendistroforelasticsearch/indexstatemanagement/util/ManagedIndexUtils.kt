@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
@@ -305,6 +306,7 @@ fun Action.shouldBackoff(actionMetaData: ActionMetaData?, actionRetry: ActionRet
     return this.config.configRetry?.backoff?.shouldBackoff(actionMetaData, actionRetry)
 }
 
+@Suppress("ReturnCount")
 fun Action.hasTimedOut(actionMetaData: ActionMetaData?): Boolean {
     if (actionMetaData?.startTime == null) return false
     val configTimeout = this.config.configTimeout
@@ -400,7 +402,9 @@ val ManagedIndexMetaData.isFailed: Boolean
  * We will change the policy if a change policy exists and if we are currently in
  * a Transitions action (which means we're safely at the end of a state). If a
  * transitionTo exists on the [ManagedIndexMetaData] it should still be fine to
- * change policy as we have not actually transitioned yet.
+ * change policy as we have not actually transitioned yet. If the next action is Transition
+ * or if the rest API determined it was "safe", meaning the new policy has the same structure
+ * of the current state, it should be safe to immediately change (even in the middle of the state).
  *
  * @param managedIndexMetaData current [ManagedIndexMetaData]
  * @return {@code true} if we should change policy, {@code false} if not
@@ -409,6 +413,10 @@ val ManagedIndexMetaData.isFailed: Boolean
 fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMetaData, actionToExecute: Action?): Boolean {
     if (this.changePolicy == null) {
         return false
+    }
+
+    if (this.changePolicy.isSafe) {
+        return true
     }
 
     // we need this in so that we can change policy before the first transition happens so policy doesnt get completed
@@ -435,4 +443,42 @@ fun ManagedIndexConfig.hasDifferentJobInterval(jobInterval: Int): Boolean {
         }
     }
     return false
+}
+
+/**
+ * A policy is safe to change to a new policy when each policy has the current state
+ * the [ManagedIndexConfig] is in and that state has the same actions in the same order.
+ * This allows simple things like configuration updates to happen which won't break the execution/contract
+ * between [ManagedIndexMetaData] and [ManagedIndexConfig] as the metadata only knows about the current state.
+ * We never consider a policy safe to immediately change if the ChangePolicy contains a state to transition to
+ * as this could transition a user into a different state from the middle of the current state which we do not
+ * want to allow.
+ *
+ * @param stateName the name of the state the [ManagedIndexConfig] is currently in
+ * @param newPolicy the new (actual data model) policy we will eventually try to change to
+ * @param changePolicy the change policy to change to
+ * @return if its safe to change
+ */
+@Suppress("ReturnCount")
+fun Policy.isSafeToChange(stateName: String?, newPolicy: Policy, changePolicy: ChangePolicy): Boolean {
+    // if stateName is null it means we either have not initialized the job (no metadata to pull stateName from)
+    // or we failed to load the initial policy, both cases its safe to change the policy
+    if (stateName == null) return true
+    if (changePolicy.state != null) return false
+    val currentState = this.states.find { it.name == stateName }
+    val newState = newPolicy.states.find { it.name == stateName }
+    if (currentState == null || newState == null) {
+        return false
+    }
+
+    if (currentState.actions.size != newState.actions.size) {
+        return false
+    }
+
+    currentState.actions.forEachIndexed { index, action ->
+        val newStateAction = newState.actions[index]
+        if (action.type != newStateAction.type) return@isSafeToChange false
+    }
+
+    return true
 }

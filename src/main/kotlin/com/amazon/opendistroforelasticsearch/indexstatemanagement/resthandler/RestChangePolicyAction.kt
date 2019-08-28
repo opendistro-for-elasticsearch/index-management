@@ -21,11 +21,13 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.get
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateManagedIndexRequest
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
@@ -33,6 +35,8 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
+import org.elasticsearch.action.get.GetRequest
+import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.IndicesOptions
@@ -101,9 +105,32 @@ class RestChangePolicyAction(
 
         private val failedIndices = mutableListOf<FailedIndex>()
         private val managedIndexUuids = mutableListOf<Pair<String, String>>()
+        private val indexUuidToCurrentState = mutableMapOf<String, String>()
+        lateinit var policy: Policy
+
+        fun start() {
+            val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, changePolicy.policyID)
+
+            client.get(getRequest, ActionListener.wrap(::onGetPolicyResponse, ::onFailure))
+        }
+
+        private fun onGetPolicyResponse(response: GetResponse) {
+            if (!response.isExists || response.isSourceEmpty) {
+                return channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, "Could not find policy=${changePolicy.policyID}"))
+            }
+
+            policy = XContentHelper.createParser(
+                channel.request().xContentRegistry,
+                LoggingDeprecationHandler.INSTANCE,
+                response.sourceAsBytesRef,
+                XContentType.JSON
+            ).use { Policy.parseWithType(it, response.id, response.seqNo, response.primaryTerm) }
+
+            getClusterState()
+        }
 
         @Suppress("SpreadOperator")
-        fun start() {
+        private fun getClusterState() {
             val clusterStateRequest = ClusterStateRequest()
                 .clear()
                 .indices(*indices)
@@ -118,26 +145,27 @@ class RestChangePolicyAction(
             val includedStates = changePolicy.include.map { it.state }.toSet()
             response.state.metaData.indices.forEach {
                 val indexMetaData = it.value
+                val currentState = indexMetaData.getManagedIndexMetaData()?.stateMetaData?.name
+                if (currentState != null) {
+                    indexUuidToCurrentState[indexMetaData.indexUUID] = currentState
+                }
                 when {
                     // If there is no policyID on the index then it's not currently being managed
-                    indexMetaData.getPolicyID() == null -> failedIndices
-                            .add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, INDEX_NOT_MANAGED))
+                    indexMetaData.getPolicyID() == null ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, INDEX_NOT_MANAGED))
                     // else if there exists a transitionTo on the ManagedIndexMetaData then we will
                     // fail as they might not of meant to add a ChangePolicy when its on the next state
-                    indexMetaData.getManagedIndexMetaData()?.transitionTo != null -> failedIndices
-                            .add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, INDEX_IN_TRANSITION))
-                    // else if there is no ManagedIndexMetaData yet then the managed index has not initialized and
-                    // we can change the policy safely
-                    indexMetaData.getManagedIndexMetaData() == null -> managedIndexUuids
-                            .add(indexMetaData.index.name to indexMetaData.index.uuid)
-                    // else if the includedStates is empty (i.e. not being used) then
-                    // we will always try to update the managed index
+                    indexMetaData.getManagedIndexMetaData()?.transitionTo != null ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, INDEX_IN_TRANSITION))
+                    // else if there is no ManagedIndexMetaData yet then the managed index has not initialized and we can change the policy safely
+                    indexMetaData.getManagedIndexMetaData() == null ->
+                        managedIndexUuids.add(indexMetaData.index.name to indexMetaData.index.uuid)
+                    // else if the includedStates is empty (i.e. not being used) then we will always try to update the managed index
                     includedStates.isEmpty() -> managedIndexUuids.add(indexMetaData.index.name to indexMetaData.index.uuid)
                     // else only update the managed index if its currently in one of the included states
                     includedStates.contains(indexMetaData.getManagedIndexMetaData()?.stateMetaData?.name) ->
                         managedIndexUuids.add(indexMetaData.index.name to indexMetaData.index.uuid)
-                    // else the managed index did not match any of the included state filters and we will not
-                    // update it
+                    // else the managed index did not match any of the included state filters and we will not update it
                     else -> log.debug("Skipping ${indexMetaData.index.name} as it does not match any of the include state filters")
                 }
             }
@@ -180,7 +208,11 @@ class RestChangePolicyAction(
             val mapOfItemIdToIndex = mutableMapOf<Int, Pair<String, String>>()
             val bulkRequest = BulkRequest()
             sweptConfigs.forEachIndexed { index, sweptConfig ->
-                bulkRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = changePolicy)))
+                // compare the sweptconfig policy to the get policy here and update changePolicy
+                val currentStateName = indexUuidToCurrentState[sweptConfig.uuid]
+                val updatedChangePolicy = changePolicy
+                    .copy(isSafe = sweptConfig.policy?.isSafeToChange(currentStateName, policy, changePolicy) == true)
+                bulkRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy)))
                 mapOfItemIdToIndex[index] = sweptConfig.index to sweptConfig.uuid
             }
             client.bulk(bulkRequest, onBulkResponse(mapOfItemIdToIndex))
@@ -231,6 +263,7 @@ class RestChangePolicyAction(
                         "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",
                         "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_UUID_FIELD}",
                         "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_ID_FIELD}",
+                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_FIELD}",
                         "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.CHANGE_POLICY_FIELD}"
                     ),
                     emptyArray()

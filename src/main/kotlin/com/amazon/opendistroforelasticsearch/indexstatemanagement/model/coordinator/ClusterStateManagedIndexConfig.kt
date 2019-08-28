@@ -15,14 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
-import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
-import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.index.seqno.SequenceNumbers
-import java.time.Instant
 
 /**
  * Data class to hold index metadata from cluster state.
@@ -37,20 +32,4 @@ data class ClusterStateManagedIndexConfig(
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     val uuid: String,
     val policyID: String
-) : ToXContentObject {
-
-    /**
-     * Used in the partial update of ManagedIndices when picking up changes
-     * from [com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexCoordinator]
-     */
-    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        builder
-            .startObject()
-                .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
-                .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
-                .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, ChangePolicy(policyID, null, emptyList()))
-                .endObject()
-            .endObject()
-        return builder
-    }
-}
+)

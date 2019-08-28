@@ -463,13 +463,13 @@ fun ManagedIndexConfig.hasDifferentJobInterval(jobInterval: Int): Boolean {
  * @return if its safe to change
  */
 @Suppress("ReturnCount")
-fun Policy.isSafeToChange(stateName: String?, nextPolicy: Policy, changePolicy: ChangePolicy): Boolean {
+fun Policy.isSafeToChange(stateName: String?, newPolicy: Policy, changePolicy: ChangePolicy): Boolean {
     // if stateName is null it means we either have not initialized the job (no metadata to pull stateName from)
     // or we failed to load the initial policy, both cases its safe to change the policy
     if (stateName == null) return true
     if (changePolicy.state != null) return false
     val currentState = this.states.find { it.name == stateName }
-    val nextState = nextPolicy.states.find { it.name == stateName }
+    val nextState = newPolicy.states.find { it.name == stateName }
     if (currentState == null || nextState == null) {
         return false
     }

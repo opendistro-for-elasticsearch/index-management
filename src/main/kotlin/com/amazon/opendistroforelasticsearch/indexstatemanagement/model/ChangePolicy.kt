@@ -38,7 +38,7 @@ data class ChangePolicy(
     val policyID: String,
     val state: String?,
     val include: List<StateFilter>,
-    val safe: Boolean
+    val isSafe: Boolean
 ) : ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -46,7 +46,7 @@ data class ChangePolicy(
             .startObject()
                 .field(ManagedIndexConfig.POLICY_ID_FIELD, policyID)
                 .field(StateMetaData.STATE, state)
-                .field(SAFE_FIELD, safe)
+                .field(IS_SAFE_FIELD, isSafe)
             .endObject()
         return builder
     }
@@ -55,14 +55,14 @@ data class ChangePolicy(
         const val POLICY_ID_FIELD = "policy_id"
         const val STATE_FIELD = "state"
         const val INCLUDE_FIELD = "include"
-        const val SAFE_FIELD = "safe"
+        const val IS_SAFE_FIELD = "is_safe"
 
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): ChangePolicy {
             var policyID: String? = null
             var state: String? = null
-            var safe: Boolean = false
+            var isSafe: Boolean = false
             val include = mutableListOf<StateFilter>()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
@@ -79,7 +79,7 @@ data class ChangePolicy(
                             include.add(StateFilter.parse(xcp))
                         }
                     }
-                    SAFE_FIELD -> safe = xcp.booleanValue()
+                    IS_SAFE_FIELD -> isSafe = xcp.booleanValue()
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ChangePolicy.")
                 }
             }
@@ -88,7 +88,7 @@ data class ChangePolicy(
                 requireNotNull(policyID) { "ChangePolicy policy id is null" },
                 state,
                 include.toList(),
-                safe
+                isSafe
             )
         }
     }

@@ -211,7 +211,7 @@ class RestChangePolicyAction(
                 // compare the sweptconfig policy to the get policy here and update changePolicy
                 val currentStateName = indexUuidToCurrentState[sweptConfig.uuid]
                 val updatedChangePolicy = changePolicy
-                    .copy(safe = sweptConfig.policy?.isSafeToChange(currentStateName, policy, changePolicy) == true)
+                    .copy(isSafe = sweptConfig.policy?.isSafeToChange(currentStateName, policy, changePolicy) == true)
                 bulkRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy)))
                 mapOfItemIdToIndex[index] = sweptConfig.index to sweptConfig.uuid
             }

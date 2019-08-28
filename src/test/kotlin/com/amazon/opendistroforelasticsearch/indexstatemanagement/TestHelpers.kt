@@ -223,9 +223,9 @@ fun randomChangePolicy(
     policyID: String = ESRestTestCase.randomAlphaOfLength(10),
     state: String? = if (ESRestTestCase.randomBoolean()) ESRestTestCase.randomAlphaOfLength(10) else null,
     include: List<StateFilter> = emptyList(),
-    safe: Boolean = false
+    isSafe: Boolean = false
 ): ChangePolicy {
-    return ChangePolicy(policyID, state, include, safe)
+    return ChangePolicy(policyID, state, include, isSafe)
 }
 
 // will only return null since we dont want to send actual notifications during integ tests

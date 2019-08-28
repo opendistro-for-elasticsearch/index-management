@@ -364,7 +364,7 @@
             "state": {
               "type": "keyword"
             },
-            "safe": {
+            "is_safe": {
               "type": "boolean"
             }
           }

@@ -402,9 +402,9 @@ val ManagedIndexMetaData.isFailed: Boolean
  * We will change the policy if a change policy exists and if we are currently in
  * a Transitions action (which means we're safely at the end of a state). If a
  * transitionTo exists on the [ManagedIndexMetaData] it should still be fine to
- * change policy as we have not actually transitioned yet. If the next action is a transition.
- * Or if the rest API determined it was "safe". Meaning the new policy has the same structure
- * of the current state so it should be safe to immediately change even in the middle of the state.
+ * change policy as we have not actually transitioned yet. If the next action is Transition
+ * or if the rest API determined it was "safe", meaning the new policy has the same structure
+ * of the current state, it should be safe to immediately change (even in the middle of the state).
  *
  * @param managedIndexMetaData current [ManagedIndexMetaData]
  * @return {@code true} if we should change policy, {@code false} if not
@@ -415,7 +415,7 @@ fun ManagedIndexConfig.shouldChangePolicy(managedIndexMetaData: ManagedIndexMeta
         return false
     }
 
-    if (this.changePolicy.safe) {
+    if (this.changePolicy.isSafe) {
         return true
     }
 
@@ -456,10 +456,13 @@ fun ManagedIndexConfig.hasDifferentJobInterval(jobInterval: Int): Boolean {
  * the [ManagedIndexConfig] is in and that state has the same actions in the same order.
  * This allows simple things like configuration updates to happen which won't break the execution/contract
  * between [ManagedIndexMetaData] and [ManagedIndexConfig] as the metadata only knows about the current state.
- * We never consider a policy safe to immediately change if the ChangePolicy contains a state to transition to.
+ * We never consider a policy safe to immediately change if the ChangePolicy contains a state to transition to
+ * as this could transition a user into a different state from the middle of the current state which we do not
+ * want to allow.
  *
  * @param stateName the name of the state the [ManagedIndexConfig] is currently in
- * @param nextPolicy the new policy we will eventually try to change to
+ * @param newPolicy the new (actual data model) policy we will eventually try to change to
+ * @param changePolicy the change policy to change to
  * @return if its safe to change
  */
 @Suppress("ReturnCount")
@@ -469,18 +472,18 @@ fun Policy.isSafeToChange(stateName: String?, newPolicy: Policy, changePolicy: C
     if (stateName == null) return true
     if (changePolicy.state != null) return false
     val currentState = this.states.find { it.name == stateName }
-    val nextState = newPolicy.states.find { it.name == stateName }
-    if (currentState == null || nextState == null) {
+    val newState = newPolicy.states.find { it.name == stateName }
+    if (currentState == null || newState == null) {
         return false
     }
 
-    if (currentState.actions.size != nextState.actions.size) {
+    if (currentState.actions.size != newState.actions.size) {
         return false
     }
 
     currentState.actions.forEachIndexed { index, action ->
-        val nextStateAction = nextState.actions[index]
-        if (action.type != nextStateAction.type) return@isSafeToChange false
+        val newStateAction = newState.actions[index]
+        if (action.type != newStateAction.type) return@isSafeToChange false
     }
 
     return true

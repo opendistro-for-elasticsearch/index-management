@@ -61,7 +61,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
     fun `test missing index`() {
         try {
             client().makeRequest(RestRequest.Method.POST.toString(), RestChangePolicyAction.CHANGE_POLICY_BASE_URI)
-            fail("Excepted a failure.")
+            fail("Expected a failure.")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus.", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()
@@ -86,7 +86,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
             createPolicy(policy, policy.id)
             client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/other_index", emptyMap(), changePolicy.toHttpEntity())
-            fail("Excepted a failure.")
+            fail("Expected a failure.")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus.", RestStatus.NOT_FOUND, e.response.restStatus())
             assertEquals("Could not find policy=${changePolicy.policyID}", e.response.entity.content.bufferedReader().use { it.readText() })
@@ -98,7 +98,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
             val changePolicy = ChangePolicy("some_id", null, emptyList(), false)
             client().makeRequest(RestRequest.Method.POST.toString(),
                     "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/other_index", emptyMap(), changePolicy.toHttpEntity())
-            fail("Excepted a failure.")
+            fail("Expected a failure.")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus.", RestStatus.NOT_FOUND, e.response.restStatus())
             val actualMessage = e.response.asMap()
@@ -133,7 +133,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
             val changePolicy = ChangePolicy(policy.id, null, emptyList(), false)
             client().makeRequest(RestRequest.Method.POST.toString(),
                     "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/this_does_not_exist", emptyMap(), changePolicy.toHttpEntity())
-            fail("Excepted a failure.")
+            fail("Expected a failure.")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus.", RestStatus.NOT_FOUND, e.response.restStatus())
             val actualMessage = e.response.asMap()
@@ -508,7 +508,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         val stateWithReadOnlyAction = randomState(actions = listOf(actionConfig))
         val randomPolicy = randomPolicy(states = listOf(stateWithReadOnlyAction))
         val policy = createPolicy(randomPolicy)
-        val indexName = "${testIndexName}_safe-1"
+        val indexName = "${testIndexName}_safe-000001"
         val (index) = createIndex(indexName, policy.id, "some_alias")
 
         val managedIndexConfig = getExistingManagedIndexConfig(index)
@@ -545,7 +545,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
 
         // the change policy REST API should of set safe to true as the policies have the same state/actions
-        waitFor { assertEquals(true, getManagedIndexConfig(indexName)?.changePolicy?.safe) }
+        waitFor { assertEquals(true, getManagedIndexConfig(indexName)?.changePolicy?.isSafe) }
 
         // speed up to next execution where we should swap the policy even while in the middle of the
         // rollover action and fix our minDocs being too high
@@ -562,5 +562,64 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("Rolled over index", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+    }
+
+    fun `test changing failed init policy`() {
+        /*
+        * 1. User adds nonexistent policy_id
+        * 2. ManagedIndexConfig fails because policy does not exist
+        * 3. Calls ChangePolicy API to switch to new policy and then calls Retry API
+        * 4. ChangePolicy should be successful with the new policy initialized
+        * */
+
+        val indexName = "${testIndexName}_safe_2"
+        val policy = createRandomPolicy()
+        val (index) = createIndex(indexName, "doesnt_exist_policy_id")
+
+        val managedIndexConfig = getExistingManagedIndexConfig(index)
+
+        // Change the start time so the job will trigger in 2 seconds and fail initializing policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor {
+            assertEquals(true, getExplainManagedIndexMetaData(index).policyRetryInfo?.failed)
+            assertNull(getExistingManagedIndexConfig(index).policy)
+        }
+
+        val changePolicy = ChangePolicy(policy.id, null, emptyList(), false)
+        val response = client().makeRequest(RestRequest.Method.POST.toString(),
+            "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
+        val expectedResponse = mapOf(
+            FAILURES to false,
+            FAILED_INDICES to emptyList<Any>(),
+            UPDATED_INDICES to 1
+        )
+        assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
+
+        // the change policy REST API should set the ChangePolicy on the config job
+        waitFor { assertEquals(policy.id, getManagedIndexConfig(indexName)?.changePolicy?.policyID) }
+
+        // retry failed index
+        val retryResponse = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+        )
+        assertEquals("Unexpected RestStatus", RestStatus.OK, retryResponse.restStatus())
+        val expectedErrorMessage = mapOf(
+            UPDATED_INDICES to 1,
+            FAILURES to false,
+            FAILED_INDICES to emptyList<Map<String, Any>>()
+        )
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, retryResponse.asMap())
+
+        // speed up to next execution where we should again attempt to init policy, but use the change policy which should exist
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor {
+            assertNull(getManagedIndexConfig(indexName)?.changePolicy)
+            assertNotNull(getManagedIndexConfig(indexName)?.policy)
+            assertEquals(policy.id, getManagedIndexConfig(indexName)?.policyID)
+            assertEquals(policy.id, getExplainManagedIndexMetaData(indexName).policyID)
+            assertEquals("Successfully initialized policy: ${policy.id}", getExplainManagedIndexMetaData(indexName).info?.get("message"))
+        }
     }
 }

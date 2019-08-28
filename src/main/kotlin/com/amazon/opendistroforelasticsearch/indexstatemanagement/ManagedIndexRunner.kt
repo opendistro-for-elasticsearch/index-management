@@ -389,7 +389,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         managedIndexConfig: ManagedIndexConfig,
         policyID: String
     ): ManagedIndexMetaData {
-        // we either have init any yet or we have already init metadata but still have no policy
+        // we either haven't initialized any metadata yet or we have already initialized metadata but still have no policy
         return managedIndexMetaData?.copy(
             policyRetryInfo = PolicyRetryInfoMetaData(failed = true, consumedRetries = 0),
             info = mapOf("message" to "Fail to load policy: $policyID")

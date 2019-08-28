@@ -35,6 +35,10 @@ buildscript {
     }
 }
 
+plugins {
+    id 'nebula.ospackage' version "5.3.0"
+}
+
 apply plugin: 'java'
 apply plugin: 'jacoco'
 apply plugin: 'idea'
@@ -104,6 +108,7 @@ repositories {
 ext {
     projectSubstitutions = [:]
     opendistroVersion = '1.0.0'
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     licenseFile = rootProject.file('LICENSE')
     noticeFile = rootProject.file('NOTICE')
 }
@@ -192,3 +197,5 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
     classpath = configurations.ktlint
     args "-F", "src/**/*.kt"
 }
+
+apply from: 'build-tools/pkgbuild.gradle'

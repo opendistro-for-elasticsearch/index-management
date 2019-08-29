@@ -169,11 +169,11 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
             ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS,
-            ManagedIndexSettings.ISM_HISTORY_ENABLED,
-            ManagedIndexSettings.ISM_HISTORY_MAX_DOCS,
-            ManagedIndexSettings.ISM_HISTORY_INDEX_MAX_AGE,
-            ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD,
-            ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD
+            ManagedIndexSettings.HISTORY_ENABLED,
+            ManagedIndexSettings.HISTORY_MAX_DOCS,
+            ManagedIndexSettings.HISTORY_INDEX_MAX_AGE,
+            ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD,
+            ManagedIndexSettings.HISTORY_RETENTION_PERIOD
         )
     }
 

@@ -106,9 +106,9 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         createIndex(indexName, policyID)
 
         restAdminSettings()
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "true")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "5s")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "5s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ENABLED.key, "true")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD.key, "5s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_RETENTION_PERIOD.key, "5s")
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
@@ -172,9 +172,9 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         createIndex(indexName, policyID)
 
         restAdminSettings()
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "true")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "5s")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_MAX_DOCS.key, "1")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ENABLED.key, "true")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD.key, "5s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_MAX_DOCS.key, "1")
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
@@ -240,7 +240,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         restAdminSettings()
         resetHistorySetting()
 
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "true")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ENABLED.key, "true")
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
@@ -303,9 +303,9 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         assertEquals(expectedHistory1, actualHistory1)
 
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "2s")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_MAX_DOCS.key, "1")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "1s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD.key, "2s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_MAX_DOCS.key, "1")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_RETENTION_PERIOD.key, "1s")
 
         // After updating settings, ensure all the histories are deleted.
         waitFor {
@@ -371,9 +371,9 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         assertEquals(expectedHistory, actualHistory)
 
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "false")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "1s")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "2s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ENABLED.key, "false")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_RETENTION_PERIOD.key, "1s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD.key, "2s")
 
         // Need to wait two cycles.
         // Change the start time so the job will trigger in 2 seconds.
@@ -384,8 +384,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
     }
 
     private fun resetHistorySetting() {
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ENABLED.key, "true")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.key, "60s")
-        updateClusterSetting(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.key, "60s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ENABLED.key, "true")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_RETENTION_PERIOD.key, "60s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD.key, "60s")
     }
 }

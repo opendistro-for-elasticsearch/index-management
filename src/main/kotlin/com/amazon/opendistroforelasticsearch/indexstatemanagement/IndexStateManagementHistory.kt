@@ -37,28 +37,28 @@ class IndexStateManagementHistory(
     private val logger = LogManager.getLogger(javaClass)
     private var scheduledRollover: Scheduler.Cancellable? = null
 
-    @Volatile private var historyEnabled = ManagedIndexSettings.ISM_HISTORY_ENABLED.get(settings)
+    @Volatile private var historyEnabled = ManagedIndexSettings.HISTORY_ENABLED.get(settings)
 
-    @Volatile private var historyMaxDocs = ManagedIndexSettings.ISM_HISTORY_MAX_DOCS.get(settings)
+    @Volatile private var historyMaxDocs = ManagedIndexSettings.HISTORY_MAX_DOCS.get(settings)
 
-    @Volatile private var historyMaxAge = ManagedIndexSettings.ISM_HISTORY_INDEX_MAX_AGE.get(settings)
+    @Volatile private var historyMaxAge = ManagedIndexSettings.HISTORY_INDEX_MAX_AGE.get(settings)
 
-    @Volatile private var historyRolloverCheckPeriod = ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD.get(settings)
+    @Volatile private var historyRolloverCheckPeriod = ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD.get(settings)
 
-    @Volatile private var historyRetentionPeriod = ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD.get(settings)
+    @Volatile private var historyRetentionPeriod = ManagedIndexSettings.HISTORY_RETENTION_PERIOD.get(settings)
 
     init {
         clusterService.addLocalNodeMasterListener(this)
-        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_ENABLED) {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.HISTORY_ENABLED) {
             historyEnabled = it
     }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_MAX_DOCS) { historyMaxDocs = it }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_INDEX_MAX_AGE) { historyMaxAge = it }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_ROLLOVER_CHECK_PERIOD) {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.HISTORY_MAX_DOCS) { historyMaxDocs = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.HISTORY_INDEX_MAX_AGE) { historyMaxAge = it }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD) {
             historyRolloverCheckPeriod = it
             rescheduleRollover()
         }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.ISM_HISTORY_RETENTION_PERIOD) {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.HISTORY_RETENTION_PERIOD) {
             historyRetentionPeriod = it
         }
     }

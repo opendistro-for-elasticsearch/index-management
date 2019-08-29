@@ -50,8 +50,9 @@ class ManagedIndexSettings {
             Setting.Property.Dynamic
         )
 
-        val SWEEP_PERIOD = Setting.positiveTimeSetting(
+        val SWEEP_PERIOD = Setting.timeSetting(
             "opendistro.index_state_management.coordinator.sweep_period",
+            TimeValue.timeValueMinutes(10),
             TimeValue.timeValueMinutes(5),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
@@ -67,6 +68,7 @@ class ManagedIndexSettings {
         val COORDINATOR_BACKOFF_COUNT = Setting.intSetting(
             "opendistro.index_state_management.coordinator.backoff_count",
             2,
+            0,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
@@ -79,7 +81,7 @@ class ManagedIndexSettings {
         )
 
         val HISTORY_MAX_DOCS = Setting.longSetting(
-            "opendistro.index_state_management.history_max_docs",
+            "opendistro.index_state_management.history.max_docs",
             2500000L, // 1 doc is ~10kb or less. This many doc is roughly 25gb
             0L,
             Setting.Property.NodeScope,
@@ -87,21 +89,21 @@ class ManagedIndexSettings {
         )
 
         val HISTORY_INDEX_MAX_AGE = Setting.positiveTimeSetting(
-            "opendistro.index_state_management.history_max_age",
+            "opendistro.index_state_management.history.max_age",
             TimeValue.timeValueHours(24),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
 
         val HISTORY_ROLLOVER_CHECK_PERIOD = Setting.positiveTimeSetting(
-            "opendistro.index_state_management.history_rollover_check_period",
+            "opendistro.index_state_management.history.rollover_check_period",
             TimeValue.timeValueHours(8),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
 
         val HISTORY_RETENTION_PERIOD = Setting.positiveTimeSetting(
-            "opendistro.index_state_management.history_rollover_retention_period",
+            "opendistro.index_state_management.history.rollover_retention_period",
             TimeValue(30, TimeUnit.DAYS),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic

@@ -33,7 +33,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.DEFAULT_ISM_ENABLED
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.DEFAULT_JOB_INTERVAL
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.managedIndexConfigIndexRequest
@@ -108,6 +110,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private lateinit var xContentRegistry: NamedXContentRegistry
     private lateinit var scriptService: ScriptService
     private lateinit var settings: Settings
+    private var indexStateManagementEnabled: Boolean = DEFAULT_ISM_ENABLED
     @Suppress("MagicNumber")
     private val savePolicyRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     @Suppress("MagicNumber")
@@ -147,6 +150,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
         jobInterval = JOB_INTERVAL.get(settings)
         clusterService.clusterSettings.addSettingsUpdateConsumer(JOB_INTERVAL) {
             jobInterval = it
+        }
+
+        indexStateManagementEnabled = INDEX_STATE_MANAGEMENT_ENABLED.get(settings)
+        clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_STATE_MANAGEMENT_ENABLED) {
+            indexStateManagementEnabled = it
         }
         return this
     }
@@ -217,6 +225,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val state = policy.getStateToExecute(managedIndexMetaData)
         val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
+
+        // If Index State Management is disabled and the current step is not null and safe to disable on
+        // then disable the job and return early
+        if (!indexStateManagementEnabled && step != null && step.isSafeToDisableOn) {
+            disableManagedIndexConfig(managedIndexConfig)
+            return
+        }
 
         if (action?.hasTimedOut(managedIndexMetaData.actionMetaData) == true) {
             val info = mapOf("message" to "Action timed out")

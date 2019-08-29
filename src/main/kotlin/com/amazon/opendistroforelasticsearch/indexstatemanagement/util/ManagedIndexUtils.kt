@@ -398,6 +398,15 @@ val ManagedIndexMetaData.isFailed: Boolean
         return false
     }
 
+val ManagedIndexMetaData.isPolicyCompleted: Boolean
+    get() {
+        // If policyCompleted is true, return true
+        if (this.policyCompleted == true) return true
+
+        // Otherwise if it's false or null, return false
+        return false
+    }
+
 /**
  * We will change the policy if a change policy exists and if we are currently in
  * a Transitions action (which means we're safely at the end of a state). If a

@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
@@ -41,6 +42,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.deleteMan
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCreateManagedIndexRequests
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getDeleteManagedIndexRequests
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getSweptManagedIndexSearchRequest
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isPolicyCompleted
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateEnableManagedIndexRequest
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,10 +53,13 @@ import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
+import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
@@ -98,7 +105,8 @@ class ManagedIndexCoordinator(
     private val threadPool: ThreadPool,
     indexStateManagementIndices: IndexStateManagementIndices
 ) : LocalNodeMasterListener, ClusterStateListener,
-        CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexCoordinator")), LifecycleListener() {
+    CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexCoordinator")),
+    LifecycleListener() {
 
     private val logger = LogManager.getLogger(javaClass)
     private val ismIndices = indexStateManagementIndices
@@ -127,10 +135,9 @@ class ManagedIndexCoordinator(
             indexStateManagementEnabled = it
             if (!indexStateManagementEnabled) disable() else enable()
         }
-        clusterService.clusterSettings
-                .addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
-                    millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
-                }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
+            millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
+        }
     }
 
     override fun onMaster() {
@@ -172,11 +179,51 @@ class ManagedIndexCoordinator(
     private fun enable() {
         initBackgroundSweep()
         indexStateManagementEnabled = true
+
+        // Calling initBackgroundSweep() beforehand runs a sweep ensuring that policies removed from indices
+        // and indices being deleted are accounted for prior to re-enabling jobs
+        launch {
+            try {
+                logger.debug("Re-enabling jobs for managed indices")
+                reenableJobs()
+            } catch (e: Exception) {
+                logger.error("Failed to re-enable jobs for managed indices", e)
+            }
+        }
     }
 
     private fun disable() {
         scheduledFullSweep?.cancel()
         indexStateManagementEnabled = false
+    }
+
+    private suspend fun reenableJobs() {
+        val clusterStateRequest = ClusterStateRequest()
+            .clear()
+            .metaData(true)
+            .local(false)
+            .indices("*")
+            .indicesOptions(IndicesOptions.strictExpand())
+
+        val response: ClusterStateResponse = client.admin().cluster().suspendUntil { state(clusterStateRequest, it) }
+
+        /*
+         * Iterate through all indices and create update requests to update the ManagedIndexConfig for indices that
+         * meet the following conditions:
+         *   1. Is being managed (has ManagedIndexMetaData)
+         *   2. Does not have a completed Policy
+         *   3. Does not have a failed Policy
+         */
+        val updateManagedIndicesRequests: List<DocWriteRequest<*>> = response.state.metaData.indices.mapNotNull {
+            val managedIndexMetaData = it.value.getManagedIndexMetaData()
+            if (!(managedIndexMetaData == null || managedIndexMetaData.isPolicyCompleted || managedIndexMetaData.isFailed)) {
+                updateEnableManagedIndexRequest(it.value.indexUUID)
+            } else {
+                null
+            }
+        }
+
+        updateManagedIndices(updateManagedIndicesRequests, false)
     }
 
     private fun isIndexStateManagementEnabled(): Boolean = indexStateManagementEnabled == true

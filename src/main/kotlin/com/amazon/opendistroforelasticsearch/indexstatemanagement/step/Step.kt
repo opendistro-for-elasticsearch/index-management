@@ -23,7 +23,7 @@ import org.elasticsearch.common.io.stream.Writeable
 import java.time.Instant
 import java.util.Locale
 
-abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMetaData) {
+abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMetaData, val isSafeToDisableOn: Boolean = true) {
 
     abstract suspend fun execute()
 

@@ -33,7 +33,7 @@ class AttemptCallForceMergeStep(
     val client: Client,
     val config: ForceMergeActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step(name, managedIndexMetaData, false) {
+) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING

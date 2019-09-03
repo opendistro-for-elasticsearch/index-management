@@ -328,6 +328,29 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
+    protected fun getSegmentCount(index: String): Int {
+        val statsResponse: Map<String, Any> = getStats(index)
+
+        // Assert that shard count of stats response is 1 since the stats request being used is at the index level
+        // (meaning the segment count in the response is aggregated) but segment count for force merge
+        // (which this method is primarily being used for) is going to be validated per shard
+        val shardsInfo = statsResponse["_shards"] as Map<String, Int>
+        assertEquals("Shard count higher than expected", 1, shardsInfo["successful"])
+
+        val indicesStats = statsResponse["indices"] as Map<String, Map<String, Map<String, Map<String, Any?>>>>
+        return indicesStats[index]!!["primaries"]!!["segments"]!!["count"] as Int
+    }
+
+    /** Get stats for [index] */
+    private fun getStats(index: String): Map<String, Any> {
+        val response = client().makeRequest("GET", "/$index/_stats")
+
+        assertEquals("Stats request failed", RestStatus.OK, response.restStatus())
+
+        return response.asMap()
+    }
+
+    @Suppress("UNCHECKED_CAST")
     protected fun getIndexState(indexName: String): String {
         val request = Request("GET", "/_cluster/state")
         val response = client().performRequest(request)

@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
@@ -24,7 +23,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNot
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -147,28 +145,5 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
 
         waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun getSegmentCount(index: String): Int {
-        val statsResponse: Map<String, Any> = getStats(index)
-
-        // Assert that shard count of stats response is 1 since the stats request being used is at the index level
-        // (meaning the segment count in the response is aggregated) but segment count for force merge is going to be
-        // validated per shard
-        val shardsInfo = statsResponse["_shards"] as Map<String, Int>
-        assertEquals("Shard count higher than expected", 1, shardsInfo["successful"])
-
-        val indicesStats = statsResponse["indices"] as Map<String, Map<String, Map<String, Map<String, Any?>>>>
-        return indicesStats[index]!!["primaries"]!!["segments"]!!["count"] as Int
-    }
-
-    /** Get stats for [index] */
-    private fun getStats(index: String): Map<String, Any> {
-        val response = client().makeRequest("GET", "/$index/_stats")
-
-        assertEquals("Stats request failed", RestStatus.OK, response.restStatus())
-
-        return response.asMap()
     }
 }

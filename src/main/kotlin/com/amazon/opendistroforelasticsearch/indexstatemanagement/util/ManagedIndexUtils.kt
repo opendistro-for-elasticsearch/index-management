@@ -398,6 +398,10 @@ val ManagedIndexMetaData.isFailed: Boolean
         return false
     }
 
+// Adding predicate extension to allow cleaner checks since policyCompleted is nullable
+val ManagedIndexMetaData.isPolicyCompleted: Boolean
+    get() = this.policyCompleted == true
+
 /**
  * We will change the policy if a change policy exists and if we are currently in
  * a Transitions action (which means we're safely at the end of a state). If a

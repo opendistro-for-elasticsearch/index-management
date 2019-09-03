@@ -35,7 +35,7 @@ class WaitForForceMergeStep(
     val client: Client,
     val config: ForceMergeActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step(name, managedIndexMetaData) {
+) : Step(name, managedIndexMetaData, false) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING

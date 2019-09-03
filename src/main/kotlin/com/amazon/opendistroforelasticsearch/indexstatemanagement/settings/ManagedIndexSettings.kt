@@ -21,11 +21,12 @@ import java.util.concurrent.TimeUnit
 
 class ManagedIndexSettings {
     companion object {
+        const val DEFAULT_ISM_ENABLED = true
         const val DEFAULT_JOB_INTERVAL = 5
 
         val INDEX_STATE_MANAGEMENT_ENABLED = Setting.boolSetting(
             "opendistro.index_state_management.enabled",
-            true,
+            DEFAULT_ISM_ENABLED,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )

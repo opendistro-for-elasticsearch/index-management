@@ -118,7 +118,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         nodesInCluster: Supplier<DiscoveryNodes>
     ): List<RestHandler> {
         return listOf(
-            RestIndexPolicyAction(settings, restController, indexStateManagementIndices),
+            RestIndexPolicyAction(settings, restController, clusterService, indexStateManagementIndices),
             RestGetPolicyAction(settings, restController),
             RestDeletePolicyAction(settings, restController),
             RestExplainAction(settings, restController),
@@ -173,7 +173,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             ManagedIndexSettings.HISTORY_MAX_DOCS,
             ManagedIndexSettings.HISTORY_INDEX_MAX_AGE,
             ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD,
-            ManagedIndexSettings.HISTORY_RETENTION_PERIOD
+            ManagedIndexSettings.HISTORY_RETENTION_PERIOD,
+            ManagedIndexSettings.ALLOW_LIST
         )
     }
 

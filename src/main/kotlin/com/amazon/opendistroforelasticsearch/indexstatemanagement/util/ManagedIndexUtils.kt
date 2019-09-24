@@ -486,3 +486,24 @@ fun Policy.isSafeToChange(stateName: String?, newPolicy: Policy, changePolicy: C
 
     return true
 }
+
+/**
+ * Disallowed actions are ones that are not specified in the [ManagedIndexSettings.ALLOW_LIST] setting.
+ */
+fun Policy.getDisallowedActions(allowList: List<String>): List<String> {
+    val allowListSet = allowList.toSet()
+    val disallowedActions = mutableListOf<String>()
+    this.states.forEach { state ->
+        state.actions.forEach { actionConfig ->
+            if (!allowListSet.contains(actionConfig.type.type)) {
+                disallowedActions.add(actionConfig.type.type)
+            }
+        }
+    }
+    return disallowedActions.distinct()
+}
+
+/**
+ * Allowed actions are ones that are specified in the [ManagedIndexSettings.ALLOW_LIST] setting.
+ */
+fun Action.isAllowed(allowList: List<String>): Boolean = allowList.contains(this.type.type)

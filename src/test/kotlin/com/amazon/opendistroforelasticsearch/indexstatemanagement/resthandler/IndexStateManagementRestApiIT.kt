@@ -20,7 +20,11 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
@@ -90,6 +94,43 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test creating a policy with a disallowed actions fails`() {
+        try {
+            // remove read_only from the allowlist
+            val allowedActions = ActionConfig.ActionType.values().toList()
+                .filter { actionType -> actionType != ActionConfig.ActionType.READ_ONLY }
+                .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+            updateClusterSetting(ManagedIndexSettings.ALLOW_LIST.key, allowedActions, escapeValue = false)
+            val policy = randomPolicy(states = listOf(randomState(actions = listOf(randomReadOnlyActionConfig()))))
+            client().makeRequest("PUT", "$POLICY_BASE_URI/some_id", emptyMap(), policy.toHttpEntity())
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test updating a policy with a disallowed actions fails`() {
+        try {
+            // remove read_only from the allowlist
+            val allowedActions = ActionConfig.ActionType.values().toList()
+                .filter { actionType -> actionType != ActionConfig.ActionType.READ_ONLY }
+                .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+            updateClusterSetting(ManagedIndexSettings.ALLOW_LIST.key, allowedActions, escapeValue = false)
+            // createRandomPolicy currently does not create a random list of actions so it won't accidentally create one with read_only
+            val policy = createRandomPolicy()
+            // update the policy to have read_only action which is not allowed
+            val updatedPolicy = policy.copy(defaultState = "some_state", states = listOf(randomState(name = "some_state", actions = listOf(randomReadOnlyActionConfig()))))
+            client().makeRequest("PUT",
+                "$POLICY_BASE_URI/${updatedPolicy.id}?refresh=true&if_seq_no=${updatedPolicy.seqNo}&if_primary_term=${updatedPolicy.primaryTerm}",
+                emptyMap(), updatedPolicy.toHttpEntity())
+            fail("Expected 403 Method FORBIDDEN response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
         }
     }
 

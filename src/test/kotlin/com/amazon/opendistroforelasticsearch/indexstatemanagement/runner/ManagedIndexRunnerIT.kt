@@ -19,9 +19,15 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.OpenActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWriteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
@@ -102,5 +108,50 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
         // fast forward to next execution where at the end we should change the job interval time
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { (getManagedIndexConfig(indexName)?.jobSchedule as? IntervalSchedule)?.interval == 2 }
+    }
+
+    fun `test allow list fails execution`() {
+        val indexName = "allow_list_index"
+
+        val firstState = randomState(name ="first_state", actions = listOf(randomReadOnlyActionConfig()),
+            transitions = listOf(randomTransition(stateName = "second_state", conditions = null)))
+        val secondState = randomState(name ="second_state", actions = listOf(randomReadWriteActionConfig()),
+            transitions = listOf(randomTransition(stateName = "first_state", conditions = null)))
+        val randomPolicy = randomPolicy(id = "allow_policy", states = listOf(firstState, secondState))
+
+        val createdPolicy = createPolicy(randomPolicy, "allow_policy")
+        createIndex(indexName, createdPolicy.id)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        // init policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(createdPolicy.id, getExplainManagedIndexMetaData(indexName).policyID) }
+
+        // speed up to first execution that should set index to read only
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Set index to read-only", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+
+        // speed up to second execution that should transition to second_state
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Transitioning to second_state", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+
+        // speed up to third execution that should set index back to read write
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Set index to read-write", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+
+        // speed up to fourth execution that should transition to first_state
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Transitioning to first_state", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+
+        // remove read_only from the allowlist
+        val allowedActions = ActionConfig.ActionType.values().toList()
+            .filter { actionType -> actionType != ActionConfig.ActionType.READ_ONLY }
+            .joinToString(prefix = "[", postfix = "]") { string -> "\"$string\"" }
+        updateClusterSetting(ManagedIndexSettings.ALLOW_LIST.key, allowedActions, escapeValue = false)
+
+        // speed up to fifth execution that should try to set index to read only and fail because the action is not allowed
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Attempted to execute action=read_only which is not allowed.", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
     }
 }

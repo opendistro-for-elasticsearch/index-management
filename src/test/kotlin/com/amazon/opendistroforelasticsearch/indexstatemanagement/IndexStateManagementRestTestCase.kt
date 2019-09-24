@@ -204,11 +204,12 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return indexSettings[index]!!["settings"]!![ManagedIndexSettings.POLICY_ID.key] as? String
     }
 
-    protected fun updateClusterSetting(key: String, value: String) {
+    protected fun updateClusterSetting(key: String, value: String, escapeValue: Boolean = true) {
+        val formattedValue = if (escapeValue) "\"value\"" else value
         val request = """
             {
                 "persistent": {
-                    "$key": "$value"
+                    "$key": $formattedValue
                 }
             }
         """.trimIndent()

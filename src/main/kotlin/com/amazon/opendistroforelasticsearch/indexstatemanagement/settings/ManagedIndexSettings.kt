@@ -15,9 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.settings
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.unit.TimeValue
 import java.util.concurrent.TimeUnit
+import java.util.function.Function
 
 class ManagedIndexSettings {
     companion object {
@@ -106,6 +108,14 @@ class ManagedIndexSettings {
         val HISTORY_RETENTION_PERIOD = Setting.positiveTimeSetting(
             "opendistro.index_state_management.history.rollover_retention_period",
             TimeValue(30, TimeUnit.DAYS),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val ALLOW_LIST = Setting.listSetting(
+            "opendistro.index_state_management.allow_list",
+            ActionConfig.ActionType.values().toList().map { it.type },
+            Function.identity(),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )

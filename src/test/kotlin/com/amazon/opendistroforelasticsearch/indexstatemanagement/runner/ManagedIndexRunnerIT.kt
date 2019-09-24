@@ -113,9 +113,9 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
     fun `test allow list fails execution`() {
         val indexName = "allow_list_index"
 
-        val firstState = randomState(name ="first_state", actions = listOf(randomReadOnlyActionConfig()),
+        val firstState = randomState(name = "first_state", actions = listOf(randomReadOnlyActionConfig()),
             transitions = listOf(randomTransition(stateName = "second_state", conditions = null)))
-        val secondState = randomState(name ="second_state", actions = listOf(randomReadWriteActionConfig()),
+        val secondState = randomState(name = "second_state", actions = listOf(randomReadWriteActionConfig()),
             transitions = listOf(randomTransition(stateName = "first_state", conditions = null)))
         val randomPolicy = randomPolicy(id = "allow_policy", states = listOf(firstState, secondState))
 

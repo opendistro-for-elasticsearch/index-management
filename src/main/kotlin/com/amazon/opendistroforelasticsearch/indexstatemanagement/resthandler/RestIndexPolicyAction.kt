@@ -84,6 +84,13 @@ class RestIndexPolicyAction(
 
         val xcp = request.contentParser()
         val policy = Policy.parseWithType(xcp = xcp, id = id).copy(lastUpdatedTime = Instant.now())
+        val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
+        val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
+        val refreshPolicy = if (request.hasParam(REFRESH)) {
+            WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
+        } else {
+            WriteRequest.RefreshPolicy.IMMEDIATE
+        }
         val disallowedActions = policy.getDisallowedActions(allowList)
         if (disallowedActions.isNotEmpty()) {
             return RestChannelConsumer { channel ->
@@ -94,13 +101,6 @@ class RestIndexPolicyAction(
                     )
                 )
             }
-        }
-        val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
-        val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
-        val refreshPolicy = if (request.hasParam(REFRESH)) {
-            WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
-        } else {
-            WriteRequest.RefreshPolicy.IMMEDIATE
         }
         return RestChannelConsumer { channel ->
             IndexPolicyHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, policy).start()

@@ -205,7 +205,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     protected fun updateClusterSetting(key: String, value: String, escapeValue: Boolean = true) {
-        val formattedValue = if (escapeValue) "\"value\"" else value
+        val formattedValue = if (escapeValue) "\"$value\"" else value
         val request = """
             {
                 "persistent": {

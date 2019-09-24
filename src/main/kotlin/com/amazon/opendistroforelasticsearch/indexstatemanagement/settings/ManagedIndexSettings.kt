@@ -25,6 +25,8 @@ class ManagedIndexSettings {
     companion object {
         const val DEFAULT_ISM_ENABLED = true
         const val DEFAULT_JOB_INTERVAL = 5
+        val ALLOW_LIST_ALL = ActionConfig.ActionType.values().toList().map { it.type }
+        val ALLOW_LIST_NONE = emptyList<String>()
 
         val INDEX_STATE_MANAGEMENT_ENABLED = Setting.boolSetting(
             "opendistro.index_state_management.enabled",
@@ -114,7 +116,7 @@ class ManagedIndexSettings {
 
         val ALLOW_LIST = Setting.listSetting(
             "opendistro.index_state_management.allow_list",
-            ActionConfig.ActionType.values().toList().map { it.type },
+            ALLOW_LIST_ALL,
             Function.identity(),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic

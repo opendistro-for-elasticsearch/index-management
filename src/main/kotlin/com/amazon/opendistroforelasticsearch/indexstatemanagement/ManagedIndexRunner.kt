@@ -33,6 +33,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.ALLOW_LIST_NONE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.DEFAULT_ISM_ENABLED
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.DEFAULT_JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
@@ -46,6 +48,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getComple
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasDifferentJobInterval
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasTimedOut
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasVersionConflict
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isAllowed
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSuccessfulDelete
@@ -117,8 +120,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private val updateMetaDataRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     @Suppress("MagicNumber")
     private val errorNotificationRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
-    @Suppress("MagicNumber")
     private var jobInterval: Int = DEFAULT_JOB_INTERVAL
+    private var allowList: List<String> = ALLOW_LIST_NONE
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
         this.clusterService = clusterService
@@ -155,6 +158,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
         indexStateManagementEnabled = INDEX_STATE_MANAGEMENT_ENABLED.get(settings)
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_STATE_MANAGEMENT_ENABLED) {
             indexStateManagementEnabled = it
+        }
+
+        allowList = ALLOW_LIST.get(settings)
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) {
+            allowList = it
         }
         return this
     }
@@ -256,6 +264,15 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         if (managedIndexMetaData.stepMetaData?.stepStatus == Step.StepStatus.STARTING) {
             val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
+            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+            if (updated) disableManagedIndexConfig(managedIndexConfig)
+            return
+        }
+
+        // If this action is not allowed and the step to be executed is the first step in the action then we will fail
+        // as this action has been removed from the AllowList, but if its not the first step we will let it finish as it's already inflight
+        if (action?.isAllowed(allowList) == false && action.isFirstStep(step?.name)) {
+            val info = mapOf("message" to "Attempted to execute action=${action.type.type} which is not allowed.")
             val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
             if (updated) disableManagedIndexConfig(managedIndexConfig)
             return

@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.ALLOW_LIST
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.REFRESH
@@ -27,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getDisallowedActions
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
@@ -35,6 +37,7 @@ import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
@@ -54,13 +57,16 @@ import java.time.Instant
 class RestIndexPolicyAction(
     settings: Settings,
     controller: RestController,
+    val clusterService: ClusterService,
     indexStateManagementIndices: IndexStateManagementIndices
 ) : BaseRestHandler(settings) {
 
     private val log = LogManager.getLogger(javaClass)
     private var ismIndices = indexStateManagementIndices
+    @Volatile private var allowList = ALLOW_LIST.get(settings)
 
     init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
         controller.registerHandler(PUT, POLICY_BASE_URI, this)
         controller.registerHandler(PUT, "$POLICY_BASE_URI/{policyID}", this)
     }
@@ -84,6 +90,17 @@ class RestIndexPolicyAction(
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
+        }
+        val disallowedActions = policy.getDisallowedActions(allowList)
+        if (disallowedActions.isNotEmpty()) {
+            return RestChannelConsumer { channel ->
+                channel.sendResponse(
+                    BytesRestResponse(
+                        RestStatus.FORBIDDEN,
+                        "You have actions that are not allowed in your policy $disallowedActions"
+                    )
+                )
+            }
         }
         return RestChannelConsumer { channel ->
             IndexPolicyHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, policy).start()

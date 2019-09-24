@@ -27,4 +27,6 @@ abstract class Action(val type: ActionType, val config: ActionConfig, val manage
     abstract fun getStepToExecute(): Step
 
     fun isLastStep(stepName: String): Boolean = getSteps().last().name == stepName
+
+    fun isFirstStep(stepName: String?): Boolean = getSteps().first().name == stepName
 }

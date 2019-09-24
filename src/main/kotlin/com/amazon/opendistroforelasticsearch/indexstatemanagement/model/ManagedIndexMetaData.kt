@@ -109,7 +109,7 @@ data class ManagedIndexMetaData(
             builder.endObject()
         }
 
-        if (policyRetryInfo != null && !transitionToExists) {
+        if (policyRetryInfo != null) {
             builder.startObject(PolicyRetryInfoMetaData.RETRY_INFO)
             policyRetryInfo.toXContent(builder, params)
             builder.endObject()

@@ -64,20 +64,17 @@ allOpen {
 
 configurations {
     ktlint
+    testCompile {
+        exclude group: "commons-logging", module: "commons-logging"
+        exclude group: "commons-codec", module: "commons-codec"
+        exclude group: "org.apache.httpcomponents", module: "httpclient"
+        exclude group: "org.apache.httpcomponents", module: "httpcore"
+    }
 }
 
 detekt {
     config = files("detekt.yml")
     buildUponDefaultConfig = true
-}
-
-configurations.all {
-    if (it.state != Configuration.State.UNRESOLVED) return
-    resolutionStrategy {
-        force "commons-logging:commons-logging:${versions.commonslogging}"
-        force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
-        force "commons-codec:commons-codec:${versions.commonscodec}"
-    }
 }
 
 dependencies {
@@ -88,11 +85,6 @@ dependencies {
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1'
     compile "org.jetbrains:annotations:13.0"
     compile "com.amazon.opendistroforelasticsearch:notification:1.2.0.0"
-    // alerting-notification transitive dependencies
-    compile "org.apache.httpcomponents:httpcore:4.4.5"
-    compile "org.apache.httpcomponents:httpclient:4.5.8"
-    compile "commons-logging:commons-logging:1.2"
-    compile "commons-codec:commons-codec:1.11"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"

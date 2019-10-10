@@ -64,20 +64,17 @@ allOpen {
 
 configurations {
     ktlint
+    testCompile {
+        exclude group: "commons-logging", module: "commons-logging"
+        exclude group: "commons-codec", module: "commons-codec"
+        exclude group: "org.apache.httpcomponents", module: "httpclient"
+        exclude group: "org.apache.httpcomponents", module: "httpcore"
+    }
 }
 
 detekt {
     config = files("detekt.yml")
     buildUponDefaultConfig = true
-}
-
-configurations.all {
-    if (it.state != Configuration.State.UNRESOLVED) return
-    resolutionStrategy {
-        force "commons-logging:commons-logging:${versions.commonslogging}"
-        force "org.apache.httpcomponents:httpcore:${versions.httpcore}"
-        force "commons-codec:commons-codec:${versions.commonscodec}"
-    }
 }
 
 dependencies {

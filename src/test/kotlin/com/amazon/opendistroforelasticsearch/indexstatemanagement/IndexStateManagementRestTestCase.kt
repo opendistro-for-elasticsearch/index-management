@@ -381,6 +381,10 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return indexSettings[indexName]!!["settings"]!!["index.uuid"] as String
     }
 
+    @Suppress("UNCHECKED_CAST")
+    protected fun getFlatSettings(indexName: String) =
+            (getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>)[indexName]!!["settings"] as Map<String, String>
+
     protected fun getExplainMap(indexName: String): Map<String, Any> {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())

@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomAllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
@@ -131,6 +132,14 @@ class XContentTests : ESTestCase() {
         val notificationActionConfigString = notificationActionConfig.toJsonString()
         val parsedNotificationActionConfig = ActionConfig.parse(parser(notificationActionConfigString), 0)
         assertEquals("Round tripping NotificationActionConfig doesn't work", notificationActionConfig, parsedNotificationActionConfig)
+    }
+
+    fun `test allocation action config parsing`() {
+        val allocationActionConfig = randomAllocationActionConfig(require = mapOf("box_type" to "hot"))
+
+        val allocationActionConfigString = allocationActionConfig.toJsonString()
+        val parsedAllocationActionConfig = ActionConfig.parse(parser(allocationActionConfigString), 0)
+        assertEquals("Round tripping AllocationActionConfig doesn't work", allocationActionConfig, parsedAllocationActionConfig)
     }
 
     fun `test managed index config parsing`() {

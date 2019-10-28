@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomAllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import org.elasticsearch.common.unit.ByteSizeValue
@@ -53,6 +54,12 @@ class ActionConfigTests : ESTestCase() {
     fun `test force merge action max num segments of zero fails`() {
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for maxNumSegments less than 1") {
             randomForceMergeActionConfig(maxNumSegments = 0)
+        }
+    }
+
+    fun `test allocation action empty parameters fails`() {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for empty parameters") {
+            randomAllocationActionConfig()
         }
     }
 }

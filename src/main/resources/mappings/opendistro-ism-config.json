@@ -296,6 +296,23 @@
                       "enabled": false
                     }
                   }
+                },
+                "allocation": {
+                  "dynamic": "true",
+                  "properties": {
+                    "require": {
+                      "type": "object"
+                    },
+                    "include": {
+                      "type": "object"
+                    },
+                    "exclude": {
+                      "type": "object"
+                    },
+                    "wait_for": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             },

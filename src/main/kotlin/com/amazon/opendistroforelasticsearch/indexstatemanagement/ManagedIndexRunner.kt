@@ -510,7 +510,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 )
             )
             updateMetaDataRetryPolicy.retry(logger) {
-                val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
+                val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, it) }
                 if (response.isAcknowledged) {
                     result = true
                 } else {

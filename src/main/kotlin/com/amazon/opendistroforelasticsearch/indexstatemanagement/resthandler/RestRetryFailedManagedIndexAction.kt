@@ -166,7 +166,7 @@ class RestRetryFailedManagedIndexAction(
                 val updateManagedIndexMetaDataRequest =
                     UpdateManagedIndexMetaDataRequest(indicesToAddManagedIndexMetaDataTo = listOfIndexMetaData)
                 client.execute(
-                    UpdateManagedIndexMetaDataAction,
+                    UpdateManagedIndexMetaDataAction.INSTANCE,
                     updateManagedIndexMetaDataRequest,
                     ActionListener.wrap(::onUpdateManagedIndexMetaDataActionResponse, ::onFailure)
                 )

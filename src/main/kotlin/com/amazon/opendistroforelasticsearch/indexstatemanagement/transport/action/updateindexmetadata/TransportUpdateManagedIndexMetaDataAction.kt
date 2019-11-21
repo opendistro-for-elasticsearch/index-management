@@ -67,14 +67,6 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         this.indexStateManagementHistory = indexStateManagementHistory
     }
 
-    companion object {
-        val reader = Writeable.Reader {
-            val response = AcknowledgedResponse(it)
-            response.readFrom(it)
-            response
-        }
-    }
-
     private val log = LogManager.getLogger(javaClass)
     private val client: Client
     private val indexStateManagementHistory: IndexStateManagementHistory

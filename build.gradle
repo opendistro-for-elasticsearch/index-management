@@ -64,12 +64,6 @@ allOpen {
 
 configurations {
     ktlint
-    testCompile {
-        exclude group: "commons-logging", module: "commons-logging"
-        exclude group: "commons-codec", module: "commons-codec"
-        exclude group: "org.apache.httpcomponents", module: "httpclient"
-        exclude group: "org.apache.httpcomponents", module: "httpcore"
-    }
 }
 
 detekt {

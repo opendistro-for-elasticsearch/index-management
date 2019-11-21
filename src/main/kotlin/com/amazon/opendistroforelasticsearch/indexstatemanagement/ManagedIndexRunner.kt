@@ -174,13 +174,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         launch {
             // Attempt to acquire lock
-            val lock: LockModel? = withContext(Dispatchers.IO) { context.lockService.acquireLock(job, context) }
+            val lock: LockModel? = context.lockService.suspendUntil { acquireLock(job, context, it) }
             if (lock == null) {
                 logger.debug("Could not acquire lock for ${job.index}")
             } else {
                 runManagedIndexConfig(job)
                 // Release lock
-                val released = withContext(Dispatchers.IO) { context.lockService.release(lock) }
+                val released: Boolean = context.lockService.suspendUntil { release(lock, it) }
                 if (!released) {
                     logger.debug("Could not release lock for ${job.index}")
                 }

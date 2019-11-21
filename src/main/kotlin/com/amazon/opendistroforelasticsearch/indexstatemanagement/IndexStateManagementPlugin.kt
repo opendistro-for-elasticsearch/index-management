@@ -181,7 +181,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
         return listOf(
             ActionPlugin.ActionHandler(
-                UpdateManagedIndexMetaDataAction,
+                UpdateManagedIndexMetaDataAction.INSTANCE,
                 TransportUpdateManagedIndexMetaDataAction::class.java
             )
         )

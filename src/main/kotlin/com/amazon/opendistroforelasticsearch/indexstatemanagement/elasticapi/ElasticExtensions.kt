@@ -20,6 +20,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
 import kotlinx.coroutines.delay
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
@@ -123,6 +124,20 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
                 override fun onFailure(e: Exception) = cont.resumeWithException(e)
             })
         }
+
+/**
+ * Converts [LockService] methods that take a callback into a kotlin suspending function.
+ *
+ * @param block - a block of code that is passed an [ActionListener] that should be passed to the LockService API.
+ */
+suspend fun <T> LockService.suspendUntil(block: LockService.(ActionListener<T>) -> Unit): T =
+    suspendCoroutine { cont ->
+        block(object : ActionListener<T> {
+            override fun onResponse(response: T) = cont.resume(response)
+
+            override fun onFailure(e: Exception) = cont.resumeWithException(e)
+        })
+    }
 
 /**
  * Compares current and previous IndexMetaData to determine if we should create [ManagedIndexConfig].

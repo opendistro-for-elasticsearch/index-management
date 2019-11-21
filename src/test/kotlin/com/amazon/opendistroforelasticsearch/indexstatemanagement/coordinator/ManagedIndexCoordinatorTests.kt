@@ -64,8 +64,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
 
         settings = Settings.builder().build()
 
-        discoveryNode = DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), emptyMap<String, String>(),
-                DiscoveryNode.Role.values().toSet(), Version.CURRENT)
+        discoveryNode = DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), Version.CURRENT)
 
         val settingSet = hashSetOf<Setting<*>>()
         settingSet.addAll(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)

@@ -154,20 +154,20 @@ run {
 }
 
 afterEvaluate {
-    project.tasks.getByName("run#installOpendistroForElasticsearchIndexManagementPlugin").dependsOn("run#installPlugin")
-    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroForElasticsearchIndexManagementPlugin"))
+    project.tasks.getByName("run#installOpendistroIndexManagementPlugin").dependsOn("run#installPlugin")
+    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroIndexManagementPlugin"))
     project.tasks.getByName("run#installPlugin").dependsOn("run#copyPlugins")
     project.tasks.getByName("run#start").dependsOn.remove(project.tasks.getByName("run#installPlugin"))
-    project.tasks.getByName("run#start").dependsOn("run#installOpendistroForElasticsearchIndexManagementPlugin")
+    project.tasks.getByName("run#start").dependsOn("run#installOpendistroIndexManagementPlugin")
 }
 
 tasks.whenTaskAdded { task ->
     if (task.name == "integTestCluster#wait") {
-        project.tasks.getByName("integTestCluster#installOpendistroForElasticsearchIndexManagementPlugin").dependsOn("integTestCluster#installPlugin")
-        project.tasks.getByName("integTestCluster#installPlugin").dependsOn.remove(project.tasks.getByName("integTestCluster#installOpendistroForElasticsearchIndexManagementPlugin"))
+        project.tasks.getByName("integTestCluster#installOpendistroIndexManagementPlugin").dependsOn("integTestCluster#installPlugin")
+        project.tasks.getByName("integTestCluster#installPlugin").dependsOn.remove(project.tasks.getByName("integTestCluster#installOpendistroIndexManagementPlugin"))
         project.tasks.getByName("integTestCluster#installPlugin").dependsOn("integTestCluster#copyPlugins")
         project.tasks.getByName("integTestCluster#start").dependsOn.remove(project.tasks.getByName("integTestCluster#installPlugin"))
-        project.tasks.getByName("integTestCluster#start").dependsOn("integTestCluster#installOpendistroForElasticsearchIndexManagementPlugin")
+        project.tasks.getByName("integTestCluster#start").dependsOn("integTestCluster#installOpendistroIndexManagementPlugin")
     }
 }
 

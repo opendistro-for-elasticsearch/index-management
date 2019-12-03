@@ -36,6 +36,39 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
+    fun `test rollover no condition`() {
+        val aliasName = "${testIndexName}_alias"
+        val indexNameBase = "${testIndexName}_index"
+        val firstIndex = "$indexNameBase-1"
+        val policyID = "${testIndexName}_testPolicyName_1"
+        val actionConfig = RolloverActionConfig(null, null, null, 0)
+        val states = listOf(State(name = "RolloverAction", actions = listOf(actionConfig), transitions = listOf()))
+        val policy = Policy(
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states
+        )
+
+        createPolicy(policy, policyID)
+        // create index defaults
+        createIndex(firstIndex, policyID, aliasName)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(firstIndex)
+
+        // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(firstIndex).policyID) }
+
+        // Need to speed up to second execution where it will trigger the first execution of the action which
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Index did not rollover.", mapOf("message" to "Rolled over index"), getExplainManagedIndexMetaData(firstIndex).info) }
+        Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))
+    }
+
     fun `test rollover multi condition byte size`() {
         val aliasName = "${testIndexName}_byte_alias"
         val indexNameBase = "${testIndexName}_index_byte"

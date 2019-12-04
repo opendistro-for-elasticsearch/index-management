@@ -63,7 +63,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(firstIndex).policyID) }
 
-        // Need to speed up to second execution where it will trigger the first execution of the action which
+        // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { assertEquals("Index did not rollover.", mapOf("message" to "Rolled over index"), getExplainManagedIndexMetaData(firstIndex).info) }
         Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))
@@ -96,7 +96,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(firstIndex).policyID) }
 
-        // Need to speed up to second execution where it will trigger the first execution of the action which
+        // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { assertEquals("Index rollover before it met the condition.", mapOf("message" to "Attempting to rollover"), getExplainManagedIndexMetaData(firstIndex).info) }
 
@@ -116,7 +116,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
             StringEntity("{ \"testkey2\": \"some value2\" }", ContentType.APPLICATION_JSON)
         )
 
-        // Need to speed up to second execution where it will trigger the first execution of the action which
+        // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { assertEquals("Index did not rollover.", mapOf("message" to "Rolled over index"), getExplainManagedIndexMetaData(firstIndex).info) }
         Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))
@@ -149,7 +149,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(firstIndex).policyID) }
 
-        // Need to speed up to second execution where it will trigger the first execution of the action which
+        // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { assertEquals("Index rollover before it met the condition.", mapOf("message" to "Attempting to rollover"), getExplainManagedIndexMetaData(firstIndex).info) }
 
@@ -169,7 +169,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
             StringEntity("{ \"testkey2\": \"some value2\" }", ContentType.APPLICATION_JSON)
         )
 
-        // Need to speed up to second execution where it will trigger the first execution of the action which
+        // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor { assertEquals("Index did not rollover.", mapOf("message" to "Rolled over index"), getExplainManagedIndexMetaData(firstIndex).info) }
         Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))

@@ -218,22 +218,28 @@ fun RolloverActionConfig.evaluateConditions(
     numDocs: Long,
     indexSize: ByteSizeValue
 ): Boolean {
+    if (this.minDocs == null &&
+        this.minAge == null &&
+        this.minSize == null) {
+        // If no conditions specified we default to true
+        return true
+    }
 
     if (this.minDocs != null) {
-        return this.minDocs <= numDocs
+        if (this.minDocs <= numDocs) return true
     }
 
     if (this.minAge != null) {
         val elapsedTime = Instant.now().toEpochMilli() - indexCreationDate.toEpochMilli()
-        return this.minAge.millis <= elapsedTime
+        if (this.minAge.millis <= elapsedTime) return true
     }
 
     if (this.minSize != null) {
-        return this.minSize <= indexSize
+        if (this.minSize <= indexSize) return true
     }
 
-    // If no conditions specified we default to true
-    return true
+    // return false if non of the conditions were true.
+    return false
 }
 
 fun Policy.getStateToExecute(managedIndexMetaData: ManagedIndexMetaData): State? {

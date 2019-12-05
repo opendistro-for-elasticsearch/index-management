@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.A
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomSnapshotActionConfig
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.test.ESTestCase
@@ -53,6 +54,18 @@ class ActionConfigTests : ESTestCase() {
     fun `test force merge action max num segments of zero fails`() {
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for maxNumSegments less than 1") {
             randomForceMergeActionConfig(maxNumSegments = 0)
+        }
+    }
+
+    fun `test snapshot action empty snapshot fails`() {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for snapshot equals to null") {
+            randomSnapshotActionConfig(repository = "repository")
+        }
+    }
+
+    fun `test snapshot action empty repository fails`() {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for repository equals to null") {
+            randomSnapshotActionConfig(snapshot = "snapshot")
         }
     }
 }

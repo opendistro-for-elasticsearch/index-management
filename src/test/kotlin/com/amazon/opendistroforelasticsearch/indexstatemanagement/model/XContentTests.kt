@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnly
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomSnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.toJsonString
@@ -131,6 +132,14 @@ class XContentTests : ESTestCase() {
         val notificationActionConfigString = notificationActionConfig.toJsonString()
         val parsedNotificationActionConfig = ActionConfig.parse(parser(notificationActionConfigString), 0)
         assertEquals("Round tripping NotificationActionConfig doesn't work", notificationActionConfig, parsedNotificationActionConfig)
+    }
+
+    fun `test snapshot action config parsing`() {
+        val snapshotActionConfig = randomSnapshotActionConfig("repository", "snapshot", true)
+
+        val snapshotActionConfigString = snapshotActionConfig.toJsonString()
+        val parsedNotificationActionConfig = ActionConfig.parse(parser(snapshotActionConfigString), 0)
+        assertEquals("Round tripping SnapshotActionConfig doesn't work", snapshotActionConfig, parsedNotificationActionConfig)
     }
 
     fun `test managed index config parsing`() {

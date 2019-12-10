@@ -231,7 +231,7 @@ class ManagedIndexCoordinator(
     @OpenForTesting
     suspend fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
         val indicesDeletedRequests = event.indicesDeleted()
-                    .filter { event.previousState().metaData().index(it).getPolicyID() != null }
+                    .filter { event.previousState().metaData().index(it)?.getPolicyID() != null }
                     .map { deleteManagedIndexRequest(it.uuid) }
 
         /*

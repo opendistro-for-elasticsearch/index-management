@@ -177,7 +177,8 @@ data class ManagedIndexConfig(
                 policyID = requireNotNull(policyID) { "ManagedIndexConfig policy id is null" },
                 policySeqNo = policySeqNo,
                 policyPrimaryTerm = policyPrimaryTerm,
-                policy = policy,
+                policy = policy?.copy(seqNo = policySeqNo ?: SequenceNumbers.UNASSIGNED_SEQ_NO,
+                    primaryTerm = policyPrimaryTerm ?: SequenceNumbers.UNASSIGNED_PRIMARY_TERM),
                 changePolicy = changePolicy
             )
         }

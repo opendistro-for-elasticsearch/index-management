@@ -1,6 +1,14 @@
-## Version 1.3.0.0
+## Version 1.3.0.1 (Current)
 
-## New Features
+### Bug Fixes
+
+* Fixes rollover not checking all conditions
+* Adds policySeqNo and policyPrimaryTerm to the policy on the ManagedIndexConfig
+* Adds null check in cluster changed event listener
+
+## 2019-11-21, Version 1.3.0.0
+
+### New Features
 
 This is the first official release of Open Distro Index Management plugin.
 

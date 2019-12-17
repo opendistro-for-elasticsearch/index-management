@@ -2,9 +2,9 @@
 
 ### Bug Fixes
 
-* Fixes rollover not checking all conditions
-* Adds policySeqNo and policyPrimaryTerm to the policy on the ManagedIndexConfig
-* Adds null check in cluster changed event listener
+* Fixes rollover not checking all conditions - [#123](https://github.com/opendistro-for-elasticsearch/index-management/pull/123)
+* Adds policySeqNo and policyPrimaryTerm to the policy on the ManagedIndexConfig - [#123](https://github.com/opendistro-for-elasticsearch/index-management/pull/123)
+* Adds null check in cluster changed event listener - [#125](https://github.com/opendistro-for-elasticsearch/index-management/pull/125)
 
 ## 2019-11-21, Version 1.3.0.0
 

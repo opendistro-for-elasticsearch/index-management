@@ -3,7 +3,7 @@
 ### New Features
 * Adds support for Elasticsearch 7.4.2
 
-## Version 1.3.0.0
+## Version 1.3.0.0 (2019-12-17)
 
 ### New Features
 

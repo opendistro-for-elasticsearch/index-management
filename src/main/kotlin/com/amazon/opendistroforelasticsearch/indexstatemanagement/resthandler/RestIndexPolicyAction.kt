@@ -59,7 +59,7 @@ class RestIndexPolicyAction(
     controller: RestController,
     val clusterService: ClusterService,
     indexStateManagementIndices: IndexStateManagementIndices
-) : BaseRestHandler(settings) {
+) : BaseRestHandler() {
 
     private val log = LogManager.getLogger(javaClass)
     private var ismIndices = indexStateManagementIndices

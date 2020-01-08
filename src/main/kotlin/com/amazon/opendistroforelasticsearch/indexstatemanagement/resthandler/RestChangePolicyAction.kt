@@ -44,7 +44,6 @@ import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.bytes.BytesReference
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -65,11 +64,7 @@ import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 
-class RestChangePolicyAction(
-    settings: Settings,
-    controller: RestController,
-    val clusterService: ClusterService
-) : BaseRestHandler(settings) {
+class RestChangePolicyAction(controller: RestController, val clusterService: ClusterService) : BaseRestHandler() {
 
     private val log = LogManager.getLogger(javaClass)
 

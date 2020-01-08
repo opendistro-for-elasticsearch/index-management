@@ -27,7 +27,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
@@ -42,7 +41,7 @@ import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 
-class RestGetPolicyAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
+class RestGetPolicyAction(controller: RestController) : BaseRestHandler() {
 
     init {
         // Get a specific policy

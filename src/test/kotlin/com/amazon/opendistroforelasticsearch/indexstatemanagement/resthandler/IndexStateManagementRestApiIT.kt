@@ -38,7 +38,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
 
-@TestLogging("level:DEBUG")
+@TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
 class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 

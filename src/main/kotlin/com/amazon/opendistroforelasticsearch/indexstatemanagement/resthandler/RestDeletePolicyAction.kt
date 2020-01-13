@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.REFRESH
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
@@ -29,7 +28,7 @@ import org.elasticsearch.rest.RestRequest.Method.DELETE
 import org.elasticsearch.rest.action.RestStatusToXContentListener
 import java.io.IOException
 
-class RestDeletePolicyAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
+class RestDeletePolicyAction(controller: RestController) : BaseRestHandler() {
 
     init {
         controller.registerHandler(DELETE, "$POLICY_BASE_URI/{policyID}", this)

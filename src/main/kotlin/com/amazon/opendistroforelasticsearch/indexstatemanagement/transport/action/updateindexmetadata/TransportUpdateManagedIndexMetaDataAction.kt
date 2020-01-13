@@ -38,9 +38,9 @@ import org.elasticsearch.cluster.metadata.MetaData
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportService
-import java.util.function.Supplier
 
 class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<UpdateManagedIndexMetaDataRequest, AcknowledgedResponse> {
 
@@ -59,8 +59,8 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         clusterService,
         threadPool,
         actionFilters,
-        indexNameExpressionResolver,
-        Supplier { UpdateManagedIndexMetaDataRequest() }
+        Writeable.Reader { UpdateManagedIndexMetaDataRequest(it) },
+        indexNameExpressionResolver
     ) {
         this.client = client
         this.indexStateManagementHistory = indexStateManagementHistory
@@ -138,10 +138,6 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
 
     override fun read(si: StreamInput): AcknowledgedResponse {
         return AcknowledgedResponse(si)
-    }
-
-    override fun newResponse(): AcknowledgedResponse {
-        throw UnsupportedOperationException("usage of Streamable is to be replaced by Writeable")
     }
 
     override fun executor(): String {

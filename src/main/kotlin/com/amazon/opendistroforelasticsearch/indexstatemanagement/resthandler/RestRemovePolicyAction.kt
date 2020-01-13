@@ -46,7 +46,7 @@ import org.elasticsearch.rest.action.RestActionListener
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 
-class RestRemovePolicyAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
+class RestRemovePolicyAction(controller: RestController) : BaseRestHandler() {
 
     init {
         controller.registerHandler(POST, REMOVE_POLICY_BASE_URI, this)

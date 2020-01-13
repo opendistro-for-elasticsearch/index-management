@@ -1,6 +1,11 @@
-## Version 1.3.0.0
+## Version 1.4.0.0
 
-## New Features
+### New Features
+* Adds support for Elasticsearch 7.4.2 [PR #132](https://github.com/opendistro-for-elasticsearch/index-management/pull/132)
+
+## Version 1.3.0.0 (2019-12-17)
+
+### New Features
 
 This is the first official release of Open Distro Index Management plugin.
 

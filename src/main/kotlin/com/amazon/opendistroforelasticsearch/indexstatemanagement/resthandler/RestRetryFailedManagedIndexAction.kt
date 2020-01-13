@@ -40,7 +40,6 @@ import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
@@ -50,10 +49,7 @@ import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 
-class RestRetryFailedManagedIndexAction(
-    settings: Settings,
-    controller: RestController
-) : BaseRestHandler(settings) {
+class RestRetryFailedManagedIndexAction(controller: RestController) : BaseRestHandler() {
 
     private val log = LogManager.getLogger(javaClass)
 

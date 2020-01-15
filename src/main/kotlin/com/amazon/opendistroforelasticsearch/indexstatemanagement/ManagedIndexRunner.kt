@@ -45,6 +45,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStartingManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStateToExecute
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCompletedManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getUpdatedActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasDifferentJobInterval
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasTimedOut
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasVersionConflict
@@ -233,6 +234,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val state = policy.getStateToExecute(managedIndexMetaData)
         val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
+        val currentActionMetaData = action?.getUpdatedActionMetaData(managedIndexMetaData, state)
 
         // If Index State Management is disabled and the current step is not null and safe to disable on
         // then disable the job and return early
@@ -241,11 +243,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
-        if (action?.hasTimedOut(managedIndexMetaData.actionMetaData) == true) {
+        if (action?.hasTimedOut(currentActionMetaData) == true) {
             val info = mapOf("message" to "Action timed out")
             logger.error("Action=${action.type.type} has timed out")
             val updated = updateManagedIndexMetaData(managedIndexMetaData
-                .copy(actionMetaData = managedIndexMetaData.actionMetaData?.copy(failed = true), info = info))
+                .copy(actionMetaData = currentActionMetaData?.copy(failed = true), info = info))
             if (updated) disableManagedIndexConfig(managedIndexConfig)
             return
         }
@@ -255,7 +257,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
-        val shouldBackOff = action?.shouldBackoff(managedIndexMetaData.actionMetaData, action.config.configRetry)
+        val shouldBackOff = action?.shouldBackoff(currentActionMetaData, action.config.configRetry)
         if (shouldBackOff?.first == true) {
             // If we should back off then exit early.
             logger.info("Backoff for retrying. Remaining time ${shouldBackOff.second}")
@@ -282,9 +284,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val startingManagedIndexMetaData = managedIndexMetaData.getStartingManagedIndexMetaData(state, action, step)
         val updateResult = updateManagedIndexMetaData(startingManagedIndexMetaData)
 
-        val actionMetaData = startingManagedIndexMetaData.actionMetaData
-
-        if (updateResult && state != null && action != null && step != null && actionMetaData != null) {
+        if (updateResult && state != null && action != null && step != null && currentActionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
             step.execute()
             var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(action, step)

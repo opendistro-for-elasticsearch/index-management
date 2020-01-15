@@ -134,7 +134,7 @@ class IndexStateManagementHistory(
                 val alias = indexMetaData.aliases.firstOrNull { IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS == it.value.alias }
                 if (alias != null && historyEnabled) {
                     // If index has write alias and history is enable, don't delete the index.
-                    break
+                    continue
                 }
 
                 indexToDelete.add(indexMetaData.index.name)

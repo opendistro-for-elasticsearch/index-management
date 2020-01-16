@@ -78,7 +78,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1'
     compile "org.jetbrains:annotations:13.0"
-    compile "com.amazon.opendistroforelasticsearch:notification:1.2.0.0"
+    compile "com.amazon.opendistroforelasticsearch:notification:1.2.1.0"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
@@ -100,7 +100,7 @@ ext {
 }
 
 group = "com.amazon.opendistroforelasticsearch"
-version = "${opendistroVersion}.0"
+version = "${opendistroVersion}.1"
 
 if (isSnapshot) {
     version += "-SNAPSHOT"

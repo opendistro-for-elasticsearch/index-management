@@ -1,4 +1,10 @@
-## Version 1.3.0.1 (Current)
+## Version 1.3.0.2 (Current)
+
+### Bug Fixes
+ * Fixes issue where action timeout was using start_time from previous action (#133)
+ * Fixes history index iteration breaking instead of continuing (#134)
+
+## 2019-12-17, Version 1.3.0.1
 
 ### Bug Fixes
 

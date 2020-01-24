@@ -46,9 +46,9 @@ apply plugin: 'elasticsearch.esplugin'
 apply plugin: 'io.gitlab.arturbosch.detekt'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
-
-apply from: 'build-tools/esplugin-coverage.gradle'
-
+if (!System.properties.containsKey('tests.rest.cluster') && !System.properties.containsKey('tests.cluster')) {
+    apply from: 'build-tools/esplugin-coverage.gradle'
+}
 check.dependsOn jacocoTestReport
 
 esplugin {

@@ -73,6 +73,7 @@ fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String
 
     return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
             .id(uuid)
+            .type(_DOC)
             .create(true)
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
@@ -80,6 +81,7 @@ fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String
 fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): IndexRequest {
     return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
             .id(managedIndexConfig.indexUuid)
+            .type(_DOC)
             .setIfPrimaryTerm(managedIndexConfig.primaryTerm)
             .setIfSeqNo(managedIndexConfig.seqNo)
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
@@ -94,7 +96,7 @@ private fun updateEnabledField(uuid: String, enabled: Boolean, enabledTime: Long
                 .field(ManagedIndexConfig.ENABLED_TIME_FIELD, enabledTime)
             .endObject()
         .endObject()
-    return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX, uuid).doc(builder)
+    return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX, _DOC, uuid).doc(builder)
 }
 
 fun updateDisableManagedIndexRequest(uuid: String): UpdateRequest {
@@ -106,11 +108,11 @@ fun updateEnableManagedIndexRequest(uuid: String): UpdateRequest {
 }
 
 fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
-    return DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, uuid)
+    return DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, _DOC, uuid)
 }
 
 fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig): UpdateRequest {
-    return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX, sweptManagedIndexConfig.uuid)
+    return UpdateRequest(INDEX_STATE_MANAGEMENT_INDEX, _DOC, sweptManagedIndexConfig.uuid)
         .setIfPrimaryTerm(sweptManagedIndexConfig.primaryTerm)
         .setIfSeqNo(sweptManagedIndexConfig.seqNo)
         .doc(getPartialChangePolicyBuilder(sweptManagedIndexConfig.changePolicy))

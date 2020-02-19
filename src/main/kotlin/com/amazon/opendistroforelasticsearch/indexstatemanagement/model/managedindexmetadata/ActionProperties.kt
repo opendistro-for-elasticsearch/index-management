@@ -31,7 +31,7 @@ data class ActionProperties(
 ) : Writeable, ToXContentFragment {
 
     override fun writeTo(out: StreamOutput) {
-        out.writeOptionalInt(maxNumSegments)
+        if (maxNumSegments != null)  out.writeInt(maxNumSegments)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -45,7 +45,7 @@ data class ActionProperties(
         const val MAX_NUM_SEGMENTS = "max_num_segments"
 
         fun fromStreamInput(si: StreamInput): ActionProperties {
-            val maxNumSegments: Int? = si.readOptionalInt()
+            val maxNumSegments: Int? = if (si.readBoolean()) si.readInt() else null
 
             return ActionProperties(maxNumSegments)
         }

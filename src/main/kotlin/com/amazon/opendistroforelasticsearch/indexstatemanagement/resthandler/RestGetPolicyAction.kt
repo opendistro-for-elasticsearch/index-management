@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
@@ -59,7 +60,7 @@ class RestGetPolicyAction(settings: Settings, controller: RestController) : Base
         if (policyId == null || policyId.isEmpty()) {
             throw IllegalArgumentException("Missing policy ID")
         }
-        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyId)
+        val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, _DOC, policyId)
                 .version(RestActions.parseVersion(request))
 
         if (request.method() == RestRequest.Method.HEAD) {

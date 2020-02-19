@@ -57,7 +57,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
-            assertEquals(2, historySearchResponse.hits.totalHits.value)
+            assertEquals(2, historySearchResponse.hits.totalHits)
             historySearchResponse
         }
 
@@ -123,7 +123,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
-            assertEquals(2, historySearchResponse.hits.totalHits.value)
+            assertEquals(2, historySearchResponse.hits.totalHits)
             historySearchResponse
         }
 
@@ -189,7 +189,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
-            assertEquals(2, historySearchResponse.hits.totalHits.value)
+            assertEquals(2, historySearchResponse.hits.totalHits)
             historySearchResponse
         }
 
@@ -249,7 +249,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
-            assertEquals(1, historySearchResponse.hits.totalHits.value)
+            assertEquals(1, historySearchResponse.hits.totalHits)
             historySearchResponse
         }
 
@@ -279,7 +279,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         val historySearchResponse1: SearchResponse = waitFor {
             val historySearchResponse1 = getHistorySearchResponse(indexName)
-            assertEquals(2, historySearchResponse1.hits.totalHits.value)
+            assertEquals(2, historySearchResponse1.hits.totalHits)
             historySearchResponse1
         }
 
@@ -310,7 +310,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         // After updating settings, ensure all the histories are deleted.
         waitFor {
             val historySearchResponse3 = getHistorySearchResponse(indexName)
-            assertEquals(0, historySearchResponse3.hits.totalHits.value)
+            assertEquals(0, historySearchResponse3.hits.totalHits)
         }
 
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
@@ -347,7 +347,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
 
         val historySearchResponse: SearchResponse = waitFor {
             val historySearchResponse = getHistorySearchResponse(indexName)
-            assertEquals(1, historySearchResponse.hits.totalHits.value)
+            assertEquals(1, historySearchResponse.hits.totalHits)
             historySearchResponse
         }
 

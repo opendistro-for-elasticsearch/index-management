@@ -73,7 +73,7 @@ detekt {
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:0.10.0.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:0.10.0.1"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1'

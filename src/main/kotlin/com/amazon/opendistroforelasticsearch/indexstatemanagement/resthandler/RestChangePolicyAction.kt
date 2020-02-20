@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_IN
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateManagedIndexRequest
 import org.apache.logging.log4j.LogManager
@@ -109,7 +110,7 @@ class RestChangePolicyAction(
         lateinit var policy: Policy
 
         fun start() {
-            val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, changePolicy.policyID)
+            val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, _DOC, changePolicy.policyID)
 
             client.get(getRequest, ActionListener.wrap(::onGetPolicyResponse, ::onFailure))
         }

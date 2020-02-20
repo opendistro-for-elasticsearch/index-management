@@ -40,6 +40,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.Manag
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.managedIndexConfigIndexRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getActionToExecute
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStartingManagedIndexMetaData
@@ -347,7 +348,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
     @Suppress("ReturnCount")
     private suspend fun getPolicy(policyID: String): Policy? {
         try {
-            val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyID)
+            val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, _DOC, policyID)
             val getResponse: GetResponse = client.suspendUntil { get(getRequest, it) }
             if (!getResponse.isExists || getResponse.isSourceEmpty) {
                 return null

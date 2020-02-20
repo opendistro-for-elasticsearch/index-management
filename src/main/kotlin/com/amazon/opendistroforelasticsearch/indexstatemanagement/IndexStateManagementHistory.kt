@@ -1,9 +1,26 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.INDEX_NUMBER_OF_REPLICAS
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.DocWriteRequest
@@ -104,6 +121,7 @@ class IndexStateManagementHistory(
         val request = RolloverRequest(IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS, null)
         request.createIndexRequest.index(IndexStateManagementIndices.HISTORY_INDEX_PATTERN)
             .mapping(_DOC, indexStateManagementIndices.indexStateManagementHistoryMappings, XContentType.JSON)
+            .settings(Settings.builder().put(INDEX_NUMBER_OF_SHARDS, 1).put(INDEX_NUMBER_OF_REPLICAS, 1).build())
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
         val response = client.admin().indices().rolloversIndex(request).actionGet()
@@ -209,5 +227,6 @@ class IndexStateManagementHistory(
             .endObject()
         return IndexRequest(IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS)
             .source(builder)
+            .type(_DOC)
     }
 }

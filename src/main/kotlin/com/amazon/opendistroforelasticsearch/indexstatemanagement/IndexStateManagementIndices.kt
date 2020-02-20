@@ -17,6 +17,8 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.INDEX_NUMBER_OF_REPLICAS
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import org.apache.logging.log4j.LogManager
@@ -30,6 +32,7 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRespon
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 
 @OpenForTesting
@@ -47,7 +50,8 @@ class IndexStateManagementIndices(
     fun initIndexStateManagementIndex(actionListener: ActionListener<CreateIndexResponse>) {
         if (!indexStateManagementIndexExists()) {
             val indexRequest = CreateIndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
-                    .mapping(_DOC, indexStateManagementMappings, XContentType.JSON)
+                .mapping(_DOC, indexStateManagementMappings, XContentType.JSON)
+                .settings(Settings.builder().put(INDEX_NUMBER_OF_SHARDS, 1).put(INDEX_NUMBER_OF_REPLICAS, 1).build())
             client.create(indexRequest, actionListener)
         }
     }
@@ -95,7 +99,9 @@ class IndexStateManagementIndices(
         }
         if (existsResponse.isExists) return true
 
-        val request = CreateIndexRequest(index).mapping(_DOC, indexStateManagementHistoryMappings, XContentType.JSON)
+        val request = CreateIndexRequest(index)
+            .mapping(_DOC, indexStateManagementHistoryMappings, XContentType.JSON)
+            .settings(Settings.builder().put(INDEX_NUMBER_OF_SHARDS, 1).put(INDEX_NUMBER_OF_REPLICAS, 1).build())
         if (alias != null) request.alias(Alias(alias))
         return try {
             val createIndexResponse: CreateIndexResponse = client.suspendUntil { client.create(request, it) }

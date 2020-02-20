@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.Manag
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.REFRESH
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
@@ -143,6 +144,7 @@ class RestIndexPolicyAction(
             val indexRequest = IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newPolicy.toXContent(channel.newBuilder()))
+                    .type(_DOC)
                     .id(policyId)
                     .timeout(IndexRequest.DEFAULT_TIMEOUT)
             if (seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO || primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {

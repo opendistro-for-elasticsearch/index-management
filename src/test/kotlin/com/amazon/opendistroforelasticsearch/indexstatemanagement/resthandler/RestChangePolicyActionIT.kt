@@ -111,7 +111,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                             "index" to ".opendistro-ism-config",
                             "resource.type" to "index_expression",
                             "resource.id" to ".opendistro-ism-config",
-                            "reason" to "no such index [.opendistro-ism-config]"
+                            "reason" to "no such index"
                         )
                     ),
                     "type" to "index_not_found_exception",
@@ -119,7 +119,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                     "index" to ".opendistro-ism-config",
                     "resource.type" to "index_expression",
                     "resource.id" to ".opendistro-ism-config",
-                    "reason" to "no such index [.opendistro-ism-config]"
+                    "reason" to "no such index"
                 ),
                 "status" to 404
             )
@@ -146,7 +146,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                             "index" to "this_does_not_exist",
                             "resource.type" to "index_or_alias",
                             "resource.id" to "this_does_not_exist",
-                            "reason" to "no such index [this_does_not_exist]"
+                            "reason" to "no such index"
                         )
                     ),
                     "type" to "index_not_found_exception",
@@ -154,7 +154,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                     "index" to "this_does_not_exist",
                     "resource.type" to "index_or_alias",
                     "resource.id" to "this_does_not_exist",
-                    "reason" to "no such index [this_does_not_exist]"
+                    "reason" to "no such index"
                 ),
                 "status" to 404
             )
@@ -428,7 +428,10 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         // speed up to first execution where we initialize the policy on the job
         updateManagedIndexConfigStartTime(secondManagedIndexConfig)
 
-        waitFor { assertEquals(policy.id, getExplainManagedIndexMetaData(secondIndex).policyID) }
+        waitFor {
+            assertEquals(policy.id, getExplainManagedIndexMetaData(secondIndex).policyID)
+            assertEquals(secondIndex, getExplainManagedIndexMetaData(secondIndex).index)
+        }
 
         val newPolicy = createRandomPolicy()
         val changePolicy = ChangePolicy(newPolicy.id, null, listOf(StateFilter(state = firstState.name)), false)

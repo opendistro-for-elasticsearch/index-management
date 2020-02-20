@@ -31,6 +31,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.Re
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.INDEX_NUMBER_OF_REPLICAS
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
@@ -149,6 +151,8 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         alias: String? = null
     ): Pair<String, String?> {
         val settings = Settings.builder().let {
+            it.put(INDEX_NUMBER_OF_SHARDS, 1)
+            it.put(INDEX_NUMBER_OF_REPLICAS, 1)
             if (policyID == null) {
                 it.putNull(ManagedIndexSettings.POLICY_ID.key)
             } else {
@@ -161,7 +165,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             }
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
-        createIndex(index, settings, "", aliases)
+        createIndex("$index?include_type_name=false", settings, "", aliases)
         return index to policyID
     }
 
@@ -282,7 +286,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
-        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_doc/${update.id}/_update",
             StringEntity(
                 "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
                     "\"$startTimeMillis\"}}}}}",
@@ -293,7 +297,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     protected fun updateManagedIndexConfigPolicySeqNo(update: ManagedIndexConfig) {
-        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_doc/${update.id}/_update",
             StringEntity(
                 "{\"doc\":{\"managed_index\":{\"policy_seq_no\":\"${update.policySeqNo}\"}}}",
                 APPLICATION_JSON

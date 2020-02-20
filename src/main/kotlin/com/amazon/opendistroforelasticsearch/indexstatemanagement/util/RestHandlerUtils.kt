@@ -34,6 +34,8 @@ const val IF_SEQ_NO = "if_seq_no"
 const val _PRIMARY_TERM = "_primary_term"
 const val IF_PRIMARY_TERM = "if_primary_term"
 const val REFRESH = "refresh"
+const val INDEX_NUMBER_OF_SHARDS = "index.number_of_shards"
+const val INDEX_NUMBER_OF_REPLICAS = "index.number_of_replicas"
 
 const val WITH_TYPE = "with_type"
 val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))

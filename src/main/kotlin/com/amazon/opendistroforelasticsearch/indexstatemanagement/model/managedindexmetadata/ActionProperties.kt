@@ -31,7 +31,12 @@ data class ActionProperties(
 ) : Writeable, ToXContentFragment {
 
     override fun writeTo(out: StreamOutput) {
-        if (maxNumSegments != null)  out.writeInt(maxNumSegments)
+        if (maxNumSegments == null) {
+            out.writeBoolean(false)
+        } else {
+            out.writeBoolean(true)
+            out.writeInt(maxNumSegments)
+        }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

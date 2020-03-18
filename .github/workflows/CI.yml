@@ -12,7 +12,7 @@ jobs:
         java: [12]
 
     name: Build and Test Index Management
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Index Management

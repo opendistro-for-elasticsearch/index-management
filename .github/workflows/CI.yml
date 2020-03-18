@@ -9,7 +9,7 @@ jobs:
   Build-Index-Management:
     strategy:
       matrix:
-        java: [13]
+        java: [12]
 
     name: Build and Test Index Management
     runs-on: macos-latest

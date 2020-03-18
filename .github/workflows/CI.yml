@@ -41,7 +41,7 @@ jobs:
           then
             echo "FROM opendistroforelasticsearch/opendistroforelasticsearch:$version" >> Dockerfile
             echo "RUN if [ -d /usr/share/elasticsearch/plugins/opendistro_security ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro_security; fi" >> Dockerfile
-            echo "RUN if [ -d /usr/share/elasticsearch/plugins/opendistro_index_management ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro_sql; fi" >> Dockerfile
+            echo "RUN if [ -d /usr/share/elasticsearch/plugins/opendistro_index_management ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro_index_management; fi" >> Dockerfile
             echo "ADD index-management/build/distributions/opendistro_index_management-$plugin_version.zip /tmp/" >> Dockerfile
             echo "RUN /usr/share/elasticsearch/bin/elasticsearch-plugin install --batch file:/tmp/opendistro_index_management-$plugin_version.zip" >> Dockerfile
             

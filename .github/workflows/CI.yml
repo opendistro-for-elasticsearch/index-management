@@ -1,0 +1,29 @@
+name: Build and Test Index Management
+on:
+  push:
+    branches:
+      - master
+      - opendistro-*
+
+jobs:
+  Build-Index-Management:
+    strategy:
+      matrix:
+        java: [13]
+
+    name: Build and Test Index Management
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Index Management
+        uses: actions/checkout@v1
+        
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+      
+      - name: Run build
+        run: |
+          ./gradlew build
+          ls -ltr build/distributions/

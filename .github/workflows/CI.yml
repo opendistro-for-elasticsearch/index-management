@@ -2,7 +2,6 @@ name: Build and Test Index Management
 on:
   push:
     branches:
-      - master
       - opendistro-*
 
 jobs:

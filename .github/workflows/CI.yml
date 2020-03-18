@@ -24,6 +24,37 @@ jobs:
           java-version: ${{ matrix.java }}
       
       - name: Run build
+        run: ./gradlew build
+          
+      - name: Create Plugin Zip for Testing
+        run: ./gradlew build --console=plain -Dbuild.snapshot=false
+      
+      - name: Pull and Run Docker
         run: |
-          ./gradlew build
-          ls -ltr build/distributions/
+          plugin=`ls build/distributions/*.zip`
+          version=`echo $plugin|awk -F- '{print $2}'| cut -d. -f 1-3`
+          plugin_version=`echo $plugin|awk -F- '{print $2}'| cut -d. -f 1-4`
+          echo $version
+          cd ..
+          
+          if docker pull opendistroforelasticsearch/opendistroforelasticsearch:$version
+          then
+            echo "FROM opendistroforelasticsearch/opendistroforelasticsearch:$version" >> Dockerfile
+            echo "RUN if [ -d /usr/share/elasticsearch/plugins/opendistro_security ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro_security; fi" >> Dockerfile
+            echo "RUN if [ -d /usr/share/elasticsearch/plugins/opendistro_index_management ]; then /usr/share/elasticsearch/bin/elasticsearch-plugin remove opendistro_sql; fi" >> Dockerfile
+            echo "ADD index-management/build/distributions/opendistro_index_management-$plugin_version.zip /tmp/" >> Dockerfile
+            echo "RUN /usr/share/elasticsearch/bin/elasticsearch-plugin install --batch file:/tmp/opendistro_index_management-$plugin_version.zip" >> Dockerfile
+            
+            docker build -t odfe-index-management:test .
+          fi
+          
+      - name: Run Docker Image
+        run: |
+          cd ..
+          docker run -p 9200:9200 -d -p 9600:9600 -e "discovery.type=single-node" odfe-index-management:test
+          sleep 15
+          curl -XGET http://localhost:9200/_cat/plugins
+          
+      - name: Run Index-Management Test
+        run: |
+          ./gradlew integTest -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200

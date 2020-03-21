@@ -1,3 +1,15 @@
+## Version 1.6.0.0 (2020-03-17)
+
+### New Features
+* Adds support for Elasticsearch 7.6.1 [PR #132](https://github.com/opendistro-for-elasticsearch/index-management/pull/132)
+
+#### Testing
+* Feature [#374](https://github.com/opendistro-for-elasticsearch/sql/pull/374): Integration test with external ES cluster (issue: [353](https://github.com/opendistro-for-elasticsearch/sql/issues/353))
+
+### Bugfixes
+* BugFix [#365](https://github.com/opendistro-for-elasticsearch/sql/pull/365): Return Correct Type Information for Fields (issue: [#316](https://github.com/opendistro-for-elasticsearch/sql/issues/316))
+* BugFix [#377](https://github.com/opendistro-for-elasticsearch/sql/pull/377): Return object type for field which has implicit object datatype when describe the table (issue:[sql-jdbc#57](https://github.com/opendistro-for-elasticsearch/sql-jdbc/issues/57))
+
 ## Version 1.4.0.0
 
 ### New Features

@@ -112,7 +112,7 @@ class WaitForForceMergeStep(
             val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
             if (statsResponse.status == RestStatus.OK) {
-                return statsResponse.shards.count { it.stats.segments!!.count > maxNumSegments }
+                return statsResponse.shards.count { it.stats.segments.count > maxNumSegments }
             }
 
             logger.debug("Failed to get index stats for index: [$indexName], status response: [${statsResponse.status}]")

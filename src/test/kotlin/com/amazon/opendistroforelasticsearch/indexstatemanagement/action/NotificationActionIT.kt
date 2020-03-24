@@ -46,7 +46,6 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
             chime = null,
             slack = null,
             customWebhook = CustomWebhook(
-                // url = "http://${System.getProperty("tests.rest.cluster")}/$notificationIndex/_doc",
                 url = "http://$clusterUri/$notificationIndex/_doc",
                 scheme = null,
                 host = null,

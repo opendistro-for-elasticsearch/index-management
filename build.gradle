@@ -71,6 +71,21 @@ detekt {
     buildUponDefaultConfig = true
 }
 
+ext {
+    projectSubstitutions = [:]
+    opendistroVersion = "${version}"
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+    licenseFile = rootProject.file('LICENSE')
+    noticeFile = rootProject.file('NOTICE')
+}
+
+group = "com.amazon.opendistroforelasticsearch"
+version = "${opendistroVersion}.0"
+
+if (isSnapshot) {
+    version += "-SNAPSHOT"
+}
+
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.6.0.0"
@@ -89,21 +104,6 @@ dependencies {
 repositories {
     // TODO: remove mavenLocal once notification is published to maven
     mavenLocal()
-}
-
-ext {
-    projectSubstitutions = [:]
-    opendistroVersion = "${version}"
-    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-    licenseFile = rootProject.file('LICENSE')
-    noticeFile = rootProject.file('NOTICE')
-}
-
-group = "com.amazon.opendistroforelasticsearch"
-version = "${opendistroVersion}.0"
-
-if (isSnapshot) {
-    version += "-SNAPSHOT"
 }
 
 plugins.withId('java') {

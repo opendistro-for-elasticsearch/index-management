@@ -63,8 +63,8 @@ class AttemptRolloverStep(
         statsResponse ?: return
 
         val indexCreationDate = Instant.ofEpochMilli(clusterService.state().metaData().index(managedIndexMetaData.index).creationDate)
-        val numDocs = statsResponse.primaries.docs.count
-        val indexSize = ByteSizeValue(statsResponse.primaries.docs.totalSizeInBytes)
+        val numDocs = statsResponse.primaries.docs!!.count
+        val indexSize = ByteSizeValue(statsResponse.primaries.docs!!.totalSizeInBytes)
 
         if (config.evaluateConditions(indexCreationDate, numDocs, indexSize)) {
             executeRollover(alias)

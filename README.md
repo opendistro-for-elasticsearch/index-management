@@ -90,18 +90,11 @@ To debug code running in an integ test (which exercises the server from a separa
 
 The test runner JVM will start suspended and wait for a debugger to attach to `localhost:5005` before running the tests.
 
-To debug code running in an actual server, run:
+To debug code running in an actual server, start debugger listen to remote JVM in IDE, then run:
 
 ```
-./gradlew run --debug-jvm # to just start a cluster that can be debugged
+./gradlew run --debug-jvm # to start a cluster that can be debugged
 ```
-
-The Elasticsearch server JVM will launch suspended and wait for a debugger to attach to `localhost:5005` before starting the Elasticsearch server.
-
-#### Remote Debugging
-Add the following configuration to the JVM used by your IDE. For Intellij IDEA, it should be added to <ES installation>/config/jvm.options file. After configuring this, an agent in JVM will listen on the port when your Elasticsearch bootstraps, and wait for IDE debugger to connect. So you should be able to debug by setting up a “Remote Run/Debug Configuration”:
-
-`-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005`
 
 
 

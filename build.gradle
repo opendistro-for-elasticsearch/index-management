@@ -140,7 +140,6 @@ integTest.runner {
     doFirst { systemProperty 'cluster.debug', getDebug() }
 
     // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-    // https://docs.gradle.org/6.2.2/userguide/java_testing.html#sec:debugging_java_tests
     if (System.getProperty("test.debug") != null) {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
     }

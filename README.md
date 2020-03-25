@@ -74,7 +74,7 @@ This project currently uses the Notification subproject from the [Alerting plugi
 4. `./gradlew integTest -Dtests.class=*RestChangePolicyActionIT` runs a single integ class
 5.  `./gradlew integTest -Dtests.class=*RestChangePolicyActionIT -Dtests.method="test missing index"` runs a single integ test method (remember to quote the test method name if it contains spaces)
 
-When launching a cluster using one of the above commands, logs are placed in `build/cluster/run node0/elasticsearch-<version>/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
+When launching a cluster using one of the above commands, logs are placed in `build/testclusters/integTest-0/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 
 ### Debugging
 

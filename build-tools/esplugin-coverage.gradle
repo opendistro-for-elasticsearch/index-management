@@ -69,8 +69,8 @@ testClusters.integTest {
 jacocoTestReport {
     dependsOn integTest, test
     executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
-    sourceDirectories.from = sourceSets.main.java.sourceDirectories
-    classDirectories.from = files(sourceSets.main.java.outputDir)
+    sourceDirectories.from = sourceSets.main.allSource
+    classDirectories.from = sourceSets.main.output
     reports {
         html.enabled = true // human readable
         xml.enabled = true // for coverlay

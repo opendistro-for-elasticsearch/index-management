@@ -78,19 +78,9 @@ When launching a cluster using one of the above commands, logs are placed in `bu
 
 ### Debugging
 
-Sometimes it's useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.  To debug code running in an actual server, run:
+When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.  
 
-```
-./gradlew integTest --debug-jvm # to start a cluster and run integ tests
-```
-
-OR
-
-```
-./gradlew run --debug-jvm # to just start a cluster that can be debugged
-```
-
-The Elasticsearch server JVM will launch suspended and wait for a debugger to attach to `localhost:8000` before starting the Elasticsearch server.
+Sometimes it's useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. 
 
 To debug code running in an integ test (which exercises the server from a separate JVM), run:
 
@@ -99,6 +89,21 @@ To debug code running in an integ test (which exercises the server from a separa
 ```
 
 The test runner JVM will start suspended and wait for a debugger to attach to `localhost:5005` before running the tests.
+
+To debug code running in an actual server, run:
+
+```
+./gradlew run --debug-jvm # to just start a cluster that can be debugged
+```
+
+The Elasticsearch server JVM will launch suspended and wait for a debugger to attach to `localhost:5005` before starting the Elasticsearch server.
+
+#### Remote Debugging
+Add the following configuration to the JVM used by your IDE. For Intellij IDEA, it should be added to <ES installation>/config/jvm.options file. After configuring this, an agent in JVM will listen on the port when your Elasticsearch bootstraps, and wait for IDE debugger to connect. So you should be able to debug by setting up a “Remote Run/Debug Configuration”:
+
+`-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005`
+
+
 
 ## Code of Conduct
 

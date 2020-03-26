@@ -41,7 +41,7 @@ Please see our [documentation](https://opendistro.github.io/for-elasticsearch-do
 
 1. Check out this package from version control.
 2. Launch Intellij IDEA, choose **Import Project**, and select the `settings.gradle` file in the root of this package. 
-3. To build from the command line, set `JAVA_HOME` to point to a JDK >= 12 before running `./gradlew`.
+3. To build from the command line, set `JAVA_HOME` to point to a JDK >= 13 before running `./gradlew`.
   - Unix System
     1. `export JAVA_HOME=jdk-install-dir`: Replace `jdk-install-dir` with the JAVA_HOME directory of your system.
     2. `export PATH=$JAVA_HOME/bin:$PATH`
@@ -78,22 +78,36 @@ When launching a cluster using one of the above commands, logs are placed in `bu
 
 ### Debugging
 
-When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.  
+Sometimes it is useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.  For the Elasticsearch cluster or the integ tests, first, make sure start a debugger listening on port `5005`. 
 
-Sometimes it's useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. 
-
-To debug code running in an integ test (which exercises the server from a separate JVM), run:
+To debug the server code, run:
 
 ```
-./gradlew -Dtest.debug integTest 
+./gradlew :integTest -Dcluster.debug # to start a cluster with debugger and run integ tests
 ```
 
-The test runner JVM will start suspended and wait for a debugger to attach to `localhost:5005` before running the tests.
-
-To debug code running in an actual server, start debugger listen to remote JVM in IDE, then run:
+OR
 
 ```
-./gradlew run --debug-jvm # to start a cluster that can be debugged
+./gradlew run --debug-jvm # to just start a cluster that can be debugged
+```
+
+The Elasticsearch server JVM will connect to a debugger attached to `localhost:5005`.
+
+The IDE needs to listen for the remote JVM. If using Intellij you must set your debug configuration to "Listen to remote JVM" and make sure "Auto Restart" is checked.
+You must start your debugger to listen for remote JVM before running the commands.
+
+To debug code running in an integration test (which exercises the server from a separate JVM), first, setup a remote debugger listening on port `8000`, and then run:
+
+```
+./gradlew :integTest -Dtest.debug
+```
+
+The test runner JVM will connect to a debugger attached to `localhost:8000` before running the tests.
+
+Additionally, it is possible to attach one debugger to the cluster JVM and another debugger to the test runner. First, make sure one debugger is listening on port `5005` and the other is listening on port `8000`. Then, run:
+```
+./gradlew :integTest -Dtest.debug -Dcluster.debug
 ```
 
 

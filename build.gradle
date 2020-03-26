@@ -72,21 +72,6 @@ detekt {
     buildUponDefaultConfig = true
 }
 
-ext {
-    projectSubstitutions = [:]
-    opendistroVersion = "${version}"
-    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-    licenseFile = rootProject.file('LICENSE')
-    noticeFile = rootProject.file('NOTICE')
-}
-
-group = "com.amazon.opendistroforelasticsearch"
-version = "${opendistroVersion}.0"
-
-if (isSnapshot) {
-    version += "-SNAPSHOT"
-}
-
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.6.0.0"
@@ -105,6 +90,21 @@ dependencies {
 repositories {
     // TODO: remove mavenLocal once notification is published to maven
     mavenLocal()
+}
+
+ext {
+    projectSubstitutions = [:]
+    opendistroVersion = "${version}"
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+    licenseFile = rootProject.file('LICENSE')
+    noticeFile = rootProject.file('NOTICE')
+}
+
+group = "com.amazon.opendistroforelasticsearch"
+version = "${opendistroVersion}.0"
+
+if (isSnapshot) {
+    version += "-SNAPSHOT"
 }
 
 plugins.withId('java') {
@@ -129,6 +129,9 @@ test {
 
 testClusters.integTest {
     testDistribution = "OSS"
+    if (System.getProperty("cluster.debug") != null) {
+        jvmArgs('-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=5005')
+    }
     plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
 }
 
@@ -137,11 +140,13 @@ integTest.runner {
     systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
     // Tell the test JVM if the cluster JVM is running under a debugger so that tests can use longer timeouts for
     // requests. The 'doFirst' delays reading the debug setting on the cluster till execution time.
-    doFirst { systemProperty 'cluster.debug', getDebug() }
+    doFirst {
+        systemProperty 'cluster.debug', getDebug()
+    }
 
-    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
+    // The -Dcluster.debug option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
-        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
 }
 

@@ -2,6 +2,8 @@
 
 ### New Features
 * Adds support for Elasticsearch 7.6.1 [PR #164](https://github.com/opendistro-for-elasticsearch/index-management/pull/164)
+* Add github action workflow for CI/CD [PR #161](https://github.com/opendistro-for-elasticsearch/index-management/pull/161) and release [PR #163](https://github.com/opendistro-for-elasticsearch/index-management/pull/163)
+* Update Jacoco setting to be compatible with new ES test framework
 
 ## Version 1.4.0.0
 

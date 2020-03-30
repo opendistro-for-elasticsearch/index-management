@@ -41,7 +41,7 @@ Please see our [documentation](https://opendistro.github.io/for-elasticsearch-do
 
 1. Check out this package from version control.
 2. Launch Intellij IDEA, choose **Import Project**, and select the `settings.gradle` file in the root of this package. 
-3. To build from the command line, set `JAVA_HOME` to point to a JDK >= 12 before running `./gradlew`.
+3. To build from the command line, set `JAVA_HOME` to point to a JDK >= 13 before running `./gradlew`.
   - Unix System
     1. `export JAVA_HOME=jdk-install-dir`: Replace `jdk-install-dir` with the JAVA_HOME directory of your system.
     2. `export PATH=$JAVA_HOME/bin:$PATH`
@@ -74,14 +74,16 @@ This project currently uses the Notification subproject from the [Alerting plugi
 4. `./gradlew integTest -Dtests.class=*RestChangePolicyActionIT` runs a single integ class
 5.  `./gradlew integTest -Dtests.class=*RestChangePolicyActionIT -Dtests.method="test missing index"` runs a single integ test method (remember to quote the test method name if it contains spaces)
 
-When launching a cluster using one of the above commands, logs are placed in `build/cluster/run node0/elasticsearch-<version>/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
+When launching a cluster using one of the above commands, logs are placed in `build/testclusters/integTest-0/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 
 ### Debugging
 
-Sometimes it's useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.  To debug code running in an actual server, run:
+Sometimes it is useful to attach a debugger to either the Elasticsearch cluster or the integ tests to see what's going on. When running unit tests, hit **Debug** from the IDE's gutter to debug the tests.  For the Elasticsearch cluster or the integ tests, first, make sure start a debugger listening on port `5005`. 
+
+To debug the server code, run:
 
 ```
-./gradlew integTest --debug-jvm # to start a cluster and run integ tests
+./gradlew :integTest -Dcluster.debug # to start a cluster with debugger and run integ tests
 ```
 
 OR
@@ -90,15 +92,25 @@ OR
 ./gradlew run --debug-jvm # to just start a cluster that can be debugged
 ```
 
-The Elasticsearch server JVM will launch suspended and wait for a debugger to attach to `localhost:8000` before starting the Elasticsearch server.
+The Elasticsearch server JVM will connect to a debugger attached to `localhost:5005`.
 
-To debug code running in an integ test (which exercises the server from a separate JVM), run:
+The IDE needs to listen for the remote JVM. If using Intellij you must set your debug configuration to "Listen to remote JVM" and make sure "Auto Restart" is checked.
+You must start your debugger to listen for remote JVM before running the commands.
+
+To debug code running in an integration test (which exercises the server from a separate JVM), first, setup a remote debugger listening on port `8000`, and then run:
 
 ```
-./gradlew -Dtest.debug integTest 
+./gradlew :integTest -Dtest.debug
 ```
 
-The test runner JVM will start suspended and wait for a debugger to attach to `localhost:5005` before running the tests.
+The test runner JVM will connect to a debugger attached to `localhost:8000` before running the tests.
+
+Additionally, it is possible to attach one debugger to the cluster JVM and another debugger to the test runner. First, make sure one debugger is listening on port `5005` and the other is listening on port `8000`. Then, run:
+```
+./gradlew :integTest -Dtest.debug -Dcluster.debug
+```
+
+
 
 ## Code of Conduct
 

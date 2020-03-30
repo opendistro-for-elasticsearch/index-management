@@ -38,6 +38,8 @@ class SetReadWriteStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = true
+
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         try {

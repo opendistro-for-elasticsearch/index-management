@@ -29,6 +29,21 @@ abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMeta
 
     abstract fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData
 
+    /**
+     * Before every execution of a step, we first update the step_status in cluster state to [StepStatus.STARTING]
+     * to signal that work is about to be done for the managed index. The step then attempts to do work by
+     * calling execute, and finally updates the step_status with the results of that work ([StepStatus]).
+     *
+     * If we ever start an execution with a step_status of [StepStatus.STARTING] it means we failed to update the step_status
+     * after calling the execute function. Since we do not know if the execution was a noop, failed, or completed then
+     * we can't always assume it's safe to just retry it (e.g. calling force merge multiple times in a row). This means
+     * that final update is a failure point that can't be retried and when multiplied by # of executions it leads to a lot of
+     * chances over time for random network failures, timeouts, etc.
+     *
+     * To get around this every step should have an [isIdempotent] method to signal if it's safe to retry this step for such failures.
+     */
+    abstract fun isIdempotent(): Boolean
+
     fun getStartingStepMetaData(): StepMetaData {
         return StepMetaData(name, getStepStartTime().toEpochMilli(), StepStatus.STARTING)
     }

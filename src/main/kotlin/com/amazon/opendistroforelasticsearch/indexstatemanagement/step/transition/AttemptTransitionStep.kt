@@ -51,6 +51,8 @@ class AttemptTransitionStep(
     private var policyCompleted: Boolean = false
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = true
+
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         try {

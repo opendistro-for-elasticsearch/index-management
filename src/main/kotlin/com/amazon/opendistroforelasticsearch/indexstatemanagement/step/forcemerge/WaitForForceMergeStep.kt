@@ -41,6 +41,8 @@ class WaitForForceMergeStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = true
+
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index

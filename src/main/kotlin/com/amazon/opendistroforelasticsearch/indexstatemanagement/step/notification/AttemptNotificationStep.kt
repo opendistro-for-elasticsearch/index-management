@@ -41,6 +41,8 @@ class AttemptNotificationStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = false
+
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         try {

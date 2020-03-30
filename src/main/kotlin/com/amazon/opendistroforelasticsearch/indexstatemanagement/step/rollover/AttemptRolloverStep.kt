@@ -45,6 +45,8 @@ class AttemptRolloverStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = false
+
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         // If we have already rolled over this index then fail as we only allow an index to be rolled over once

@@ -59,10 +59,17 @@ import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
+import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
+import java.nio.file.Path
+import java.nio.file.Files
+import javax.management.MBeanServerInvocationHandler
+import javax.management.ObjectName
+import javax.management.remote.JMXConnectorFactory
+import javax.management.remote.JMXServiceURL
 
 abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
@@ -507,5 +514,45 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         }
         return true
+    }
+
+    companion object {
+        internal interface IProxy {
+            val version: String?
+            var sessionId: String?
+
+            fun getExecutionData(reset: Boolean): ByteArray?
+            fun dump(reset: Boolean)
+            fun reset()
+        }
+
+        /*
+        * We need to be able to dump the jacoco coverage before cluster is shut down.
+        * The new internal testing framework removed some of the gradle tasks we were listening to
+        * to choose a good time to do it. This will dump the executionData to file after each test.
+        * TODO: This is also currently just overwriting integTest.exec with the updated execData without
+        *   resetting after writing each time. This can be improved to either write an exec file per test
+        *   or by letting jacoco append to the file
+        * */
+        @JvmStatic
+        @AfterClass
+        fun dumpCoverage() {
+            // jacoco.dir is set in esplugin-coverage.gradle, if it doesn't exist we don't
+            // want to collect coverage so we can return early
+            val jacocoBuildPath = System.getProperty("jacoco.dir") ?: return
+            val serverUrl = "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi"
+            JMXConnectorFactory.connect(JMXServiceURL(serverUrl)).use { connector ->
+                val proxy = MBeanServerInvocationHandler.newProxyInstance(
+                        connector.mBeanServerConnection,
+                        ObjectName("org.jacoco:type=Runtime"),
+                        IProxy::class.java,
+                        false
+                )
+                proxy.getExecutionData(false)?.let {
+                    val path = Path.of("$jacocoBuildPath/integTest.exec")
+                    Files.write(path, it)
+                }
+            }
+        }
     }
 }

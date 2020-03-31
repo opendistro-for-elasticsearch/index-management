@@ -19,8 +19,10 @@ import org.elasticsearch.action.Action
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.ElasticsearchClient
 
-object UpdateManagedIndexMetaDataAction
-    : Action<UpdateManagedIndexMetaDataRequest, AcknowledgedResponse, UpdateManagedIndexMetaDataRequestBuilder>("cluster:admin/ism/update/managedindexmetadata") {
+object UpdateManagedIndexMetaDataAction : Action<
+    UpdateManagedIndexMetaDataRequest,
+    AcknowledgedResponse,
+    UpdateManagedIndexMetaDataRequestBuilder>("cluster:admin/ism/update/managedindexmetadata") {
     override fun newResponse(): AcknowledgedResponse {
         return AcknowledgedResponse()
     }

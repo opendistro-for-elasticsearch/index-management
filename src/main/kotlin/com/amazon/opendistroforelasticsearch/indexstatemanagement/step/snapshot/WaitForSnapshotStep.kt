@@ -25,13 +25,14 @@ class WaitForSnapshotStep(
     override suspend fun execute() {
         logger.info("Waiting for snapshot to complete...")
         val request = SnapshotsStatusRequest()
-            .snapshots(arrayOf(config.snapshot))
+            .snapshots(arrayOf(managedIndexMetaData.info?.get("snapshotName").toString()))
             .repository(config.repository)
         val response: SnapshotsStatusResponse = client.admin().cluster().suspendUntil { snapshotsStatus(request, it) }
         val status: SnapshotStatus? = response
             .snapshots
             .find { snapshotStatus ->
-                snapshotStatus.snapshot.snapshotId.name == config.snapshot && snapshotStatus.snapshot.repository == config.repository
+                snapshotStatus.snapshot.snapshotId.name == managedIndexMetaData.info?.get("snapshotName").toString()
+                        && snapshotStatus.snapshot.repository == config.repository
             }
         if (status != null) {
             if (status.state.completed()) {

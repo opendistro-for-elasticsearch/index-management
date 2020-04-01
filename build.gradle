@@ -22,8 +22,6 @@ buildscript {
     repositories {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
-        // TODO: remove mavenLocal once notification is published to maven
-        mavenLocal()
     }
 
     dependencies {
@@ -78,7 +76,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1'
     compile "org.jetbrains:annotations:13.0"
-    compile "com.amazon.opendistroforelasticsearch:notification:0.10.0.0"
+    compile "com.amazon.opendistroforelasticsearch:notification:0.10.0.1"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"

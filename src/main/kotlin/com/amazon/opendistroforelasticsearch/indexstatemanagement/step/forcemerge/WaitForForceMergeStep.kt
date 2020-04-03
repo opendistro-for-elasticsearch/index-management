@@ -117,6 +117,7 @@ class WaitForForceMergeStep(
                 return statsResponse.shards.count {
                     val count = it.stats.segments?.count
                     if (count == null) {
+                        logger.warn("$indexName wait for force merge had null segments")
                         false
                     } else {
                         count > maxNumSegments

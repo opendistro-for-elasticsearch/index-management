@@ -100,7 +100,7 @@ class AttemptCloseStepTests : ESTestCase() {
     private fun getIndicesAdminClient(closeIndexResponse: CloseIndexResponse?, exception: Exception?): IndicesAdminClient {
         assertTrue("Must provide one and only one response or exception", (closeIndexResponse != null).xor(exception != null))
         return mock {
-            doAnswer {invocationOnMock ->
+            doAnswer { invocationOnMock ->
                 val listener = invocationOnMock.getArgument<ActionListener<CloseIndexResponse>>(1)
                 if (closeIndexResponse != null) listener.onResponse(closeIndexResponse)
                 else listener.onFailure(exception)

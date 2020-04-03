@@ -100,7 +100,7 @@ class AttemptDeleteStepTests : ESTestCase() {
     private fun getIndicesAdminClient(acknowledgedResponse: AcknowledgedResponse?, exception: Exception?): IndicesAdminClient {
         assertTrue("Must provide one and only one response or exception", (acknowledgedResponse != null).xor(exception != null))
         return mock {
-            doAnswer {invocationOnMock ->
+            doAnswer { invocationOnMock ->
                 val listener = invocationOnMock.getArgument<ActionListener<AcknowledgedResponse>>(1)
                 if (acknowledgedResponse != null) listener.onResponse(acknowledgedResponse)
                 else listener.onFailure(exception)

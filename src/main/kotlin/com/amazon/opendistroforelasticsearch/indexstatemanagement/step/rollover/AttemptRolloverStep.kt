@@ -49,8 +49,10 @@ class AttemptRolloverStep(
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
+        val index = managedIndexMetaData.index
         // If we have already rolled over this index then fail as we only allow an index to be rolled over once
         if (managedIndexMetaData.rolledOver == true) {
+            logger.warn("$index was already rolled over, cannot execute rollover step")
             stepStatus = StepStatus.FAILED
             info = mapOf("message" to "This index has already been rolled over")
             return
@@ -64,11 +66,17 @@ class AttemptRolloverStep(
         // If statsResponse is null we already updated failed info from getIndexStatsOrUpdateInfo and can return early
         statsResponse ?: return
 
-        val indexCreationDate = Instant.ofEpochMilli(clusterService.state().metaData().index(managedIndexMetaData.index).creationDate)
+        val indexCreationDate = clusterService.state().metaData().index(index).creationDate
+        val indexCreationDateInstant = Instant.ofEpochMilli(indexCreationDate)
+        if (indexCreationDate == -1L) {
+            logger.warn("$index had an indexCreationDate=-1L, cannot use for comparison")
+        }
         val numDocs = statsResponse.primaries.docs.count
         val indexSize = ByteSizeValue(statsResponse.primaries.docs.totalSizeInBytes)
 
-        if (config.evaluateConditions(indexCreationDate, numDocs, indexSize)) {
+        if (config.evaluateConditions(indexCreationDateInstant, numDocs, indexSize)) {
+            logger.info("$index rollover conditions evaluated to true [indexCreationDate=$indexCreationDate," +
+                    " numDocs=$numDocs, indexSize=${indexSize.bytes}]")
             executeRollover(alias)
         } else {
             stepStatus = StepStatus.CONDITION_NOT_MET

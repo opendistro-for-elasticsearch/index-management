@@ -71,8 +71,8 @@ class AttemptRolloverStep(
         if (indexCreationDate == -1L) {
             logger.warn("$index had an indexCreationDate=-1L, cannot use for comparison")
         }
-        val numDocs = statsResponse.primaries.docs.count
-        val indexSize = ByteSizeValue(statsResponse.primaries.docs.totalSizeInBytes)
+        val numDocs = statsResponse.primaries.docs?.count ?: 0
+        val indexSize = ByteSizeValue(statsResponse.primaries.docs?.totalSizeInBytes ?: 0)
 
         if (config.evaluateConditions(indexCreationDateInstant, numDocs, indexSize)) {
             logger.info("$index rollover conditions evaluated to true [indexCreationDate=$indexCreationDate," +

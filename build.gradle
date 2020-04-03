@@ -169,4 +169,6 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
     args "-F", "src/**/*.kt"
 }
 
+compileKotlin { kotlinOptions.freeCompilerArgs = ['-Xjsr305=strict'] }
+
 apply from: 'build-tools/pkgbuild.gradle'

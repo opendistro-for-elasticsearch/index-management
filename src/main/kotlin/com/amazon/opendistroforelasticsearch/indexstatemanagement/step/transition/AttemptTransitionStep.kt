@@ -91,8 +91,8 @@ class AttemptTransitionStep(
                     return
                 }
 
-                numDocs = statsResponse.primaries.docs.count
-                indexSize = ByteSizeValue(statsResponse.primaries.docs.totalSizeInBytes)
+                numDocs = statsResponse.primaries.docs?.count ?: 0
+                indexSize = ByteSizeValue(statsResponse.primaries.docs?.totalSizeInBytes ?: 0)
             }
 
             // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true

@@ -37,6 +37,7 @@ buildscript {
 
 plugins {
     id 'nebula.ospackage' version "5.3.0"
+    id "com.dorongold.task-tree" version "1.5"
 }
 
 apply plugin: 'java'
@@ -71,6 +72,10 @@ detekt {
     buildUponDefaultConfig = true
 }
 
+configurations.testCompile {
+    exclude module: "securemock"
+}
+
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.4.0.0"
@@ -82,6 +87,7 @@ dependencies {
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+    testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0"
 
     ktlint "com.pinterest:ktlint:0.33.0"
 }
@@ -188,5 +194,7 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
     classpath = configurations.ktlint
     args "-F", "src/**/*.kt"
 }
+
+compileKotlin { kotlinOptions.freeCompilerArgs = ['-Xjsr305=strict'] }
 
 apply from: 'build-tools/pkgbuild.gradle'

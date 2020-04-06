@@ -46,12 +46,8 @@ class AttemptCloseStep(
             val closeIndexRequest = CloseIndexRequest()
                 .indices(index)
 
-<<<<<<< HEAD
             val response: AcknowledgedResponse = client.admin().indices().suspendUntil { close(closeIndexRequest, it) }
-=======
-            val response: CloseIndexResponse = client.admin().indices().suspendUntil { close(closeIndexRequest, it) }
             logger.info("Close index for $index was acknowledged=${response.isAcknowledged}")
->>>>>>> 5ec003b... Delete and close failing during snapshot in progress (#172)
             if (response.isAcknowledged) {
                 stepStatus = StepStatus.COMPLETED
                 info = mapOf("message" to "Successfully closed index")

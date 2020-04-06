@@ -25,6 +25,7 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.snapshots.SnapshotInProgressException
 import java.lang.Exception
 
 class AttemptDeleteStep(
@@ -53,6 +54,10 @@ class AttemptDeleteStep(
                 stepStatus = StepStatus.FAILED
                 info = mapOf("message" to "Failed to delete index")
             }
+        } catch (e: SnapshotInProgressException) {
+            logger.warn("Failed to delete index [index=${managedIndexMetaData.index}] with snapshot in progress")
+            stepStatus = StepStatus.CONDITION_NOT_MET
+            info = mapOf("message" to "Index had snapshot in progress, retrying deletion")
         } catch (e: Exception) {
             logger.error("Failed to delete index [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED

@@ -25,7 +25,7 @@ import com.nhaarman.mockitokotlin2.mock
 import com.nhaarman.mockitokotlin2.whenever
 import kotlinx.coroutines.runBlocking
 import org.elasticsearch.action.ActionListener
-import org.elasticsearch.action.admin.indices.close.CloseIndexResponse
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.AdminClient
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.IndicesAdminClient
@@ -39,7 +39,7 @@ class AttemptCloseStepTests : ESTestCase() {
     private val clusterService: ClusterService = mock()
 
     fun `test close step sets step status to completed when successful`() {
-        val closeIndexResponse = CloseIndexResponse(false, false)
+        val closeIndexResponse = AcknowledgedResponse(false)
         val client = getClient(getAdminClient(getIndicesAdminClient(closeIndexResponse, null)))
 
         runBlocking {
@@ -53,7 +53,7 @@ class AttemptCloseStepTests : ESTestCase() {
     }
 
     fun `test close step sets step status to failed when not acknowledged`() {
-        val closeIndexResponse = CloseIndexResponse(false, false)
+        val closeIndexResponse = AcknowledgedResponse(false)
         val client = getClient(getAdminClient(getIndicesAdminClient(closeIndexResponse, null)))
 
         runBlocking {
@@ -97,11 +97,11 @@ class AttemptCloseStepTests : ESTestCase() {
 
     private fun getClient(adminClient: AdminClient): Client = mock { on { admin() } doReturn adminClient }
     private fun getAdminClient(indicesAdminClient: IndicesAdminClient): AdminClient = mock { on { indices() } doReturn indicesAdminClient }
-    private fun getIndicesAdminClient(closeIndexResponse: CloseIndexResponse?, exception: Exception?): IndicesAdminClient {
+    private fun getIndicesAdminClient(closeIndexResponse: AcknowledgedResponse?, exception: Exception?): IndicesAdminClient {
         assertTrue("Must provide one and only one response or exception", (closeIndexResponse != null).xor(exception != null))
         return mock {
             doAnswer { invocationOnMock ->
-                val listener = invocationOnMock.getArgument<ActionListener<CloseIndexResponse>>(1)
+                val listener = invocationOnMock.getArgument<ActionListener<AcknowledgedResponse>>(1)
                 if (closeIndexResponse != null) listener.onResponse(closeIndexResponse)
                 else listener.onFailure(exception)
             }.whenever(this.mock).close(any(), any())

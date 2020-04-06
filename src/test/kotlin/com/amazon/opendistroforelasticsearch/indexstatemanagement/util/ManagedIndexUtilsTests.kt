@@ -16,7 +16,10 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Conditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomClusterStateManagedIndexConfig
@@ -24,11 +27,14 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomSweptMan
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.unit.ByteSizeValue
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.test.ESTestCase
+import java.time.Instant
 
 class ManagedIndexUtilsTests : ESTestCase() {
 
@@ -171,6 +177,69 @@ class ManagedIndexUtilsTests : ESTestCase() {
         val indices = searchRequest.indices().toList()
         assertTrue("Does not return seqNo and PrimaryTerm", builder.seqNoAndPrimaryTerm())
         assertEquals("Wrong index being searched", listOf(INDEX_STATE_MANAGEMENT_INDEX), indices)
+    }
+
+    fun `test rollover action config evaluate conditions`() {
+        val noConditionsConfig = RolloverActionConfig(minSize = null, minDocs = null, minAge = null, index = 0)
+        assertTrue("No conditions should always pass", noConditionsConfig
+                .evaluateConditions(indexCreationDate = Instant.ofEpochMilli(-1L), numDocs = 0, indexSize = ByteSizeValue(0)))
+        assertTrue("No conditions should always pass", noConditionsConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 5, indexSize = ByteSizeValue(5)))
+        assertTrue("No conditions should always pass", noConditionsConfig
+                .evaluateConditions(indexCreationDate = Instant.now().minusSeconds(600), numDocs = 5, indexSize = ByteSizeValue(5)))
+        assertTrue("No conditions should always pass", noConditionsConfig
+                .evaluateConditions(indexCreationDate = Instant.now().plusSeconds(600), numDocs = 5, indexSize = ByteSizeValue(5)))
+
+        val minSizeConfig = RolloverActionConfig(minSize = ByteSizeValue(5), minDocs = null, minAge = null, index = 0)
+        assertFalse("Less bytes should not pass", minSizeConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 0, indexSize = ByteSizeValue.ZERO))
+        assertTrue("Equal bytes should pass", minSizeConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 0, indexSize = ByteSizeValue(5)))
+        assertTrue("More bytes should pass", minSizeConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 0, indexSize = ByteSizeValue(10)))
+
+        val minDocsConfig = RolloverActionConfig(minSize = null, minDocs = 5, minAge = null, index = 0)
+        assertFalse("Less docs should not pass", minDocsConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 0, indexSize = ByteSizeValue.ZERO))
+        assertTrue("Equal docs should pass", minDocsConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 5, indexSize = ByteSizeValue.ZERO))
+        assertTrue("More docs should pass", minDocsConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 10, indexSize = ByteSizeValue.ZERO))
+
+        val minAgeConfig = RolloverActionConfig(minSize = null, minDocs = null, minAge = TimeValue.timeValueSeconds(5), index = 0)
+        assertFalse("Index age that is too young should not pass", minAgeConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 0, indexSize = ByteSizeValue.ZERO))
+        assertTrue("Index age that is older should pass", minAgeConfig
+                .evaluateConditions(indexCreationDate = Instant.now().minusSeconds(10), numDocs = 0, indexSize = ByteSizeValue.ZERO))
+        assertFalse("Index age that is -1L should not pass", minAgeConfig
+                .evaluateConditions(indexCreationDate = Instant.ofEpochMilli(-1L), numDocs = 0, indexSize = ByteSizeValue.ZERO))
+
+        val multiConfig = RolloverActionConfig(minSize = ByteSizeValue(1), minDocs = 1, minAge = TimeValue.timeValueSeconds(5), index = 0)
+        assertFalse("No conditions met should not pass", multiConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 0, indexSize = ByteSizeValue.ZERO))
+        assertFalse("Multi condition, index age -1L should not pass", multiConfig
+                .evaluateConditions(indexCreationDate = Instant.ofEpochMilli(-1L), numDocs = 0, indexSize = ByteSizeValue.ZERO))
+        assertTrue("Multi condition, age should pass", multiConfig
+                .evaluateConditions(indexCreationDate = Instant.now().minusSeconds(10), numDocs = 0, indexSize = ByteSizeValue.ZERO))
+        assertTrue("Multi condition, docs should pass", multiConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 2, indexSize = ByteSizeValue.ZERO))
+        assertTrue("Multi condition, size should pass", multiConfig
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = 0, indexSize = ByteSizeValue(2)))
+    }
+
+    fun `test transition evaluate conditions`() {
+        val emptyTransition = Transition(stateName = "some_state", conditions = null)
+        assertTrue("No conditions should pass", emptyTransition
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = null, indexSize = null, transitionStartTime = Instant.now()))
+
+        val timeTransition = Transition(stateName = "some_state",
+                conditions = Conditions(indexAge = TimeValue.timeValueSeconds(5), docCount = null, size = null, cron = null))
+        assertFalse("Index age that is too young should not pass", timeTransition
+                .evaluateConditions(indexCreationDate = Instant.now(), numDocs = null, indexSize = null, transitionStartTime = Instant.now()))
+        assertTrue("Index age that is older should pass", timeTransition
+                .evaluateConditions(indexCreationDate = Instant.now().minusSeconds(10), numDocs = null, indexSize = null, transitionStartTime = Instant.now()))
+        assertFalse("Index age that is -1L should not pass", timeTransition
+                .evaluateConditions(indexCreationDate = Instant.ofEpochMilli(-1L), numDocs = null, indexSize = null, transitionStartTime = Instant.now()))
     }
 
     private fun contentParser(bytesReference: BytesReference): XContentParser {

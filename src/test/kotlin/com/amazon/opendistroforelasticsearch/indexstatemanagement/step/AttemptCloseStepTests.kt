@@ -39,7 +39,7 @@ class AttemptCloseStepTests : ESTestCase() {
     private val clusterService: ClusterService = mock()
 
     fun `test close step sets step status to completed when successful`() {
-        val closeIndexResponse = CloseIndexResponse(true, true, listOf())
+        val closeIndexResponse = CloseIndexResponse(true, true)
         val client = getClient(getAdminClient(getIndicesAdminClient(closeIndexResponse, null)))
 
         runBlocking {
@@ -53,7 +53,7 @@ class AttemptCloseStepTests : ESTestCase() {
     }
 
     fun `test close step sets step status to failed when not acknowledged`() {
-        val closeIndexResponse = CloseIndexResponse(false, false, listOf())
+        val closeIndexResponse = CloseIndexResponse(false, false)
         val client = getClient(getAdminClient(getIndicesAdminClient(closeIndexResponse, null)))
 
         runBlocking {

@@ -106,7 +106,7 @@ ext {
 }
 
 group = "com.amazon.opendistroforelasticsearch"
-version = "${opendistroVersion}.2"
+version = "${opendistroVersion}.3"
 
 if (isSnapshot) {
     version += "-SNAPSHOT"

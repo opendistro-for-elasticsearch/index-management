@@ -265,10 +265,14 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
 
         if (managedIndexMetaData.stepMetaData?.stepStatus == Step.StepStatus.STARTING) {
-            val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
-            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
-            if (updated) disableManagedIndexConfig(managedIndexConfig)
-            return
+            val isIdempotent = step?.isIdempotent()
+            logger.info("Previous execution failed to update step status, isIdempotent=$isIdempotent")
+            if (isIdempotent != true) {
+                val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
+                val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+                if (updated) disableManagedIndexConfig(managedIndexConfig)
+                return
+            }
         }
 
         // If this action is not allowed and the step to be executed is the first step in the action then we will fail

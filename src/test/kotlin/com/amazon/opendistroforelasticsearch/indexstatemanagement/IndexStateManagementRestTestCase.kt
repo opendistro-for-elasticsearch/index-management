@@ -44,6 +44,7 @@ import org.apache.http.message.BasicHeader
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -514,6 +515,40 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         }
         return true
+    }
+
+    protected fun assertIndexExists(index: String) {
+        val response = client().makeRequest("HEAD", index)
+        assertEquals("Index $index does not exist.", RestStatus.OK, response.restStatus())
+    }
+
+    protected fun assertIndexDoesNotExist(index: String) {
+        val response = client().makeRequest("HEAD", index)
+        assertEquals("Index $index does not exist.", RestStatus.NOT_FOUND, response.restStatus())
+    }
+
+    protected fun verifyIndexSchemaVersion(index: String, expectedVersion: Int) {
+        val indexMapping = client().getIndexMapping(index)
+        val indexName = indexMapping.keys.toList()[0]
+        val mappings = indexMapping.stringMap(indexName)?.stringMap("mappings")
+        var version = 0
+        if (mappings!!.containsKey("_meta")) {
+            val meta = mappings.stringMap("_meta")
+            if (meta!!.containsKey("schema_version")) version = meta.get("schema_version") as Int
+        }
+        assertEquals(expectedVersion, version)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun Map<String, Any>.stringMap(key: String): Map<String, Any>? {
+        val map = this as Map<String, Map<String, Any>>
+        return map[key]
+    }
+
+    fun RestClient.getIndexMapping(index: String): Map<String, Any> {
+        val response = this.makeRequest("GET", "$index/_mapping")
+        assertEquals(RestStatus.OK, response.restStatus())
+        return response.asMap()
     }
 
     companion object {

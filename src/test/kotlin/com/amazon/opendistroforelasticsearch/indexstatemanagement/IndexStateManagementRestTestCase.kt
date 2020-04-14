@@ -524,7 +524,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
     protected fun assertIndexDoesNotExist(index: String) {
         val response = client().makeRequest("HEAD", index)
-        assertEquals("Index $index does not exist.", RestStatus.NOT_FOUND, response.restStatus())
+        assertEquals("Index $index does exist.", RestStatus.NOT_FOUND, response.restStatus())
     }
 
     protected fun verifyIndexSchemaVersion(index: String, expectedVersion: Int) {

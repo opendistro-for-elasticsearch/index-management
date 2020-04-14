@@ -1,4 +1,7 @@
 {
+  "_meta" : {
+    "schema_version": 2
+  },
   "dynamic": "strict",
   "properties": {
     "policy": {

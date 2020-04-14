@@ -32,8 +32,11 @@ jobs:
         run: |
           mkdir -p index-management-artifacts
           cp ./build/distributions/*.zip index-management-artifacts
+          cp ./build/distributions/*.zip index-management-artifacts_zip
           cp ./build/distributions/*.deb index-management-artifacts
+          cp ./build/distributions/*.deb index-management-artifacts_deb
           cp ./build/distributions/*.rpm index-management-artifacts
+          cp ./build/distributions/*.rpm index-management-artifacts_rpm
           echo ::set-env name=TAG_VERSION::${GITHUB_REF/refs\/tags\//}
 
       # AWS authentication
@@ -72,7 +75,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_name: index-management-artifacts.zip
-          asset_path: ./build/distributions/*.zip
+          asset_path: index-management-artifacts_zip
           asset_content_type: application/zip
 
       # Upload the release with .rpm as asset
@@ -83,7 +86,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_name: index-management-artifacts.rpm
-          asset_path: ./build/distributions/*.rpm
+          asset_path: index-management-artifacts_rpm
           asset_content_type: application/zip
 
       # Upload the release with .deb as asset
@@ -94,7 +97,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_name: index-management-artifacts.deb
-          asset_path: ./build/distributions/*.deb
+          asset_path: index-management-artifacts_deb
           asset_content_type: application/zip
 
       - name: Upload Workflow Artifacts

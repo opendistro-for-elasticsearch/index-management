@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.INDEX_NUMBER_OF_REPLICAS
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import org.apache.logging.log4j.LogManager
@@ -29,6 +30,7 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.service.ClusterService
@@ -43,16 +45,23 @@ class IndexStateManagementIndices(
 
     private val logger = LogManager.getLogger(javaClass)
 
-    val indexStateManagementMappings = javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText()
-
-    val indexStateManagementHistoryMappings = javaClass.classLoader.getResource("mappings/opendistro-ism-history.json").readText()
-
-    fun initIndexStateManagementIndex(actionListener: ActionListener<CreateIndexResponse>) {
+    fun checkAndUpdateISMConfigIndex(actionListener: ActionListener<AcknowledgedResponse>) {
         if (!indexStateManagementIndexExists()) {
             val indexRequest = CreateIndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
                 .mapping(_DOC, indexStateManagementMappings, XContentType.JSON)
                 .settings(Settings.builder().put(INDEX_NUMBER_OF_SHARDS, 1).put(INDEX_NUMBER_OF_REPLICAS, 1).build())
-            client.create(indexRequest, actionListener)
+
+            client.create(indexRequest, object : ActionListener<CreateIndexResponse> {
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(e)
+                }
+
+                override fun onResponse(response: CreateIndexResponse) {
+                    actionListener.onResponse(response)
+                }
+            })
+        } else {
+            IndexUtils.checkAndUpdateConfigIndexMapping(clusterService.state(), client, actionListener)
         }
     }
 
@@ -66,7 +75,7 @@ class IndexStateManagementIndices(
         if (indexStateManagementIndexExists()) return true
 
         return try {
-            val response: CreateIndexResponse = client.suspendUntil { initIndexStateManagementIndex(it) }
+            val response: AcknowledgedResponse = client.suspendUntil { checkAndUpdateISMConfigIndex(it) }
             if (response.isAcknowledged) {
                 return true
             }
@@ -124,5 +133,8 @@ class IndexStateManagementIndices(
         const val HISTORY_WRITE_INDEX_ALIAS = "$HISTORY_INDEX_BASE-write"
         const val HISTORY_INDEX_PATTERN = "<$HISTORY_INDEX_BASE-{now/d{yyyy.MM.dd}}-1>"
         const val HISTORY_ALL = "$HISTORY_INDEX_BASE*"
+
+        val indexStateManagementMappings = javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText()
+        val indexStateManagementHistoryMappings = javaClass.classLoader.getResource("mappings/opendistro-ism-history.json").readText()
     }
 }

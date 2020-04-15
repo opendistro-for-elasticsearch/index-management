@@ -1,6 +1,9 @@
 {
   "_doc": {
     "dynamic": "strict",
+    "_meta" : {
+      "schema_version": 2
+    },
     "properties": {
       "policy": {
         "properties": {

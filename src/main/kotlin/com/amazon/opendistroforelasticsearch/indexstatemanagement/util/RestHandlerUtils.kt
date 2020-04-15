@@ -13,8 +13,7 @@
  * permissions and limitations under the License.
  */
 
-@file:Suppress("TopLevelPropertyNaming")
-
+@file:Suppress("TopLevelPropertyNaming", "MatchingDeclarationName")
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.optionalTimeField
@@ -39,9 +38,6 @@ const val INDEX_NUMBER_OF_REPLICAS = "index.number_of_replicas"
 
 const val WITH_TYPE = "with_type"
 val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
-
-const val SCHEMA_VERSION = "schema_version"
-const val NO_SCHEMA_VERSION = 0
 
 const val FAILURES = "failures"
 const val FAILED_INDICES = "failed_indices"

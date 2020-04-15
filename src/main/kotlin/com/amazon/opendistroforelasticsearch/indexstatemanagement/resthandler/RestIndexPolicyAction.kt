@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy.C
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings.Companion.ALLOW_LIST
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IF_SEQ_NO
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.REFRESH
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
@@ -33,10 +34,10 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getDisall
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.WriteRequest
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
@@ -119,19 +120,15 @@ class RestIndexPolicyAction(
     ) : AsyncActionHandler(client, channel) {
 
         fun start() {
-            if (!ismIndices.indexStateManagementIndexExists()) {
-                ismIndices.initIndexStateManagementIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
-            } else {
-                putPolicy()
-            }
+            ismIndices.checkAndUpdateISMConfigIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
         }
 
-        private fun onCreateMappingsResponse(response: CreateIndexResponse) {
+        private fun onCreateMappingsResponse(response: AcknowledgedResponse) {
             if (response.isAcknowledged) {
-                log.info("Created $INDEX_STATE_MANAGEMENT_INDEX with mappings.")
+                log.info("Successfully created or updated $INDEX_STATE_MANAGEMENT_INDEX with newest mappings.")
                 putPolicy()
             } else {
-                log.error("Create $INDEX_STATE_MANAGEMENT_INDEX mappings call not acknowledged.")
+                log.error("Unable to create or update $INDEX_STATE_MANAGEMENT_INDEX with newest mapping.")
                 channel.sendResponse(
                         BytesRestResponse(
                                 RestStatus.INTERNAL_SERVER_ERROR,
@@ -141,6 +138,8 @@ class RestIndexPolicyAction(
         }
 
         private fun putPolicy() {
+            newPolicy.copy(schemaVersion = IndexUtils.indexManagementSchemaVersion)
+
             val indexRequest = IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
                     .setRefreshPolicy(refreshPolicy)
                     .source(newPolicy.toXContent(channel.newBuilder()))

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.snapshot
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
@@ -27,10 +42,14 @@ class AttemptSnapshotStep(
     override suspend fun execute() {
         try {
             logger.info("Executing snapshot on ${managedIndexMetaData.index}")
+
             val createSnapshotRequest = CreateSnapshotRequest()
-                .indices(managedIndexMetaData.index)
-                .snapshot(config.snapshot)
-                .repository(config.repository)
+                    .userMetadata(mapOf("snapshot_created" to "Open Distro for Elasticsearch Index Management"))
+                    .indices(managedIndexMetaData.index)
+                    .snapshot(config.snapshot)
+                    .repository(config.repository)
+                    .waitForCompletion(false)
+
             if (config.includeGlobalState != null) {
                 createSnapshotRequest.includeGlobalState(config.includeGlobalState)
             }
@@ -38,7 +57,7 @@ class AttemptSnapshotStep(
             val response: CreateSnapshotResponse = client.admin().cluster().suspendUntil { createSnapshot(createSnapshotRequest, it) }
             when (response.status()) {
                 RestStatus.ACCEPTED -> {
-                    stepStatus = StepStatus.COMPLETED
+                    stepStatus = StepStatus.CONDITION_NOT_MET
                     info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}")
                 }
                 RestStatus.OK -> {
@@ -47,7 +66,8 @@ class AttemptSnapshotStep(
                 }
                 else -> {
                     stepStatus = StepStatus.FAILED
-                    info = mapOf("message" to "There was an error during snapshot creation for index: ${managedIndexMetaData.index}")
+                    info = mapOf("message" to "There was an error during snapshot creation for index: ${managedIndexMetaData.index}",
+                            "cause" to response.toString())
                 }
             }
         } catch (e: Exception) {
@@ -63,9 +83,9 @@ class AttemptSnapshotStep(
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(
-            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
-            transitionTo = null,
-            info = info
+                stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
+                transitionTo = null,
+                info = info
         )
     }
 

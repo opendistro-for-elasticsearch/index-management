@@ -40,12 +40,13 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
         val notificationIndex = "notification_index"
+        val clusterUri = System.getProperty("tests.rest.cluster").split(",")[0]
         val destination = Destination(
             type = DestinationType.CUSTOM_WEBHOOK,
             chime = null,
             slack = null,
             customWebhook = CustomWebhook(
-                url = "http://${System.getProperty("tests.rest.cluster")}/$notificationIndex/_doc",
+                url = "http://$clusterUri/$notificationIndex/_doc",
                 scheme = null,
                 host = null,
                 port = -1,

@@ -15,14 +15,14 @@
 
 buildscript {
     ext {
-        es_version = System.getProperty("es.version", "7.3.2")
-        kotlin_version = System.getProperty("kotlin.version", "1.3.31")
+        es_version = System.getProperty("es.version", "7.6.1")
+        kotlin_version = System.getProperty("kotlin.version", "1.3.61")
     }
 
     repositories {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
-        // TODO: remove mavenLocal once notification is published to maven
+        // For local publish dependency
         mavenLocal()
     }
 
@@ -31,24 +31,26 @@ buildscript {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
         classpath "org.jetbrains.kotlin:kotlin-allopen:${kotlin_version}"
         classpath "io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.0.0-RC15"
-        classpath "org.jacoco:org.jacoco.agent:0.8.4"
+        classpath "org.jacoco:org.jacoco.agent:0.8.5"
     }
 }
 
 plugins {
-    id 'nebula.ospackage' version "5.3.0"
+    id 'nebula.ospackage' version "8.2.0"
+    id "com.dorongold.task-tree" version "1.5"
 }
 
 apply plugin: 'java'
 apply plugin: 'jacoco'
 apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
+apply plugin: 'elasticsearch.testclusters'
 apply plugin: 'io.gitlab.arturbosch.detekt'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
-
-apply from: 'build-tools/esplugin-coverage.gradle'
-
+if (!System.properties.containsKey('tests.rest.cluster') && !System.properties.containsKey('tests.cluster')) {
+   apply from: 'build-tools/esplugin-coverage.gradle'
+}
 check.dependsOn jacocoTestReport
 
 esplugin {
@@ -71,17 +73,22 @@ detekt {
     buildUponDefaultConfig = true
 }
 
+configurations.testCompile {
+    exclude module: "securemock"
+}
+
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.3.0.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.6.0.0"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1'
     compile "org.jetbrains:annotations:13.0"
-    compile "com.amazon.opendistroforelasticsearch:notification:1.3.0.0"
+    compile "com.amazon.opendistroforelasticsearch:notification:1.6.0.0"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
+    testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0"
 
     ktlint "com.pinterest:ktlint:0.33.0"
 }
@@ -109,6 +116,7 @@ if (isSnapshot) {
 plugins.withId('java') {
     sourceCompatibility = targetCompatibility = "1.8"
 }
+
 plugins.withId('org.jetbrains.kotlin.jvm') {
     compileKotlin.kotlinOptions.jvmTarget = compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
 }
@@ -125,49 +133,26 @@ test {
     systemProperty 'tests.security.manager', 'false'
 }
 
-integTestRunner {
+testClusters.integTest {
+    testDistribution = "OSS"
+    if (System.getProperty("cluster.debug") != null) {
+        jvmArgs('-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=5005')
+    }
+    plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
+}
+
+integTest.runner {
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
     // Tell the test JVM if the cluster JVM is running under a debugger so that tests can use longer timeouts for
     // requests. The 'doFirst' delays reading the debug setting on the cluster till execution time.
-    doFirst { systemProperty 'cluster.debug', integTestCluster.debug }
-
-    // The --debug-jvm command-line option makes the cluster debuggable; this makes the tests debuggable
-    if (System.getProperty("test.debug") != null) {
-        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+    doFirst {
+        systemProperty 'cluster.debug', getDebug()
     }
-}
 
-integTestCluster {
-    distribution = "oss-zip"
-    // Temporary until job-scheduler is published to Maven
-    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}")
-}
-
-
-run {
-    distribution = "oss-zip"
-    // Temporary until job-scheduler is published to Maven
-    setupCommand('installPlugin', 'bin/elasticsearch-plugin', 'install',
-            "file://${fileTree("src/test/resources/job-scheduler").getSingleFile().absolutePath}")
-}
-
-afterEvaluate {
-    project.tasks.getByName("run#installOpendistroIndexManagementPlugin").dependsOn("run#installPlugin")
-    project.tasks.getByName("run#installPlugin").dependsOn.remove(project.tasks.getByName("run#installOpendistroIndexManagementPlugin"))
-    project.tasks.getByName("run#installPlugin").dependsOn("run#copyPlugins")
-    project.tasks.getByName("run#start").dependsOn.remove(project.tasks.getByName("run#installPlugin"))
-    project.tasks.getByName("run#start").dependsOn("run#installOpendistroIndexManagementPlugin")
-}
-
-tasks.whenTaskAdded { task ->
-    if (task.name == "integTestCluster#wait") {
-        project.tasks.getByName("integTestCluster#installOpendistroIndexManagementPlugin").dependsOn("integTestCluster#installPlugin")
-        project.tasks.getByName("integTestCluster#installPlugin").dependsOn.remove(project.tasks.getByName("integTestCluster#installOpendistroIndexManagementPlugin"))
-        project.tasks.getByName("integTestCluster#installPlugin").dependsOn("integTestCluster#copyPlugins")
-        project.tasks.getByName("integTestCluster#start").dependsOn.remove(project.tasks.getByName("integTestCluster#installPlugin"))
-        project.tasks.getByName("integTestCluster#start").dependsOn("integTestCluster#installOpendistroIndexManagementPlugin")
+    // The -Dcluster.debug option makes the cluster debuggable; this makes the tests debuggable
+    if (System.getProperty("test.debug") != null) {
+        jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
 }
 
@@ -180,6 +165,7 @@ task ktlint(type: JavaExec, group: "verification") {
     // "--reporter=plain", "--reporter=checkstyle,output=${buildDir}/ktlint.xml"
     // see https://github.com/pinterest/ktlint#usage for more
 }
+
 check.dependsOn ktlint
 
 task ktlintFormat(type: JavaExec, group: "formatting") {
@@ -188,5 +174,7 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
     classpath = configurations.ktlint
     args "-F", "src/**/*.kt"
 }
+
+compileKotlin { kotlinOptions.freeCompilerArgs = ['-Xjsr305=strict'] }
 
 apply from: 'build-tools/pkgbuild.gradle'

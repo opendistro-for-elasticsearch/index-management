@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordina
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateManagedIndexRequest
@@ -40,11 +41,11 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.IndicesOptions
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.bytes.BytesReference
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -65,11 +66,7 @@ import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 
-class RestChangePolicyAction(
-    settings: Settings,
-    controller: RestController,
-    val clusterService: ClusterService
-) : BaseRestHandler(settings) {
+class RestChangePolicyAction(controller: RestController, val clusterService: ClusterService) : BaseRestHandler() {
 
     private val log = LogManager.getLogger(javaClass)
 
@@ -107,6 +104,7 @@ class RestChangePolicyAction(
         private val managedIndexUuids = mutableListOf<Pair<String, String>>()
         private val indexUuidToCurrentState = mutableMapOf<String, String>()
         lateinit var policy: Policy
+        lateinit var response: GetResponse
 
         fun start() {
             val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, changePolicy.policyID)
@@ -118,7 +116,19 @@ class RestChangePolicyAction(
             if (!response.isExists || response.isSourceEmpty) {
                 return channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, "Could not find policy=${changePolicy.policyID}"))
             }
+            this.response = response
+            IndexUtils.checkAndUpdateConfigIndexMapping(
+                clusterService.state(),
+                client.admin().indices(),
+                ActionListener.wrap(::onUpdateMapping, ::onFailure)
+            )
+        }
 
+        private fun onUpdateMapping(acknowledgedResponse: AcknowledgedResponse) {
+            if (!acknowledgedResponse.isAcknowledged) {
+                return channel.sendResponse(BytesRestResponse(RestStatus.FAILED_DEPENDENCY,
+                    "Could not update $INDEX_STATE_MANAGEMENT_INDEX with new mapping."))
+            }
             policy = XContentHelper.createParser(
                 channel.request().xContentRegistry,
                 LoggingDeprecationHandler.INSTANCE,

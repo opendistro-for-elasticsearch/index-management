@@ -24,7 +24,6 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.rest.BaseRestHandler
@@ -36,10 +35,7 @@ import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestBuilderListener
 
-class RestExplainAction(
-    settings: Settings,
-    controller: RestController
-) : BaseRestHandler(settings) {
+class RestExplainAction(controller: RestController) : BaseRestHandler() {
 
     companion object {
         const val EXPLAIN_BASE_URI = "${IndexStateManagementPlugin.ISM_BASE_URI}/explain"

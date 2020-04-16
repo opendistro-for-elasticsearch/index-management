@@ -119,13 +119,13 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     ): List<RestHandler> {
         return listOf(
             RestIndexPolicyAction(settings, restController, clusterService, indexStateManagementIndices),
-            RestGetPolicyAction(settings, restController),
-            RestDeletePolicyAction(settings, restController),
-            RestExplainAction(settings, restController),
-            RestRetryFailedManagedIndexAction(settings, restController),
-            RestAddPolicyAction(settings, restController),
-            RestRemovePolicyAction(settings, restController),
-            RestChangePolicyAction(settings, restController, clusterService)
+            RestGetPolicyAction(restController),
+            RestDeletePolicyAction(restController),
+            RestExplainAction(restController),
+            RestRetryFailedManagedIndexAction(restController),
+            RestAddPolicyAction(restController),
+            RestRemovePolicyAction(restController),
+            RestChangePolicyAction(restController, clusterService)
         )
     }
 

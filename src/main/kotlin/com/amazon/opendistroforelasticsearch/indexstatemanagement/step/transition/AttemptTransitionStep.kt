@@ -51,26 +51,36 @@ class AttemptTransitionStep(
     private var policyCompleted: Boolean = false
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = true
+
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
+        val index = managedIndexMetaData.index
         try {
             if (config.transitions.isEmpty()) {
+                logger.info("$index transitions are empty, completing policy")
                 policyCompleted = true
                 stepStatus = StepStatus.COMPLETED
                 return
             }
 
+            val indexCreationDate = clusterService.state().metaData().index(index).creationDate
+            val indexCreationDateInstant = Instant.ofEpochMilli(indexCreationDate)
+            if (indexCreationDate == -1L) {
+                logger.warn("$index had an indexCreationDate=-1L, cannot use for comparison")
+            }
+            val stepStartTime = getStepStartTime()
             var numDocs: Long? = null
             var indexSize: ByteSizeValue? = null
 
             if (config.transitions.any { it.hasStatsConditions() }) {
                 val statsRequest = IndicesStatsRequest()
-                    .indices(managedIndexMetaData.index).clear().docs(true)
+                    .indices(index).clear().docs(true)
                 val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
                 if (statsResponse.status != RestStatus.OK) {
                     logger.debug(
-                        "Failed to get index stats for index: [${managedIndexMetaData.index}], status response: [${statsResponse.status}]"
+                        "Failed to get index stats for index: [$index], status response: [${statsResponse.status}]"
                     )
 
                     stepStatus = StepStatus.FAILED
@@ -81,23 +91,25 @@ class AttemptTransitionStep(
                     return
                 }
 
-                numDocs = statsResponse.primaries.docs.count
-                indexSize = ByteSizeValue(statsResponse.primaries.docs.totalSizeInBytes)
-                // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true
+                numDocs = statsResponse.primaries.docs?.count ?: 0
+                indexSize = ByteSizeValue(statsResponse.primaries.docs?.totalSizeInBytes ?: 0)
             }
 
             // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true
-            stateName = config.transitions.find { it.evaluateConditions(getIndexCreationDate(), numDocs, indexSize, getStepStartTime()) }?.stateName
-            val message = if (stateName == null) {
-                stepStatus = StepStatus.CONDITION_NOT_MET
-                "Attempting to transition"
-            } else {
+            stateName = config.transitions.find { it.evaluateConditions(indexCreationDateInstant, numDocs, indexSize, stepStartTime) }?.stateName
+            val message: String
+            if (stateName != null) {
+                logger.info("$index transition conditions evaluated to true [indexCreationDate=$indexCreationDate," +
+                        " numDocs=$numDocs, indexSize=${indexSize?.bytes},stepStartTime=${stepStartTime.toEpochMilli()}]")
                 stepStatus = StepStatus.COMPLETED
-                "Transitioning to $stateName"
+                message = "Transitioning to $stateName"
+            } else {
+                stepStatus = StepStatus.CONDITION_NOT_MET
+                message = "Attempting to transition"
             }
             info = mapOf("message" to message)
         } catch (e: Exception) {
-            logger.error("Failed to transition index [index=${managedIndexMetaData.index}]", e)
+            logger.error("Failed to transition index [index=$index]", e)
             stepStatus = StepStatus.FAILED
             val mutableInfo = mutableMapOf("message" to "Failed to transition index")
             val errorMessage = e.message
@@ -105,9 +117,6 @@ class AttemptTransitionStep(
             info = mutableInfo.toMap()
         }
     }
-
-    private fun getIndexCreationDate(): Instant =
-        Instant.ofEpochMilli(clusterService.state().metaData().index(managedIndexMetaData.index).creationDate)
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         return currentMetaData.copy(

@@ -51,7 +51,7 @@ import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 
-class RestAddPolicyAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
+class RestAddPolicyAction(controller: RestController) : BaseRestHandler() {
 
     init {
         controller.registerHandler(POST, ADD_POLICY_BASE_URI, this)

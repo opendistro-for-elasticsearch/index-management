@@ -26,6 +26,8 @@ import org.elasticsearch.action.admin.cluster.snapshots.create.CreateSnapshotRes
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.rest.RestStatus
+import java.time.Clock
+import java.time.ZonedDateTime
 
 class AttemptSnapshotStep(
     val clusterService: ClusterService,
@@ -42,6 +44,8 @@ class AttemptSnapshotStep(
     override suspend fun execute() {
         try {
             logger.info("Executing snapshot on ${managedIndexMetaData.index}")
+            val snapshotName = config.snapshot.plus(ZonedDateTime.now(Clock.systemUTC()))
+            val mutableInfo = mutableMapOf("snapshotName" to snapshotName)
 
             val createSnapshotRequest = CreateSnapshotRequest()
                     .userMetadata(mapOf("snapshot_created" to "Open Distro for Elasticsearch Index Management"))
@@ -58,18 +62,19 @@ class AttemptSnapshotStep(
             when (response.status()) {
                 RestStatus.ACCEPTED -> {
                     stepStatus = StepStatus.CONDITION_NOT_MET
-                    info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}")
+                    mutableInfo["message"] = "Creating snapshot in progress for index: ${managedIndexMetaData.index}"
                 }
                 RestStatus.OK -> {
                     stepStatus = StepStatus.COMPLETED
-                    info = mapOf("message" to "Snapshot created for index: ${managedIndexMetaData.index}")
+                    mutableInfo["message"] = "Snapshot created for index: ${managedIndexMetaData.index}"
                 }
                 else -> {
                     stepStatus = StepStatus.FAILED
-                    info = mapOf("message" to "There was an error during snapshot creation for index: ${managedIndexMetaData.index}",
-                            "cause" to response.toString())
+                    mutableInfo["message"] = "There was an error during snapshot creation for index: ${managedIndexMetaData.index}"
+                    mutableInfo["cause"] = response.toString()
                 }
             }
+            info = mutableInfo.toMap()
         } catch (e: Exception) {
             val message = "Failed to create snapshot for index: ${managedIndexMetaData.index}"
             logger.error(message, e)

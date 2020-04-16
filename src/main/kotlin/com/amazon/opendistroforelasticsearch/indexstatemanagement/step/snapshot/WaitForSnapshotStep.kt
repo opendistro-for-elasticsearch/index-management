@@ -46,8 +46,8 @@ class WaitForSnapshotStep(
         val status: SnapshotStatus? = response
             .snapshots
             .find { snapshotStatus ->
-                snapshotStatus.snapshot.snapshotId.name == managedIndexMetaData.info?.get("snapshotName").toString()
-                        && snapshotStatus.snapshot.repository == config.repository
+                snapshotStatus.snapshot.snapshotId.name == managedIndexMetaData.info?.get("snapshotName").toString() &&
+                        snapshotStatus.snapshot.repository == config.repository
             }
         if (status != null) {
             if (status.state.completed()) {

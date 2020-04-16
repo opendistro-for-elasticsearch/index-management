@@ -37,6 +37,8 @@ class WaitForSnapshotStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = true
+
     override suspend fun execute() {
         logger.info("Waiting for snapshot to complete...")
         val request = SnapshotsStatusRequest()

@@ -26,8 +26,11 @@ import org.elasticsearch.action.admin.cluster.snapshots.create.CreateSnapshotRes
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.rest.RestStatus
-import java.time.Clock
-import java.time.ZonedDateTime
+import org.elasticsearch.snapshots.ConcurrentSnapshotExecutionException
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.*
 
 class AttemptSnapshotStep(
     val clusterService: ClusterService,
@@ -46,13 +49,18 @@ class AttemptSnapshotStep(
     override suspend fun execute() {
         try {
             logger.info("Executing snapshot on ${managedIndexMetaData.index}")
-            val snapshotName = config.snapshot.plus(ZonedDateTime.now(Clock.systemUTC()))
+            val snapshotName = config
+                    .snapshot
+                    .plus("-")
+                    .plus(LocalDateTime
+                            .now(ZoneId.of("UTC"))
+                            .format(DateTimeFormatter.ofPattern("uuuu.MM.dd-HH:mm:ss.SSS", Locale.ROOT)))
             val mutableInfo = mutableMapOf("snapshotName" to snapshotName)
 
             val createSnapshotRequest = CreateSnapshotRequest()
                     .userMetadata(mapOf("snapshot_created" to "Open Distro for Elasticsearch Index Management"))
                     .indices(managedIndexMetaData.index)
-                    .snapshot(config.snapshot)
+                    .snapshot(snapshotName)
                     .repository(config.repository)
                     .waitForCompletion(false)
 
@@ -63,8 +71,8 @@ class AttemptSnapshotStep(
             val response: CreateSnapshotResponse = client.admin().cluster().suspendUntil { createSnapshot(createSnapshotRequest, it) }
             when (response.status()) {
                 RestStatus.ACCEPTED -> {
-                    stepStatus = StepStatus.CONDITION_NOT_MET
-                    mutableInfo["message"] = "Creating snapshot in progress for index: ${managedIndexMetaData.index}"
+                    stepStatus = StepStatus.COMPLETED
+                    mutableInfo["message"] = "Snapshot creation started and is still in progress for index: ${managedIndexMetaData.index}"
                 }
                 RestStatus.OK -> {
                     stepStatus = StepStatus.COMPLETED
@@ -77,6 +85,11 @@ class AttemptSnapshotStep(
                 }
             }
             info = mutableInfo.toMap()
+        } catch (e: ConcurrentSnapshotExecutionException) {
+            val message = "Snapshot creation already in progress."
+            logger.debug(message, e)
+            stepStatus = StepStatus.CONDITION_NOT_MET
+            info = mapOf("message" to message)
         } catch (e: Exception) {
             val message = "Failed to create snapshot for index: ${managedIndexMetaData.index}"
             logger.error(message, e)

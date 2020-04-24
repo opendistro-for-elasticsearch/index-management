@@ -30,6 +30,7 @@ import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.unit.ByteSizeValue
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 
@@ -67,24 +68,49 @@ class AttemptRolloverStep(
         statsResponse ?: return
 
         val indexCreationDate = clusterService.state().metaData().index(index).creationDate
-        val indexCreationDateInstant = Instant.ofEpochMilli(indexCreationDate)
-        if (indexCreationDate == -1L) {
+        val indexAgeTimeValue = if (indexCreationDate == -1L) {
             logger.warn("$index had an indexCreationDate=-1L, cannot use for comparison")
+            // since we cannot use for comparison, we can set it to 0 as minAge will never be <= 0
+            TimeValue.timeValueMillis(0)
+        } else {
+            TimeValue.timeValueMillis(Instant.now().toEpochMilli() - indexCreationDate)
         }
         val numDocs = statsResponse.primaries.docs?.count ?: 0
         val indexSize = ByteSizeValue(statsResponse.primaries.docs?.totalSizeInBytes ?: 0)
+        val conditions = listOfNotNull(
+                config.minAge?.let {
+                    RolloverActionConfig.MIN_INDEX_AGE_FIELD to mapOf(
+                            "condition" to it.toString(),
+                            "current" to indexAgeTimeValue.toString(),
+                            "creationDate" to indexCreationDate
+                    )
+                },
+                config.minDocs?.let {
+                    RolloverActionConfig.MIN_DOC_COUNT_FIELD to mapOf(
+                            "condition" to it,
+                            "current" to numDocs
+                    )
+                },
+                config.minSize?.let {
+                    RolloverActionConfig.MIN_SIZE_FIELD to mapOf(
+                            "condition" to it.toString(),
+                            "current" to indexSize.toString()
+                    )
+                }
+        ).toMap()
 
-        if (config.evaluateConditions(indexCreationDateInstant, numDocs, indexSize)) {
+        if (config.evaluateConditions(indexAgeTimeValue, numDocs, indexSize)) {
             logger.info("$index rollover conditions evaluated to true [indexCreationDate=$indexCreationDate," +
                     " numDocs=$numDocs, indexSize=${indexSize.bytes}]")
-            executeRollover(alias)
+            executeRollover(alias, conditions)
         } else {
             stepStatus = StepStatus.CONDITION_NOT_MET
-            info = mapOf("message" to "Attempting to rollover")
+            info = mapOf("message" to "Attempting to rollover", "conditions" to conditions)
         }
     }
 
-    private suspend fun executeRollover(alias: String) {
+    @Suppress("ComplexMethod")
+    private suspend fun executeRollover(alias: String, conditions: Map<String, Map<String, Any?>>) {
         try {
             val request = RolloverRequest(alias, null)
             val response: RolloverResponse = client.admin().indices().suspendUntil { rolloverIndex(request, it) }
@@ -95,12 +121,18 @@ class AttemptRolloverStep(
             // If response isAcknowledged it means the index was created and alias was added to new index
             if (response.isAcknowledged) {
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Rolled over index")
+                info = listOfNotNull(
+                    "message" to "Rolled over index",
+                    if (conditions.isEmpty()) null else "conditions" to conditions // don't show empty conditions object if no conditions specified
+                ).toMap()
             } else {
                 // If the alias update response is NOT acknowledged we will get back isAcknowledged=false
                 // This means the new index was created but we failed to swap the alias
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "New index created (${response.newIndex}), but failed to update alias")
+                info = listOfNotNull(
+                    "message" to "New index created (${response.newIndex}), but failed to update alias",
+                    if (conditions.isEmpty()) null else "conditions" to conditions // don't show empty conditions object if no conditions specified
+                ).toMap()
             }
         } catch (e: Exception) {
             logger.error("Failed to rollover index [index=${managedIndexMetaData.index}]", e)

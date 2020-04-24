@@ -46,6 +46,7 @@ import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.unit.ByteSizeValue
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.BoolQueryBuilder
@@ -216,7 +217,7 @@ fun Transition.hasStatsConditions(): Boolean = this.conditions?.docCount != null
 
 @Suppress("ReturnCount")
 fun RolloverActionConfig.evaluateConditions(
-    indexCreationDate: Instant,
+    indexAgeTimeValue: TimeValue,
     numDocs: Long,
     indexSize: ByteSizeValue
 ): Boolean {
@@ -232,11 +233,7 @@ fun RolloverActionConfig.evaluateConditions(
     }
 
     if (this.minAge != null) {
-        val indexCreationDateMilli = indexCreationDate.toEpochMilli()
-        if (indexCreationDateMilli != -1L) {
-            val elapsedTime = Instant.now().toEpochMilli() - indexCreationDateMilli
-            if (this.minAge.millis <= elapsedTime) return true
-        }
+        if (this.minAge.millis <= indexAgeTimeValue.millis) return true
     }
 
     if (this.minSize != null) {

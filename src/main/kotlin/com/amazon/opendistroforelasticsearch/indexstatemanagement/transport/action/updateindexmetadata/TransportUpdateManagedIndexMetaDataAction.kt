@@ -75,7 +75,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
     private val log = LogManager.getLogger(javaClass)
     private val client: Client
     private val indexStateManagementHistory: IndexStateManagementHistory
-    private val executor: ManagedIndexMetaDataExecutor = ManagedIndexMetaDataExecutor()
+    private val executor = ManagedIndexMetaDataExecutor()
 
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {
         // https://github.com/elastic/elasticsearch/commit/ae14b4e6f96b554ca8f4aaf4039b468f52df0123

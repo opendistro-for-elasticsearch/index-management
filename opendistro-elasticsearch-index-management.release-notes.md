@@ -1,4 +1,4 @@
-## Version 1.6.1.0 (2020-5-1)
+## Version 1.7.0.0 (2020-5-4)
 
 Compatible with Elasticsearch 7.6.1
 

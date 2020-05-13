@@ -23,7 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNot
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.Locale
 
 class SnapshotActionIT : IndexStateManagementRestTestCase() {
 

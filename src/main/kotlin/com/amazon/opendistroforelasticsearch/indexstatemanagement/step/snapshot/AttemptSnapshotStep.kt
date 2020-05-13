@@ -30,7 +30,7 @@ import org.elasticsearch.snapshots.ConcurrentSnapshotExecutionException
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.*
+import java.util.Locale
 
 class AttemptSnapshotStep(
     val clusterService: ClusterService,
@@ -43,7 +43,7 @@ class AttemptSnapshotStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
-    override fun isIdempotent() = true
+    override fun isIdempotent() = false
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {

@@ -34,7 +34,7 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
         val policyID = "${testIndexName}_testPolicyName_1"
         val repository = "repository"
         val snapshot = "snapshot"
-        val actionConfig = SnapshotActionConfig(repository, snapshot, false, 0)
+        val actionConfig = SnapshotActionConfig(repository, snapshot, 0)
         val states = listOf(
             State("Snapshot", listOf(actionConfig), listOf())
         )

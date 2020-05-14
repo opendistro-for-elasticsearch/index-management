@@ -64,10 +64,6 @@ class AttemptSnapshotStep(
                     .repository(config.repository)
                     .waitForCompletion(false)
 
-            if (config.includeGlobalState != null) {
-                createSnapshotRequest.includeGlobalState(config.includeGlobalState)
-            }
-
             val response: CreateSnapshotResponse = client.admin().cluster().suspendUntil { createSnapshot(createSnapshotRequest, it) }
             when (response.status()) {
                 RestStatus.ACCEPTED -> {

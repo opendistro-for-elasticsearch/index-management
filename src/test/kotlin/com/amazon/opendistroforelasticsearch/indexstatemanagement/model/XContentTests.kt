@@ -135,7 +135,7 @@ class XContentTests : ESTestCase() {
     }
 
     fun `test snapshot action config parsing`() {
-        val snapshotActionConfig = randomSnapshotActionConfig("repository", "snapshot", true)
+        val snapshotActionConfig = randomSnapshotActionConfig("repository", "snapshot")
 
         val snapshotActionConfigString = snapshotActionConfig.toJsonString()
         val parsedNotificationActionConfig = ActionConfig.parse(parser(snapshotActionConfigString), 0)

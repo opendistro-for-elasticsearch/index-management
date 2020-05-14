@@ -197,8 +197,8 @@ fun randomTemplateScript(
     params: Map<String, String> = emptyMap()
 ): Script = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, source, params)
 
-fun randomSnapshotActionConfig(repository: String? = null, snapshot: String? = null, includeGlobalState: Boolean? = null): SnapshotActionConfig {
-    return SnapshotActionConfig(repository, snapshot, includeGlobalState, index = 0)
+fun randomSnapshotActionConfig(repository: String? = null, snapshot: String? = null): SnapshotActionConfig {
+    return SnapshotActionConfig(repository, snapshot, index = 0)
 }
 
 /**

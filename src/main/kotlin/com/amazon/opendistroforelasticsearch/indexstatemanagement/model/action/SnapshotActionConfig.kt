@@ -31,7 +31,6 @@ import java.io.IOException
 data class SnapshotActionConfig(
     val repository: String?,
     val snapshot: String?,
-    val includeGlobalState: Boolean?,
     val index: Int
 ) : ToXContentObject, ActionConfig(ActionType.SNAPSHOT, index) {
 
@@ -46,7 +45,6 @@ data class SnapshotActionConfig(
             .startObject(ActionType.SNAPSHOT.type)
         if (repository != null) builder.field(REPOSITORY_FIELD, repository)
         if (snapshot != null) builder.field(SNAPSHOT_FIELD, snapshot)
-        if (includeGlobalState != null) builder.field(INCLUDE_GLOBAL_STATE, includeGlobalState)
         return builder.endObject().endObject()
     }
 
@@ -69,7 +67,6 @@ data class SnapshotActionConfig(
         fun parse(xcp: XContentParser, index: Int): SnapshotActionConfig {
             var repository: String? = null
             var snapshot: String? = null
-            var includeGlobalState: Boolean? = null
 
             XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -79,7 +76,6 @@ data class SnapshotActionConfig(
                 when (fieldName) {
                     REPOSITORY_FIELD -> repository = xcp.text()
                     SNAPSHOT_FIELD -> snapshot = xcp.text()
-                    INCLUDE_GLOBAL_STATE -> includeGlobalState = xcp.booleanValue()
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in SnapshotActionConfig.")
                 }
             }
@@ -87,7 +83,6 @@ data class SnapshotActionConfig(
             return SnapshotActionConfig(
                 repository = repository,
                 snapshot = snapshot,
-                includeGlobalState = includeGlobalState,
                 index = index
             )
         }

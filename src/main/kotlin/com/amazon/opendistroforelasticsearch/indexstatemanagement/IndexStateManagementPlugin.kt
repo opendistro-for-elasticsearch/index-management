@@ -118,14 +118,14 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         nodesInCluster: Supplier<DiscoveryNodes>
     ): List<RestHandler> {
         return listOf(
-            RestIndexPolicyAction(settings, restController, clusterService, indexStateManagementIndices),
-            RestGetPolicyAction(restController),
-            RestDeletePolicyAction(restController),
-            RestExplainAction(restController),
-            RestRetryFailedManagedIndexAction(restController),
-            RestAddPolicyAction(restController),
-            RestRemovePolicyAction(restController),
-            RestChangePolicyAction(restController, clusterService)
+            RestIndexPolicyAction(settings, clusterService, indexStateManagementIndices),
+            RestGetPolicyAction(),
+            RestDeletePolicyAction(),
+            RestExplainAction(),
+            RestRetryFailedManagedIndexAction(),
+            RestAddPolicyAction(),
+            RestRemovePolicyAction(),
+            RestChangePolicyAction(clusterService)
         )
     }
 
@@ -138,7 +138,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         xContentRegistry: NamedXContentRegistry,
         environment: Environment,
         nodeEnvironment: NodeEnvironment,
-        namedWriteableRegistry: NamedWriteableRegistry
+        namedWriteableRegistry: NamedWriteableRegistry,
+        indexNameExpressionResolver: IndexNameExpressionResolver
     ): Collection<Any> {
         val settings = environment.settings()
         this.clusterService = clusterService

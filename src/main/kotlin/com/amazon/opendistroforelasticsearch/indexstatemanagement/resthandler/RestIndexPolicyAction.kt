@@ -30,6 +30,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getDisallowedActions
+import com.google.common.collect.ImmutableList
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
@@ -43,10 +44,10 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.PUT
 import org.elasticsearch.rest.RestResponse
@@ -57,7 +58,6 @@ import java.time.Instant
 
 class RestIndexPolicyAction(
     settings: Settings,
-    controller: RestController,
     val clusterService: ClusterService,
     indexStateManagementIndices: IndexStateManagementIndices
 ) : BaseRestHandler() {
@@ -66,10 +66,11 @@ class RestIndexPolicyAction(
     private var ismIndices = indexStateManagementIndices
     @Volatile private var allowList = ALLOW_LIST.get(settings)
 
-    init {
-        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
-        controller.registerHandler(PUT, POLICY_BASE_URI, this)
-        controller.registerHandler(PUT, "$POLICY_BASE_URI/{policyID}", this)
+    override fun routes(): List<Route> {
+        return ImmutableList.of(
+                Route(PUT, POLICY_BASE_URI),
+                Route(PUT, "$POLICY_BASE_URI/{policyID}")
+        )
     }
 
     override fun getName(): String {

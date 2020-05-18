@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.Manag
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.buildInvalidIndexResponse
+import com.google.common.collect.ImmutableList
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction
@@ -35,9 +36,9 @@ import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestResponse
@@ -46,11 +47,13 @@ import org.elasticsearch.rest.action.RestActionListener
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 
-class RestRemovePolicyAction(controller: RestController) : BaseRestHandler() {
+class RestRemovePolicyAction : BaseRestHandler() {
 
-    init {
-        controller.registerHandler(POST, REMOVE_POLICY_BASE_URI, this)
-        controller.registerHandler(POST, "$REMOVE_POLICY_BASE_URI/{index}", this)
+    override fun routes(): List<Route> {
+        return ImmutableList.of(
+                Route(POST, REMOVE_POLICY_BASE_URI),
+                Route(POST, "$REMOVE_POLICY_BASE_URI/{index}")
+        )
     }
 
     override fun getName(): String = "remove_policy_action"

@@ -30,6 +30,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IndexUtil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateManagedIndexRequest
+import com.google.common.collect.ImmutableList
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
@@ -55,9 +56,9 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.IdsQueryBuilder
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestResponse
@@ -66,13 +67,15 @@ import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.io.IOException
 
-class RestChangePolicyAction(controller: RestController, val clusterService: ClusterService) : BaseRestHandler() {
+class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandler() {
 
     private val log = LogManager.getLogger(javaClass)
 
-    init {
-        controller.registerHandler(POST, CHANGE_POLICY_BASE_URI, this)
-        controller.registerHandler(POST, "$CHANGE_POLICY_BASE_URI/{index}", this)
+    override fun routes(): List<Route> {
+        return ImmutableList.of(
+                Route(POST, CHANGE_POLICY_BASE_URI),
+                Route(POST, "$CHANGE_POLICY_BASE_URI/{index}")
+        )
     }
 
     override fun getName(): String = "change_policy_action"

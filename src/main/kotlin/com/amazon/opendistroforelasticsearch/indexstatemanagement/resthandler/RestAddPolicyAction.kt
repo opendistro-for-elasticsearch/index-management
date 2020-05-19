@@ -99,10 +99,10 @@ class RestAddPolicyAction : BaseRestHandler() {
     }
 
     inner class AddPolicyHandler(
-            private val client: NodeClient,
-            channel: RestChannel,
-            private val policyID: String,
-            private val startTime: Instant
+        private val client: NodeClient,
+        channel: RestChannel,
+        private val policyID: String,
+        private val startTime: Instant
     ) : RestActionListener<ClusterStateResponse>(channel) {
 
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()

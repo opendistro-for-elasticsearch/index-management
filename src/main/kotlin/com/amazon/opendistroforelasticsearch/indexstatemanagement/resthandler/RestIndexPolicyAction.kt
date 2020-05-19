@@ -66,6 +66,10 @@ class RestIndexPolicyAction(
     private var ismIndices = indexStateManagementIndices
     @Volatile private var allowList = ALLOW_LIST.get(settings)
 
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
+    }
+
     override fun routes(): List<Route> {
         return ImmutableList.of(
                 Route(PUT, POLICY_BASE_URI),

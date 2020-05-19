@@ -32,6 +32,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 
 @OpenForTesting
@@ -46,6 +47,7 @@ class IndexStateManagementIndices(
         if (!indexStateManagementIndexExists()) {
             val indexRequest = CreateIndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
                     .mapping(_DOC, indexStateManagementMappings, XContentType.JSON)
+                    .settings(Settings.builder().put("index.hidden", true).build())
             client.create(indexRequest, object : ActionListener<CreateIndexResponse> {
                 override fun onFailure(e: Exception) {
                     actionListener.onFailure(e)
@@ -103,7 +105,9 @@ class IndexStateManagementIndices(
         }
         if (existsResponse.isExists) return true
 
-        val request = CreateIndexRequest(index).mapping(_DOC, indexStateManagementHistoryMappings, XContentType.JSON)
+        val request = CreateIndexRequest(index)
+                .mapping(_DOC, indexStateManagementHistoryMappings, XContentType.JSON)
+                .settings(Settings.builder().put("index.hidden", true).build())
         if (alias != null) request.alias(Alias(alias))
         return try {
             val createIndexResponse: CreateIndexResponse = client.suspendUntil { client.create(request, it) }

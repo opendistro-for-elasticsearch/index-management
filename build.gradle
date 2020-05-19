@@ -78,7 +78,6 @@ configurations.testCompile {
 }
 
 dependencies {
-    implementation("com.google.guava:guava:29.0-jre")
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
     compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.8.0.0"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
@@ -86,6 +85,7 @@ dependencies {
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1'
     compile "org.jetbrains:annotations:13.0"
     compile "com.amazon.opendistroforelasticsearch:notification:1.8.0.0"
+    compile "com.google.guava:guava:29.0-jre"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
@@ -129,6 +129,15 @@ thirdPartyAudit.enabled = false
 
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
 es_tmp_dir.mkdirs()
+
+afterEvaluate {
+    testClusters.integTest.nodes.each { node ->
+        def plugins = node.plugins
+        def firstPlugin = plugins.get(0)
+        plugins.remove(0)
+        plugins.add(firstPlugin)
+    }
+}
 
 test {
     systemProperty 'tests.security.manager', 'false'

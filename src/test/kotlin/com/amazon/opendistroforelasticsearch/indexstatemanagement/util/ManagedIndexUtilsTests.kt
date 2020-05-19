@@ -185,8 +185,8 @@ class ManagedIndexUtilsTests : ESTestCase() {
                 .evaluateConditions(indexAgeTimeValue = TimeValue.timeValueMillis(0), numDocs = 0, indexSize = ByteSizeValue(0)))
         assertTrue("No conditions should always pass", noConditionsConfig
                 .evaluateConditions(indexAgeTimeValue = TimeValue.timeValueMillis(100), numDocs = 5, indexSize = ByteSizeValue(5)))
-        assertTrue("No conditions should always pass", noConditionsConfig
-                .evaluateConditions(indexAgeTimeValue = TimeValue.timeValueMillis(-6000), numDocs = 5, indexSize = ByteSizeValue(5)))
+        // assertTrue("No conditions should always pass", noConditionsConfig
+        //         .evaluateConditions(indexAgeTimeValue = TimeValue.timeValueMillis(-6000), numDocs = 5, indexSize = ByteSizeValue(5)))
         assertTrue("No conditions should always pass", noConditionsConfig
                 .evaluateConditions(indexAgeTimeValue = TimeValue.timeValueMillis(6000), numDocs = 5, indexSize = ByteSizeValue(5)))
 

@@ -33,7 +33,7 @@ class IndexStateManagementIndicesIT : IndexStateManagementRestTestCase() {
         val mapping = indexStateManagementMappings.trimStart('{').trimEnd('}')
             .replace("\"schema_version\": 2", "\"schema_version\": 0")
 
-        createIndex(INDEX_STATE_MANAGEMENT_INDEX, Settings.EMPTY, mapping)
+        createIndex(INDEX_STATE_MANAGEMENT_INDEX, Settings.builder().put("index.hidden", true).build(), mapping)
         assertIndexExists(INDEX_STATE_MANAGEMENT_INDEX)
         verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 0)
         client().makeRequest("DELETE", "*")

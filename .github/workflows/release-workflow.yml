@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        java: [13]
+        java: [14]
     # Job name
     name: Build Index Management with JDK ${{ matrix.java }}
     # This job runs on Linux

@@ -562,18 +562,18 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
 
         /*
-        * We need to be able to dump the jacoco coverage before cluster is shut down.
-        * The new internal testing framework removed some of the gradle tasks we were listening to
+        * We need to be able to dump the jacoco coverage before the cluster shuts down.
+        * The new internal testing framework removed some gradle tasks we were listening to,
         * to choose a good time to do it. This will dump the executionData to file after each test.
         * TODO: This is also currently just overwriting integTest.exec with the updated execData without
         *   resetting after writing each time. This can be improved to either write an exec file per test
-        *   or by letting jacoco append to the file
+        *   or by letting jacoco append to the file.
         * */
         @JvmStatic
         @AfterClass
         fun dumpCoverage() {
-            // jacoco.dir is set in esplugin-coverage.gradle, if it doesn't exist we don't
-            // want to collect coverage so we can return early
+            // jacoco.dir set in esplugin-coverage.gradle, if it doesn't exist we don't
+            // want to collect coverage, so we can return early
             val jacocoBuildPath = System.getProperty("jacoco.dir") ?: return
             val serverUrl = "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi"
             JMXConnectorFactory.connect(JMXServiceURL(serverUrl)).use { connector ->

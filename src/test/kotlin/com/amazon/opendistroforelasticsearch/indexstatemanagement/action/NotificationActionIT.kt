@@ -28,7 +28,7 @@ import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.Locale
 
 class NotificationActionIT : IndexStateManagementRestTestCase() {
 

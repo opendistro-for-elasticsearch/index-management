@@ -41,6 +41,7 @@ import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
+import org.elasticsearch.ElasticsearchParseException
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
@@ -48,6 +49,7 @@ import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.xcontent.DeprecationHandler
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -62,6 +64,7 @@ import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
+import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
@@ -416,6 +419,61 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
         return metadata
     }
+
+    protected fun createRepository(
+        repository: String
+    ) {
+        val path = getRepoPath()
+        val response = client()
+            .makeRequest(
+                "PUT",
+                "_snapshot/$repository",
+                emptyMap(),
+                StringEntity("{\"type\":\"fs\", \"settings\": {\"location\": \"$path\"}}", APPLICATION_JSON)
+            )
+        assertEquals("Unable to create a new repository", RestStatus.OK, response.restStatus())
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun getRepoPath(): String {
+        val response = client()
+            .makeRequest(
+                "GET",
+                "_nodes",
+                emptyMap()
+            )
+        assertEquals("Unable to get a nodes settings", RestStatus.OK, response.restStatus())
+        return ((response.asMap()["nodes"] as HashMap<String, HashMap<String, HashMap<String, HashMap<String, Any>>>>).values.first()["settings"]!!["path"]!!["repo"] as List<String>)[0]
+    }
+
+    private fun getSnapshotsList(repository: String): List<Any> {
+        val response = client()
+            .makeRequest(
+                "GET",
+                "_cat/snapshots/$repository?format=json",
+                emptyMap()
+            )
+        assertEquals("Unable to get a snapshot", RestStatus.OK, response.restStatus())
+        try {
+            return jsonXContent
+                .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, response.entity.content)
+                .use { parser -> parser.list() }
+        } catch (e: IOException) {
+            throw ElasticsearchParseException("Failed to parse content to list", e)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertSnapshotExists(
+        repository: String,
+        snapshot: String
+    ) = require(getSnapshotsList(repository).any { element -> (element as Map<String, String>)["id"]!!.contains(snapshot) }) { "No snapshot found with id: $snapshot" }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertSnapshotFinishedWithSuccess(
+        repository: String,
+        snapshot: String
+    ) = require(getSnapshotsList(repository).any { element -> (element as Map<String, String>)["id"]!!.contains(snapshot) && "SUCCESS" == element["status"] }) { "Snapshot didn't finish with success." }
 
     /**
      * Compares responses returned by APIs such as those defined in [RetryFailedManagedIndexAction] and [RestAddPolicyAction]

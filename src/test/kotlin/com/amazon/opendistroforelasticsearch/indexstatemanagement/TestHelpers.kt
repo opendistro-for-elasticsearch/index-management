@@ -32,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.R
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Chime
@@ -196,6 +197,10 @@ fun randomTemplateScript(
     params: Map<String, String> = emptyMap()
 ): Script = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, source, params)
 
+fun randomSnapshotActionConfig(repository: String? = null, snapshot: String? = null): SnapshotActionConfig {
+    return SnapshotActionConfig(repository, snapshot, index = 0)
+}
+
 /**
  * Helper functions for creating a random Conditions object
  */
@@ -356,6 +361,11 @@ fun ChangePolicy.toJsonString(): String {
 }
 
 fun ManagedIndexConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun SnapshotActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

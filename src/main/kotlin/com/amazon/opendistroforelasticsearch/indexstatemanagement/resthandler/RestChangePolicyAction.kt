@@ -30,7 +30,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IndexUtil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateManagedIndexRequest
-import com.google.common.collect.ImmutableList
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
@@ -72,7 +71,7 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
     private val log = LogManager.getLogger(javaClass)
 
     override fun routes(): List<Route> {
-        return ImmutableList.of(
+        return listOf(
                 Route(POST, CHANGE_POLICY_BASE_URI),
                 Route(POST, "$CHANGE_POLICY_BASE_URI/{index}")
         )

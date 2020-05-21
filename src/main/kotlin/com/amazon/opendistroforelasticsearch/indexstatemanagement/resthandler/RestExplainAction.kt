@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
-import com.google.common.collect.ImmutableList
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.support.IndicesOptions
@@ -44,7 +43,7 @@ class RestExplainAction : BaseRestHandler() {
     }
 
     override fun routes(): List<Route> {
-        return ImmutableList.of(
+        return listOf(
                 Route(GET, EXPLAIN_BASE_URI),
                 Route(GET, "$EXPLAIN_BASE_URI/{index}")
         )

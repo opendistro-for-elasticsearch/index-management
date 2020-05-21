@@ -16,7 +16,7 @@
 buildscript {
     ext {
         es_version = System.getProperty("es.version", "7.7.0")
-        kotlin_version = System.getProperty("kotlin.version", "1.3.31")
+        kotlin_version = System.getProperty("kotlin.version", "1.3.72")
     }
 
     repositories {
@@ -51,7 +51,7 @@ apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
 if (!System.properties.containsKey('tests.rest.cluster') && !System.properties.containsKey('tests.cluster')) {
    apply from: 'build-tools/esplugin-coverage.gradle'
 }
-check.dependsOn(jacocoTestReport)
+check.dependsOn jacocoTestReport
 
 esplugin {
     name 'opendistro_index_management'
@@ -85,7 +85,6 @@ dependencies {
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1'
     compile "org.jetbrains:annotations:13.0"
     compile "com.amazon.opendistroforelasticsearch:notification:1.8.0.0"
-    compile "com.google.guava:guava:29.0-jre"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"

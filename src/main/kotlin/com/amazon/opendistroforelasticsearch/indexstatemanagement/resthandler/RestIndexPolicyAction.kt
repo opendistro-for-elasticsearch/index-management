@@ -30,7 +30,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getDisallowedActions
-import com.google.common.collect.ImmutableList
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
@@ -71,7 +70,7 @@ class RestIndexPolicyAction(
     }
 
     override fun routes(): List<Route> {
-        return ImmutableList.of(
+        return listOf(
                 Route(PUT, POLICY_BASE_URI),
                 Route(PUT, "$POLICY_BASE_URI/{policyID}")
         )

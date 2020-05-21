@@ -26,11 +26,11 @@
  *  cluster is stopped and dump it to a file. Luckily our current security policy seems to allow this. This will also probably
  *  break if there are multiple nodes in the integTestCluster. But for now... it sorta works.
  */
-apply plugin: 'jacoco'
 
 // Get gradle to generate the required jvm agent arg for us using a dummy tasks of type Test. Unfortunately Elastic's
 // testing tasks don't derive from Test so the jacoco plugin can't do this automatically.
 def jacocoDir = "${buildDir}/jacoco"
+
 task dummyTest(type: Test) {
     enabled = false
     workingDir = file("/") // Force absolute path to jacoco agent jar
@@ -55,16 +55,6 @@ integTest.runner {
     systemProperty 'jacoco.dir', "${jacocoDir}"
 }
 
-testClusters.integTest {
-    // jvmArgs " ${dummyIntegTest.jacoco.getAsJvmArg()}"
-    jvmArgs '-javaagent:/Volumes/workplace/index-management/build/tmp/expandedArchives/org.jacoco.agent-0.8.5.jar_6a2df60c47de373ea127d14406367999/jacocoagent.jar=destfile=/Volumes/workplace/index-management/build/jacoco/integTest.exec,append=true,inclnolocationclasses=false,dumponexit=true,output=file,jmx=true'
-    systemProperty 'com.sun.management.jmxremote', "true"
-    systemProperty 'com.sun.management.jmxremote.authenticate', "false"
-    systemProperty 'com.sun.management.jmxremote.port', "7777"
-    systemProperty 'com.sun.management.jmxremote.ssl', "false"
-    systemProperty 'java.rmi.server.hostname', "127.0.0.1"
-}
-
 jacocoTestReport {
     dependsOn integTest, test
     executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
@@ -76,6 +66,17 @@ jacocoTestReport {
     }
 }
 
-project.gradle.projectsEvaluated {
-    jacocoTestReport.dependsOn integTest.runner
+allprojects{
+    afterEvaluate {
+        jacocoTestReport.dependsOn integTest.runner
+
+        testClusters.integTest {
+            jvmArgs " ${dummyIntegTest.jacoco.getAsJvmArg()}"
+            systemProperty 'com.sun.management.jmxremote', "true"
+            systemProperty 'com.sun.management.jmxremote.authenticate', "false"
+            systemProperty 'com.sun.management.jmxremote.port', "7777"
+            systemProperty 'com.sun.management.jmxremote.ssl', "false"
+            systemProperty 'java.rmi.server.hostname', "127.0.0.1"
+        }
+    }
 }

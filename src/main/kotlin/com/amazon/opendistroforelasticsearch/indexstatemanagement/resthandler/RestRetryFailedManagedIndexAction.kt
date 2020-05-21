@@ -27,7 +27,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_I
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.buildInvalidIndexResponse
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.updateEnableManagedIndexRequest
-import com.google.common.collect.ImmutableList
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
@@ -56,7 +55,7 @@ class RestRetryFailedManagedIndexAction : BaseRestHandler() {
     private val log = LogManager.getLogger(javaClass)
 
     override fun routes(): List<Route> {
-        return ImmutableList.of(
+        return listOf(
                 Route(POST, RETRY_BASE_URI),
                 Route(POST, "$RETRY_BASE_URI/{index}")
         )

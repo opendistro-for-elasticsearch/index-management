@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.Manag
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.buildInvalidIndexResponse
-import com.google.common.collect.ImmutableList
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction
@@ -50,7 +49,7 @@ import java.io.IOException
 class RestRemovePolicyAction : BaseRestHandler() {
 
     override fun routes(): List<Route> {
-        return ImmutableList.of(
+        return listOf(
                 Route(POST, REMOVE_POLICY_BASE_URI),
                 Route(POST, "$REMOVE_POLICY_BASE_URI/{index}")
         )

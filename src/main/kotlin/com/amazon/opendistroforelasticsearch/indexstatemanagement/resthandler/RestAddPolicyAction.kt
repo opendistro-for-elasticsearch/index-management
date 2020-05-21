@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.Manag
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.buildInvalidIndexResponse
-import com.google.common.collect.ImmutableList
 import org.elasticsearch.ElasticsearchTimeoutException
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -57,7 +56,7 @@ class RestAddPolicyAction : BaseRestHandler() {
     override fun getName(): String = "add_policy_action"
 
     override fun routes(): List<Route> {
-        return ImmutableList.of(
+        return listOf(
                 Route(POST, ADD_POLICY_BASE_URI),
                 Route(POST, "$ADD_POLICY_BASE_URI/{index}")
         )

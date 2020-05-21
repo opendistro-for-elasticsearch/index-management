@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.REFRESH
-import com.google.common.collect.ImmutableList
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
@@ -32,7 +31,7 @@ import java.io.IOException
 class RestDeletePolicyAction : BaseRestHandler() {
 
     override fun routes(): List<Route> {
-        return ImmutableList.of(
+        return listOf(
                 Route(DELETE, "$POLICY_BASE_URI/{policyID}")
         )
     }

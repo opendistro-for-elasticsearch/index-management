@@ -24,7 +24,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._VERSION
-import com.google.common.collect.ImmutableList
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
@@ -47,7 +46,7 @@ import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 class RestGetPolicyAction : BaseRestHandler() {
 
     override fun routes(): List<Route> {
-        return ImmutableList.of(
+        return listOf(
                 Route(GET, "$POLICY_BASE_URI/{policyID}"),
                 Route(HEAD, "$POLICY_BASE_URI/{policyID}")
         )

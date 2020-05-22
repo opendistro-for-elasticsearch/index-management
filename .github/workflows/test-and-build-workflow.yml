@@ -26,7 +26,11 @@ jobs:
       - name: Create Artifact Path
         run: |
           mkdir -p index-management-artifacts
-          cp ./build/distributions/*.zip index-management-artifacts
+          cp ./build/distributions/*.zip index-management-artifacts        
+      - name: Uploads coverage
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       # This step uses the upload-artifact Github action: https://github.com/actions/upload-artifact
       - name: Upload Artifacts
         uses: actions/upload-artifact@v1

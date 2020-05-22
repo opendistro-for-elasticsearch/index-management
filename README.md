@@ -1,3 +1,6 @@
+[![codecov](https://codecov.io/gh/opendistro-for-elasticsearch/index-management/branch/master/graph/badge.svg)](https://codecov.io/gh/opendistro-for-elasticsearch/index-management)
+
+
 # Open Distro for Elasticsearch Index Management
 
 Open Distro for Elasticsearch Index Management provides a suite of features to monitor and manage indexes.

@@ -27,23 +27,26 @@ import org.elasticsearch.common.Strings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
+import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestBuilderListener
 
-class RestExplainAction(controller: RestController) : BaseRestHandler() {
+class RestExplainAction : BaseRestHandler() {
 
     companion object {
         const val EXPLAIN_BASE_URI = "${IndexStateManagementPlugin.ISM_BASE_URI}/explain"
     }
 
-    init {
-        controller.registerHandler(RestRequest.Method.GET, EXPLAIN_BASE_URI, this)
-        controller.registerHandler(RestRequest.Method.GET, "$EXPLAIN_BASE_URI/{index}", this)
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(GET, EXPLAIN_BASE_URI),
+                Route(GET, "$EXPLAIN_BASE_URI/{index}")
+        )
     }
 
     override fun getName(): String {

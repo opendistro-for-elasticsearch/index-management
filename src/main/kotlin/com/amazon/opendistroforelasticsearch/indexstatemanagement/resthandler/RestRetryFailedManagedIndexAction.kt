@@ -43,19 +43,22 @@ import org.elasticsearch.common.Strings
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.rest.RestRequest.Method.POST
 
-class RestRetryFailedManagedIndexAction(controller: RestController) : BaseRestHandler() {
+class RestRetryFailedManagedIndexAction : BaseRestHandler() {
 
     private val log = LogManager.getLogger(javaClass)
 
-    init {
-        controller.registerHandler(RestRequest.Method.POST, RETRY_BASE_URI, this)
-        controller.registerHandler(RestRequest.Method.POST, "$RETRY_BASE_URI/{index}", this)
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(POST, RETRY_BASE_URI),
+                Route(POST, "$RETRY_BASE_URI/{index}")
+        )
     }
 
     override fun getName(): String {

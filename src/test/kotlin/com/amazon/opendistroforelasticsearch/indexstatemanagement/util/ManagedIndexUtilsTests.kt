@@ -186,8 +186,6 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertTrue("No conditions should always pass", noConditionsConfig
                 .evaluateConditions(indexAgeTimeValue = TimeValue.timeValueMillis(100), numDocs = 5, indexSize = ByteSizeValue(5)))
         assertTrue("No conditions should always pass", noConditionsConfig
-                .evaluateConditions(indexAgeTimeValue = TimeValue.timeValueMillis(-6000), numDocs = 5, indexSize = ByteSizeValue(5)))
-        assertTrue("No conditions should always pass", noConditionsConfig
                 .evaluateConditions(indexAgeTimeValue = TimeValue.timeValueMillis(6000), numDocs = 5, indexSize = ByteSizeValue(5)))
 
         val minSizeConfig = RolloverActionConfig(minSize = ByteSizeValue(5), minDocs = null, minAge = null, index = 0)

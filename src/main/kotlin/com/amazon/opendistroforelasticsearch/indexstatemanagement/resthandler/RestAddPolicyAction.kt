@@ -38,9 +38,9 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestResponse
@@ -51,14 +51,16 @@ import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 
-class RestAddPolicyAction(controller: RestController) : BaseRestHandler() {
-
-    init {
-        controller.registerHandler(POST, ADD_POLICY_BASE_URI, this)
-        controller.registerHandler(POST, "$ADD_POLICY_BASE_URI/{index}", this)
-    }
+class RestAddPolicyAction : BaseRestHandler() {
 
     override fun getName(): String = "add_policy_action"
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(POST, ADD_POLICY_BASE_URI),
+                Route(POST, "$ADD_POLICY_BASE_URI/{index}")
+        )
+    }
 
     @Throws(IOException::class)
     @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.

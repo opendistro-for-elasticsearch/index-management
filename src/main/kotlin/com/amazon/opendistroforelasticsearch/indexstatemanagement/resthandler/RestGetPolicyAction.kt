@@ -31,22 +31,25 @@ import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
+import org.elasticsearch.rest.RestRequest.Method.GET
+import org.elasticsearch.rest.RestRequest.Method.HEAD
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 
-class RestGetPolicyAction(controller: RestController) : BaseRestHandler() {
+class RestGetPolicyAction : BaseRestHandler() {
 
-    init {
-        // Get a specific policy
-        controller.registerHandler(RestRequest.Method.GET, "$POLICY_BASE_URI/{policyID}", this)
-        controller.registerHandler(RestRequest.Method.HEAD, "$POLICY_BASE_URI/{policyID}", this)
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(GET, "$POLICY_BASE_URI/{policyID}"),
+                Route(HEAD, "$POLICY_BASE_URI/{policyID}")
+        )
     }
 
     override fun getName(): String {
@@ -61,7 +64,7 @@ class RestGetPolicyAction(controller: RestController) : BaseRestHandler() {
         val getRequest = GetRequest(INDEX_STATE_MANAGEMENT_INDEX, policyId)
                 .version(RestActions.parseVersion(request))
 
-        if (request.method() == RestRequest.Method.HEAD) {
+        if (request.method() == HEAD) {
             getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE)
         }
         return RestChannelConsumer { channel -> client.get(getRequest, getPolicyResponse(channel)) }

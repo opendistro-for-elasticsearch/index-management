@@ -22,16 +22,18 @@ import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
-import org.elasticsearch.rest.RestController
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.DELETE
 import org.elasticsearch.rest.action.RestStatusToXContentListener
 import java.io.IOException
 
-class RestDeletePolicyAction(controller: RestController) : BaseRestHandler() {
+class RestDeletePolicyAction : BaseRestHandler() {
 
-    init {
-        controller.registerHandler(DELETE, "$POLICY_BASE_URI/{policyID}", this)
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(DELETE, "$POLICY_BASE_URI/{policyID}")
+        )
     }
 
     override fun getName(): String = "delete_policy_action"

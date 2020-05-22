@@ -43,10 +43,10 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.PUT
 import org.elasticsearch.rest.RestResponse
@@ -57,7 +57,6 @@ import java.time.Instant
 
 class RestIndexPolicyAction(
     settings: Settings,
-    controller: RestController,
     val clusterService: ClusterService,
     indexStateManagementIndices: IndexStateManagementIndices
 ) : BaseRestHandler() {
@@ -68,8 +67,13 @@ class RestIndexPolicyAction(
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) { allowList = it }
-        controller.registerHandler(PUT, POLICY_BASE_URI, this)
-        controller.registerHandler(PUT, "$POLICY_BASE_URI/{policyID}", this)
+    }
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(PUT, POLICY_BASE_URI),
+                Route(PUT, "$POLICY_BASE_URI/{policyID}")
+        )
     }
 
     override fun getName(): String {

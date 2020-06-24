@@ -24,15 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.StateFilter
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.NotificationActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.SnapshotActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.*
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Chime
@@ -143,6 +135,10 @@ fun randomReadWriteActionConfig(): ReadWriteActionConfig {
 
 fun randomReplicaCountActionConfig(numOfReplicas: Int = ESRestTestCase.randomIntBetween(0, 200)): ReplicaCountActionConfig {
     return ReplicaCountActionConfig(index = 0, numOfReplicas = numOfReplicas)
+}
+
+fun randomIndexPriorityActionConfig(indexPriority: Int = ESRestTestCase.randomIntBetween(0, 100)): IndexPriorityActionConfig {
+    return IndexPriorityActionConfig(index = 0, indexPriority = indexPriority)
 }
 
 fun randomForceMergeActionConfig(
@@ -341,6 +337,11 @@ fun ReadWriteActionConfig.toJsonString(): String {
 }
 
 fun ReplicaCountActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun IndexPriorityActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

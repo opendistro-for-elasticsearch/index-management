@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.IndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
@@ -26,15 +27,16 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-class ReplicaCountActionIT : IndexStateManagementRestTestCase() {
+class IndexPriorityActionIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    fun `test basic replica count`() {
+    fun `test basic index priority`() {
+        logger.info("log is working")
         val indexName = "${testIndexName}_index_1"
         val policyID = "${testIndexName}_testPolicyName_1"
-        val actionConfig = ReplicaCountActionConfig(10, 0)
-        val states = listOf(State(name = "ReplicaCountState", actions = listOf(actionConfig), transitions = listOf()))
+        val actionConfig = IndexPriorityActionConfig(50, 0)
+        val states = listOf(State(name = "SetPriorityState", actions = listOf(actionConfig), transitions = listOf()))
         val policy = Policy(
             id = policyID,
             description = "$testIndexName description",
@@ -46,23 +48,22 @@ class ReplicaCountActionIT : IndexStateManagementRestTestCase() {
         )
 
         createPolicy(policy, policyID)
-        // create index defaults to 1 replica
-        createIndex(indexName, policyID)
+        logger.info("created policy")
 
-        assertEquals("Index did not default to 1 replica", 1, getNumberOfReplicasSetting(indexName))
+        createIndex(indexName, policyID)
+        logger.info("created index with policy")
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
-
-        // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
+        // Change the start time so the job will trigger in 2 seconds
         updateManagedIndexConfigStartTime(managedIndexConfig)
+        logger.info("first job run, initialize policy")
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
-        // Need to speed up to second execution where it will trigger the first execution of the action which
-        // should set the replica count to the desired number
         updateManagedIndexConfigStartTime(managedIndexConfig)
+        logger.info("second job run, update priority to 50")
 
-        waitFor { assertEquals("Index did not set number_of_replicas to ${actionConfig.numOfReplicas}", actionConfig.numOfReplicas, getNumberOfReplicasSetting(indexName)) }
+        waitFor { assertEquals("Index did not set index_priority to ${actionConfig.indexPriority}", actionConfig.indexPriority, getIndexPrioritySetting(indexName)) }
 
         // fail("failed here")
     }

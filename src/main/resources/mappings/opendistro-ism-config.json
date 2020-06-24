@@ -175,6 +175,13 @@
                     }
                   }
                 },
+                "set_index_priority": {
+                  "properties": {
+                    "index_priority": {
+                      "type": "integer"
+                    }
+                  }
+                },
                 "close": {
                   "type": "object"
                 },

@@ -15,22 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.*
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomNotificationActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWriteActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReplicaCountActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomSnapshotActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.toJsonString
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
@@ -116,6 +102,14 @@ class XContentTests : ESTestCase() {
         val replicaCountActionConfigString = replicaCountActionConfig.toJsonString()
         val parsedReplicaCountActionConfig = ActionConfig.parse(parser(replicaCountActionConfigString), 0)
         assertEquals("Round tripping ReplicaCountActionConfig doesn't work", replicaCountActionConfig, parsedReplicaCountActionConfig)
+    }
+
+    fun `test set_index_priority action config parsing`() {
+        val indexPriorityActionConfig = randomIndexPriorityActionConfig()
+
+        val indexPriorityActionConfigString = indexPriorityActionConfig.toJsonString()
+        val parsedIndexPriorityActionConfig = ActionConfig.parse(parser(indexPriorityActionConfigString), 0)
+        assertEquals("Round tripping indexPriorityActionConfig doesn't work", indexPriorityActionConfig, parsedIndexPriorityActionConfig)
     }
 
     fun `test force_merge action config parsing`() {

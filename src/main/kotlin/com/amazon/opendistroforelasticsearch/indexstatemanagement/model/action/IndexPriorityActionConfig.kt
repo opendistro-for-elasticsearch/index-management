@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.IndexPriorityAction
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.action.ReplicaCountAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
@@ -31,8 +30,8 @@ import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
 data class IndexPriorityActionConfig(
-        val indexPriority: Int,
-        val index: Int
+    val indexPriority: Int,
+    val index: Int
 ) : ToXContentObject, ActionConfig(ActionType.INDEX_PRIORITY, index) {
 
     init {

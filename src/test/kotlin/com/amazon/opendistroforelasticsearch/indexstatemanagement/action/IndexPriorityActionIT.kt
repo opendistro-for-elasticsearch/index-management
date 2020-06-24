@@ -19,10 +19,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.IndexPriorityActionConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
-import org.junit.Assert
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -32,7 +30,6 @@ class IndexPriorityActionIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test basic index priority`() {
-        logger.info("log is working")
         val indexName = "${testIndexName}_index_1"
         val policyID = "${testIndexName}_testPolicyName_1"
         val actionConfig = IndexPriorityActionConfig(50, 0)
@@ -48,23 +45,19 @@ class IndexPriorityActionIT : IndexStateManagementRestTestCase() {
         )
 
         createPolicy(policy, policyID)
-        logger.info("created policy")
 
         createIndex(indexName, policyID)
-        logger.info("created index with policy")
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
-        // Change the start time so the job will trigger in 2 seconds
+        // Change the runJob start time so the job will trigger in 2 seconds
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        logger.info("first job run, initialize policy")
 
+        // ism policy initialized
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
+        // change the runJob start time to change index priority
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        logger.info("second job run, update priority to 50")
 
         waitFor { assertEquals("Index did not set index_priority to ${actionConfig.indexPriority}", actionConfig.indexPriority, getIndexPrioritySetting(indexName)) }
-
-        // fail("failed here")
     }
 }

@@ -293,9 +293,6 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
-        logger.info("interval schedule: {}", intervalSchedule.interval.toLong())
-        logger.info("millis: {}", millis)
-        logger.info("start time millis: {}", startTimeMillis)
         val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
             StringEntity(
                 "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
@@ -392,7 +389,6 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     @Suppress("UNCHECKED_CAST")
     protected fun getIndexPrioritySetting(indexName: String): Int {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
-        logger.info("indexSettings priority {}", indexSettings[indexName]!!["settings"]!!["index.priority"])
         return (indexSettings[indexName]!!["settings"]!!["index.priority"] as String).toInt()
     }
 
@@ -427,11 +423,6 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
             metadata = ManagedIndexMetaData.parse(xcp)
         }
-
-        logger.info("getExplainManagedIndexMetaData info: {}", metadata.info)
-        logger.info("getExplainManagedIndexMetaData state: {}", metadata.stateMetaData)
-        logger.info("getExplainManagedIndexMetaData action: {}", metadata.actionMetaData)
-        logger.info("getExplainManagedIndexMetaData step: {}", metadata.stepMetaData)
         return metadata
     }
 

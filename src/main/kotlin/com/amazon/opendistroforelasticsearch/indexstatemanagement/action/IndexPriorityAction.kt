@@ -20,7 +20,6 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.A
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.IndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.replicacount.AttemptSetIndexPriorityStep
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.replicacount.AttemptSetReplicaCountStep
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 

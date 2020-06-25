@@ -463,6 +463,11 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
     }
 
+    protected fun deleteSnapshot(repository: String, snapshotName: String) {
+        val response = client().makeRequest("DELETE", "_snapshot/$repository/$snapshotName")
+        assertEquals("Unable to delete snapshot", RestStatus.OK, response.restStatus())
+    }
+
     @Suppress("UNCHECKED_CAST")
     protected fun assertSnapshotExists(
         repository: String,

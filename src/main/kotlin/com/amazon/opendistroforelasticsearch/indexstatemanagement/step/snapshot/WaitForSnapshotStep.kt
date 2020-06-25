@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.snapshot
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.SnapshotActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
@@ -25,6 +26,7 @@ import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotStatus
 import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotsStatusRequest
 import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotsStatusResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.SnapshotsInProgress.State
 import org.elasticsearch.cluster.service.ClusterService
 
 class WaitForSnapshotStep(
@@ -40,29 +42,59 @@ class WaitForSnapshotStep(
     override fun isIdempotent() = true
 
     override suspend fun execute() {
-        logger.info("Waiting for snapshot to complete...")
-        val request = SnapshotsStatusRequest()
-            .snapshots(arrayOf(managedIndexMetaData.info?.get("snapshotName").toString()))
-            .repository(config.repository)
-        val response: SnapshotsStatusResponse = client.admin().cluster().suspendUntil { snapshotsStatus(request, it) }
-        val status: SnapshotStatus? = response
-            .snapshots
-            .find { snapshotStatus ->
-                snapshotStatus.snapshot.snapshotId.name == managedIndexMetaData.info?.get("snapshotName").toString() &&
-                        snapshotStatus.snapshot.repository == config.repository
-            }
-        if (status != null) {
-            if (status.state.completed()) {
-                stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Snapshot created for index: ${managedIndexMetaData.index}")
+        try {
+            logger.info("Waiting for snapshot to complete...")
+            val snapshotName = getSnapshotName() ?: return
+            val request = SnapshotsStatusRequest()
+                .snapshots(arrayOf(snapshotName))
+                .repository(config.repository)
+            val response: SnapshotsStatusResponse = client.admin().cluster().suspendUntil { snapshotsStatus(request, it) }
+            val status: SnapshotStatus? = response
+                .snapshots
+                .find { snapshotStatus ->
+                    snapshotStatus.snapshot.snapshotId.name == snapshotName &&
+                            snapshotStatus.snapshot.repository == config.repository
+                }
+            if (status != null) {
+                when (status.state) {
+                    State.INIT, State.STARTED, State.WAITING -> {
+                        stepStatus = StepStatus.CONDITION_NOT_MET
+                        info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}", "state" to status.state)
+                    }
+                    State.SUCCESS -> {
+                        stepStatus = StepStatus.COMPLETED
+                        info = mapOf("message" to "Snapshot successfully created for index: ${managedIndexMetaData.index}", "state" to status.state)
+                    }
+                    else -> { // State.FAILED, State.ABORTED, State.MISSING, null
+                        stepStatus = StepStatus.FAILED
+                        info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}", "state" to status.state)
+                    }
+                }
             } else {
-                stepStatus = StepStatus.CONDITION_NOT_MET
-                info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}")
+                stepStatus = StepStatus.FAILED
+                info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}")
             }
-        } else {
+        } catch (e: Exception) {
+            val message = "Failed to get status of snapshot for index: ${managedIndexMetaData.index}"
+            logger.error(message, e)
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}")
+            val mutableInfo = mutableMapOf("message" to message)
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
+            info = mutableInfo.toMap()
         }
+    }
+
+    private fun getSnapshotName(): String? {
+        val actionProperties = managedIndexMetaData.actionMetaData?.actionProperties
+
+        if (actionProperties?.snapshotName == null) {
+            stepStatus = StepStatus.FAILED
+            info = mapOf("message" to "Unable to retrieve [${ActionProperties.SNAPSHOT_NAME}] from ActionProperties=$actionProperties")
+            return null
+        }
+
+        return actionProperties.snapshotName
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {

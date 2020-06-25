@@ -25,6 +25,7 @@ import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotStatus
 import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotsStatusRequest
 import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotsStatusResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.SnapshotsInProgress.State
 import org.elasticsearch.cluster.service.ClusterService
 
 class WaitForSnapshotStep(
@@ -53,12 +54,19 @@ class WaitForSnapshotStep(
                             snapshotStatus.snapshot.repository == config.repository
                 }
             if (status != null) {
-                if (status.state.completed()) {
-                    stepStatus = StepStatus.COMPLETED
-                    info = mapOf("message" to "Snapshot created for index: ${managedIndexMetaData.index}")
-                } else {
-                    stepStatus = StepStatus.CONDITION_NOT_MET
-                    info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}")
+                when (status.state) {
+                    State.INIT, State.STARTED, State.WAITING -> {
+                        stepStatus = StepStatus.CONDITION_NOT_MET
+                        info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}", "state" to status.state)
+                    }
+                    State.SUCCESS -> {
+                        stepStatus = StepStatus.COMPLETED
+                        info = mapOf("message" to "Snapshot successfully created for index: ${managedIndexMetaData.index}", "state" to status.state)
+                    }
+                    else -> { // State.FAILED, State.ABORTED, State.MISSING, null
+                        stepStatus = StepStatus.FAILED
+                        info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}", "state" to status.state)
+                    }
                 }
             } else {
                 stepStatus = StepStatus.FAILED

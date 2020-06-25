@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.snapshot
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.SnapshotActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
@@ -43,6 +44,7 @@ class AttemptSnapshotStep(
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
+    private var snapshotName: String? = null
 
     override fun isIdempotent() = false
 
@@ -50,13 +52,13 @@ class AttemptSnapshotStep(
     override suspend fun execute() {
         try {
             logger.info("Executing snapshot on ${managedIndexMetaData.index}")
-            val snapshotName = config
+            snapshotName = config
                     .snapshot
                     .plus("-")
                     .plus(LocalDateTime
                             .now(ZoneId.of("UTC"))
                             .format(DateTimeFormatter.ofPattern("uuuu.MM.dd-HH:mm:ss.SSS", Locale.ROOT)))
-            val mutableInfo = mutableMapOf("snapshotName" to snapshotName)
+            val mutableInfo = mutableMapOf<String, String>()
 
             val createSnapshotRequest = CreateSnapshotRequest()
                     .userMetadata(mapOf("snapshot_created" to "Open Distro for Elasticsearch Index Management"))
@@ -113,7 +115,9 @@ class AttemptSnapshotStep(
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
+        val currentActionMetaData = currentMetaData.actionMetaData
         return currentMetaData.copy(
+                actionMetaData = currentActionMetaData?.copy(actionProperties = ActionProperties(snapshotName = snapshotName)),
                 stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
                 transitionTo = null,
                 info = info

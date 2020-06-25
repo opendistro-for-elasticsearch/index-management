@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.snapshot
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.SnapshotActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
@@ -43,14 +44,15 @@ class WaitForSnapshotStep(
     override suspend fun execute() {
         try {
             logger.info("Waiting for snapshot to complete...")
+            val snapshotName = getSnapshotName() ?: return
             val request = SnapshotsStatusRequest()
-                .snapshots(arrayOf(managedIndexMetaData.info?.get("snapshotName").toString()))
+                .snapshots(arrayOf(snapshotName))
                 .repository(config.repository)
             val response: SnapshotsStatusResponse = client.admin().cluster().suspendUntil { snapshotsStatus(request, it) }
             val status: SnapshotStatus? = response
                 .snapshots
                 .find { snapshotStatus ->
-                    snapshotStatus.snapshot.snapshotId.name == managedIndexMetaData.info?.get("snapshotName").toString() &&
+                    snapshotStatus.snapshot.snapshotId.name == snapshotName &&
                             snapshotStatus.snapshot.repository == config.repository
                 }
             if (status != null) {
@@ -81,6 +83,18 @@ class WaitForSnapshotStep(
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
         }
+    }
+
+    private fun getSnapshotName(): String? {
+        val actionProperties = managedIndexMetaData.actionMetaData?.actionProperties
+
+        if (actionProperties?.snapshotName == null) {
+            stepStatus = StepStatus.FAILED
+            info = mapOf("message" to "Unable to retrieve [${ActionProperties.SNAPSHOT_NAME}] from ActionProperties=$actionProperties")
+            return null
+        }
+
+        return actionProperties.snapshotName
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {

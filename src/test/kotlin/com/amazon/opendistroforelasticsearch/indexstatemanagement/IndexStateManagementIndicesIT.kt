@@ -24,14 +24,14 @@ class IndexStateManagementIndicesIT : IndexStateManagementRestTestCase() {
         val policyId = ESTestCase.randomAlphaOfLength(10)
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
         assertIndexExists(INDEX_STATE_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 2)
+        verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 3)
     }
 
     fun `test update management index mapping with new schema version`() {
         assertIndexDoesNotExist(INDEX_STATE_MANAGEMENT_INDEX)
 
         val mapping = indexStateManagementMappings.trimStart('{').trimEnd('}')
-            .replace("\"schema_version\": 2", "\"schema_version\": 0")
+            .replace("\"schema_version\": 3", "\"schema_version\": 0")
 
         createIndex(INDEX_STATE_MANAGEMENT_INDEX, Settings.builder().put("index.hidden", true).build(), mapping)
         assertIndexExists(INDEX_STATE_MANAGEMENT_INDEX)
@@ -43,7 +43,7 @@ class IndexStateManagementIndicesIT : IndexStateManagementRestTestCase() {
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
 
         assertIndexExists(INDEX_STATE_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 2)
+        verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 3)
     }
 
     fun `test changing policy on an index that hasn't initialized yet check schema version`() {
@@ -58,7 +58,7 @@ class IndexStateManagementIndicesIT : IndexStateManagementRestTestCase() {
         assertEquals("Policy id does not match", policy.id, managedIndexConfig.policyID)
 
         val mapping = "{" + indexStateManagementMappings.trimStart('{').trimEnd('}')
-            .replace("\"schema_version\": 2", "\"schema_version\": 0")
+            .replace("\"schema_version\": 3", "\"schema_version\": 0")
 
         val entity = StringEntity(mapping, ContentType.APPLICATION_JSON)
         client().makeRequest(RestRequest.Method.PUT.toString(),
@@ -72,7 +72,7 @@ class IndexStateManagementIndicesIT : IndexStateManagementRestTestCase() {
             RestRequest.Method.POST.toString(),
             "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
 
-        verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 2)
+        verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 3)
 
         assertAffectedIndicesResponseIsEqual(mapOf(FAILURES to false, FAILED_INDICES to emptyList<Any>(), UPDATED_INDICES to 1), response.asMap())
 

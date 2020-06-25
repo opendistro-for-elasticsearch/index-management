@@ -42,7 +42,7 @@ class AttemptSetIndexPriorityStepTests : ESTestCase() {
         val client = getClient(getAdminClient(getIndicesAdminClient(acknowledgedResponse, null)))
 
         runBlocking {
-            val indexPriorityActionConfig = IndexPriorityActionConfig(50,0)
+            val indexPriorityActionConfig = IndexPriorityActionConfig(50, 0)
             val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val attemptSetPriorityStep = AttemptSetIndexPriorityStep(clusterService, client, indexPriorityActionConfig, managedIndexMetaData)
             attemptSetPriorityStep.execute()
@@ -56,7 +56,7 @@ class AttemptSetIndexPriorityStepTests : ESTestCase() {
         val client = getClient(getAdminClient(getIndicesAdminClient(acknowledgedResponse, null)))
 
         runBlocking {
-            val indexPriorityActionConfig = IndexPriorityActionConfig(50,0)
+            val indexPriorityActionConfig = IndexPriorityActionConfig(50, 0)
             val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val attemptSetPriorityStep = AttemptSetIndexPriorityStep(clusterService, client, indexPriorityActionConfig, managedIndexMetaData)
             attemptSetPriorityStep.execute()
@@ -70,7 +70,7 @@ class AttemptSetIndexPriorityStepTests : ESTestCase() {
         val client = getClient(getAdminClient(getIndicesAdminClient(null, exception)))
 
         runBlocking {
-            val indexPriorityActionConfig = IndexPriorityActionConfig(50,0)
+            val indexPriorityActionConfig = IndexPriorityActionConfig(50, 0)
             val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val attemptSetPriorityStep = AttemptSetIndexPriorityStep(clusterService, client, indexPriorityActionConfig, managedIndexMetaData)
             attemptSetPriorityStep.execute()

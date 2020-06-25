@@ -63,7 +63,7 @@ abstract class ActionConfig(
         FORCE_MERGE("force_merge"),
         NOTIFICATION("notification"),
         SNAPSHOT("snapshot"),
-        INDEX_PRIORITY("set_index_priority");
+        INDEX_PRIORITY("index_priority");
 
         override fun toString(): String {
             return type

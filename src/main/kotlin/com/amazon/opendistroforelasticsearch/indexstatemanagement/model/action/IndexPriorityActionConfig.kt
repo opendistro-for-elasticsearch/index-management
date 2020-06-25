@@ -55,7 +55,7 @@ data class IndexPriorityActionConfig(
     ): Action = IndexPriorityAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {
-        const val INDEX_PRIORITY_FIELD = "index_priority"
+        const val INDEX_PRIORITY_FIELD = "priority"
 
         @JvmStatic
         @Throws(IOException::class)

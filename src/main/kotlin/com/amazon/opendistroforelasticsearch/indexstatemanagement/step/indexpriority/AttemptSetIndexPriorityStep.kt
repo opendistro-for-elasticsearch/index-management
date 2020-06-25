@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.replicacount
+package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.indexpriority
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
@@ -54,15 +54,15 @@ class AttemptSetIndexPriorityStep(
             if (response.isAcknowledged) {
                 logger.info("Successfully executed $name on ${managedIndexMetaData.index}")
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Set index_priority to $indexPriority")
+                info = mapOf("message" to "Successfully set index priority to $indexPriority")
             } else {
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to set index_priority to $indexPriority")
+                info = mapOf("message" to "Failed to set index priority to $indexPriority")
             }
         } catch (e: Exception) {
-            logger.error("Failed to set index_priority [index=${managedIndexMetaData.index}]", e)
+            logger.error("Failed to set index priority [index=${managedIndexMetaData.index}]", e)
             stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set index_priority to $indexPriority")
+            val mutableInfo = mutableMapOf("message" to "Failed to set index priority to $indexPriority")
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()

@@ -175,9 +175,9 @@
                     }
                   }
                 },
-                "set_index_priority": {
+                "index_priority": {
                   "properties": {
-                    "index_priority": {
+                    "priority": {
                       "type": "integer"
                     }
                   }

@@ -27,6 +27,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.snapshots.ConcurrentSnapshotExecutionException
+import org.elasticsearch.transport.RemoteTransportException
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -81,20 +82,34 @@ class AttemptSnapshotStep(
                 }
             }
             info = mutableInfo.toMap()
+        } catch (e: RemoteTransportException) {
+            if (e.cause is ConcurrentSnapshotExecutionException) {
+                resolveSnapshotException(e.cause as ConcurrentSnapshotExecutionException)
+            } else {
+                resolveException(e)
+            }
         } catch (e: ConcurrentSnapshotExecutionException) {
-            val message = "Snapshot creation already in progress."
-            logger.debug(message, e)
-            stepStatus = StepStatus.CONDITION_NOT_MET
-            info = mapOf("message" to message)
+            resolveSnapshotException(e)
         } catch (e: Exception) {
-            val message = "Failed to create snapshot for index: ${managedIndexMetaData.index}"
-            logger.error(message, e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to message)
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            resolveException(e)
         }
+    }
+
+    private fun resolveSnapshotException(e: ConcurrentSnapshotExecutionException) {
+        val message = "Snapshot creation already in progress."
+        logger.debug(message, e)
+        stepStatus = StepStatus.CONDITION_NOT_MET
+        info = mapOf("message" to message)
+    }
+
+    private fun resolveException(e: Exception) {
+        val message = "Failed to create snapshot for index: ${managedIndexMetaData.index}"
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {

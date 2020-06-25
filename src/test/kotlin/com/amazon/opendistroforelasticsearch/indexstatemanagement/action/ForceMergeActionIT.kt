@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -120,7 +120,7 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         waitFor { assertTrue("Segment count for [$indexName] was less than expected", getSegmentCount(indexName) > 1) }
 
         // Set index to read-only
-        updateIndexSettings(indexName, Settings.builder().put(IndexMetaData.SETTING_BLOCKS_WRITE, true))
+        updateIndexSettings(indexName, Settings.builder().put(IndexMetadata.SETTING_BLOCKS_WRITE, true))
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 

@@ -35,9 +35,9 @@ import org.elasticsearch.cluster.ClusterStateTaskExecutor.ClusterTasksResult
 import org.elasticsearch.cluster.ClusterStateTaskListener
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.block.ClusterBlockLevel
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
-import org.elasticsearch.cluster.metadata.MetaData
+import org.elasticsearch.cluster.metadata.Metadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Priority
 import org.elasticsearch.common.inject.Inject
@@ -137,31 +137,31 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
             return currentState
         }
         log.trace("Start of building new cluster state")
-        val metaDataBuilder = MetaData.builder(currentState.metaData)
+        val metaDataBuilder = Metadata.builder(currentState.metadata)
         for (task in tasks) {
             for (pair in task.indicesToAddManagedIndexMetaDataTo) {
-                if (currentState.metaData.hasIndex(pair.first.name)) {
-                    metaDataBuilder.put(IndexMetaData.builder(currentState.metaData.index(pair.first))
+                if (currentState.metadata.hasIndex(pair.first.name)) {
+                    metaDataBuilder.put(IndexMetadata.builder(currentState.metadata.index(pair.first))
                             .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, pair.second.toMap()))
                 } else {
-                    log.debug("No IndexMetaData found for [${pair.first.name}] when updating ManagedIndexMetaData")
+                    log.debug("No IndexMetadata found for [${pair.first.name}] when updating ManagedIndexMetaData")
                 }
             }
 
             for (index in task.indicesToRemoveManagedIndexMetaDataFrom) {
-                if (currentState.metaData.hasIndex(index.name)) {
-                    val indexMetaDataBuilder = IndexMetaData.builder(currentState.metaData.index(index))
+                if (currentState.metadata.hasIndex(index.name)) {
+                    val indexMetaDataBuilder = IndexMetadata.builder(currentState.metadata.index(index))
                     indexMetaDataBuilder.removeCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
 
                     metaDataBuilder.put(indexMetaDataBuilder)
                 } else {
-                    log.debug("No IndexMetaData found for [${index.name}] when removing ManagedIndexMetaData")
+                    log.debug("No IndexMetadata found for [${index.name}] when removing ManagedIndexMetaData")
                 }
             }
         }
         log.trace("End of building new cluster state")
 
-        return ClusterState.builder(currentState).metaData(metaDataBuilder).build()
+        return ClusterState.builder(currentState).metadata(metaDataBuilder).build()
     }
 
     companion object {

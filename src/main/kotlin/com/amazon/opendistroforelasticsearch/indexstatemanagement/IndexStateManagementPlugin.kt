@@ -51,6 +51,7 @@ import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
+import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptService
@@ -139,7 +140,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         environment: Environment,
         nodeEnvironment: NodeEnvironment,
         namedWriteableRegistry: NamedWriteableRegistry,
-        indexNameExpressionResolver: IndexNameExpressionResolver
+        indexNameExpressionResolver: IndexNameExpressionResolver,
+        repositoriesServiceSupplier: Supplier<RepositoriesService>
     ): Collection<Any> {
         val settings = environment.settings()
         this.clusterService = clusterService

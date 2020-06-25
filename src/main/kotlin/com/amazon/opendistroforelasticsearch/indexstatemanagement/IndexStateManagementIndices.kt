@@ -89,7 +89,7 @@ class IndexStateManagementIndices(
     /**
      * ============== History =============
      */
-    fun indexStateManagementIndexHistoryExists(): Boolean = clusterService.state().metaData.hasAlias(HISTORY_WRITE_INDEX_ALIAS)
+    fun indexStateManagementIndexHistoryExists(): Boolean = clusterService.state().metadata.hasAlias(HISTORY_WRITE_INDEX_ALIAS)
 
     suspend fun initHistoryIndex() {
         if (!indexStateManagementIndexHistoryExists())

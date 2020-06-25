@@ -82,7 +82,7 @@ class RestRetryFailedManagedIndexAction : BaseRestHandler() {
         val clusterStateRequest = ClusterStateRequest()
         clusterStateRequest.clear()
             .indices(*indices)
-            .metaData(true)
+            .metadata(true)
             .local(false)
             .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
             .indicesOptions(strictExpandIndicesOptions)
@@ -120,7 +120,7 @@ class RestRetryFailedManagedIndexAction : BaseRestHandler() {
         }
 
         private fun populateList(state: ClusterState) {
-            for (indexMetaDataEntry in state.metaData.indices) {
+            for (indexMetaDataEntry in state.metadata.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
                 when {

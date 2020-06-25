@@ -31,6 +31,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.N
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.IndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
@@ -143,6 +144,10 @@ fun randomReadWriteActionConfig(): ReadWriteActionConfig {
 
 fun randomReplicaCountActionConfig(numOfReplicas: Int = ESRestTestCase.randomIntBetween(0, 200)): ReplicaCountActionConfig {
     return ReplicaCountActionConfig(index = 0, numOfReplicas = numOfReplicas)
+}
+
+fun randomIndexPriorityActionConfig(indexPriority: Int = ESRestTestCase.randomIntBetween(0, 100)): IndexPriorityActionConfig {
+    return IndexPriorityActionConfig(index = 0, indexPriority = indexPriority)
 }
 
 fun randomForceMergeActionConfig(
@@ -341,6 +346,11 @@ fun ReadWriteActionConfig.toJsonString(): String {
 }
 
 fun ReplicaCountActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun IndexPriorityActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

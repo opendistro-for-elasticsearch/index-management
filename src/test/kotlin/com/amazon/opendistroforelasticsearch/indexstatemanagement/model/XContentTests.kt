@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomIndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomSnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
@@ -116,6 +117,14 @@ class XContentTests : ESTestCase() {
         val replicaCountActionConfigString = replicaCountActionConfig.toJsonString()
         val parsedReplicaCountActionConfig = ActionConfig.parse(parser(replicaCountActionConfigString), 0)
         assertEquals("Round tripping ReplicaCountActionConfig doesn't work", replicaCountActionConfig, parsedReplicaCountActionConfig)
+    }
+
+    fun `test set_index_priority action config parsing`() {
+        val indexPriorityActionConfig = randomIndexPriorityActionConfig()
+
+        val indexPriorityActionConfigString = indexPriorityActionConfig.toJsonString()
+        val parsedIndexPriorityActionConfig = ActionConfig.parse(parser(indexPriorityActionConfigString), 0)
+        assertEquals("Round tripping indexPriorityActionConfig doesn't work", indexPriorityActionConfig, parsedIndexPriorityActionConfig)
     }
 
     fun `test force_merge action config parsing`() {

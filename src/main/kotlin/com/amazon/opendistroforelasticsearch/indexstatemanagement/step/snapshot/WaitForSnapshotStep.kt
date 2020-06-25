@@ -57,7 +57,7 @@ class WaitForSnapshotStep(
                 }
             if (status != null) {
                 when (status.state) {
-                    State.INIT, State.STARTED, State.WAITING -> {
+                    State.INIT, State.STARTED -> {
                         stepStatus = StepStatus.CONDITION_NOT_MET
                         info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}", "state" to status.state)
                     }
@@ -65,7 +65,7 @@ class WaitForSnapshotStep(
                         stepStatus = StepStatus.COMPLETED
                         info = mapOf("message" to "Snapshot successfully created for index: ${managedIndexMetaData.index}", "state" to status.state)
                     }
-                    else -> { // State.FAILED, State.ABORTED, State.MISSING, null
+                    else -> { // State.FAILED, State.ABORTED, null
                         stepStatus = StepStatus.FAILED
                         info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}", "state" to status.state)
                     }

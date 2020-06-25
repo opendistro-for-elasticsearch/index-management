@@ -23,7 +23,7 @@ import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterState
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser
@@ -75,7 +75,7 @@ class IndexUtils {
             return DEFAULT_SCHEMA_VERSION
         }
 
-        fun shouldUpdateIndex(index: IndexMetaData, newVersion: Long): Boolean {
+        fun shouldUpdateIndex(index: IndexMetadata, newVersion: Long): Boolean {
             var oldVersion = DEFAULT_SCHEMA_VERSION
 
             val indexMapping = index.mapping()?.sourceAsMap()
@@ -112,8 +112,8 @@ class IndexUtils {
             client: IndicesAdminClient,
             actionListener: ActionListener<AcknowledgedResponse>
         ) {
-            if (clusterState.metaData.indices.containsKey(index)) {
-                if (shouldUpdateIndex(clusterState.metaData.indices[index], schemaVersion)) {
+            if (clusterState.metadata.indices.containsKey(index)) {
+                if (shouldUpdateIndex(clusterState.metadata.indices[index], schemaVersion)) {
                     val putMappingRequest: PutMappingRequest = PutMappingRequest(index).type(_DOC).source(mapping, XContentType.JSON)
                     client.putMapping(putMappingRequest, actionListener)
                 } else {

@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.util
 
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
@@ -51,7 +51,7 @@ class IndexUtilsTests : ESTestCase() {
             "\"settings_version\":123,\"mappings\":{\"_doc\":{\"properties\":{\"name\":{\"type\":\"keyword\"}}}}}}"
 
         val parser = createParser(XContentType.JSON.xContent(), indexContent)
-        val index: IndexMetaData = IndexMetaData.fromXContent(parser)
+        val index: IndexMetadata = IndexMetadata.fromXContent(parser)
 
         val shouldUpdateIndex = IndexUtils.shouldUpdateIndex(index, 10)
         assertTrue(shouldUpdateIndex)
@@ -65,7 +65,7 @@ class IndexUtilsTests : ESTestCase() {
             "{\"name\":{\"type\":\"keyword\"}}}}}}"
 
         val parser = createParser(XContentType.JSON.xContent(), indexContent)
-        val index: IndexMetaData = IndexMetaData.fromXContent(parser)
+        val index: IndexMetadata = IndexMetadata.fromXContent(parser)
 
         val shouldUpdateIndex = IndexUtils.shouldUpdateIndex(index, 10)
         assertTrue(shouldUpdateIndex)
@@ -78,7 +78,7 @@ class IndexUtilsTests : ESTestCase() {
             "{\"_doc\":{\"_meta\":{\"schema_version\":1},\"properties\":{\"name\":{\"type\":\"keyword\"}}}}}}"
 
         val parser = createParser(XContentType.JSON.xContent(), indexContent)
-        val index: IndexMetaData = IndexMetaData.fromXContent(parser)
+        val index: IndexMetadata = IndexMetadata.fromXContent(parser)
 
         val shouldUpdateIndex = IndexUtils.shouldUpdateIndex(index, 1)
         assertFalse(shouldUpdateIndex)

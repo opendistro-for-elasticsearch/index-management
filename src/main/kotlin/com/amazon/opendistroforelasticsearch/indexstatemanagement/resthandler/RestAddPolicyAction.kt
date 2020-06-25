@@ -31,7 +31,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -84,7 +84,7 @@ class RestAddPolicyAction : BaseRestHandler() {
         val clusterStateRequest = ClusterStateRequest()
             .clear()
             .indices(*indices)
-            .metaData(true)
+            .metadata(true)
             .local(false)
             .waitForTimeout(TimeValue.timeValueMillis(ADD_POLICY_TIMEOUT_IN_MILLIS))
             .indicesOptions(strictExpandOptions)
@@ -166,7 +166,7 @@ class RestAddPolicyAction : BaseRestHandler() {
         }
 
         private fun populateLists(state: ClusterState) {
-            for (indexMetaDataEntry in state.metaData.indices) {
+            for (indexMetaDataEntry in state.metadata.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 when {
                     indexMetaData.getPolicyID() != null ->
@@ -177,7 +177,7 @@ class RestAddPolicyAction : BaseRestHandler() {
                                 "This index already has a policy, use the update policy API to update index policies"
                             )
                         )
-                    indexMetaData.state == IndexMetaData.State.CLOSE ->
+                    indexMetaData.state == IndexMetadata.State.CLOSE ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
                     else -> indicesToAddPolicyTo.add(indexMetaData.index)
                 }

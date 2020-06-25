@@ -27,31 +27,36 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 /** Properties that will persist across steps of a single Action. Will be stored in the [ActionMetaData]. */
 data class ActionProperties(
-    val maxNumSegments: Int? = null
+    val maxNumSegments: Int? = null,
+    val snapshotName: String? = null
 ) : Writeable, ToXContentFragment {
 
     override fun writeTo(out: StreamOutput) {
         out.writeOptionalInt(maxNumSegments)
+        out.writeOptionalString(snapshotName)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         if (maxNumSegments != null) builder.field(MAX_NUM_SEGMENTS, maxNumSegments)
-
+        if (snapshotName != null) builder.field(SNAPSHOT_NAME, snapshotName)
         return builder
     }
 
     companion object {
         const val ACTION_PROPERTIES = "action_properties"
         const val MAX_NUM_SEGMENTS = "max_num_segments"
+        const val SNAPSHOT_NAME = "snapshot_name"
 
         fun fromStreamInput(si: StreamInput): ActionProperties {
             val maxNumSegments: Int? = si.readOptionalInt()
+            val snapshotName: String? = si.readOptionalString()
 
-            return ActionProperties(maxNumSegments)
+            return ActionProperties(maxNumSegments, snapshotName)
         }
 
         fun parse(xcp: XContentParser): ActionProperties {
             var maxNumSegments: Int? = null
+            var snapshotName: String? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -60,10 +65,11 @@ data class ActionProperties(
 
                 when (fieldName) {
                     MAX_NUM_SEGMENTS -> maxNumSegments = xcp.intValue()
+                    SNAPSHOT_NAME -> snapshotName = xcp.text()
                 }
             }
 
-            return ActionProperties(maxNumSegments)
+            return ActionProperties(maxNumSegments, snapshotName)
         }
     }
 }

@@ -48,7 +48,7 @@ class AttemptSnapshotStep(
 
     override fun isIdempotent() = false
 
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "ComplexMethod")
     override suspend fun execute() {
         try {
             logger.info("Executing snapshot on ${managedIndexMetaData.index}")

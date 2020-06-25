@@ -68,7 +68,7 @@ class AttemptSnapshotStep(
             when (response.status()) {
                 RestStatus.ACCEPTED -> {
                     stepStatus = StepStatus.COMPLETED
-                    mutableInfo["message"] = "Snapshot creation started and is still in progress for index: ${managedIndexMetaData.index}"
+                    mutableInfo["message"] = "Snapshot creation started for index: ${managedIndexMetaData.index}"
                 }
                 RestStatus.OK -> {
                     stepStatus = StepStatus.COMPLETED

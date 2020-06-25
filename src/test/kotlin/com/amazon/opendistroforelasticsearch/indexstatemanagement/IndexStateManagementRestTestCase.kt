@@ -46,7 +46,7 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.DeprecationHandler
@@ -377,7 +377,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     @Suppress("UNCHECKED_CAST")
     protected fun getIndexBlocksWriteSetting(indexName: String): String {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
-        return indexSettings[indexName]!!["settings"]!![IndexMetaData.SETTING_BLOCKS_WRITE] as String
+        return indexSettings[indexName]!!["settings"]!![IndexMetadata.SETTING_BLOCKS_WRITE] as String
     }
 
     @Suppress("UNCHECKED_CAST")

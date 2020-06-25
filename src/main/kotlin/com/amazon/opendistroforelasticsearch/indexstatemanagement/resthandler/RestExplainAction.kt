@@ -65,7 +65,7 @@ class RestExplainAction : BaseRestHandler() {
 
         clusterStateRequest.clear()
             .indices(*indices)
-            .metaData(true)
+            .metadata(true)
             .local(false)
             .local(request.paramAsBoolean("local", clusterStateRequest.local()))
             .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
@@ -82,7 +82,7 @@ class RestExplainAction : BaseRestHandler() {
                 val state = clusterStateResponse.state
 
                 builder.startObject()
-                for (indexMetadataEntry in state.metaData.indices) {
+                for (indexMetadataEntry in state.metadata.indices) {
                     builder.startObject(indexMetadataEntry.key)
                     val indexMetadata = indexMetadataEntry.value
                     val managedIndexMetaDataMap = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)

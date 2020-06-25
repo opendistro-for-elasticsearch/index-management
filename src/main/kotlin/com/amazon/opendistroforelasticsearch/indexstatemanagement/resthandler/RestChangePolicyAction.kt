@@ -146,7 +146,7 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
             val clusterStateRequest = ClusterStateRequest()
                 .clear()
                 .indices(*indices)
-                .metaData(true)
+                .metadata(true)
                 .local(false)
                 .indicesOptions(IndicesOptions.strictExpand())
 
@@ -155,7 +155,7 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
 
         private fun processResponse(response: ClusterStateResponse) {
             val includedStates = changePolicy.include.map { it.state }.toSet()
-            response.state.metaData.indices.forEach {
+            response.state.metadata.indices.forEach {
                 val indexMetaData = it.value
                 val currentState = indexMetaData.getManagedIndexMetaData()?.stateMetaData?.name
                 if (currentState != null) {

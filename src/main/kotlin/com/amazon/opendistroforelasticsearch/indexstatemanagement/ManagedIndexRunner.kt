@@ -82,7 +82,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.health.ClusterHealthStatus
 import org.elasticsearch.cluster.health.ClusterStateHealth
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -678,19 +678,19 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     private fun clusterIsRed(): Boolean = ClusterStateHealth(clusterService.state()).status == ClusterHealthStatus.RED
 
-    private suspend fun getIndexMetaData(index: String): IndexMetaData? {
-        var indexMetaData: IndexMetaData? = null
+    private suspend fun getIndexMetaData(index: String): IndexMetadata? {
+        var indexMetaData: IndexMetadata? = null
         try {
             val clusterStateRequest = ClusterStateRequest()
                 .clear()
                 .indices(index)
-                .metaData(true)
+                .metadata(true)
                 .local(false)
                 .indicesOptions(IndicesOptions.strictExpand())
 
             val response: ClusterStateResponse = client.admin().cluster().suspendUntil { state(clusterStateRequest, it) }
 
-            indexMetaData = response.state.metaData.indices.firstOrNull()?.value
+            indexMetaData = response.state.metadata.indices.firstOrNull()?.value
             if (indexMetaData == null) {
                 logger.error("Could not find IndexMetaData in master cluster state for $index")
             }

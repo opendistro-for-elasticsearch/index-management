@@ -67,7 +67,7 @@ class AttemptRolloverStep(
         // If statsResponse is null we already updated failed info from getIndexStatsOrUpdateInfo and can return early
         statsResponse ?: return
 
-        val indexCreationDate = clusterService.state().metaData().index(index).creationDate
+        val indexCreationDate = clusterService.state().metadata().index(index).creationDate
         val indexAgeTimeValue = if (indexCreationDate == -1L) {
             logger.warn("$index had an indexCreationDate=-1L, cannot use for comparison")
             // since we cannot use for comparison, we can set it to 0 as minAge will never be <= 0
@@ -145,7 +145,7 @@ class AttemptRolloverStep(
     }
 
     private fun getAliasOrUpdateInfo(): String? {
-        val alias = clusterService.state().metaData().index(managedIndexMetaData.index).getRolloverAlias()
+        val alias = clusterService.state().metadata().index(managedIndexMetaData.index).getRolloverAlias()
 
         if (alias == null) {
             stepStatus = StepStatus.FAILED

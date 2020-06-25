@@ -64,7 +64,7 @@ class AttemptTransitionStep(
                 return
             }
 
-            val indexCreationDate = clusterService.state().metaData().index(index).creationDate
+            val indexCreationDate = clusterService.state().metadata().index(index).creationDate
             val indexCreationDateInstant = Instant.ofEpochMilli(indexCreationDate)
             if (indexCreationDate == -1L) {
                 logger.warn("$index had an indexCreationDate=-1L, cannot use for comparison")

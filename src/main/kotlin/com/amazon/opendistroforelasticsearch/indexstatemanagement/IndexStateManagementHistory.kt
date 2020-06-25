@@ -121,7 +121,7 @@ class IndexStateManagementHistory(
             .mapping(_DOC, IndexStateManagementIndices.indexStateManagementHistoryMappings, XContentType.JSON)
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
-        val response = client.admin().indices().rolloversIndex(request).actionGet()
+        val response = client.admin().indices().rolloverIndex(request).actionGet()
         if (!response.isRolledOver) {
             logger.info("${IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS} not rolled over. Conditions were: ${response.conditionStatus}")
         }
@@ -135,13 +135,13 @@ class IndexStateManagementHistory(
         val clusterStateRequest = ClusterStateRequest()
             .clear()
             .indices(IndexStateManagementIndices.HISTORY_ALL)
-            .metaData(true)
+            .metadata(true)
             .local(true)
             .indicesOptions(IndicesOptions.strictExpand())
 
         val clusterStateResponse = client.admin().cluster().state(clusterStateRequest).actionGet()
 
-        for (entry in clusterStateResponse.state.metaData.indices()) {
+        for (entry in clusterStateResponse.state.metadata.indices()) {
             val indexMetaData = entry.value
             val creationTime = indexMetaData.creationDate
 

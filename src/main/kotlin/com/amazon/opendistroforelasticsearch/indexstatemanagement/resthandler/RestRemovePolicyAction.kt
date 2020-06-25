@@ -30,7 +30,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.Index
@@ -71,7 +71,7 @@ class RestRemovePolicyAction : BaseRestHandler() {
         val clusterStateRequest = ClusterStateRequest()
             .clear()
             .indices(*indices)
-            .metaData(true)
+            .metadata(true)
             .local(false)
             .indicesOptions(strictExpandOptions)
 
@@ -138,14 +138,14 @@ class RestRemovePolicyAction : BaseRestHandler() {
         }
 
         private fun populateLists(state: ClusterState) {
-            for (indexMetaDataEntry in state.metaData.indices) {
+            for (indexMetaDataEntry in state.metadata.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 when {
                     indexMetaData.getPolicyID() == null ->
                         failedIndices.add(
                             FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index does not have a policy to remove")
                         )
-                    indexMetaData.state == IndexMetaData.State.CLOSE ->
+                    indexMetaData.state == IndexMetadata.State.CLOSE ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
                     else -> indicesToRemovePolicyFrom.add(indexMetaData.index)
                 }

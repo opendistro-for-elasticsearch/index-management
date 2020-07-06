@@ -11,7 +11,7 @@ Open Distro for Elasticsearch Index Management provides a suite of features to m
 
 It currently contains an automated system for managing and optimizing indices throughout their life, Index State Management.
 
-View the original [request for comments](./RFC.md).
+View the original [request for comments](docs/rfc.md).
 
 ## Highlights
 

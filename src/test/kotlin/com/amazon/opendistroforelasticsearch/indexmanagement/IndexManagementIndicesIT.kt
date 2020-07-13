@@ -50,7 +50,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
 
     fun `test create index management`() {
         val policy = randomPolicy()
-        val policyId = ESTestCase.randomAlphaOfLength(10)
+        val policyId = randomAlphaOfLength(10)
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
         verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 6)

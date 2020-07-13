@@ -24,6 +24,9 @@ import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
+import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.get.MultiGetRequest
+import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
@@ -31,6 +34,10 @@ import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -45,7 +52,8 @@ private val log = LogManager.getLogger(TransportExplainAction::class.java)
 class TransportExplainAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
-    actionFilters: ActionFilters
+    actionFilters: ActionFilters,
+    val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<ExplainRequest, ExplainResponse>(
         ExplainAction.NAME, transportService, actionFilters, ::ExplainRequest
 ) {
@@ -76,7 +84,7 @@ class TransportExplainAction @Inject constructor(
         private val enabledState: MutableMap<String, Boolean> = mutableMapOf()
         private var totalManagedIndices = 0
 
-        @Suppress("SpreadOperator")
+        @Suppress("SpreadOperator", "NestedBlockDepth")
         fun start() {
             val params = request.searchParams
 
@@ -185,8 +193,6 @@ class TransportExplainAction @Inject constructor(
             clusterStateRequest.clear()
                 .indices(*indices.toTypedArray())
                 .metadata(true)
-                .local(request.local)
-                .masterNodeTimeout(request.masterTimeout)
                 .indicesOptions(strictExpandIndicesOptions)
 
             client.admin().cluster().state(clusterStateRequest, object : ActionListener<ClusterStateResponse> {
@@ -202,27 +208,44 @@ class TransportExplainAction @Inject constructor(
 
         fun onClusterStateResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
-            val indexPolicyIDs = mutableListOf<String?>()
-            val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
 
             if (wildcard) {
                 indexNames.clear() // clear wildcard (index*) from indexNames
                 state.metadata.indices.forEach { indexNames.add(it.key) }
             }
 
+            val indices = state.metadata.indices.map { it.key to it.value.indexUUID }.toMap()
+            val mgetReq = MultiGetRequest()
+            indices.map { it.value }.forEach { uuid ->
+                mgetReq.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, uuid + "metadata").routing(uuid))
+            }
+            client.multiGet(mgetReq, object : ActionListener<MultiGetResponse> {
+                override fun onResponse(response: MultiGetResponse) {
+                    val metadataMap = response.responses.map { it.id to getMetadata(it.response)?.toMap() }.toMap()
+                    buildResponse(indices, metadataMap)
+                }
+
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
+                }
+            })
+        }
+
+        fun buildResponse(indices: Map<String, String>, metadataMap: Map<String, Map<String, String>?>) {
+            val indexPolicyIDs = mutableListOf<String?>()
+            val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
+
             // cluster state response will not resisting the sort order
             // so use the order from previous search result saved in indexNames
             for (indexName in indexNames) {
-                val indexMetadata = state.metadata.indices[indexName]
-
                 var managedIndexMetadataMap = managedIndicesMetaDataMap[indexName]
                 indexPolicyIDs.add(managedIndexMetadataMap?.get("policy_id")) // use policyID from metadata
 
                 var managedIndexMetadata: ManagedIndexMetaData? = null
-                val clusterStateMetadata = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+                val configIndexMetadata = metadataMap[indices[indexName] + "metadata"]
                 if (managedIndexMetadataMap != null) {
-                    if (clusterStateMetadata != null) { // if has metadata saved, use that
-                        managedIndexMetadataMap = clusterStateMetadata
+                    if (configIndexMetadata != null) { // if has metadata saved, use that
+                        managedIndexMetadataMap = configIndexMetadata
                     }
                     if (managedIndexMetadataMap.isNotEmpty()) {
                         managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetadataMap)
@@ -230,7 +253,6 @@ class TransportExplainAction @Inject constructor(
                 }
                 indexMetadatas.add(managedIndexMetadata)
             }
-
             managedIndicesMetaDataMap.clear()
 
             if (explainAll) {
@@ -240,7 +262,19 @@ class TransportExplainAction @Inject constructor(
             actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
         }
 
-        fun emptyResponse(size: Int = 0) {
+        private fun getMetadata(response: GetResponse?): ManagedIndexMetaData? {
+            if (response == null || response.sourceAsBytesRef == null) return null
+
+            val xcp = XContentHelper.createParser(
+                xContentRegistry,
+                LoggingDeprecationHandler.INSTANCE,
+                response.sourceAsBytesRef,
+                XContentType.JSON)
+            return ManagedIndexMetaData.parseWithType(xcp,
+                response.id, response.seqNo, response.primaryTerm)
+        }
+
+        private fun emptyResponse(size: Int = 0) {
             if (explainAll) {
                 actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), size, emptyMap()))
                 return

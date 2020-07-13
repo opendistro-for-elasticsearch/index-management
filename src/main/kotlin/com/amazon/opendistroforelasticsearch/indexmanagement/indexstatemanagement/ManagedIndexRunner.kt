@@ -53,9 +53,11 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isSuccessfulDelete
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.shouldBackoff
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.shouldChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateDisableManagedIndexRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -64,6 +66,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalS
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -96,6 +99,7 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
 import org.elasticsearch.index.engine.VersionConflictEngineException
+import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
@@ -114,6 +118,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private lateinit var xContentRegistry: NamedXContentRegistry
     private lateinit var scriptService: ScriptService
     private lateinit var settings: Settings
+    private lateinit var ismHistory: IndexStateManagementHistory
+    private lateinit var skipExecFlag: SkipExecution
     private var indexStateManagementEnabled: Boolean = DEFAULT_ISM_ENABLED
     @Suppress("MagicNumber")
     private val savePolicyRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
@@ -123,6 +129,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private val errorNotificationRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     private var jobInterval: Int = DEFAULT_JOB_INTERVAL
     private var allowList: List<String> = ALLOW_LIST_NONE
+    // indicate whether metadata in cluster state is delete successful last time
+    var metadataDeleted: Boolean = true
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
         this.clusterService = clusterService
@@ -168,22 +176,37 @@ object ManagedIndexRunner : ScheduledJobRunner,
         return this
     }
 
+    fun registerHistoryIndex(ismHistory: IndexStateManagementHistory): ManagedIndexRunner {
+        this.ismHistory = ismHistory
+        return this
+    }
+
+    fun registerSkipFlag(flag: SkipExecution): ManagedIndexRunner {
+        this.skipExecFlag = flag
+        return this
+    }
+
     override fun runJob(job: ScheduledJobParameter, context: JobExecutionContext) {
         if (job !is ManagedIndexConfig) {
             throw IllegalArgumentException("Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}")
         }
 
         launch {
+            if (skipExecFlag.flag) {
+                logger.info("cluster still has node running old version ISM plugin, so skip execution on this node until all nodes upgraded")
+                return@launch
+            }
+
             // Attempt to acquire lock
             val lock: LockModel? = context.lockService.suspendUntil { acquireLock(job, context, it) }
             if (lock == null) {
-                logger.debug("Could not acquire lock for ${job.index}")
+                logger.debug("Could not acquire lock [${lock?.lockId}] for ${job.index}")
             } else {
                 runManagedIndexConfig(job)
                 // Release lock
                 val released: Boolean = context.lockService.suspendUntil { release(lock, it) }
                 if (!released) {
-                    logger.debug("Could not release lock for ${job.index}")
+                    logger.debug("Could not release lock [${lock.lockId}] for ${job.index}")
                 }
             }
         }
@@ -191,21 +214,21 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     @Suppress("ReturnCount", "ComplexMethod", "LongMethod", "ComplexCondition")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
+        logger.info("run job for index ${managedIndexConfig.index}")
         // doing a check of local cluster health as we do not want to overload master node with potentially a lot of calls
         if (clusterIsRed()) {
             logger.debug("Skipping current execution of ${managedIndexConfig.index} because of red cluster health")
             return
         }
 
-        // Get current IndexMetaData and ManagedIndexMetaData
-        val indexMetaData = getIndexMetaData(managedIndexConfig.index)
-        if (indexMetaData == null) {
-            return
-        }
-        val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
+        val indexMetaData = getIndexMetadata(managedIndexConfig.index) ?: return
+        var managedIndexMetaData = indexMetaData.getManagedIndexMetaData(client)
+        val clusterStateMetadata = indexMetaData.getManagedIndexMetaData()
+        managedIndexMetaData = handleClusterStateMetadata(managedIndexMetaData, clusterStateMetadata)
 
         // If policy or managedIndexMetaData is null then initialize
         val policy = managedIndexConfig.policy
+
         if (policy == null || managedIndexMetaData == null) {
             initManagedIndex(managedIndexConfig, managedIndexMetaData)
             return
@@ -219,8 +242,14 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         if (managedIndexMetaData.hasVersionConflict(managedIndexConfig)) {
             val info = mapOf("message" to "There is a version conflict between your previous execution and your managed index")
-            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
-            if (updated) disableManagedIndexConfig(managedIndexConfig)
+            val result = updateManagedIndexMetaData(
+                managedIndexMetaData.copy(
+                    policyRetryInfo = PolicyRetryInfoMetaData(true, 0),
+                    info = info
+                ))
+            if (result.savedMetadata) {
+                disableManagedIndexConfig(managedIndexConfig)
+            }
             return
         }
 
@@ -241,7 +270,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.error("Action=${action.type.type} has timed out")
             val updated = updateManagedIndexMetaData(managedIndexMetaData
                 .copy(actionMetaData = currentActionMetaData?.copy(failed = true), info = info))
-            if (updated) disableManagedIndexConfig(managedIndexConfig)
+            if (updated.savedMetadata) disableManagedIndexConfig(managedIndexConfig)
             return
         }
 
@@ -262,8 +291,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.info("Previous execution failed to update step status, isIdempotent=$isIdempotent")
             if (isIdempotent != true) {
                 val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
-                val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
-                if (updated) disableManagedIndexConfig(managedIndexConfig)
+                val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(
+                        policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+                if (updated.savedMetadata) disableManagedIndexConfig(managedIndexConfig)
                 return
             }
         }
@@ -272,8 +302,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
         // as this action has been removed from the AllowList, but if its not the first step we will let it finish as it's already inflight
         if (action?.isAllowed(allowList) == false && action.isFirstStep(step?.name)) {
             val info = mapOf("message" to "Attempted to execute action=${action.type.type} which is not allowed.")
-            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
-            if (updated) disableManagedIndexConfig(managedIndexConfig)
+            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(
+                    policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+            if (updated.savedMetadata) disableManagedIndexConfig(managedIndexConfig)
             return
         }
 
@@ -281,7 +312,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val startingManagedIndexMetaData = managedIndexMetaData.getStartingManagedIndexMetaData(state, action, step)
         val updateResult = updateManagedIndexMetaData(startingManagedIndexMetaData)
 
-        if (updateResult && state != null && action != null && step != null && currentActionMetaData != null) {
+        @Suppress("ComplexCondition")
+        if (updateResult.savedMetadata && state != null && action != null && step != null && currentActionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
             step.preExecute(logger).execute().postExecute(logger)
             var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(action, step)
@@ -303,7 +335,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 return
             }
 
-            if (!updateManagedIndexMetaData(executedManagedIndexMetaData)) {
+            if (!updateManagedIndexMetaData(executedManagedIndexMetaData, updateResult).savedMetadata) {
                 logger.error("Failed to update ManagedIndexMetaData after executing the Step : ${step.name}")
             }
 
@@ -314,15 +346,17 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     private suspend fun initManagedIndex(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData?) {
+        logger.info("init for ${managedIndexConfig.index}, policy ${managedIndexConfig.policyID}")
         var policy: Policy? = managedIndexConfig.policy
         val policyID = managedIndexConfig.changePolicy?.policyID ?: managedIndexConfig.policyID
         // If policy does not currently exist, we need to save the policy on the ManagedIndexConfig for the first time
-        // or if a change policy exists then we will also execute the change as we are still in initialization phase
+        // or if a change policyID exists, it means user want to change policy before initialization phase
         if (policy == null || managedIndexConfig.changePolicy != null) {
             // Get the policy by the name unless a ChangePolicy exists then allow the change to happen during initialization
             policy = getPolicy(policyID)
             // Attempt to save the policy
             if (policy != null) {
+                logger.info("attempt to save policy to config index")
                 val saved = savePolicyToManagedIndexConfig(managedIndexConfig, policy)
                 // If we failed to save the policy, don't initialize ManagedIndexMetaData
                 if (!saved) return
@@ -337,8 +371,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
             // Initializing ManagedIndexMetaData for the first time
             getInitializedManagedIndexMetaData(managedIndexMetaData, managedIndexConfig, policy)
         }
+        logger.info("init metadata to update: $updatedManagedIndexMetaData")
 
-        updateManagedIndexMetaData(updatedManagedIndexMetaData)
+        val res = updateManagedIndexMetaData(updatedManagedIndexMetaData)
     }
 
     @Suppress("ReturnCount", "BlockingMethodInNonBlockingContext")
@@ -486,7 +521,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 )
             else ->
                 // else this means we either tried to load a policy with a different id, seqno, or primaryterm from what is
-                // in the metadata and we cannot gaurantee it will work with the current state in managedIndexMetaData
+                // in the metadata and we cannot guarantee it will work with the current state in managedIndexMetaData
                 managedIndexMetaData.copy(
                     policyRetryInfo = PolicyRetryInfoMetaData(failed = true, consumedRetries = 0),
                     info = mapOf("message" to "Fail to load policy: ${policy.id} with " +
@@ -497,8 +532,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
     }
 
+    // update metadata in cluster state
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun updateManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaData): Boolean {
+    private suspend fun updateManagedIndexMetaDataOld(managedIndexMetaData: ManagedIndexMetaData): Boolean {
         var result = false
         try {
             val request = UpdateManagedIndexMetaDataRequest(
@@ -520,6 +556,98 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.error("Failed to save ManagedIndexMetaData for [index=${managedIndexMetaData.index}]", e)
         }
         return result
+    }
+
+    // delete metadata in cluster state
+    private suspend fun deleteManagedIndexMetaData(managedIndexMetaData: ManagedIndexMetaData): Boolean {
+        var result = false
+        try {
+            val request = UpdateManagedIndexMetaDataRequest(
+                indicesToRemoveManagedIndexMetaDataFrom = listOf(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid))
+            )
+            updateMetaDataRetryPolicy.retry(logger) {
+                val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, it) }
+                if (response.isAcknowledged) {
+                    result = true
+                } else {
+                    logger.error("Failed to delete ManagedIndexMetaData for [index=${managedIndexMetaData.index}]")
+                }
+            }
+        } catch (e: ClusterBlockException) {
+            logger.error("There was ClusterBlockException trying to delete the metadata for ${managedIndexMetaData.index}. Message: ${e.message}", e)
+        } catch (e: Exception) {
+            logger.error("Failed to delete ManagedIndexMetaData for [index=${managedIndexMetaData.index}]", e)
+        }
+        return result
+    }
+
+    // update metadata in config index, and save metadata in history after update
+    // we can possibly call this 2 times in one job run, so need to save seqNo & primeTerm for the second call
+    private suspend fun updateManagedIndexMetaData(
+        managedIndexMetaData: ManagedIndexMetaData,
+        lastUpdateResult: UpdateMetadataResult? = null
+    ): UpdateMetadataResult {
+        val result = UpdateMetadataResult()
+
+        var metadata: ManagedIndexMetaData = managedIndexMetaData
+        if (lastUpdateResult != null) {
+            metadata = managedIndexMetaData.copy(seqNo = lastUpdateResult.seqNo, primaryTerm = lastUpdateResult.primaryTerm)
+        }
+
+        val indexRequest = managedIndexMetadataIndexRequest(metadata)
+        try {
+            updateMetaDataRetryPolicy.retry(logger) {
+                val indexResponse: IndexResponse = client.suspendUntil { index(indexRequest, it) }
+                result.savedMetadata = indexResponse.status() ==
+                        RestStatus.OK || indexResponse.status() == RestStatus.CREATED
+                result.seqNo = indexResponse.seqNo
+                result.primaryTerm = indexResponse.primaryTerm
+            }
+
+            GlobalScope.launch(Dispatchers.IO + CoroutineName("ManagedIndexMetaData-AddHistory")) {
+                ismHistory.addManagedIndexMetaDataHistory(listOf(metadata))
+            }
+        } catch (e: VersionConflictEngineException) {
+            logger.error("There was VersionConflictEngineException trying to update the metadata for " +
+                    "${managedIndexMetaData.index}. Message: ${e.message}", e)
+        } catch (e: Exception) {
+            logger.error("Failed to save ManagedIndexMetaData for [index=${managedIndexMetaData.index}]", e)
+        }
+
+        return result
+    }
+
+    data class UpdateMetadataResult(
+        var savedMetadata: Boolean = false,
+        var seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+        var primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+    )
+
+    /**
+     *  only if metadata from config index is null and metadata from cluster state is not null
+     *  will try to update metadata from cluster state to config index, and clear metadata in cluster state
+     *  else when we have metadata in config index, we only try to clear metadata in cluster state if we
+     *  haven't cleared it successfully
+     */
+    @OpenForTesting
+    suspend fun handleClusterStateMetadata(input: ManagedIndexMetaData?, metadataFromClusterState: ManagedIndexMetaData?): ManagedIndexMetaData? {
+        var metadata: ManagedIndexMetaData? = input
+        if (metadataFromClusterState != null) {
+            if (metadata == null) {
+                // move metadata from cluster state metadata to config index
+                metadata = metadataFromClusterState
+                if (updateManagedIndexMetaData(metadata).savedMetadata) {
+                    metadataDeleted = deleteManagedIndexMetaData(metadataFromClusterState)
+                }
+            } else {
+                if (!metadataDeleted) {
+                    // fail to delete cluster state metadata last time
+                    metadataDeleted = deleteManagedIndexMetaData(metadataFromClusterState)
+                }
+            }
+        }
+
+        return metadata
     }
 
     /**
@@ -593,7 +721,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         * */
         val updated = updateManagedIndexMetaData(updatedManagedIndexMetaData)
 
-        if (!updated || policy == null) return
+        if (!updated.savedMetadata || policy == null) return
 
         // this will save the new policy on the job and reset the change policy back to null
         val saved = savePolicyToManagedIndexConfig(managedIndexConfig, policy)
@@ -671,7 +799,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     private fun clusterIsRed(): Boolean = ClusterStateHealth(clusterService.state()).status == ClusterHealthStatus.RED
 
-    private suspend fun getIndexMetaData(index: String): IndexMetadata? {
+    private suspend fun getIndexMetadata(index: String): IndexMetadata? {
         var indexMetaData: IndexMetadata? = null
         try {
             val clusterStateRequest = ClusterStateRequest()

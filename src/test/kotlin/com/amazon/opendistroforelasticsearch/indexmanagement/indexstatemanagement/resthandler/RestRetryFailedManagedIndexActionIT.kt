@@ -85,7 +85,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 mapOf(
                     "index_name" to indexName1,
                     "index_uuid" to getUuid(indexName1),
-                    "reason" to "There is no IndexMetaData information"
+                    "reason" to "This index has no metadata information"
                 )
             )
         )
@@ -107,6 +107,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName*"
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+
         val actualMessage = response.asMap()
         val expectedErrorMessage = mapOf(
             FAILURES to true,
@@ -125,7 +126,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 mapOf(
                     "index_name" to indexName2,
                     "index_uuid" to getUuid(indexName2),
-                    "reason" to "There is no IndexMetaData information"
+                    "reason" to "This index has no metadata information"
                 )
             )
         )
@@ -158,6 +159,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
     fun `test index has no metadata`() {
         val indexName = "${testIndexName}_players"
         createIndex(indexName, "somePolicy")
+
         val response = client().makeRequest(
             RestRequest.Method.POST.toString(),
             "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
@@ -171,7 +173,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                 mapOf(
                     "index_name" to indexName,
                     "index_uuid" to getUuid(indexName),
-                    "reason" to "There is no IndexMetaData information"
+                    "reason" to "This index has no metadata information"
                 )
             )
         )

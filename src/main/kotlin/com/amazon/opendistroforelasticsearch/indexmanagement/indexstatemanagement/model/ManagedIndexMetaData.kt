@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.addObject
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
@@ -33,6 +34,8 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.json.JsonXContent
+import org.elasticsearch.index.seqno.SequenceNumbers
+import java.io.IOException
 
 data class ManagedIndexMetaData(
     val index: String,
@@ -47,7 +50,10 @@ data class ManagedIndexMetaData(
     val actionMetaData: ActionMetaData?,
     val stepMetaData: StepMetaData?,
     val policyRetryInfo: PolicyRetryInfoMetaData?,
-    val info: Map<String, Any>?
+    val info: Map<String, Any>?,
+    val id: String = NO_ID,
+    val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
 ) : Writeable, ToXContentFragment {
 
     @Suppress("ComplexMethod")
@@ -70,6 +76,31 @@ data class ManagedIndexMetaData(
         return resultMap
     }
 
+    fun toXContent(builder: XContentBuilder, params: ToXContent.Params, forIndex: Boolean): XContentBuilder {
+        // forIndex means for saving to config index, distinguish from Explain and History, which only save meaningful partial metadata
+        if (!forIndex) return toXContent(builder, params)
+
+        builder
+            .startObject()
+                .startObject(MANAGED_INDEX_METADATA_TYPE)
+                    .field(INDEX, index)
+                    .field(INDEX_UUID, indexUuid)
+                    .field(POLICY_ID, policyID)
+                    .field(POLICY_SEQ_NO, policySeqNo)
+                    .field(POLICY_PRIMARY_TERM, policyPrimaryTerm)
+                    .field(POLICY_COMPLETED, policyCompleted)
+                    .field(ROLLED_OVER, rolledOver)
+                    .field(TRANSITION_TO, transitionTo)
+                    .addObject(StateMetaData.STATE, stateMetaData, params, true)
+                    .addObject(ActionMetaData.ACTION, actionMetaData, params, true)
+                    .addObject(StepMetaData.STEP, stepMetaData, params, true)
+                    .addObject(PolicyRetryInfoMetaData.RETRY_INFO, policyRetryInfo, params, true)
+                    .field(INFO, info)
+                .endObject()
+            .endObject()
+        return builder
+    }
+
     @Suppress("ComplexMethod")
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         // The order we check values matters here as we are only trying to show what is needed for the customer
@@ -78,7 +109,6 @@ data class ManagedIndexMetaData(
             .field(INDEX, index)
             .field(INDEX_UUID, indexUuid)
             .field(POLICY_ID, policyID)
-
         if (policySeqNo != null) builder.field(POLICY_SEQ_NO, policySeqNo)
         if (policyPrimaryTerm != null) builder.field(POLICY_PRIMARY_TERM, policyPrimaryTerm)
 
@@ -93,27 +123,13 @@ data class ManagedIndexMetaData(
         }
 
         val transitionToExists = transitionTo != null
-
         if (transitionToExists) {
             builder.field(TRANSITION_TO, transitionTo)
-        }
-
-        if (stateMetaData != null && !transitionToExists) {
-            builder.startObject(StateMetaData.STATE)
-            stateMetaData.toXContent(builder, params)
-            builder.endObject()
-        }
-
-        if (actionMetaData != null && !transitionToExists) {
-            builder.startObject(ActionMetaData.ACTION)
-            actionMetaData.toXContent(builder, params)
-            builder.endObject()
-        }
-
-        if (policyRetryInfo != null) {
-            builder.startObject(PolicyRetryInfoMetaData.RETRY_INFO)
-            policyRetryInfo.toXContent(builder, params)
-            builder.endObject()
+        } else {
+            builder.addObject(StateMetaData.STATE, stateMetaData, params)
+                .addObject(ActionMetaData.ACTION, actionMetaData, params)
+                .addObject(StepMetaData.STEP, stepMetaData, params)
+                .addObject(PolicyRetryInfoMetaData.RETRY_INFO, policyRetryInfo, params)
         }
 
         if (info != null) builder.field(INFO, info)
@@ -145,7 +161,8 @@ data class ManagedIndexMetaData(
     }
 
     companion object {
-        const val MANAGED_INDEX_METADATA = "managed_index_metadata"
+        const val NO_ID = ""
+        const val MANAGED_INDEX_METADATA_TYPE = "managed_index_metadata"
 
         const val NAME = "name"
         const val START_TIME = "start_time"
@@ -198,8 +215,16 @@ data class ManagedIndexMetaData(
             )
         }
 
-        @Suppress("ComplexMethod")
-        fun parse(xcp: XContentParser): ManagedIndexMetaData {
+        @Suppress("ComplexMethod", "LongMethod")
+        @JvmStatic
+        @JvmOverloads
+        @Throws(IOException::class)
+        fun parse(
+            xcp: XContentParser,
+            id: String = NO_ID,
+            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        ): ManagedIndexMetaData {
             var index: String? = null
             var indexUuid: String? = null
             var policyID: String? = null
@@ -229,12 +254,23 @@ data class ManagedIndexMetaData(
                     POLICY_PRIMARY_TERM -> policyPrimaryTerm = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
                     POLICY_COMPLETED -> policyCompleted = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.booleanValue()
                     ROLLED_OVER -> rolledOver = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.booleanValue()
-                    TRANSITION_TO -> transitionTo = xcp.text()
-                    StateMetaData.STATE -> state = StateMetaData.parse(xcp)
-                    ActionMetaData.ACTION -> action = ActionMetaData.parse(xcp)
-                    StepMetaData.STEP -> step = StepMetaData.parse(xcp)
-                    PolicyRetryInfoMetaData.RETRY_INFO -> retryInfo = PolicyRetryInfoMetaData.parse(xcp)
+                    TRANSITION_TO -> transitionTo = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.text()
+                    StateMetaData.STATE -> {
+                        // check null for invalid policy situation
+                        state = if (xcp.currentToken() == Token.VALUE_NULL) null else StateMetaData.parse(xcp)
+                    }
+                    ActionMetaData.ACTION -> {
+                        action = if (xcp.currentToken() == Token.VALUE_NULL) null else ActionMetaData.parse(xcp)
+                    }
+                    StepMetaData.STEP -> {
+                        step = if (xcp.currentToken() == Token.VALUE_NULL) null else StepMetaData.parse(xcp)
+                    }
+                    PolicyRetryInfoMetaData.RETRY_INFO -> {
+                        retryInfo = PolicyRetryInfoMetaData.parse(xcp)
+                    }
                     INFO -> info = xcp.map()
+                    // below line will break when getting metadata for explain or history
+                    // else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ManagedIndexMetaData.")
                 }
             }
 
@@ -251,8 +287,28 @@ data class ManagedIndexMetaData(
                 action,
                 step,
                 retryInfo,
-                info
+                info,
+                id,
+                seqNo,
+                primaryTerm
             )
+        }
+
+        @JvmStatic
+        @JvmOverloads
+        @Throws(IOException::class)
+        fun parseWithType(
+            xcp: XContentParser,
+            id: String = NO_ID,
+            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        ): ManagedIndexMetaData {
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
+            val managedIndexMetaData = parse(xcp, id, seqNo, primaryTerm)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
+            return managedIndexMetaData
         }
 
         fun fromMap(map: Map<String, String?>): ManagedIndexMetaData {

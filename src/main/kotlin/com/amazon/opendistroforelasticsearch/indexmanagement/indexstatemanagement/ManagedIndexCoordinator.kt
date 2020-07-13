@@ -19,11 +19,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.filterNotNullValues
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.contentParser
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.mgetManagedIndexMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
@@ -34,12 +35,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexMetadataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDeleteManagedIndexRequests
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDeleteManagedIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getSweptManagedIndexSearchRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isPolicyCompleted
@@ -65,23 +66,16 @@ import org.elasticsearch.action.search.SearchPhaseExecutionException
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.IndicesOptions
-import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.block.ClusterBlockException
-import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.LifecycleListener
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
 import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.index.query.QueryBuilders
@@ -180,10 +174,9 @@ class ManagedIndexCoordinator(
 
         if (!isIndexStateManagementEnabled()) return
 
-        if (!event.localNodeMaster()) return
+        if (event.isNewCluster) return
 
-        // TODO: Look into event.isNewCluster, can we return early if true?
-        // if (event.isNewCluster) { }
+        if (!event.localNodeMaster()) return
 
         if (!event.metadataChanged()) return
 
@@ -232,24 +225,25 @@ class ManagedIndexCoordinator(
         /*
          * Iterate through all indices and create update requests to update the ManagedIndexConfig for indices that
          * meet the following conditions:
-         *   1. Is being managed (has ManagedIndexMetaData)
+         *   1. Is being managed (has managed-index)
          *   2. Does not have a completed Policy
          *   3. Does not have a failed Policy
          */
-        val updateManagedIndicesRequests: List<DocWriteRequest<*>> = response.state.metadata.indices.mapNotNull {
-            val managedIndexMetaData = it.value.getManagedIndexMetaData()
-            if (!(managedIndexMetaData == null || managedIndexMetaData.isPolicyCompleted || managedIndexMetaData.isFailed)) {
-                updateEnableManagedIndexRequest(it.value.indexUUID)
-            } else {
-                null
+        val currentManagedIndices = sweepManagedIndexJobs(client, ismIndices.indexManagementIndexExists())
+        val metadataList = client.mgetManagedIndexMetadata(currentManagedIndices.map { Index(it.key, it.value.uuid) })
+        val enableManagedIndicesRequests = mutableListOf<UpdateRequest>()
+        metadataList.forEach {
+            if (it != null && !(it.isPolicyCompleted || it.isFailed)) {
+                enableManagedIndicesRequests.add(updateEnableManagedIndexRequest(it.indexUuid))
             }
         }
 
-        updateManagedIndices(updateManagedIndicesRequests, false)
+        updateManagedIndices(enableManagedIndicesRequests, false)
     }
 
     private fun isIndexStateManagementEnabled(): Boolean = indexStateManagementEnabled == true
 
+    /** create, delete job document based on index's policyID setting changes */
     @OpenForTesting
     suspend fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
         // deal with indices delete event
@@ -268,9 +262,9 @@ class ManagedIndexCoordinator(
             updateMatchingIndexReq = getMatchingIndicesUpdateReq(event.state(), event.indicesCreated())
 
         updateManagedIndices(updateMatchingIndexReq + removeManagedIndexReq, updateMatchingIndexReq.isNotEmpty())
-        // TODO currently metadata is auto cleaned after indices deleted
-        //  uncomment this after move metadata to config index
-        // clearManagedIndexMetaData(indicesToClean)
+
+        val deleteRequests = indicesToClean.map { deleteManagedIndexMetadataRequest(it.uuid) }
+        clearManagedIndexMetaData(deleteRequests)
     }
 
     /**
@@ -388,8 +382,8 @@ class ManagedIndexCoordinator(
         // check all un-managed indices, if its name matches any template
         val unManagedIndices = currentIndices
             .filter { it.index.uuid !in currentManagedIndices.keys }
-            .map { it.index.name }.distinct()
-        val updateMatchingIndicesReqs = getMatchingIndicesUpdateReq(clusterService.state(), unManagedIndices)
+            .map { it.index }.distinct()
+        val updateMatchingIndicesReqs = getMatchingIndicesUpdateReq(clusterService.state(), unManagedIndices.map { it.name })
 
         // check all managed indices, if the index has been deleted
         val deleteManagedIndexRequests =
@@ -401,9 +395,10 @@ class ManagedIndexCoordinator(
         )
 
         // clean metadata of un-managed index
-        val indicesToDeleteManagedIndexMetaDataFrom =
-            getIndicesToDeleteManagedIndexMetaDataFrom(currentIndices, currentManagedIndices.keys)
-        clearManagedIndexMetaData(indicesToDeleteManagedIndexMetaDataFrom)
+        val indicesToDeleteMetadata =
+            getIndicesToRemoveMetadataFrom(unManagedIndices) + getDeleteManagedIndices(currentIndices, currentManagedIndices)
+        val deleteRequests = indicesToDeleteMetadata.map { deleteManagedIndexMetadataRequest(it.uuid) }
+        clearManagedIndexMetaData(deleteRequests)
 
         lastFullSweepTimeNano = System.nanoTime()
     }
@@ -476,7 +471,7 @@ class ManagedIndexCoordinator(
 
         retryPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
             val bulkRequest = BulkRequest().add(requestsToRetry)
-            val bulkResponse: BulkResponse = client.suspendUntil { client.bulk(bulkRequest, it) }
+            val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
             val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
             requestsToRetry = failedResponses.filter { it.status() == RestStatus.TOO_MANY_REQUESTS }
                     .map { bulkRequest.requests()[it.itemId] }
@@ -488,46 +483,35 @@ class ManagedIndexCoordinator(
         }
     }
 
-    /**
-     * Returns [Index]es in cluster state not being managed by ISM
-     * but still has ISM metadata
-     *
-     * @param currentManagedIndices current managed indices' uuids collection
-     */
-    @OpenForTesting
-    fun getIndicesToDeleteManagedIndexMetaDataFrom(
-        currentIndices: List<IndexMetadata>,
-        currentManagedIndices: Set<String>
-    ): List<Index> {
-        return currentIndices.filter { it.getManagedIndexMetaData() != null }
-            .map { it.index }.filter { it.uuid !in currentManagedIndices }.toList()
+    /** If this index is unmanaged but [ManagedIndexMetaData] is not null then metadata should be removed. */
+    suspend fun getIndicesToRemoveMetadataFrom(unManagedIndices: List<Index>): List<Index> {
+        val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
+        val metadataList = client.mgetManagedIndexMetadata(unManagedIndices)
+        metadataList.forEach {
+            if (it != null) indicesToRemoveManagedIndexMetaDataFrom.add(Index(it.index, it.indexUuid))
+        }
+        return indicesToRemoveManagedIndexMetaDataFrom
     }
 
     /** Removes the [ManagedIndexMetaData] from the given list of [Index]es. */
     @OpenForTesting
     @Suppress("TooGenericExceptionCaught")
-    suspend fun clearManagedIndexMetaData(indices: List<Index>) {
+    suspend fun clearManagedIndexMetaData(deleteRequests: List<DocWriteRequest<*>>) {
         try {
             // If list of indices is empty, no request necessary
-            if (indices.isEmpty()) return
-
-            val request = UpdateManagedIndexMetaDataRequest(indicesToRemoveManagedIndexMetaDataFrom = indices)
+            if (deleteRequests.isEmpty()) return
 
             retryPolicy.retry(logger) {
-                val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, it) }
-
-                if (!response.isAcknowledged) logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]")
+                val bulkRequest = BulkRequest().add(deleteRequests)
+                val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
+                bulkResponse.forEach {
+                    if (it.isFailed) logger.error("Failed to clear ManagedIndexMetadata for [index=${it.index}]. " +
+                            "Id: ${it.id}, failureMessage: ${it.failureMessage}")
+                }
             }
         } catch (e: Exception) {
-            logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]", e)
+            logger.error("Failed to clear ManagedIndexMetadata ", e)
         }
-    }
-
-    private fun contentParser(bytesReference: BytesReference): XContentParser {
-        return XContentHelper.createParser(
-            NamedXContentRegistry.EMPTY,
-            LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON
-        )
     }
 
     companion object {

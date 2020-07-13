@@ -27,11 +27,15 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.rest.RestRequest
+import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -54,13 +58,16 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         createIndex()
         waitFor {
             val response = client().makeRequest("GET", "/$INDEX_MANAGEMENT_INDEX/_mapping")
-            val parserMap = createParser(XContentType.JSON.xContent(),
-                response.entity.content).map() as Map<String, Map<String, Map<String, Any>>>
+            val parserMap = createParser(
+                XContentType.JSON.xContent(),
+                response.entity.content
+            ).map() as Map<String, Map<String, Map<String, Any>>>
             val mappingsMap = parserMap[INDEX_MANAGEMENT_INDEX]?.getValue("mappings")!!
 
             val expected = createParser(
                 XContentType.JSON.xContent(),
-                javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText())
+                javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText()
+            )
 
             val expectedMap = expected.map()
             assertEquals("Mappings are different", expectedMap, mappingsMap)
@@ -107,10 +114,65 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         // Only ManagedIndexSettings.POLICY_ID set to null should be left in explain output
         waitFor {
             assertPredicatesOnMetaData(
-                listOf(index to listOf(ManagedIndexSettings.POLICY_ID.key to fun(policyID: Any?): Boolean = policyID == null)),
+                listOf(index to listOf(ManagedIndexSettings.POLICY_ID.key to fun(policyID: Any?): Boolean =
+                    policyID == null)),
                 getExplainMap(index),
                 true
             )
+        }
+    }
+
+    fun `test managed-index metadata is cleaned up after index deleted`() {
+        val policyID = "some_policy"
+        val (index) = createIndex(policyID = policyID)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(index)
+
+        // Speed up execution to initialize policy on job
+        // Loading policy will fail but ManagedIndexMetaData will be updated
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        // Verify ManagedIndexMetaData contains information
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(index to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(index),
+                false
+            )
+        }
+
+        deleteIndex(index)
+
+        // Verify ManagedIndexMetadata has been cleared
+        try {
+            client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
+            fail("Expected a failure")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected RestStatus", RestStatus.NOT_FOUND, e.response.restStatus())
+            val actualMessage = e.response.asMap()
+            val expectedErrorMessage = mapOf(
+                "error" to mapOf(
+                    "root_cause" to listOf(
+                        mapOf(
+                            "type" to "illegal_argument_exception", "reason" to "Missing indices",
+                            "reason" to "no such index [$index]",
+                            "index_uuid" to "_na_",
+                            "index" to index,
+                            "resource.type" to "index_or_alias",
+                            "type" to "index_not_found_exception",
+                            "resource.id" to index
+                        )
+                    ),
+                    "type" to "index_not_found_exception",
+                    "reason" to "no such index [$index]",
+                    "index_uuid" to "_na_",
+                    "index" to index,
+                    "resource.type" to "index_or_alias",
+                    "resource.id" to index
+                ),
+                "status" to 404
+            )
+            assertEquals(expectedErrorMessage, actualMessage)
         }
     }
 
@@ -120,7 +182,8 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
         // Create a policy with one State that performs rollover
         val rolloverActionConfig = RolloverActionConfig(index = 0, minDocs = 5, minAge = null, minSize = null)
-        val states = listOf(State(name = "RolloverState", actions = listOf(rolloverActionConfig), transitions = listOf()))
+        val states =
+            listOf(State(name = "RolloverState", actions = listOf(rolloverActionConfig), transitions = listOf()))
         val policy = Policy(
             id = policyID,
             description = "$policyID description",
@@ -188,10 +251,16 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
             config
         }
 
-        // Speed up to next execution where the job should be rescheduled and the index rolled over
+        // TODO seen version conflict flaky failure here
+        // could be same reason as the test failure in ChangePolicyActionIT
         updateManagedIndexConfigStartTime(enabledManagedIndexConfig)
 
-        waitFor { assertEquals(AttemptRolloverStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(
+                AttemptRolloverStep.getSuccessMessage(indexName),
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
     }
 
     fun `test not disabling ism on unsafe step`() {
@@ -226,7 +295,12 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)
 
-        waitFor { assertTrue("Segment count for [$indexName] was less than expected", validateSegmentCount(indexName, min = 2)) }
+        waitFor {
+            assertTrue(
+                "Segment count for [$indexName] was less than expected",
+                validateSegmentCount(indexName, min = 2)
+            )
+        }
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
@@ -262,21 +336,32 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // Confirm we successfully executed the WaitForForceMergeStep
-        waitFor { assertEquals(WaitForForceMergeStep.getSuccessMessage(indexName),
-            getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(
+                WaitForForceMergeStep.getSuccessMessage(indexName),
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
 
         // Confirm job was not disabled
         assertEquals("ManagedIndexConfig was disabled early", true, getExistingManagedIndexConfig(indexName).enabled)
 
         // Validate segments were merged
-        assertTrue("Segment count for [$indexName] after force merge is incorrect", validateSegmentCount(indexName, min = 1, max = 1))
+        assertTrue(
+            "Segment count for [$indexName] after force merge is incorrect",
+            validateSegmentCount(indexName, min = 1, max = 1)
+        )
 
         // Fifth execution: Attempt transition, which is safe to disable on, so job should be disabled
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // Explain API info should still be that of the last executed Step
-        waitFor { assertEquals(WaitForForceMergeStep.getSuccessMessage(indexName),
-            getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(
+                WaitForForceMergeStep.getSuccessMessage(indexName),
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
 
         // Confirm job was disabled
         val disabledManagedIndexConfig: ManagedIndexConfig = waitFor {

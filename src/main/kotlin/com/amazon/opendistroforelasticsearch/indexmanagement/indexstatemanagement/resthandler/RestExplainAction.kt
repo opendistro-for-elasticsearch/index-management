@@ -54,7 +54,6 @@ class RestExplainAction : BaseRestHandler() {
         return "ism_explain_action"
     }
 
-    @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         log.debug("${request.method()} ${request.path()}")
 

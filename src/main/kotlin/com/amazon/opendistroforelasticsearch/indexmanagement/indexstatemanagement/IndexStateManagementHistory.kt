@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendU
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.DocWriteRequest
@@ -43,6 +44,7 @@ import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
 
+@OpenForTesting
 class IndexStateManagementHistory(
     settings: Settings,
     private val client: Client,

@@ -43,6 +43,7 @@ import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
 
+@OpenForTesting
 class IndexStateManagementHistory(
     settings: Settings,
     private val client: Client,

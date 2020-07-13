@@ -43,20 +43,20 @@ import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
-import org.elasticsearch.rest.RestHandler.Route
+import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestResponse
@@ -102,11 +102,17 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
     ) : AsyncActionHandler(client, channel) {
 
         private val failedIndices = mutableListOf<FailedIndex>()
-        private val managedIndexUuids = mutableListOf<Pair<String, String>>()
+        private val managedIndicesToUpdate = mutableListOf<Pair<String, String>>()
         private val indexUuidToCurrentState = mutableMapOf<String, String>()
-        lateinit var policy: Policy
-        lateinit var response: GetResponse
+        private lateinit var policy: Policy
+        private lateinit var getPolicyResponse: GetResponse
+        private lateinit var clusterState: ClusterState
 
+        /**
+         *  get back the policy to change, update config index mapping
+         *  get cluster state of indices to change policy
+         *  get metadata for these indices, determine which managed indices need to be changed
+         */
         fun start() {
             val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, changePolicy.policyID)
 
@@ -117,7 +123,8 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
             if (!response.isExists || response.isSourceEmpty) {
                 return channel.sendResponse(BytesRestResponse(RestStatus.NOT_FOUND, "Could not find policy=${changePolicy.policyID}"))
             }
-            this.response = response
+            this.getPolicyResponse = response
+
             IndexUtils.checkAndUpdateConfigIndexMapping(
                 clusterService.state(),
                 client.admin().indices(),
@@ -130,12 +137,13 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
                 return channel.sendResponse(BytesRestResponse(RestStatus.FAILED_DEPENDENCY,
                     "Could not update $INDEX_MANAGEMENT_INDEX with new mapping."))
             }
+
             policy = XContentHelper.createParser(
                 channel.request().xContentRegistry,
                 LoggingDeprecationHandler.INSTANCE,
-                response.sourceAsBytesRef,
+                getPolicyResponse.sourceAsBytesRef,
                 XContentType.JSON
-            ).use { Policy.parseWithType(it, response.id, response.seqNo, response.primaryTerm) }
+            ).use { Policy.parseWithType(it, getPolicyResponse.id, getPolicyResponse.seqNo, getPolicyResponse.primaryTerm) }
 
             getClusterState()
         }
@@ -149,55 +157,69 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
                 .local(false)
                 .indicesOptions(IndicesOptions.strictExpand())
 
-            client.admin().cluster().state(clusterStateRequest, ActionListener.wrap(::processResponse, ::onFailure))
+            client.admin().cluster().state(clusterStateRequest, ActionListener.wrap(::onClusterStateResponse, ::onFailure))
         }
 
         @Suppress("ComplexMethod")
-        private fun processResponse(response: ClusterStateResponse) {
+        private fun onClusterStateResponse(response: ClusterStateResponse) {
+            clusterState = response.state
+
+            // get back managed index metadata
+            client.multiGet(buildMgetMetadataRequest(clusterState), ActionListener.wrap(::onMgetMetadataResponse, ::onFailure))
+        }
+
+        /** check which managed index to get and update, based comparing its metadata */
+        @Suppress("ComplexMethod")
+        private fun onMgetMetadataResponse(mgetResponse: MultiGetResponse) {
+            val metadataList = mgetResponseToList(mgetResponse)
             val includedStates = changePolicy.include.map { it.state }.toSet()
-            response.state.metadata.indices.forEach {
+
+            clusterState.metadata.indices.forEachIndexed { ind, it ->
                 val indexMetaData = it.value
-                val currentState = indexMetaData.getManagedIndexMetaData()?.stateMetaData?.name
+                val managedIndexMetadata: ManagedIndexMetaData? = metadataList[ind]
+
+                val currentState = managedIndexMetadata?.stateMetaData?.name
                 if (currentState != null) {
                     indexUuidToCurrentState[indexMetaData.indexUUID] = currentState
                 }
+
                 when {
                     // If there is no policyID on the index then it's not currently being managed
                     indexMetaData.getPolicyID() == null ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, INDEX_NOT_MANAGED))
                     // else if there exists a transitionTo on the ManagedIndexMetaData then we will
                     // fail as they might not of meant to add a ChangePolicy when its on the next state
-                    indexMetaData.getManagedIndexMetaData()?.transitionTo != null ->
+                    managedIndexMetadata?.transitionTo != null ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, INDEX_IN_TRANSITION))
                     // else if there is no ManagedIndexMetaData yet then the managed index has not initialized and we can change the policy safely
-                    indexMetaData.getManagedIndexMetaData() == null ->
-                        managedIndexUuids.add(indexMetaData.index.name to indexMetaData.index.uuid)
+                    managedIndexMetadata == null ->
+                        managedIndicesToUpdate.add(indexMetaData.index.name to indexMetaData.index.uuid)
                     // else if the includedStates is empty (i.e. not being used) then we will always try to update the managed index
-                    includedStates.isEmpty() -> managedIndexUuids.add(indexMetaData.index.name to indexMetaData.index.uuid)
+                    includedStates.isEmpty() -> managedIndicesToUpdate.add(indexMetaData.index.name to indexMetaData.index.uuid)
                     // else only update the managed index if its currently in one of the included states
-                    includedStates.contains(indexMetaData.getManagedIndexMetaData()?.stateMetaData?.name) ->
-                        managedIndexUuids.add(indexMetaData.index.name to indexMetaData.index.uuid)
+                    includedStates.contains(managedIndexMetadata.stateMetaData?.name) ->
+                        managedIndicesToUpdate.add(indexMetaData.index.name to indexMetaData.index.uuid)
                     // else the managed index did not match any of the included state filters and we will not update it
                     else -> log.debug("Skipping ${indexMetaData.index.name} as it does not match any of the include state filters")
                 }
             }
 
-            if (managedIndexUuids.isEmpty()) {
+            if (managedIndicesToUpdate.isEmpty()) {
                 channel.sendResponse(getRestResponse(0, failedIndices))
             } else {
                 client.multiGet(
-                    getManagedIndexConfigMultiGetRequest(managedIndexUuids.map { (_, indexUuid) -> indexUuid }.toTypedArray()),
+                    mgetManagedIndexConfigRequest(managedIndicesToUpdate.map { (_, indexUuid) -> indexUuid }.toTypedArray()),
                     ActionListener.wrap(::onMultiGetResponse, ::onFailure)
                 )
             }
         }
 
+        /** get back a list of managed indices to update */
         private fun onMultiGetResponse(response: MultiGetResponse) {
             val foundManagedIndices = mutableSetOf<String>()
             val sweptConfigs = response.responses.mapNotNull {
-                // The id is the index uuid
                 if (!it.isFailed && it.response != null) {
-                    foundManagedIndices.add(it.response.id)
+                    foundManagedIndices.add(it.response.id) // This id is the index uuid
                     SweptManagedIndexConfig.parseWithType(contentParser(it.response.sourceAsBytesRef), it.response.seqNo, it.response.primaryTerm)
                 } else {
                     null
@@ -209,10 +231,10 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
             // gap of adding a policy_id to an index and a job being created by the coordinator, or the coordinator
             // failing to create a job and waiting for the sweep to create the job). We will add these as failed indices
             // that can not be updated from the ChangePolicy yet.
-            managedIndexUuids.forEach {
-                val (index, indexUuid) = it
+            managedIndicesToUpdate.forEach {
+                val (indexName, indexUuid) = it
                 if (!foundManagedIndices.contains(indexUuid)) {
-                    failedIndices.add(FailedIndex(index, indexUuid, INDEX_NOT_INITIALIZED))
+                    failedIndices.add(FailedIndex(indexName, indexUuid, INDEX_NOT_INITIALIZED))
                 }
             }
 
@@ -224,27 +246,27 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
         }
 
         private fun updateManagedIndexConfig(sweptConfigs: List<SweptManagedIndexConfig>) {
-            val mapOfItemIdToIndex = mutableMapOf<Int, Pair<String, String>>()
-            val bulkRequest = BulkRequest()
-            sweptConfigs.forEachIndexed { index, sweptConfig ->
+            val mapOfItemIdToIndex = mutableMapOf<Int, Index>()
+            val bulkUpdateManagedIndexRequest = BulkRequest()
+            sweptConfigs.forEachIndexed { id, sweptConfig ->
                 // compare the sweptconfig policy to the get policy here and update changePolicy
                 val currentStateName = indexUuidToCurrentState[sweptConfig.uuid]
                 val updatedChangePolicy = changePolicy
                     .copy(isSafe = sweptConfig.policy?.isSafeToChange(currentStateName, policy, changePolicy) == true)
-                bulkRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy)))
-                mapOfItemIdToIndex[index] = sweptConfig.index to sweptConfig.uuid
+                bulkUpdateManagedIndexRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy)))
+                mapOfItemIdToIndex[id] = Index(sweptConfig.index, sweptConfig.uuid)
             }
-            client.bulk(bulkRequest, onBulkResponse(mapOfItemIdToIndex))
+            client.bulk(bulkUpdateManagedIndexRequest, onBulkResponse(mapOfItemIdToIndex))
         }
 
-        private fun onBulkResponse(mapOfItemIdToIndex: Map<Int, Pair<String, String>>): RestResponseListener<BulkResponse> {
+        private fun onBulkResponse(mapOfItemIdToIndex: Map<Int, Index>): RestResponseListener<BulkResponse> {
             return object : RestResponseListener<BulkResponse>(channel) {
                 override fun buildResponse(bulkResponse: BulkResponse): RestResponse {
                     val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
                     failedResponses.forEach {
-                        val indexPair = mapOfItemIdToIndex[it.itemId]
-                        if (indexPair != null) {
-                            failedIndices.add(FailedIndex(indexPair.first, indexPair.second, it.failureMessage))
+                        val index = mapOfItemIdToIndex[it.itemId]
+                        if (index != null) {
+                            failedIndices.add(FailedIndex(index.name, index.uuid, it.failureMessage))
                         }
                     }
 
@@ -262,15 +284,10 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
                 .endObject()
             return BytesRestResponse(RestStatus.OK, builder)
         }
-
-        private fun contentParser(bytesReference: BytesReference): XContentParser {
-            return XContentHelper.createParser(NamedXContentRegistry.EMPTY,
-                    LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
-        }
     }
 
     @Suppress("SpreadOperator")
-    private fun getManagedIndexConfigMultiGetRequest(managedIndexUuids: Array<String>): MultiGetRequest {
+    private fun mgetManagedIndexConfigRequest(managedIndexUuids: Array<String>): MultiGetRequest {
         val request = MultiGetRequest()
         val includes = arrayOf(
             "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",

@@ -21,15 +21,22 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
+import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.get.MultiGetRequest
+import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
-import org.elasticsearch.rest.RestHandler.Route
+import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestResponse
@@ -37,6 +44,8 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestBuilderListener
 
 class RestExplainAction : BaseRestHandler() {
+
+    private val log = LogManager.getLogger(javaClass)
 
     companion object {
         const val EXPLAIN_BASE_URI = "$ISM_BASE_URI/explain"
@@ -53,50 +62,89 @@ class RestExplainAction : BaseRestHandler() {
         return "ism_explain_action"
     }
 
-    @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
         if (indices == null || indices.isEmpty()) {
             throw IllegalArgumentException("Missing indices")
         }
 
-        val clusterStateRequest = ClusterStateRequest()
-        val strictExpandIndicesOptions = IndicesOptions.strictExpand()
-
-        clusterStateRequest.clear()
-            .indices(*indices)
-            .metadata(true)
-            .local(false)
-            .local(request.paramAsBoolean("local", clusterStateRequest.local()))
-            .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
-            .indicesOptions(strictExpandIndicesOptions)
-
         return RestChannelConsumer { channel ->
-            client.admin().cluster().state(clusterStateRequest, explainListener(channel))
+            ExplainHandler(client, channel, indices).start()
         }
     }
 
-    private fun explainListener(channel: RestChannel): RestBuilderListener<ClusterStateResponse> {
-        return object : RestBuilderListener<ClusterStateResponse>(channel) {
-            override fun buildResponse(clusterStateResponse: ClusterStateResponse, builder: XContentBuilder): RestResponse {
-                val state = clusterStateResponse.state
+    inner class ExplainHandler(
+        client: NodeClient,
+        channel: RestChannel,
+        private val indices: Array<String>
+    ) : AsyncActionHandler(client, channel) {
 
-                builder.startObject()
-                for (indexMetadataEntry in state.metadata.indices) {
-                    builder.startObject(indexMetadataEntry.key)
-                    val indexMetadata = indexMetadataEntry.value
-                    val managedIndexMetaDataMap = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+        lateinit var response: GetResponse
 
-                    builder.field(ManagedIndexSettings.POLICY_ID.key, indexMetadata.getPolicyID())
-                    if (managedIndexMetaDataMap != null) {
-                        val managedIndexMetaData = ManagedIndexMetaData.fromMap(managedIndexMetaDataMap)
-                        managedIndexMetaData.toXContent(builder, ToXContent.EMPTY_PARAMS)
+        private val indexNames = mutableListOf<String>()
+        private val indexMetadataUuids = mutableListOf<String>()
+        private val indexPolicyIds = mutableListOf<String?>()
+
+        @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
+        fun start() {
+            val clusterStateRequest = ClusterStateRequest()
+            val strictExpandIndicesOptions = IndicesOptions.strictExpand()
+
+            clusterStateRequest.clear()
+                    .indices(*indices)
+                    .metadata(true)
+                    .indicesOptions(strictExpandIndicesOptions)
+
+            client.admin().cluster().state(clusterStateRequest, ActionListener.wrap(::onClusterStateResponse, ::onFailure))
+        }
+
+        // retrieve index uuid from cluster state
+        private fun onClusterStateResponse(response: ClusterStateResponse) {
+            for (indexMetadataEntry in response.state.metadata.indices) {
+                indexNames.add(indexMetadataEntry.key)
+                indexMetadataUuids.add(indexMetadataEntry.value.indexUUID + "metadata")
+                indexPolicyIds.add(indexMetadataEntry.value.getPolicyID())
+            }
+
+            val mgetRequest = MultiGetRequest()
+            indexMetadataUuids.forEach { mgetRequest.add(MultiGetRequest.Item(INDEX_STATE_MANAGEMENT_INDEX, it)) }
+            client.multiGet(mgetRequest, mgetMetadataListener(channel))
+        }
+
+        private fun mgetMetadataListener(channel: RestChannel): RestBuilderListener<MultiGetResponse> {
+            return object : RestBuilderListener<MultiGetResponse>(channel) {
+                override fun buildResponse(response: MultiGetResponse, builder: XContentBuilder): RestResponse {
+                    builder.startObject()
+                    response.responses.forEachIndexed { ind, it ->
+                        builder.startObject(indexNames[ind])
+                        builder.field(ManagedIndexSettings.POLICY_ID.key, indexPolicyIds[ind])
+                        if (it.response != null) {
+                            log.info("Explain ${indexNames[ind]}: ${it.response.sourceAsString}")
+                            processMetadata(it.response, builder)
+                        } else {
+                            log.info("Explain response is null for ${indexNames[ind]}")
+                        }
+                        builder.endObject()
                     }
                     builder.endObject()
+                    return BytesRestResponse(RestStatus.OK, builder)
                 }
-                builder.endObject()
-                return BytesRestResponse(RestStatus.OK, builder)
             }
+        }
+
+        private fun processMetadata(response: GetResponse, builder: XContentBuilder): XContentBuilder {
+            if (response.sourceAsBytesRef == null) return builder
+
+            val xcp = XContentHelper.createParser(
+                    channel.request().xContentRegistry,
+                    LoggingDeprecationHandler.INSTANCE,
+                    response.sourceAsBytesRef,
+                    XContentType.JSON)
+            val managedIndexMetaData = ManagedIndexMetaData.parseWithType(xcp,
+                    response.id, response.seqNo, response.primaryTerm)
+
+            managedIndexMetaData.toXContent(builder, ToXContent.EMPTY_PARAMS)
+            return builder
         }
     }
 }

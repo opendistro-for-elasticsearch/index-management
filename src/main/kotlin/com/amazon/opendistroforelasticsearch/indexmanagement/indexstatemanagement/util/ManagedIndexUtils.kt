@@ -50,6 +50,7 @@ import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.Index
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.ScriptService
@@ -76,6 +77,7 @@ fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String
     return IndexRequest(INDEX_MANAGEMENT_INDEX)
             .id(uuid)
             .create(true)
+            .routing(managedIndexConfig.indexUuid)
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
@@ -84,7 +86,19 @@ fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): Inde
             .id(managedIndexConfig.indexUuid)
             .setIfPrimaryTerm(managedIndexConfig.primaryTerm)
             .setIfSeqNo(managedIndexConfig.seqNo)
+            .routing(managedIndexConfig.indexUuid)
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+}
+
+fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData): IndexRequest {
+    // routing set using managed index's uuid
+    // so that metadata doc and managed-index doc are in the same place
+    return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
+            .id(managedIndexMetadata.indexUuid + "metadata")
+            .setIfPrimaryTerm(managedIndexMetadata.primaryTerm)
+            .setIfSeqNo(managedIndexMetadata.seqNo)
+            .routing(managedIndexMetadata.indexUuid)
+            .source(managedIndexMetadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true))
 }
 
 private fun updateEnabledField(uuid: String, enabled: Boolean, enabledTime: Long?): UpdateRequest {
@@ -109,6 +123,10 @@ fun updateEnableManagedIndexRequest(uuid: String): UpdateRequest {
 
 fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
     return DeleteRequest(INDEX_MANAGEMENT_INDEX, uuid)
+}
+
+fun deleteManagedIndexMetadataRequest(uuid: String): DeleteRequest {
+    return DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, uuid + "metadata")
 }
 
 fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig): UpdateRequest {
@@ -158,6 +176,15 @@ fun getDeleteManagedIndexRequests(
     return currentManagedIndexConfigs.filter { (uuid) ->
         !clusterStateManagedIndexConfigs.containsKey(uuid)
     }.map { deleteManagedIndexRequest(it.value.uuid) }
+}
+
+fun getDeleteManagedIndices(
+    clusterStateManagedIndexConfigs: Map<String, ClusterStateManagedIndexConfig>,
+    currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>
+): List<Index> {
+    return currentManagedIndexConfigs.filter { (uuid) ->
+        !clusterStateManagedIndexConfigs.containsKey(uuid)
+    }.map { Index(it.value.index, it.value.uuid) }
 }
 
 fun getSweptManagedIndexSearchRequest(): SearchRequest {
@@ -302,6 +329,7 @@ fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, 
     val actionMetaData = managedIndexMetaData.actionMetaData
 
     return when {
+        // start a new action
         stateMetaData?.name != state.name ->
             ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
         actionMetaData?.index != this.config.actionIndex ->

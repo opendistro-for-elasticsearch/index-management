@@ -154,6 +154,11 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                                 ActionMetaData("rollover", Instant.now().toEpochMilli(), 0, false, 1, null, null),
                                 actionMetaDataMap
                             ),
+                        StepMetaData.STEP to fun(stepMetaDataMap: Any?): Boolean =
+                            assertStepEquals(
+                                StepMetaData("attempt_rollover", Instant.now().toEpochMilli(), Step.StepStatus.FAILED),
+                                stepMetaDataMap
+                            ),
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                             assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                         ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()

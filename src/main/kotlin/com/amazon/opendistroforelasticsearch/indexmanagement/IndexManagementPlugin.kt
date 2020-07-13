@@ -98,6 +98,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
                     Policy.POLICY_TYPE -> {
                         return@ScheduledJobParser null
                     }
+                    ManagedIndexMetaData.MANAGED_INDEX_METADATA_TYPE -> {
+                        return@ScheduledJobParser null
+                    }
                     else -> {
                         logger.info("Unsupported document was indexed in $INDEX_MANAGEMENT_INDEX with type: $fieldName")
                     }
@@ -143,13 +146,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
     ): Collection<Any> {
         val settings = environment.settings()
         this.clusterService = clusterService
-        val managedIndexRunner = ManagedIndexRunner
-            .registerClient(client)
-            .registerClusterService(clusterService)
-            .registerNamedXContentRegistry(xContentRegistry)
-            .registerScriptService(scriptService)
-            .registerSettings(settings)
-            .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
+
+        val skipFlag = SkipExecution(client, clusterService)
 
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =
@@ -161,10 +159,20 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
                 indexManagementIndices
             )
 
+        val managedIndexRunner = ManagedIndexRunner
+            .registerClient(client)
+            .registerClusterService(clusterService)
+            .registerNamedXContentRegistry(xContentRegistry)
+            .registerScriptService(scriptService)
+            .registerSettings(settings)
+            .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
+            .registerHistoryIndex(indexStateManagementHistory)
+            .registerSkipFlag(skipFlag)
+
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
             client, clusterService, threadPool, indexManagementIndices)
 
-        return listOf(managedIndexRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
+        return listOf(managedIndexRunner, indexStateManagementIndices, managedIndexCoordinator, indexStateManagementHistory, skipFlag)
     }
 
     override fun getSettings(): List<Setting<*>> {

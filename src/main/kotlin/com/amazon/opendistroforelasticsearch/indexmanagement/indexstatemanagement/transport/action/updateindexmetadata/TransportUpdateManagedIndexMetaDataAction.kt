@@ -46,7 +46,6 @@ import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.index.Index
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportService
-import java.lang.Exception
 
 class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<UpdateManagedIndexMetaDataRequest, AcknowledgedResponse> {
 
@@ -57,8 +56,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         clusterService: ClusterService,
         transportService: TransportService,
         actionFilters: ActionFilters,
-        indexNameExpressionResolver: IndexNameExpressionResolver,
-        indexStateManagementHistory: IndexStateManagementHistory
+        indexNameExpressionResolver: IndexNameExpressionResolver
     ) : super(
         UpdateManagedIndexMetaDataAction.INSTANCE.name(),
         transportService,
@@ -69,12 +67,10 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
         indexNameExpressionResolver
     ) {
         this.client = client
-        this.indexStateManagementHistory = indexStateManagementHistory
     }
 
     private val log = LogManager.getLogger(javaClass)
     private val client: Client
-    private val indexStateManagementHistory: IndexStateManagementHistory
     private val executor = ManagedIndexMetaDataExecutor()
 
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {
@@ -104,12 +100,6 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
                     listener.onResponse(AcknowledgedResponse(true))
             }
         )
-
-        // Adding history is a best effort task.
-        GlobalScope.launch(Dispatchers.IO + CoroutineName("ManagedIndexMetaData-AddHistory")) {
-            val managedIndexMetaData = request.indicesToAddManagedIndexMetaDataTo.map { it.second }
-            indexStateManagementHistory.addManagedIndexMetaDataHistory(managedIndexMetaData)
-        }
     }
 
     override fun read(si: StreamInput): AcknowledgedResponse {
@@ -142,7 +132,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
             for (pair in task.indicesToAddManagedIndexMetaDataTo) {
                 if (currentState.metadata.hasIndex(pair.first.name)) {
                     metaDataBuilder.put(IndexMetadata.builder(currentState.metadata.index(pair.first))
-                            .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA, pair.second.toMap()))
+                            .putCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA_TYPE, pair.second.toMap()))
                 } else {
                     log.debug("No IndexMetadata found for [${pair.first.name}] when updating ManagedIndexMetaData")
                 }
@@ -151,7 +141,7 @@ class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<Upda
             for (index in task.indicesToRemoveManagedIndexMetaDataFrom) {
                 if (currentState.metadata.hasIndex(index.name)) {
                     val indexMetaDataBuilder = IndexMetadata.builder(currentState.metadata.index(index))
-                    indexMetaDataBuilder.removeCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+                    indexMetaDataBuilder.removeCustom(ManagedIndexMetaData.MANAGED_INDEX_METADATA_TYPE)
 
                     metaDataBuilder.put(indexMetaDataBuilder)
                 } else {

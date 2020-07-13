@@ -67,11 +67,11 @@ import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
-import java.util.Locale
-import java.nio.file.Path
-import java.nio.file.Files
+import java.util.*
 import javax.management.MBeanServerInvocationHandler
 import javax.management.ObjectName
 import javax.management.remote.JMXConnectorFactory
@@ -84,6 +84,29 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     protected val isMultiNode = System.getProperty("cluster.number_of_nodes", "1").toInt() > 1
 
     fun Response.asMap(): Map<String, Any> = entityAsMap(this)
+
+    protected fun waitForStepCompleted(indexName: String) {
+        waitFor {
+            val metadata = getExplainManagedIndexMetaData(indexName)
+            val stepStatus = metadata.stepMetaData?.stepStatus.toString()
+            assertEquals("completed", stepStatus)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun runningTasks(response: Response): MutableSet<String> {
+        val runningTasks: MutableSet<String> = HashSet()
+        val nodes = entityAsMap(response)["nodes"] as Map<String, Any>?
+        for ((_, value) in nodes!!) {
+            val nodeInfo = value as Map<String, Any>
+            val nodeTasks = nodeInfo["tasks"] as Map<String, Any>?
+            for ((_, value1) in nodeTasks!!) {
+                val task = value1 as Map<String, Any>
+                runningTasks.add(task["action"].toString())
+            }
+        }
+        return runningTasks
+    }
 
     protected fun createPolicy(
         policy: Policy,
@@ -171,6 +194,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         replicas: String? = null,
         shards: String? = null
     ): Pair<String, String?> {
+        val waitForActiveShards = if (isMultiNode) "all" else "1"
         val settings = Settings.builder().let {
             if (policyID == null) {
                 it.putNull(ManagedIndexSettings.POLICY_ID.key)
@@ -192,6 +216,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             } else {
                 it.put("index.number_of_shards", shards)
             }
+            it.put("index.write.wait_for_active_shards", waitForActiveShards)
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
         createIndex(index, settings, "", aliases)
@@ -488,16 +513,8 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
 
-        lateinit var metadata: ManagedIndexMetaData
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
-        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-        while (xcp.nextToken() != Token.END_OBJECT) {
-            xcp.currentName()
-            xcp.nextToken()
-
-            metadata = ManagedIndexMetaData.parse(xcp)
-        }
-        return metadata
+        return ManagedIndexMetaData.parseWithType(xcp)
     }
 
     protected fun createRepository(
@@ -664,6 +681,16 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         if (expectedStartTime != null) {
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         }
+        return true
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertStepEquals(expectedStep: StepMetaData, actualStepMap: Any?): Boolean {
+        actualStepMap as Map<String, Any>
+        assertEquals(expectedStep.name, actualStepMap[ManagedIndexMetaData.NAME] as String)
+        assertEquals(expectedStep.stepStatus.toString(), actualStepMap[StepMetaData.STEP_STATUS])
+        val expectedStartTime = expectedStep.startTime
+        assertTrue((actualStepMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         return true
     }
 

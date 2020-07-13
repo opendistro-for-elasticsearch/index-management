@@ -61,22 +61,16 @@ import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.IndicesOptions
-import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.LocalNodeMasterListener
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.LifecycleListener
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.threadpool.Scheduler
@@ -159,10 +153,9 @@ class ManagedIndexCoordinator(
     override fun clusterChanged(event: ClusterChangedEvent) {
         if (!isIndexStateManagementEnabled()) return
 
-        if (!event.localNodeMaster()) return
+        if (event.isNewCluster) return
 
-        // TODO: Look into event.isNewCluster, can we return early if true?
-        // if (event.isNewCluster) { }
+        if (!event.localNodeMaster()) return
 
         if (!event.metadataChanged()) return
 
@@ -199,73 +192,84 @@ class ManagedIndexCoordinator(
     }
 
     private suspend fun reenableJobs() {
+        /*
+         * Iterate through all indices and create update requests to update the ManagedIndexConfig for indices that
+         * meet the following conditions:
+         *   1. Is being managed ( has policyID in index settings ), then try to retrieve metadata from config index
+         *   2. Does not have a completed Policy
+         *   3. Does not have a failed Policy
+         */
+
         val clusterStateRequest = ClusterStateRequest()
             .clear()
             .metadata(true)
             .local(false)
             .indices("*")
             .indicesOptions(IndicesOptions.strictExpand())
-
         val response: ClusterStateResponse = client.admin().cluster().suspendUntil { state(clusterStateRequest, it) }
 
-        /*
-         * Iterate through all indices and create update requests to update the ManagedIndexConfig for indices that
-         * meet the following conditions:
-         *   1. Is being managed (has ManagedIndexMetaData)
-         *   2. Does not have a completed Policy
-         *   3. Does not have a failed Policy
-         */
-        val updateManagedIndicesRequests: List<DocWriteRequest<*>> = response.state.metadata.indices.mapNotNull {
-            val managedIndexMetaData = it.value.getManagedIndexMetaData()
-            if (!(managedIndexMetaData == null || managedIndexMetaData.isPolicyCompleted || managedIndexMetaData.isFailed)) {
-                updateEnableManagedIndexRequest(it.value.indexUUID)
-            } else {
-                null
+        val indicesWithPolicyID = mutableListOf<Index>()
+        response.state.metadata.indices.forEach {
+            if (it.value.getPolicyID() != null) {
+                indicesWithPolicyID.add(it.value.index)
             }
         }
 
-        updateManagedIndices(updateManagedIndicesRequests, false)
+        val enableManagedIndicesRequests = mutableListOf<UpdateRequest>()
+        val metadataList = client.mgetManagedIndexMetadata(indicesWithPolicyID)
+        metadataList.forEach {
+            if (it != null && !(it.isPolicyCompleted || it.isFailed)) {
+                enableManagedIndicesRequests.add(updateEnableManagedIndexRequest(it.indexUuid))
+            }
+        }
+
+        updateManagedIndices(enableManagedIndicesRequests, false)
     }
 
     private fun isIndexStateManagementEnabled(): Boolean = indexStateManagementEnabled == true
 
+    /** create, delete job document based on index's policyID setting changes */
     @OpenForTesting
-    suspend fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
-        val indicesDeletedRequests = event.indicesDeleted()
-                    .filter { event.previousState().metadata().index(it)?.getPolicyID() != null }
-                    .map { deleteManagedIndexRequest(it.uuid) }
+    fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
+        val managedIndicesDeleted = event.indicesDeleted()
+                .filter { event.previousState().metadata().index(it)?.getPolicyID() != null }
 
-        /*
-        * Update existing indices that have added or removed policy_ids
-        * There doesn't seem to be a fast way of finding indices that meet the above conditions without
-        * iterating over every index in cluster state and comparing current policy_id with previous policy_id
-        * If this turns out to be a performance bottle neck we can remove this and enforce
-        * addPolicy/removePolicy API usage for existing indices and let the background sweep pick up
-        * any changes from users that ignore and use the ES settings API
-        * */
-        var hasCreateRequests = false
-        val updateManagedIndicesRequests = mutableListOf<DocWriteRequest<*>>()
-        val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
-        event.state().metadata().indices().forEach {
-            val previousIndexMetaData = event.previousState().metadata().index(it.value.index)
-            val policyID = it.value.getPolicyID()
-            val request: DocWriteRequest<*>? = when {
-                it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyID != null -> {
-                    hasCreateRequests = true
-                    managedIndexConfigIndexRequest(it.value.index.name, it.value.indexUUID, policyID, jobInterval)
+        launch {
+            val indicesDeletedRequests = managedIndicesDeleted.map { deleteManagedIndexRequest(it.uuid) }
+
+            /*
+            * Update existing indices that have added or removed policy_ids
+            * There doesn't seem to be a fast way of finding indices that meet the above conditions without
+            * iterating over every index in cluster state and comparing current policy_id with previous policy_id
+            * If this turns out to be a performance bottle neck we can remove this and enforce
+            * addPolicy/removePolicy API usage for existing indices and let the background sweep pick up
+            * any changes from users that ignore and use the ES settings API
+            * */
+            var hasCreateRequests = false
+            val updateManagedIndicesRequests = mutableListOf<DocWriteRequest<*>>()
+            event.state().metadata().indices().forEach {
+                val previousIndexMetaData = event.previousState().metadata().index(it.value.index)
+                val policyID = it.value.getPolicyID()
+                val request: DocWriteRequest<*>? = when {
+                    it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyID != null -> {
+                        hasCreateRequests = true
+                        managedIndexConfigIndexRequest(it.value.index.name, it.value.indexUUID, policyID, jobInterval)
+                    }
+                    it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
+                        deleteManagedIndexRequest(it.value.indexUUID)
+                    else -> null
                 }
-                it.value.shouldDeleteManagedIndexConfig(previousIndexMetaData) ->
-                    deleteManagedIndexRequest(it.value.indexUUID)
-                else -> null
+                if (request != null) updateManagedIndicesRequests.add(request)
             }
 
-            if (request != null) updateManagedIndicesRequests.add(request)
-
-            if (it.value.shouldDeleteManagedIndexMetaData()) indicesToRemoveManagedIndexMetaDataFrom.add(it.value.index)
+            updateManagedIndices(updateManagedIndicesRequests + indicesDeletedRequests, hasCreateRequests)
         }
 
-        updateManagedIndices(updateManagedIndicesRequests + indicesDeletedRequests, hasCreateRequests)
-        clearManagedIndexMetaData(indicesToRemoveManagedIndexMetaDataFrom)
+        launch(CoroutineName("remove-metadata")) {
+            val indicesToRemoveMetadata = getIndicesToDeleteMetadataFrom(event.state()) + managedIndicesDeleted
+            val deleteRequests = indicesToRemoveMetadata.map { deleteManagedIndexMetadataRequest(it.uuid) }
+            clearManagedIndexMetaData(deleteRequests)
+        }
     }
 
     /**
@@ -324,15 +328,18 @@ class ManagedIndexCoordinator(
 
         val createManagedIndexRequests =
                 getCreateManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices, jobInterval)
-
         val deleteManagedIndexRequests =
                 getDeleteManagedIndexRequests(clusterStateManagedIndices, currentManagedIndices)
-
-        val indicesToDeleteManagedIndexMetaDataFrom = getIndicesToDeleteManagedIndexMetaDataFrom(clusterService.state())
-
         val requests = createManagedIndexRequests + deleteManagedIndexRequests
+
         updateManagedIndices(requests, createManagedIndexRequests.isNotEmpty())
-        clearManagedIndexMetaData(indicesToDeleteManagedIndexMetaDataFrom)
+
+        // clear metadata
+        val indicesToDeleteMetadata =
+                getIndicesToDeleteMetadataFrom(clusterService.state()) + getDeleteManagedIndices(clusterStateManagedIndices, currentManagedIndices)
+        val deleteRequests = indicesToDeleteMetadata.map { deleteManagedIndexMetadataRequest(it.uuid) }
+        clearManagedIndexMetaData(deleteRequests)
+
         lastFullSweepTimeNano = System.nanoTime()
     }
 
@@ -357,11 +364,6 @@ class ManagedIndexCoordinator(
             it.id to SweptManagedIndexConfig.parseWithType(contentParser(it.sourceRef),
                     it.seqNo, it.primaryTerm)
         }.toMap()
-    }
-
-    private fun contentParser(bytesReference: BytesReference): XContentParser {
-        return XContentHelper.createParser(NamedXContentRegistry.EMPTY,
-                LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
     }
 
     /**
@@ -398,7 +400,7 @@ class ManagedIndexCoordinator(
 
         retryPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
             val bulkRequest = BulkRequest().add(requestsToRetry)
-            val bulkResponse: BulkResponse = client.suspendUntil { client.bulk(bulkRequest, it) }
+            val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
             val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
             requestsToRetry = failedResponses.filter { it.status() == RestStatus.TOO_MANY_REQUESTS }
                     .map { bulkRequest.requests()[it.itemId] }
@@ -410,31 +412,50 @@ class ManagedIndexCoordinator(
         }
     }
 
-    /** Returns a list of [Index]es that need to have their [ManagedIndexMetaData] removed. */
-    @OpenForTesting
-    fun getIndicesToDeleteManagedIndexMetaDataFrom(clusterState: ClusterState): List<Index> {
-        return clusterState.metadata().indices().values().mapNotNull {
-            if (it.value.shouldDeleteManagedIndexMetaData()) it.value.index else null
+    /**
+     * Returns a list of [Index]es that need to have their [ManagedIndexMetaData] removed
+     * This method only consider policyID set to null situation
+     * index deleted situation is dealt in place, concatenate with this method's result
+     */
+    suspend fun getIndicesToDeleteMetadataFrom(clusterState: ClusterState): List<Index> {
+        val indicesWithNullPolicyID = mutableListOf<Index>()
+        clusterState.metadata().indices().values().forEach {
+            if (it.value.getPolicyID() == null) {
+                indicesWithNullPolicyID.add(it.value.index)
+            }
         }
+
+        return getIndicesToRemoveMetadataFrom(indicesWithNullPolicyID)
+    }
+
+    /** If this index has no policyID but [ManagedIndexMetaData] is not null then metadata should be removed. */
+    suspend fun getIndicesToRemoveMetadataFrom(indicesWithNullPolicyID: List<Index>): List<Index> {
+        val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
+        val metadataList = client.mgetManagedIndexMetadata(indicesWithNullPolicyID)
+        metadataList.forEach {
+            if (it != null) indicesToRemoveManagedIndexMetaDataFrom.add(Index(it.index, it.indexUuid))
+        }
+        return indicesToRemoveManagedIndexMetaDataFrom
     }
 
     /** Removes the [ManagedIndexMetaData] from the given list of [Index]es. */
     @OpenForTesting
     @Suppress("TooGenericExceptionCaught")
-    suspend fun clearManagedIndexMetaData(indices: List<Index>) {
+    suspend fun clearManagedIndexMetaData(deleteRequests: List<DocWriteRequest<*>>) {
         try {
             // If list of indices is empty, no request necessary
-            if (indices.isEmpty()) return
-
-            val request = UpdateManagedIndexMetaDataRequest(indicesToRemoveManagedIndexMetaDataFrom = indices)
+            if (deleteRequests.isEmpty()) return
 
             retryPolicy.retry(logger) {
-                val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, it) }
-
-                if (!response.isAcknowledged) logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]")
+                val bulkRequest = BulkRequest().add(deleteRequests)
+                val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
+                bulkResponse.forEach {
+                    if (it.isFailed) logger.error("Failed to clear ManagedIndexMetadata for [index=${it.index}]. " +
+                            "Id: ${it.id}, failureMessage: ${it.failureMessage}")
+                }
             }
         } catch (e: Exception) {
-            logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]", e)
+            logger.error("Failed to clear ManagedIndexMetadata ", e)
         }
     }
 

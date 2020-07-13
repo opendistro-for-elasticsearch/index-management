@@ -25,8 +25,10 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.readonly.SetReadOnlyStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
 import org.elasticsearch.action.search.SearchResponse
@@ -90,7 +92,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             transitionTo = null,
             stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
-            stepMetaData = null,
+            stepMetaData = StepMetaData("set_read_only", actualHistory.stepMetaData!!.startTime, Step.StepStatus.COMPLETED),
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
             info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
         )
@@ -156,7 +158,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             transitionTo = null,
             stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
-            stepMetaData = null,
+            stepMetaData = StepMetaData("set_read_only", actualHistory.stepMetaData!!.startTime, Step.StepStatus.COMPLETED),
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
             info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
         )
@@ -222,7 +224,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             transitionTo = null,
             stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
-            stepMetaData = null,
+            stepMetaData = StepMetaData("set_read_only", actualHistory.stepMetaData!!.startTime, Step.StepStatus.COMPLETED),
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
             info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
         )
@@ -312,7 +314,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             transitionTo = null,
             stateMetaData = StateMetaData(states[0].name, actualHistory1.stateMetaData!!.startTime),
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory1.actionMetaData!!.startTime, 0, false, 0, 0, null),
-            stepMetaData = null,
+            stepMetaData = StepMetaData("set_read_only", actualHistory1.stepMetaData!!.startTime, Step.StepStatus.COMPLETED),
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
             info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
         )

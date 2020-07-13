@@ -15,31 +15,33 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.buildMgetMetadataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.mgetResponseToList
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateEnableManagedIndexRequest
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
-import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
+import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
-import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.Index
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
@@ -63,8 +65,10 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
         private val request: RetryFailedManagedIndexRequest
     ) {
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
-        private val listOfIndexMetaDataBulk: MutableList<ManagedIndexMetaData> = mutableListOf()
-        private val listOfIndexMetaData: MutableList<Pair<Index, ManagedIndexMetaData>> = mutableListOf()
+        private val listOfMetadata: MutableList<ManagedIndexMetaData> = mutableListOf()
+        private val listOfIndexToMetadata: MutableList<Pair<Index, ManagedIndexMetaData>> = mutableListOf()
+        private val mapOfItemIdToIndex: MutableMap<Int, Index> = mutableMapOf()
+        private lateinit var clusterState: ClusterState
         private var updated: Int = 0
 
         @Suppress("SpreadOperator")
@@ -73,11 +77,11 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
 
             val clusterStateRequest = ClusterStateRequest()
             clusterStateRequest.clear()
-                    .indices(*request.indices.toTypedArray())
-                    .metadata(true)
-                    .local(false)
-                    .masterNodeTimeout(request.masterTimeout)
-                    .indicesOptions(strictExpandIndicesOptions)
+                .indices(*request.indices.toTypedArray())
+                .metadata(true)
+                .local(false)
+                .masterNodeTimeout(request.masterTimeout)
+                .indicesOptions(strictExpandIndicesOptions)
 
             client.admin()
                 .cluster()
@@ -93,108 +97,117 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
         }
 
         fun processResponse(clusterStateResponse: ClusterStateResponse) {
-            val state = clusterStateResponse.state
-            populateList(state)
+            clusterState = clusterStateResponse.state
 
-            if (listOfIndexMetaDataBulk.isNotEmpty()) {
-                updateBulkRequest(listOfIndexMetaDataBulk.map { it.indexUuid })
+            // get back metadata first to populate list
+            client.multiGet(buildMgetMetadataRequest(clusterState), ActionListener.wrap(::onMgetMetadataResponse, ::onFailure))
+        }
+
+        private fun onMgetMetadataResponse(mgetResponse: MultiGetResponse) {
+            val metadataList = mgetResponseToList(mgetResponse)
+            clusterState.metadata.indices.forEachIndexed { ind, it ->
+                val indexMetaData = it.value
+                val managedIndexMetaData = metadataList[ind]
+                log.info("metadata: $managedIndexMetaData for index ${it.key}")
+                when {
+                    indexMetaData.getPolicyID() == null ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
+                            "This index is not being managed."))
+                    managedIndexMetaData == null ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
+                            "This index has no metadata information"))
+                    !managedIndexMetaData.isFailed ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
+                            "This index is not in failed state."))
+                    else ->
+                        listOfMetadata.add(managedIndexMetaData)
+                }
+            }
+
+            if (listOfMetadata.isNotEmpty()) {
+                bulkEnableJob(listOfMetadata.map { it.indexUuid })
             } else {
                 updated = 0
                 actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
-                return
             }
         }
 
-        private fun populateList(state: ClusterState) {
-            for (indexMetaDataEntry in state.metadata.indices) {
-                val indexMetaData = indexMetaDataEntry.value
-                val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
-                when {
-                    indexMetaData.getPolicyID() == null ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
-                    managedIndexMetaData == null ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "There is no IndexMetaData information"))
-                    !managedIndexMetaData.isFailed ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not in failed state."))
-                    else ->
-                        listOfIndexMetaDataBulk.add(managedIndexMetaData)
-                }
-            }
-        }
-
-        private fun updateBulkRequest(documentIds: List<String>) {
-            val requestsToRetry = createEnableBulkRequest(documentIds)
+        private fun bulkEnableJob(jobDocIds: List<String>) {
+            val requestsToRetry = jobDocIds.map { updateEnableManagedIndexRequest(it) }
             val bulkRequest = BulkRequest().add(requestsToRetry)
 
-            client.bulk(bulkRequest, ActionListener.wrap(::onBulkResponse, ::onFailure))
+            client.bulk(bulkRequest, ActionListener.wrap(::onEnableJobBulkResponse, ::onFailure))
         }
 
-        private fun onBulkResponse(bulkResponse: BulkResponse) {
+        private fun onEnableJobBulkResponse(bulkResponse: BulkResponse) {
             for (bulkItemResponse in bulkResponse) {
-                val managedIndexMetaData = listOfIndexMetaDataBulk.first { it.indexUuid == bulkItemResponse.id }
+                log.info("enable job bulk response item id: ${bulkItemResponse.id}")
+                val managedIndexMetaData = listOfMetadata.first { it.indexUuid == bulkItemResponse.id }
                 if (bulkItemResponse.isFailed) {
                     failedIndices.add(FailedIndex(managedIndexMetaData.index, managedIndexMetaData.indexUuid, bulkItemResponse.failureMessage))
                 } else {
-                    listOfIndexMetaData.add(
-                            Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData.copy(
-                                    stepMetaData = null,
-                                    policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                                    actionMetaData = managedIndexMetaData.actionMetaData?.copy(
-                                            failed = false,
-                                            consumedRetries = 0,
-                                            lastRetryTime = null,
-                                            startTime = null
-                                    ),
-                                    transitionTo = request.startState,
-                                    info = mapOf("message" to "Attempting to retry")
-                            ))
+                    listOfIndexToMetadata.add(
+                        Pair(
+                            Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid),
+                            managedIndexMetaData.copy(
+                                stepMetaData = null,
+                                policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+                                actionMetaData = managedIndexMetaData.actionMetaData?.copy(
+                                    failed = false,
+                                    consumedRetries = 0,
+                                    lastRetryTime = null,
+                                    startTime = null
+                                ),
+                                transitionTo = request.startState,
+                                info = mapOf("message" to "Attempting to retry")
+                            )
+                        )
                     )
                 }
             }
 
-            if (listOfIndexMetaData.isNotEmpty()) {
-                val updateManagedIndexMetaDataRequest =
-                        UpdateManagedIndexMetaDataRequest(indicesToAddManagedIndexMetaDataTo = listOfIndexMetaData)
-                client.execute(
-                        UpdateManagedIndexMetaDataAction.INSTANCE,
-                        updateManagedIndexMetaDataRequest,
-                        ActionListener.wrap(::onUpdateManagedIndexMetaDataActionResponse, ::onFailure)
-                )
+            if (listOfIndexToMetadata.isNotEmpty()) {
+                listOfIndexToMetadata.forEachIndexed { ind, (index, _) ->
+                    mapOfItemIdToIndex[ind] = index
+                }
+
+                val updateMetadataRequests = listOfIndexToMetadata.map { (index, metadata) ->
+                    log.info("try to save metadata [$metadata] in retry")
+                    val builder = metadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true)
+                    UpdateRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, index.uuid + "metadata").doc(builder)
+                }
+                val bulkUpdateMetadataRequest = BulkRequest().add(updateMetadataRequests)
+
+                client.bulk(bulkUpdateMetadataRequest, ActionListener.wrap(::onBulkUpdateMetadataResponse, ::onFailure))
             } else {
                 updated = 0
                 actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
-                return
             }
         }
 
-        private fun createEnableBulkRequest(documentIds: List<String>): List<DocWriteRequest<*>> {
-            return documentIds.map { updateEnableManagedIndexRequest(it) }
-        }
-
-        private fun onUpdateManagedIndexMetaDataActionResponse(response: AcknowledgedResponse) {
-            if (response.isAcknowledged) {
-                updated = listOfIndexMetaData.size
-            } else {
-                updated = 0
-                failedIndices.addAll(listOfIndexMetaData.map {
-                    FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetaData")
-                })
+        private fun onBulkUpdateMetadataResponse(bulkResponse: BulkResponse) {
+            val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
+            failedResponses.forEach {
+                val index = mapOfItemIdToIndex[it.itemId]
+                if (index != null) {
+                    failedIndices.add(FailedIndex(index.name, index.uuid, "failed to update metadata for index ${index.name}"))
+                }
             }
+
+            updated = (bulkResponse.items ?: arrayOf()).size - failedResponses.size
             actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
-            return
         }
 
         fun onFailure(e: Exception) {
             try {
                 if (e is ClusterBlockException) {
-                    failedIndices.addAll(listOfIndexMetaData.map {
+                    failedIndices.addAll(listOfIndexToMetadata.map {
                         FailedIndex(it.first.name, it.first.uuid, "failed to update with ClusterBlockException. ${e.message}")
                     })
                 }
 
                 updated = 0
                 actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
-                return
             } catch (inner: Exception) {
                 inner.addSuppressed(e)
                 log.error("failed to send failure response", inner)

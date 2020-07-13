@@ -45,7 +45,6 @@ class RestExplainAction : BaseRestHandler() {
         return "ism_explain_action"
     }
 
-    @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
         if (indices == null || indices.isEmpty()) {
@@ -53,7 +52,7 @@ class RestExplainAction : BaseRestHandler() {
         }
 
         val explainRequest = ExplainRequest(indices.toList(), request.paramAsBoolean("local", false),
-                request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT))
+            request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT))
 
         return RestChannelConsumer { channel ->
             client.execute(ExplainAction.INSTANCE, explainRequest, RestToXContentListener(channel))

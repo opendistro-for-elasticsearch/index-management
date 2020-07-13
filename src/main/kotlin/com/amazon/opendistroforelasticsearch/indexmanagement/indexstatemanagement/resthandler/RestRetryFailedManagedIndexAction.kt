@@ -58,7 +58,7 @@ class RestRetryFailedManagedIndexAction : BaseRestHandler() {
         }
 
         val retryFailedRequest = RetryFailedManagedIndexRequest(indices.toList(), body["state"] as String?,
-                request.paramAsTime("master_timeout", DEFAULT_MASTER_NODE_TIMEOUT))
+            request.paramAsTime("master_timeout", DEFAULT_MASTER_NODE_TIMEOUT))
 
         return RestChannelConsumer { channel ->
             client.execute(RetryFailedManagedIndexAction.INSTANCE, retryFailedRequest, RestToXContentListener(channel))

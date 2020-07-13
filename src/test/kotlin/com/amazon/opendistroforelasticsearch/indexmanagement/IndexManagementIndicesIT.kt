@@ -50,17 +50,17 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
 
     fun `test create index management`() {
         val policy = randomPolicy()
-        val policyId = ESTestCase.randomAlphaOfLength(10)
+        val policyId = randomAlphaOfLength(10)
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 4)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 5)
     }
 
     fun `test update management index mapping with new schema version`() {
         assertIndexDoesNotExist(INDEX_MANAGEMENT_INDEX)
 
         val mapping = indexManagementMappings.trim().trimStart('{').trimEnd('}')
-            .replace("\"schema_version\": 4", "\"schema_version\": 0")
+            .replace("\"schema_version\": 5", "\"schema_version\": 0")
 
         createIndex(INDEX_MANAGEMENT_INDEX, Settings.builder().put("index.hidden", true).build(), mapping)
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
@@ -71,7 +71,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
 
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 4)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 5)
     }
 
     fun `test update management index history mappings with new schema version`() {
@@ -115,8 +115,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         assertEquals("Policy id does not match", policy.id, managedIndexConfig.policyID)
 
         val mapping = "{" + indexManagementMappings.trimStart('{').trimEnd('}')
-            .replace("\"schema_version\": 4", "\"schema_version\": 0")
-
+            .replace("\"schema_version\": 5", "\"schema_version\": 0")
         val entity = StringEntity(mapping, ContentType.APPLICATION_JSON)
         client().makeRequest(RestRequest.Method.PUT.toString(),
             "/$INDEX_MANAGEMENT_INDEX/_mapping", emptyMap(), entity)
@@ -129,7 +128,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
             RestRequest.Method.POST.toString(),
             "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
 
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 4)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 5)
 
         assertAffectedIndicesResponseIsEqual(mapOf(FAILURES to false, FAILED_INDICES to emptyList<Any>(), UPDATED_INDICES to 1), response.asMap())
 

@@ -15,23 +15,35 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
+import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.get.MultiGetRequest
+import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+
+private val log = LogManager.getLogger(TransportExplainAction::class.java)
 
 class TransportExplainAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
-    actionFilters: ActionFilters
+    actionFilters: ActionFilters,
+    val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<ExplainRequest, ExplainResponse>(
         ExplainAction.NAME, transportService, actionFilters, ::ExplainRequest
 ) {
@@ -44,7 +56,13 @@ class TransportExplainAction @Inject constructor(
         private val actionListener: ActionListener<ExplainResponse>,
         private val request: ExplainRequest
     ) {
-        @Suppress("SpreadOperator")
+        lateinit var response: GetResponse
+
+        private val indexNames = mutableListOf<String>()
+        private val indexMetadataUuids = mutableListOf<String>()
+        private val indexPolicyIds = mutableListOf<String?>()
+
+        @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
         fun start() {
             val clusterStateRequest = ClusterStateRequest()
             val strictExpandIndicesOptions = IndicesOptions.strictExpand()
@@ -52,12 +70,31 @@ class TransportExplainAction @Inject constructor(
             clusterStateRequest.clear()
                 .indices(*request.indices.toTypedArray())
                 .metadata(true)
-                .local(request.local)
-                .masterNodeTimeout(request.masterTimeout)
                 .indicesOptions(strictExpandIndicesOptions)
 
             client.admin().cluster().state(clusterStateRequest, object : ActionListener<ClusterStateResponse> {
                 override fun onResponse(response: ClusterStateResponse) {
+                    onClusterStateResponse(response)
+                }
+
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
+
+        // retrieve index uuid from cluster state
+        private fun onClusterStateResponse(response: ClusterStateResponse) {
+            for (indexMetadataEntry in response.state.metadata.indices) {
+                indexNames.add(indexMetadataEntry.key)
+                indexMetadataUuids.add(indexMetadataEntry.value.indexUUID + "metadata")
+                indexPolicyIds.add(indexMetadataEntry.value.getPolicyID())
+            }
+
+            val mgetRequest = MultiGetRequest()
+            indexMetadataUuids.forEach { mgetRequest.add(MultiGetRequest.Item(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, it)) }
+            client.multiGet(mgetRequest, object : ActionListener<MultiGetResponse> {
+                override fun onResponse(response: MultiGetResponse) {
                     processResponse(response)
                 }
 
@@ -67,27 +104,30 @@ class TransportExplainAction @Inject constructor(
             })
         }
 
-        fun processResponse(clusterStateResponse: ClusterStateResponse) {
-            val state = clusterStateResponse.state
-            val indexNames = mutableListOf<String>()
-            val indexPolicyIDs = mutableListOf<String?>()
+        fun processResponse(response: MultiGetResponse) {
             val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
 
-            for (indexMetadataEntry in state.metadata.indices) {
-                indexNames.add(indexMetadataEntry.key)
-
-                val indexMetadata = indexMetadataEntry.value
-                indexPolicyIDs.add(indexMetadata.getPolicyID())
-
-                val managedIndexMetaDataMap = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
-                var managedIndexMetadata: ManagedIndexMetaData? = null
-                if (managedIndexMetaDataMap != null) {
-                    managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetaDataMap)
+            response.responses.forEach {
+                if (it.response != null) {
+                    indexMetadatas.add(getMetadata(it.response))
+                } else {
+                    indexMetadatas.add(null)
                 }
-                indexMetadatas.add(managedIndexMetadata)
             }
 
-            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
+            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIds, indexMetadatas))
+        }
+
+        private fun getMetadata(response: GetResponse): ManagedIndexMetaData? {
+            if (response.sourceAsBytesRef == null) return null
+
+            val xcp = XContentHelper.createParser(
+                xContentRegistry,
+                LoggingDeprecationHandler.INSTANCE,
+                response.sourceAsBytesRef,
+                XContentType.JSON)
+            return ManagedIndexMetaData.parseWithType(xcp,
+                response.id, response.seqNo, response.primaryTerm)
         }
     }
 }

@@ -105,9 +105,9 @@ data class ActionMetaData(
         }
 
         fun fromManagedIndexMetaDataMap(map: Map<String, String?>): ActionMetaData? {
-            val stateJsonString = map[ACTION]
-            return if (stateJsonString != null) {
-                val inputStream = ByteArrayInputStream(stateJsonString.toByteArray(StandardCharsets.UTF_8))
+            val actionJsonString = map[ACTION]
+            return if (actionJsonString != null) {
+                val inputStream = ByteArrayInputStream(actionJsonString.toByteArray(StandardCharsets.UTF_8))
                 val parser = XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, inputStream)
                 parser.nextToken()
                 parse(parser)

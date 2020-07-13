@@ -89,5 +89,7 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
 
         // verify index does exist
         waitFor { assertTrue("Notification index does not exist", indexExists(notificationIndex)) }
+
+        waitForStepCompleted(indexName)
     }
 }

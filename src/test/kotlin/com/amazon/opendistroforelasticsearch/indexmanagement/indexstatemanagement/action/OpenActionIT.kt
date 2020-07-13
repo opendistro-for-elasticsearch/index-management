@@ -64,6 +64,8 @@ class OpenActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("open", getIndexState(indexName)) }
+
+        waitForStepCompleted(indexName)
     }
 
     fun `test already open index`() {
@@ -100,5 +102,7 @@ class OpenActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor { assertEquals("open", getIndexState(indexName)) }
+
+        waitForStepCompleted(indexName)
     }
 }

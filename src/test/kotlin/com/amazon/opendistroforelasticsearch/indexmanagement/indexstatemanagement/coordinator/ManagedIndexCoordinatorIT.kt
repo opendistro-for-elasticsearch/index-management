@@ -27,12 +27,16 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.rest.RestRequest
+import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -130,6 +134,48 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         }
     }
 
+    fun `test managed-index metadata is cleaned up after index deleted`() {
+        val policyID = "some_policy"
+        val (index) = createIndex(policyID = policyID)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(index)
+
+        // Speed up execution to initialize policy on job
+        // Loading policy will fail but ManagedIndexMetaData will be updated
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        // Verify ManagedIndexMetaData contains information
+        waitFor {
+            assertPredicatesOnMetaData(
+                    listOf(index to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                    getExplainMap(index),
+                    false
+            )
+        }
+
+        deleteIndex(index)
+
+        // Verify ManagedIndexMetadata has been cleared
+        try {
+            client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
+            fail("Expected a failure")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
+            val actualMessage = e.response.asMap()
+            val expectedErrorMessage = mapOf(
+                    "error" to mapOf(
+                            "root_cause" to listOf<Map<String, Any>>(
+                                    mapOf("type" to "illegal_argument_exception", "reason" to "Missing indices")
+                            ),
+                            "type" to "illegal_argument_exception",
+                            "reason" to "Missing indices"
+                    ),
+                    "status" to 400
+            )
+            assertEquals(expectedErrorMessage, actualMessage)
+        }
+    }
+
     fun `test disabling and reenabling ism`() {
         val indexName = "test_disable_ism_index-000001"
         val policyID = "test_policy_1"
@@ -204,7 +250,8 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
             config
         }
 
-        // Speed up to next execution where the job should be rescheduled and the index rolled over
+        // TODO seen version conflict flaky failure here
+        // could be same reason as the test failure in ChangePolicyActionIT
         updateManagedIndexConfigStartTime(enabledManagedIndexConfig)
 
         waitFor { assertEquals(AttemptRolloverStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }

@@ -18,9 +18,11 @@ package com.amazon.opendistroforelasticsearch.indexmanagement
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.SkipExecution
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.TransportUpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestAddPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestChangePolicyAction
@@ -117,6 +119,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
                     Policy.POLICY_TYPE -> {
                         return@ScheduledJobParser null
                     }
+                    ManagedIndexMetaData.MANAGED_INDEX_METADATA_TYPE -> {
+                        return@ScheduledJobParser null
+                    }
                     else -> {
                         logger.info("Unsupported document was indexed in $INDEX_MANAGEMENT_INDEX with type: $fieldName")
                     }
@@ -163,13 +168,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
     ): Collection<Any> {
         val settings = environment.settings()
         this.clusterService = clusterService
-        val managedIndexRunner = ManagedIndexRunner
-            .registerClient(client)
-            .registerClusterService(clusterService)
-            .registerNamedXContentRegistry(xContentRegistry)
-            .registerScriptService(scriptService)
-            .registerSettings(settings)
-            .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
+
+        val skipFlag = SkipExecution(client, clusterService)
 
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =
@@ -181,10 +181,20 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
                 indexManagementIndices
             )
 
+        val managedIndexRunner = ManagedIndexRunner
+            .registerClient(client)
+            .registerClusterService(clusterService)
+            .registerNamedXContentRegistry(xContentRegistry)
+            .registerScriptService(scriptService)
+            .registerSettings(settings)
+            .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
+            .registerHistoryIndex(indexStateManagementHistory)
+            .registerSkipFlag(skipFlag)
+
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
             client, clusterService, threadPool, indexManagementIndices)
 
-        return listOf(managedIndexRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
+        return listOf(managedIndexRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory, skipFlag)
     }
 
     override fun getSettings(): List<Setting<*>> {

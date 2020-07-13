@@ -30,6 +30,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
@@ -67,11 +68,11 @@ import org.elasticsearch.test.ESTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
-import java.util.Locale
-import java.nio.file.Path
-import java.nio.file.Files
+import java.util.*
 import javax.management.MBeanServerInvocationHandler
 import javax.management.ObjectName
 import javax.management.remote.JMXConnectorFactory
@@ -82,6 +83,29 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
     protected val isMultiNode = System.getProperty("cluster.number_of_nodes", "1").toInt() > 1
+
+    protected fun waitForStepCompleted(indexName: String) {
+        waitFor {
+            val metadata = getExplainManagedIndexMetaData(indexName)
+            val stepStatus = metadata.stepMetaData?.stepStatus.toString()
+            assertEquals("completed", stepStatus)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun runningTasks(response: Response): MutableSet<String> {
+        val runningTasks: MutableSet<String> = HashSet()
+        val nodes = entityAsMap(response)["nodes"] as Map<String, Any>?
+        for ((_, value) in nodes!!) {
+            val nodeInfo = value as Map<String, Any>
+            val nodeTasks = nodeInfo["tasks"] as Map<String, Any>?
+            for ((_, value1) in nodeTasks!!) {
+                val task = value1 as Map<String, Any>
+                runningTasks.add(task["action"].toString())
+            }
+        }
+        return runningTasks
+    }
 
     protected fun createPolicy(
         policy: Policy,
@@ -169,6 +193,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         replicas: String? = null,
         shards: String? = null
     ): Pair<String, String?> {
+        val waitForActiveShards = if (isMultiNode) "all" else "1"
         val settings = Settings.builder().let {
             if (policyID == null) {
                 it.putNull(ManagedIndexSettings.POLICY_ID.key)
@@ -190,6 +215,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             } else {
                 it.put("index.number_of_shards", shards)
             }
+            it.put("index.write.wait_for_active_shards", waitForActiveShards)
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
         createIndex(index, settings, "", aliases)
@@ -657,6 +683,16 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         if (expectedStartTime != null) {
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         }
+        return true
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertStepEquals(expectedStep: StepMetaData, actualStepMap: Any?): Boolean {
+        actualStepMap as Map<String, Any>
+        assertEquals(expectedStep.name, actualStepMap[ManagedIndexMetaData.NAME] as String)
+        assertEquals(expectedStep.stepStatus.toString(), actualStepMap[StepMetaData.STEP_STATUS])
+        val expectedStartTime = expectedStep.startTime
+        assertTrue((actualStepMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         return true
     }
 

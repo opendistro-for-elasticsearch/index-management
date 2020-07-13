@@ -44,7 +44,6 @@ apply plugin: 'java'
 apply plugin: 'jacoco'
 apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
-apply plugin: 'elasticsearch.testclusters'
 apply plugin: 'io.gitlab.arturbosch.detekt'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
@@ -232,3 +231,34 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
 compileKotlin { kotlinOptions.freeCompilerArgs = ['-Xjsr305=strict'] }
 
 apply from: 'build-tools/pkgbuild.gradle'
+
+// setup for rolling upgrade test
+import org.elasticsearch.gradle.test.RestIntegTestTask
+
+def mixedClusterTest = project.tasks.create('mixedCluster', RestIntegTestTask.class)
+def mixedClusterFlag = findProperty('mixed') as Boolean ?: false
+
+testClusters.mixedCluster {
+    testDistribution = "OSS"
+    if (_numNodes > 1) numberOfNodes = _numNodes
+    getNodes().each { node ->
+        node.plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
+        node.plugin(project.tasks.bundlePlugin.archiveFile)
+
+        if (mixedClusterFlag && node.name == "mixedCluster-1") {
+            node.plugins.remove(1)
+            node.plugin(fileTree("src/test/resources/index-management").getSingleFile())
+            node.plugins.each { println("plugin in new node: $it") }
+        }
+    }
+    setting 'path.repo', repo.absolutePath
+}
+
+mixedClusterTest.dependsOn(bundlePlugin)
+
+mixedClusterTest.runner {
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'tests.path.repo', repo.absolutePath
+    systemProperty 'cluster.mixed', "$mixedClusterFlag"
+    systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+}

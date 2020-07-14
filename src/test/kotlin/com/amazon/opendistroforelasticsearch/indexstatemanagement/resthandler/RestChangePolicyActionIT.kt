@@ -322,17 +322,15 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
                 ), explainResponseMap, false)
         }
 
-        waitFor {
-            val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
-            val response = client().makeRequest(RestRequest.Method.POST.toString(),
-                "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
-            val expectedResponse = mapOf(
-                FAILURES to false,
-                FAILED_INDICES to emptyList<Any>(),
-                UPDATED_INDICES to 1
-            )
-            assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
-        }
+        val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
+        val response = client().makeRequest(RestRequest.Method.POST.toString(),
+            "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
+        val expectedResponse = mapOf(
+            FAILURES to false,
+            FAILED_INDICES to emptyList<Any>(),
+            UPDATED_INDICES to 1
+        )
+        assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
 
         // speed up to second execution we will have a ChangePolicy but not be in Transitions yet
         // which means we should still execute the ReadOnlyAction
@@ -440,16 +438,14 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
 
         val newPolicy = createRandomPolicy()
         val changePolicy = ChangePolicy(newPolicy.id, null, listOf(StateFilter(state = firstState.name)), false)
-        waitFor {
-            val response = client().makeRequest(RestRequest.Method.POST.toString(),
-                "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$firstIndex,$secondIndex", emptyMap(), changePolicy.toHttpEntity())
-            val expectedResponse = mapOf(
-                FAILURES to false,
-                FAILED_INDICES to emptyList<Any>(),
-                UPDATED_INDICES to 1
-            )
-            assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
-        }
+        val response = client().makeRequest(RestRequest.Method.POST.toString(),
+            "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$firstIndex,$secondIndex", emptyMap(), changePolicy.toHttpEntity())
+        val expectedResponse = mapOf(
+            FAILURES to false,
+            FAILED_INDICES to emptyList<Any>(),
+            UPDATED_INDICES to 1
+        )
+        assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
 
         waitFor {
             // The first managed index should not have a change policy added to it as it should of been filtered out from the states filter

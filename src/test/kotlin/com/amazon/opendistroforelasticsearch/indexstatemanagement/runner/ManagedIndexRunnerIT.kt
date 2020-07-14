@@ -100,14 +100,14 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
 
         // init policy
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals(createdPolicy.id, getManagedIndexConfig(indexName)?.policyID) }
+        waitFor { assertEquals(createdPolicy.id, getManagedIndexConfigByDocId(managedIndexConfig.id)?.policyID) }
 
         // change cluster job interval setting to 2 (minutes)
         updateClusterSetting(ManagedIndexSettings.JOB_INTERVAL.key, "2")
 
         // fast forward to next execution where at the end we should change the job interval time
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { (getManagedIndexConfig(indexName)?.jobSchedule as? IntervalSchedule)?.interval == 2 }
+        waitFor { (getManagedIndexConfigByDocId(managedIndexConfig.id)?.jobSchedule as? IntervalSchedule)?.interval == 2 }
     }
 
     fun `test allow list fails execution`() {

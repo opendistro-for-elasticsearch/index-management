@@ -30,8 +30,8 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     fun `test basic`() {
-        val indexName = "${testIndexName}_index_1"
-        val policyID = "${testIndexName}_testPolicyName_1"
+        val indexName = "${testIndexName}_index_basic"
+        val policyID = "${testIndexName}_policy_basic"
         val repository = "repository"
         val snapshot = "snapshot"
         val actionConfig = SnapshotActionConfig(repository, snapshot, 0)
@@ -62,15 +62,14 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
 
         // Need to wait two cycles for wait for snapshot step
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
 
         waitFor { assertSnapshotExists(repository, snapshot) }
         waitFor { assertSnapshotFinishedWithSuccess(repository, snapshot) }
     }
 
     fun `test successful wait for snapshot step`() {
-        val indexName = "${testIndexName}_index_1"
-        val policyID = "${testIndexName}_testPolicyName_1"
+        val indexName = "${testIndexName}_index_success"
+        val policyID = "${testIndexName}_policy_success"
         val repository = "repository"
         val snapshot = "snapshot_success_test"
         val actionConfig = SnapshotActionConfig(repository, snapshot, 0)
@@ -118,8 +117,8 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test failed wait for snapshot step`() {
-        val indexName = "${testIndexName}_index_1"
-        val policyID = "${testIndexName}_testPolicyName_1"
+        val indexName = "${testIndexName}_index_failed"
+        val policyID = "${testIndexName}_policy_failed"
         val repository = "repository"
         val snapshot = "snapshot_failed_test"
         val actionConfig = SnapshotActionConfig(repository, snapshot, 0)

@@ -77,9 +77,11 @@ This project currently uses the Notification subproject from the [Alerting plugi
 
 1. `./gradlew build` builds and tests project.
 2. `./gradlew run` launches a single node cluster with the index management (and job-scheduler) plugin installed.
-3. `./gradlew integTest` launches a single node cluster with the index management (and job-scheduler) plugin installed and runs all integ tests.
-4. `./gradlew integTest -Dtests.class=*RestChangePolicyActionIT` runs a single integ class
-5.  `./gradlew integTest -Dtests.class=*RestChangePolicyActionIT -Dtests.method="test missing index"` runs a single integ test method (remember to quote the test method name if it contains spaces)
+3. `./gradlew run -PnumNodes=3` launches a multi-node cluster with the index management (and job-scheduler) plugin installed.
+4. `./gradlew integTest` launches a single node cluster with the index management (and job-scheduler) plugin installed and runs all integ tests.
+5. `./gradlew integTest -PnumNodes=3` launches a multi-node cluster with the index management (and job-scheduler) plugin installed and runs all integ tests.
+6. `./gradlew integTest -Dtests.class=*RestChangePolicyActionIT` runs a single integ class
+7.  `./gradlew integTest -Dtests.class=*RestChangePolicyActionIT -Dtests.method="test missing index"` runs a single integ test method (remember to quote the test method name if it contains spaces)
 
 When launching a cluster using one of the above commands, logs are placed in `build/testclusters/integTest-0/logs`. Though the logs are teed to the console, in practices it's best to check the actual log file.
 

@@ -156,7 +156,7 @@ testClusters.integTest {
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
     // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
     // since we also support multi node integration tests we increase debugPort per node
-    if (System.getProperty("es.debug") != null) {
+    if (System.getProperty("cluster.debug") != null) {
         def debugPort = 5005
         nodes.forEach { node ->
             node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=*:${debugPort}")

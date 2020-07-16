@@ -150,7 +150,6 @@ class IndexUtils {
             client: IndicesAdminClient,
             actionListener: ActionListener<AcknowledgedResponse>
         ) {
-            clusterState.metadata.hasAlias(alias)
             val result = clusterState.metadata.indicesLookup[alias]
             if (result == null || result.type != IndexAbstraction.Type.ALIAS) {
                 logger.error("There are no indices for alias $alias")

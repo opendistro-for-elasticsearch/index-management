@@ -101,7 +101,8 @@ class WaitForForceMergeStep(
 
         if (actionProperties?.maxNumSegments == null) {
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "Unable to retrieve [${ActionProperties.MAX_NUM_SEGMENTS}] from ActionProperties=$actionProperties")
+            info = mapOf("message" to "Unable to retrieve [${ActionProperties.Properties.MAX_NUM_SEGMENTS.key}]" +
+                    " from ActionProperties=$actionProperties")
             return null
         }
 

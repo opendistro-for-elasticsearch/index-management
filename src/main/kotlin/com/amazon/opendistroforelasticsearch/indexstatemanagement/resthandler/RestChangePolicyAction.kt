@@ -38,8 +38,8 @@ import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
-import org.elasticsearch.action.search.SearchRequest
-import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.get.MultiGetRequest
+import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
@@ -53,7 +53,6 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.index.query.IdsQueryBuilder
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
@@ -63,7 +62,7 @@ import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestResponseListener
-import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import java.io.IOException
 
 class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandler() {
@@ -153,6 +152,7 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
             client.admin().cluster().state(clusterStateRequest, ActionListener.wrap(::processResponse, ::onFailure))
         }
 
+        @Suppress("ComplexMethod")
         private fun processResponse(response: ClusterStateResponse) {
             val includedStates = changePolicy.include.map { it.state }.toSet()
             response.state.metadata.indices.forEach {
@@ -182,20 +182,27 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
                 }
             }
 
-            client.search(
-                getManagedIndexConfigSearchQuery(managedIndexUuids.map { (_, indexUuid) -> indexUuid }.toTypedArray()),
-                ActionListener.wrap(::onSearchResponse, ::onFailure)
-            )
+            if (managedIndexUuids.isEmpty()) {
+                channel.sendResponse(getRestResponse(0, failedIndices))
+            } else {
+                client.multiGet(
+                    getManagedIndexConfigMultiGetRequest(managedIndexUuids.map { (_, indexUuid) -> indexUuid }.toTypedArray()),
+                    ActionListener.wrap(::onMultiGetResponse, ::onFailure)
+                )
+            }
         }
 
-        private fun onSearchResponse(response: SearchResponse) {
+        private fun onMultiGetResponse(response: MultiGetResponse) {
             val foundManagedIndices = mutableSetOf<String>()
-            val sweptConfigs = response.hits
-                .map {
-                    // The id is the index uuid
-                    foundManagedIndices.add(it.id)
-                    SweptManagedIndexConfig.parseWithType(contentParser(it.sourceRef), it.seqNo, it.primaryTerm)
+            val sweptConfigs = response.responses.mapNotNull {
+                // The id is the index uuid
+                if (!it.isFailed && it.response != null) {
+                    foundManagedIndices.add(it.response.id)
+                    SweptManagedIndexConfig.parseWithType(contentParser(it.response.sourceAsBytesRef), it.response.seqNo, it.response.primaryTerm)
+                } else {
+                    null
                 }
+            }
 
             // If we do not find a matching ManagedIndexConfig for one of the provided managedIndexUuids
             // it means that we have not yet created a job for that index (which can happen during the small
@@ -263,24 +270,19 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
     }
 
     @Suppress("SpreadOperator")
-    private fun getManagedIndexConfigSearchQuery(managedIndexUuids: Array<String>): SearchRequest {
-        val idsQuery = IdsQueryBuilder().addIds(*managedIndexUuids)
-        return SearchRequest()
-            .indices(INDEX_STATE_MANAGEMENT_INDEX)
-            .source(SearchSourceBuilder.searchSource()
-                .seqNoAndPrimaryTerm(true)
-                .size(MAX_HITS)
-                .fetchSource(
-                    arrayOf(
-                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",
-                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_UUID_FIELD}",
-                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_ID_FIELD}",
-                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_FIELD}",
-                        "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.CHANGE_POLICY_FIELD}"
-                    ),
-                    emptyArray()
-                )
-                .query(idsQuery))
+    private fun getManagedIndexConfigMultiGetRequest(managedIndexUuids: Array<String>): MultiGetRequest {
+        val request = MultiGetRequest()
+        val includes = arrayOf(
+            "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",
+            "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_UUID_FIELD}",
+            "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_ID_FIELD}",
+            "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_FIELD}",
+            "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.CHANGE_POLICY_FIELD}"
+        )
+        val excludes = emptyArray<String>()
+        val fetchSourceContext = FetchSourceContext(true, includes, excludes)
+        managedIndexUuids.forEach { request.add(MultiGetRequest.Item(INDEX_STATE_MANAGEMENT_INDEX, it).fetchSourceContext(fetchSourceContext)) }
+        return request
     }
 
     companion object {
@@ -288,6 +290,5 @@ class RestChangePolicyAction(val clusterService: ClusterService) : BaseRestHandl
         const val INDEX_NOT_MANAGED = "This index is not being managed"
         const val INDEX_IN_TRANSITION = "Cannot change policy while transitioning to new state"
         const val INDEX_NOT_INITIALIZED = "This managed index has not been initialized yet"
-        const val MAX_HITS = 10_000
     }
 }

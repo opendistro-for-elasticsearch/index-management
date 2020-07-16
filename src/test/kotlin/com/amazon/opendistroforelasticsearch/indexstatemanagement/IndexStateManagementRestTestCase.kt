@@ -42,6 +42,7 @@ import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.ElasticsearchParseException
+import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
@@ -79,6 +80,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
+    private val isMultiNode = System.getProperty("cluster.number_of_nodes", "1").toInt() > 1
 
     fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
@@ -251,6 +253,17 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
     }
 
+    protected fun getManagedIndexConfigByDocId(id: String): ManagedIndexConfig? {
+        val response = client().makeRequest("GET", "$INDEX_STATE_MANAGEMENT_INDEX/_doc/$id")
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+        val getResponse = GetResponse.fromXContent(createParser(jsonXContent, response.entity.content))
+        assertTrue("Did not find managed index config", getResponse.isExists)
+        return getResponse?.run {
+            val xcp = createParser(jsonXContent, sourceAsBytesRef)
+            ManagedIndexConfig.parseWithType(xcp, id, seqNo, primaryTerm)
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     protected fun getHistorySearchResponse(index: String): SearchResponse {
         val request = """
@@ -293,7 +306,8 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
-        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
+        val waitForActiveShards = if (isMultiNode) "all" else "1"
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
             StringEntity(
                 "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
                     "\"$startTimeMillis\"}}}}}",
@@ -339,23 +353,31 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
     }
 
+    // Validate segment count per shard by specifying the min and max it should be
     @Suppress("UNCHECKED_CAST")
-    protected fun getSegmentCount(index: String): Int {
-        val statsResponse: Map<String, Any> = getStats(index)
+    protected fun validateSegmentCount(index: String, min: Int? = null, max: Int? = null): Boolean {
+        if (min == null && max == null) throw IllegalArgumentException("Must provide at least a min or max")
+        val statsResponse: Map<String, Any> = getShardSegmentStats(index)
 
-        // Assert that shard count of stats response is 1 since the stats request being used is at the index level
-        // (meaning the segment count in the response is aggregated) but segment count for force merge
-        // (which this method is primarily being used for) is going to be validated per shard
-        val shardsInfo = statsResponse["_shards"] as Map<String, Int>
-        assertEquals("Shard count higher than expected", 1, shardsInfo["successful"])
-
-        val indicesStats = statsResponse["indices"] as Map<String, Map<String, Map<String, Map<String, Any?>>>>
-        return indicesStats[index]!!["primaries"]!!["segments"]!!["count"] as Int
+        val indicesStats = statsResponse["indices"] as Map<String, Map<String, Map<String, List<Map<String, Map<String, Any?>>>>>>
+        return indicesStats[index]!!["shards"]!!.values.all { list ->
+            list.filter { it["routing"]!!["primary"] == true }.all {
+                logger.info("Checking primary shard segments for $it")
+                if (it["routing"]!!["state"] != "STARTED") {
+                    false
+                } else {
+                    val count = it["segments"]!!["count"] as Int
+                    if (min != null && count < min) return false
+                    if (max != null && count > max) return false
+                    return true
+                }
+            }
+        }
     }
 
-    /** Get stats for [index] */
-    private fun getStats(index: String): Map<String, Any> {
-        val response = client().makeRequest("GET", "/$index/_stats")
+    /** Get shard segment stats for [index] */
+    private fun getShardSegmentStats(index: String): Map<String, Any> {
+        val response = client().makeRequest("GET", "/$index/_stats/segments?level=shards")
 
         assertEquals("Stats request failed", RestStatus.OK, response.restStatus())
 
@@ -440,17 +462,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         assertEquals("Unable to create a new repository", RestStatus.OK, response.restStatus())
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun getRepoPath(): String {
-        val response = client()
-            .makeRequest(
-                "GET",
-                "_nodes",
-                emptyMap()
-            )
-        assertEquals("Unable to get a nodes settings", RestStatus.OK, response.restStatus())
-        return ((response.asMap()["nodes"] as HashMap<String, HashMap<String, HashMap<String, HashMap<String, Any>>>>).values.first()["settings"]!!["path"]!!["repo"] as List<String>)[0]
-    }
+    private fun getRepoPath(): String = System.getProperty("tests.path.repo")
 
     private fun getSnapshotsList(repository: String): List<Any> {
         val response = client()

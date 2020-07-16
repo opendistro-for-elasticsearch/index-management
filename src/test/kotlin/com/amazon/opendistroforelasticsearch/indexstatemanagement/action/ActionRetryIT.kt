@@ -123,11 +123,12 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         // Second execution is to fail the step once.
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
+
+        waitFor { assertEquals(1, getExplainManagedIndexMetaData(indexName).actionMetaData?.consumedRetries) }
 
         // Third execution should not run job since we have the retry backoff.
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
+        Thread.sleep(5000) // currently there is nothing to compare when backing off so we have to sleep
 
         // Fourth execution should not run job since we have the retry backoff.
         updateManagedIndexConfigStartTime(managedIndexConfig)

@@ -37,15 +37,13 @@ data class ActionProperties(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        if (maxNumSegments != null) builder.field(MAX_NUM_SEGMENTS, maxNumSegments)
-        if (snapshotName != null) builder.field(SNAPSHOT_NAME, snapshotName)
+        if (maxNumSegments != null) builder.field(Properties.MAX_NUM_SEGMENTS.key, maxNumSegments)
+        if (snapshotName != null) builder.field(Properties.SNAPSHOT_NAME.key, snapshotName)
         return builder
     }
 
     companion object {
         const val ACTION_PROPERTIES = "action_properties"
-        const val MAX_NUM_SEGMENTS = "max_num_segments"
-        const val SNAPSHOT_NAME = "snapshot_name"
 
         fun fromStreamInput(si: StreamInput): ActionProperties {
             val maxNumSegments: Int? = si.readOptionalInt()
@@ -64,12 +62,14 @@ data class ActionProperties(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    MAX_NUM_SEGMENTS -> maxNumSegments = xcp.intValue()
-                    SNAPSHOT_NAME -> snapshotName = xcp.text()
+                    Properties.MAX_NUM_SEGMENTS.key -> maxNumSegments = xcp.intValue()
+                    Properties.SNAPSHOT_NAME.key -> snapshotName = xcp.text()
                 }
             }
 
             return ActionProperties(maxNumSegments, snapshotName)
         }
     }
+
+    enum class Properties(val key: String) { MAX_NUM_SEGMENTS("max_num_segments"), SNAPSHOT_NAME("snapshot_name") }
 }

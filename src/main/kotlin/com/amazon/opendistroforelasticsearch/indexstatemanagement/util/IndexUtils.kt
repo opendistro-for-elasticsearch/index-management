@@ -23,6 +23,7 @@ import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterState
+import org.elasticsearch.cluster.metadata.AliasOrIndex
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -37,16 +38,17 @@ class IndexUtils {
         const val DEFAULT_SCHEMA_VERSION = 1L
         val logger = LogManager.getLogger(IndexUtils::class.java)
 
-        var indexManagementSchemaVersion: Long
+        var indexManagementConfigSchemaVersion: Long
             private set
-        var indexManagementHistoryVersion: Long
+        var indexManagementHistorySchemaVersion: Long
             private set
 
         init {
-            indexManagementSchemaVersion = getSchemaVersion(IndexStateManagementIndices.indexStateManagementMappings)
-            indexManagementHistoryVersion = getSchemaVersion(IndexStateManagementIndices.indexStateManagementHistoryMappings)
+            indexManagementConfigSchemaVersion = getSchemaVersion(IndexStateManagementIndices.indexStateManagementMappings)
+            indexManagementHistorySchemaVersion = getSchemaVersion(IndexStateManagementIndices.indexStateManagementHistoryMappings)
         }
 
+        @Suppress("NestedBlockDepth")
         fun getSchemaVersion(mapping: String): Long {
             val xcp = XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY,
                 LoggingDeprecationHandler.INSTANCE, mapping)
@@ -95,7 +97,7 @@ class IndexUtils {
         ) {
             checkAndUpdateIndexMapping(
                 IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX,
-                indexManagementSchemaVersion,
+                indexManagementConfigSchemaVersion,
                 IndexStateManagementIndices.indexStateManagementMappings,
                 clusterState,
                 client,
@@ -103,7 +105,23 @@ class IndexUtils {
             )
         }
 
+        fun checkAndUpdateHistoryIndexMapping(
+            clusterState: ClusterState,
+            client: IndicesAdminClient,
+            actionListener: ActionListener<AcknowledgedResponse>
+        ) {
+            checkAndUpdateAliasMapping(
+                IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS,
+                indexManagementHistorySchemaVersion,
+                IndexStateManagementIndices.indexStateManagementHistoryMappings,
+                clusterState,
+                client,
+                actionListener
+            )
+        }
+
         @OpenForTesting
+        @Suppress("LongParameterList")
         fun checkAndUpdateIndexMapping(
             index: String,
             schemaVersion: Long,
@@ -122,6 +140,37 @@ class IndexUtils {
             } else {
                 logger.error("IndexMetaData does not exist for $index")
                 actionListener.onResponse(AcknowledgedResponse(false))
+            }
+        }
+
+        @OpenForTesting
+        @Suppress("LongParameterList")
+        fun checkAndUpdateAliasMapping(
+            alias: String,
+            schemaVersion: Long,
+            mapping: String,
+            clusterState: ClusterState,
+            client: IndicesAdminClient,
+            actionListener: ActionListener<AcknowledgedResponse>
+        ) {
+            val result = clusterState.metaData.aliasAndIndexLookup[alias]
+            if (result?.isAlias != true) {
+                logger.error("There are no indices for alias $alias")
+                actionListener.onResponse(AcknowledgedResponse(false))
+            } else {
+                val writeIndex = (result as AliasOrIndex.Alias).writeIndex
+                if (writeIndex == null) {
+                    logger.error("Concrete write index does not exist for alias $alias")
+                    actionListener.onResponse(AcknowledgedResponse(false))
+                } else {
+                    if (shouldUpdateIndex(writeIndex, schemaVersion)) {
+                        val putMappingRequest: PutMappingRequest = PutMappingRequest(writeIndex.index.name)
+                            .type(_DOC).source(mapping, XContentType.JSON)
+                        client.putMapping(putMappingRequest, actionListener)
+                    } else {
+                        actionListener.onResponse(AcknowledgedResponse(true))
+                    }
+                }
             }
         }
     }

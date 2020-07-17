@@ -28,6 +28,7 @@ import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotsStatusRe
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.SnapshotsInProgress.State
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.transport.RemoteTransportException
 
 class WaitForSnapshotStep(
     val clusterService: ClusterService,
@@ -41,6 +42,7 @@ class WaitForSnapshotStep(
 
     override fun isIdempotent() = true
 
+    @Suppress("ComplexMethod")
     override suspend fun execute() {
         try {
             logger.info("Waiting for snapshot to complete...")
@@ -59,21 +61,32 @@ class WaitForSnapshotStep(
                 when (status.state) {
                     State.INIT, State.STARTED, State.WAITING -> {
                         stepStatus = StepStatus.CONDITION_NOT_MET
-                        info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}", "state" to status.state)
+                        info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}",
+                            "state" to status.state.name)
                     }
                     State.SUCCESS -> {
                         stepStatus = StepStatus.COMPLETED
-                        info = mapOf("message" to "Snapshot successfully created for index: ${managedIndexMetaData.index}", "state" to status.state)
+                        info = mapOf("message" to "Snapshot successfully created for index: ${managedIndexMetaData.index}",
+                            "state" to status.state.name)
                     }
                     else -> { // State.FAILED, State.ABORTED, State.MISSING, null
                         stepStatus = StepStatus.FAILED
-                        info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}", "state" to status.state)
+                        info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}",
+                            "state" to status.state.name)
                     }
                 }
             } else {
                 stepStatus = StepStatus.FAILED
                 info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}")
             }
+        } catch (e: RemoteTransportException) {
+            val message = "Failed to get status of snapshot for index: ${managedIndexMetaData.index}"
+            logger.error(message, e)
+            stepStatus = StepStatus.FAILED
+            val mutableInfo = mutableMapOf("message" to message)
+            val errorMessage = e.cause?.message
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
+            info = mutableInfo.toMap()
         } catch (e: Exception) {
             val message = "Failed to get status of snapshot for index: ${managedIndexMetaData.index}"
             logger.error(message, e)
@@ -90,7 +103,7 @@ class WaitForSnapshotStep(
 
         if (actionProperties?.snapshotName == null) {
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "Unable to retrieve [${ActionProperties.SNAPSHOT_NAME}] from ActionProperties=$actionProperties")
+            info = mapOf("message" to "Unable to retrieve [${ActionProperties.Properties.SNAPSHOT_NAME.key}] from ActionProperties=$actionProperties")
             return null
         }
 

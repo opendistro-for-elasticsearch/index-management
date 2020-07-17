@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.A
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDestination
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomNotificationActionConfig
@@ -31,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomSnapshot
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.toJsonString
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.DestinationType
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
@@ -127,11 +129,24 @@ class XContentTests : ESTestCase() {
     }
 
     fun `test notification action config parsing`() {
-        val notificationActionConfig = randomNotificationActionConfig()
+        val chimeNotificationActionConfig = randomNotificationActionConfig(destination = randomDestination(type = DestinationType.CHIME))
+        val slackNotificationActionConfig = randomNotificationActionConfig(destination = randomDestination(type = DestinationType.SLACK))
+        val customNotificationActionConfig = randomNotificationActionConfig(destination = randomDestination(type = DestinationType.CUSTOM_WEBHOOK))
 
-        val notificationActionConfigString = notificationActionConfig.toJsonString()
-        val parsedNotificationActionConfig = ActionConfig.parse(parser(notificationActionConfigString), 0)
-        assertEquals("Round tripping NotificationActionConfig doesn't work", notificationActionConfig, parsedNotificationActionConfig)
+        val chimeNotificationActionConfigString = chimeNotificationActionConfig.toJsonString()
+        val chimeParsedNotificationActionConfig = ActionConfig.parse(parser(chimeNotificationActionConfigString), 0)
+        assertEquals("Round tripping chime NotificationActionConfig doesn't work",
+            chimeNotificationActionConfig, chimeParsedNotificationActionConfig)
+
+        val slackNotificationActionConfigString = slackNotificationActionConfig.toJsonString()
+        val slackParsedNotificationActionConfig = ActionConfig.parse(parser(slackNotificationActionConfigString), 0)
+        assertEquals("Round tripping slack NotificationActionConfig doesn't work",
+            slackNotificationActionConfig, slackParsedNotificationActionConfig)
+
+        val customNotificationActionConfigString = customNotificationActionConfig.toJsonString()
+        val customParsedNotificationActionConfig = ActionConfig.parse(parser(customNotificationActionConfigString), 0)
+        assertEquals("Round tripping custom webhook NotificationActionConfig doesn't work",
+            customNotificationActionConfig, customParsedNotificationActionConfig)
     }
 
     fun `test snapshot action config parsing`() {

@@ -91,9 +91,20 @@ class IndexStateManagementIndices(
      */
     fun indexStateManagementIndexHistoryExists(): Boolean = clusterService.state().metadata.hasAlias(HISTORY_WRITE_INDEX_ALIAS)
 
-    suspend fun initHistoryIndex() {
-        if (!indexStateManagementIndexHistoryExists())
-            createHistoryIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX_ALIAS)
+    @Suppress("ReturnCount")
+    suspend fun checkAndUpdateHistoryIndex(): Boolean {
+        if (!indexStateManagementIndexHistoryExists()) {
+            return createHistoryIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX_ALIAS)
+        } else {
+            val response: AcknowledgedResponse = client.suspendUntil {
+                IndexUtils.checkAndUpdateHistoryIndexMapping(clusterService.state(), client, it)
+            }
+            if (response.isAcknowledged) {
+                return true
+            }
+            logger.error("Updating $HISTORY_WRITE_INDEX_ALIAS with new mappings NOT acknowledged")
+            return false
+        }
     }
 
     private suspend fun createHistoryIndex(index: String, alias: String? = null): Boolean {
@@ -131,7 +142,9 @@ class IndexStateManagementIndices(
         const val HISTORY_INDEX_PATTERN = "<$HISTORY_INDEX_BASE-{now/d{yyyy.MM.dd}}-1>"
         const val HISTORY_ALL = "$HISTORY_INDEX_BASE*"
 
-        val indexStateManagementMappings = javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText()
-        val indexStateManagementHistoryMappings = javaClass.classLoader.getResource("mappings/opendistro-ism-history.json").readText()
+        val indexStateManagementMappings = IndexStateManagementIndices::class.java.classLoader
+            .getResource("mappings/opendistro-ism-config.json").readText()
+        val indexStateManagementHistoryMappings = IndexStateManagementIndices::class.java.classLoader
+            .getResource("mappings/opendistro-ism-history.json").readText()
     }
 }

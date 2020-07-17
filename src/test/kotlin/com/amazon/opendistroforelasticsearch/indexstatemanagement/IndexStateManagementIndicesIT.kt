@@ -1,5 +1,8 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices.Companion.HISTORY_INDEX_BASE
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices.Companion.HISTORY_WRITE_INDEX_ALIAS
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices.Companion.indexStateManagementHistoryMappings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementIndices.Companion.indexStateManagementMappings
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
@@ -19,6 +22,28 @@ class IndexStateManagementIndicesIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
+    /*
+    * If this test fails it means you changed the config mappings
+    * This test is to ensure you did not forget to increase the schema_version in the mappings _meta object
+    * The schema_version is used at runtime to check if the mappings need to be updated for the index
+    * Once you are sure you increased the schema_version or know it is not needed you can update the cached mappings with the new values
+    * */
+    fun `test config mappings schema version number`() {
+        val cachedMappings = javaClass.classLoader.getResource("mappings/cached-opendistro-ism-config.json")!!.readText()
+        assertEquals("I see you updated the config mappings. Did you also update the schema_version?", cachedMappings, indexStateManagementMappings)
+    }
+
+    /*
+    * If this test fails it means you changed the history mappings
+    * This test is to ensure you did not forget to increase the schema_version in the mappings _meta object
+    * The schema_version is used at runtime to check if the mappings need to be updated for the index
+    * Once you are sure you increased the schema_version or know it is not needed you can update the cached mappings with the new values
+    * */
+    fun `test history mappings schema version number`() {
+        val cachedMappings = javaClass.classLoader.getResource("mappings/cached-opendistro-ism-history.json")!!.readText()
+        assertEquals("I see you updated the history mappings. Did you also update the schema_version?", cachedMappings, indexStateManagementHistoryMappings)
+    }
+
     fun `test create index management`() {
         val policy = randomPolicy()
         val policyId = ESTestCase.randomAlphaOfLength(10)
@@ -30,13 +55,12 @@ class IndexStateManagementIndicesIT : IndexStateManagementRestTestCase() {
     fun `test update management index mapping with new schema version`() {
         assertIndexDoesNotExist(INDEX_STATE_MANAGEMENT_INDEX)
 
-        val mapping = indexStateManagementMappings.trimStart('{').trimEnd('}')
+        val mapping = indexStateManagementMappings.trim().trimStart('{').trimEnd('}')
             .replace("\"schema_version\": 3", "\"schema_version\": 0")
 
         createIndex(INDEX_STATE_MANAGEMENT_INDEX, Settings.builder().put("index.hidden", true).build(), mapping)
         assertIndexExists(INDEX_STATE_MANAGEMENT_INDEX)
         verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 0)
-        client().makeRequest("DELETE", "*")
 
         val policy = randomPolicy()
         val policyId = ESTestCase.randomAlphaOfLength(10)
@@ -44,6 +68,35 @@ class IndexStateManagementIndicesIT : IndexStateManagementRestTestCase() {
 
         assertIndexExists(INDEX_STATE_MANAGEMENT_INDEX)
         verifyIndexSchemaVersion(INDEX_STATE_MANAGEMENT_INDEX, 3)
+    }
+
+    fun `test update management index history mappings with new schema version`() {
+        assertIndexDoesNotExist("$HISTORY_WRITE_INDEX_ALIAS?allow_no_indices=false")
+
+        val mapping = indexStateManagementHistoryMappings.trim().trimStart('{').trimEnd('}')
+                .replace("\"schema_version\": 2", "\"schema_version\": 0")
+
+        val aliases = "\"$HISTORY_WRITE_INDEX_ALIAS\": { \"is_write_index\": true }"
+        createIndex("$HISTORY_INDEX_BASE-1", Settings.builder().put("index.hidden", true).build(), mapping, aliases)
+        assertIndexExists(HISTORY_WRITE_INDEX_ALIAS)
+        verifyIndexSchemaVersion(HISTORY_WRITE_INDEX_ALIAS, 0)
+
+        val policy = createRandomPolicy()
+        val (index, policyID) = createIndex("history-schema", policy.id)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(index)
+
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        // wait for the policy to initialize which will add 1 history document to the history index
+        // this should update the history mappings to the new version
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(index).policyID) }
+
+        waitFor {
+            assertIndexExists(HISTORY_WRITE_INDEX_ALIAS)
+            verifyIndexSchemaVersion(HISTORY_WRITE_INDEX_ALIAS, 2)
+        }
     }
 
     fun `test changing policy on an index that hasn't initialized yet check schema version`() {

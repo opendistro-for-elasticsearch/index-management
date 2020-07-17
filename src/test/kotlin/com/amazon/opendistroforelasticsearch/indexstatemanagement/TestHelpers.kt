@@ -156,12 +156,15 @@ fun randomForceMergeActionConfig(
     return ForceMergeActionConfig(maxNumSegments = maxNumSegments, index = 0)
 }
 
-fun randomNotificationActionConfig(): NotificationActionConfig {
-    return NotificationActionConfig(destination = randomDestination(), messageTemplate = randomTemplateScript("random message"), index = 0)
+fun randomNotificationActionConfig(
+    destination: Destination = randomDestination(),
+    messageTemplate: Script = randomTemplateScript("random message"),
+    index: Int = 0
+): NotificationActionConfig {
+    return NotificationActionConfig(destination, messageTemplate, index)
 }
 
-fun randomDestination(): Destination {
-    val type = randomDestinationType()
+fun randomDestination(type: DestinationType = randomDestinationType()): Destination {
     return Destination(
         type = type,
         chime = if (type == DestinationType.CHIME) randomChime() else null,

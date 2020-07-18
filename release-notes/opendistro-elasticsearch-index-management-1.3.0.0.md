@@ -1,7 +1,7 @@
 
 ## Version 1.3.0.0 (2019-12-17)
 
-### New Features
+### Features
 
 This is the first official release of Open Distro Index Management plugin.
 

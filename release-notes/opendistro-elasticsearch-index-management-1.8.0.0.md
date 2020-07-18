@@ -3,6 +3,6 @@
 
 Compatible with Elasticsearch 7.7.0, Adds support for ODFE 1.8.0
 
-### New Features
+### Features
 * Snapshot implementation [PR #135](https://github.com/opendistro-for-elasticsearch/index-management/pull/135)
 

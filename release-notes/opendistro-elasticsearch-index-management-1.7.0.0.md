@@ -3,7 +3,7 @@
 
 Compatible with Elasticsearch 7.6.1, Adds support for ODFE 1.7.0
 
-### New Features
+### Features
 * Adds rollover conditions into info object [PR #208](https://github.com/opendistro-for-elasticsearch/index-management/pull/208)
 
 ### Enhancements

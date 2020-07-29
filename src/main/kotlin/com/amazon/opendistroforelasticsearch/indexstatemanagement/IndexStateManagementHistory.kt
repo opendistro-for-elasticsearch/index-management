@@ -183,7 +183,11 @@ class IndexStateManagementHistory(
             return
         }
 
-        indexStateManagementIndices.initHistoryIndex()
+        if (!indexStateManagementIndices.checkAndUpdateHistoryIndex()) {
+            logger.error("Failed to create or update the ism history index:")
+            return // we can't continue to add the history documents below as it would potentially create dynamic mappings
+        }
+
         val docWriteRequest: List<DocWriteRequest<*>> = managedIndexMetaData
             .filter { shouldAddToHistory(it) }
             .map { indexHistory(it) }

@@ -27,31 +27,34 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 /** Properties that will persist across steps of a single Action. Will be stored in the [ActionMetaData]. */
 data class ActionProperties(
-    val maxNumSegments: Int? = null
+    val maxNumSegments: Int? = null,
+    val snapshotName: String? = null
 ) : Writeable, ToXContentFragment {
 
     override fun writeTo(out: StreamOutput) {
         out.writeOptionalInt(maxNumSegments)
+        out.writeOptionalString(snapshotName)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        if (maxNumSegments != null) builder.field(MAX_NUM_SEGMENTS, maxNumSegments)
-
+        if (maxNumSegments != null) builder.field(Properties.MAX_NUM_SEGMENTS.key, maxNumSegments)
+        if (snapshotName != null) builder.field(Properties.SNAPSHOT_NAME.key, snapshotName)
         return builder
     }
 
     companion object {
         const val ACTION_PROPERTIES = "action_properties"
-        const val MAX_NUM_SEGMENTS = "max_num_segments"
 
         fun fromStreamInput(si: StreamInput): ActionProperties {
             val maxNumSegments: Int? = si.readOptionalInt()
+            val snapshotName: String? = si.readOptionalString()
 
-            return ActionProperties(maxNumSegments)
+            return ActionProperties(maxNumSegments, snapshotName)
         }
 
         fun parse(xcp: XContentParser): ActionProperties {
             var maxNumSegments: Int? = null
+            var snapshotName: String? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -59,11 +62,14 @@ data class ActionProperties(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    MAX_NUM_SEGMENTS -> maxNumSegments = xcp.intValue()
+                    Properties.MAX_NUM_SEGMENTS.key -> maxNumSegments = xcp.intValue()
+                    Properties.SNAPSHOT_NAME.key -> snapshotName = xcp.text()
                 }
             }
 
-            return ActionProperties(maxNumSegments)
+            return ActionProperties(maxNumSegments, snapshotName)
         }
     }
+
+    enum class Properties(val key: String) { MAX_NUM_SEGMENTS("max_num_segments"), SNAPSHOT_NAME("snapshot_name") }
 }

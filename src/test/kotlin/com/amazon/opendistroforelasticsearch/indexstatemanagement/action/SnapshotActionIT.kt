@@ -67,4 +67,104 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
         waitFor { assertSnapshotExists(repository, snapshot) }
         waitFor { assertSnapshotFinishedWithSuccess(repository, snapshot) }
     }
+
+    fun `test successful wait for snapshot step`() {
+        val indexName = "${testIndexName}_index_1"
+        val policyID = "${testIndexName}_testPolicyName_1"
+        val repository = "repository"
+        val snapshot = "snapshot_success_test"
+        val actionConfig = SnapshotActionConfig(repository, snapshot, 0)
+        val states = listOf(
+                State("Snapshot", listOf(actionConfig), listOf())
+        )
+
+        createRepository(repository)
+
+        val policy = Policy(
+                id = policyID,
+                description = "$testIndexName description",
+                schemaVersion = 1L,
+                lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+                errorNotification = randomErrorNotification(),
+                defaultState = states[0].name,
+                states = states
+        )
+        createPolicy(policy, policyID)
+        createIndex(indexName, policyID)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        // Change the start time so the job will initialize the policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
+
+        // Change the start time so attempt snapshot step with execute
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Snapshot creation started for index: $indexName", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+
+        // Change the start time so wait for snapshot step will execute
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Snapshot successfully created for index: $indexName", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+
+        // verify we set snapshotName in action properties
+        waitFor {
+            assert(
+                getExplainManagedIndexMetaData(indexName).actionMetaData?.actionProperties?.snapshotName?.contains(snapshot) == true
+            )
+        }
+
+        waitFor { assertSnapshotExists(repository, snapshot) }
+        waitFor { assertSnapshotFinishedWithSuccess(repository, snapshot) }
+    }
+
+    fun `test failed wait for snapshot step`() {
+        val indexName = "${testIndexName}_index_1"
+        val policyID = "${testIndexName}_testPolicyName_1"
+        val repository = "repository"
+        val snapshot = "snapshot_failed_test"
+        val actionConfig = SnapshotActionConfig(repository, snapshot, 0)
+        val states = listOf(
+                State("Snapshot", listOf(actionConfig), listOf())
+        )
+
+        createRepository(repository)
+
+        val policy = Policy(
+                id = policyID,
+                description = "$testIndexName description",
+                schemaVersion = 1L,
+                lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+                errorNotification = randomErrorNotification(),
+                defaultState = states[0].name,
+                states = states
+        )
+        createPolicy(policy, policyID)
+        createIndex(indexName, policyID)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        // Change the start time so the job will initialize the policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
+
+        // Change the start time so attempt snapshot step with execute
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals("Snapshot creation started for index: $indexName", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+
+        // Confirm successful snapshot creation
+        waitFor { assertSnapshotExists(repository, snapshot) }
+        waitFor { assertSnapshotFinishedWithSuccess(repository, snapshot) }
+
+        // Delete the snapshot so wait for step will fail with missing snapshot exception
+        val snapshotName = getExplainManagedIndexMetaData(indexName).actionMetaData?.actionProperties?.snapshotName
+        assertNotNull("Snapshot name is null", snapshotName)
+        deleteSnapshot(repository, snapshotName!!)
+
+        // Change the start time so wait for snapshot step will execute where we should see a missing snapshot exception
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor {
+            assertEquals("Failed to get status of snapshot for index: $indexName", getExplainManagedIndexMetaData(indexName).info?.get("message"))
+            assertEquals("[$repository:$snapshotName] is missing", getExplainManagedIndexMetaData(indexName).info?.get("cause"))
+        }
+    }
 }

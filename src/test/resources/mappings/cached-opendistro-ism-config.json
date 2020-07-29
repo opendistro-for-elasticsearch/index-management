@@ -1,0 +1,406 @@
+{
+  "_meta" : {
+    "schema_version": 2
+  },
+  "dynamic": "strict",
+  "properties": {
+    "policy": {
+      "properties": {
+        "policy_id": {
+          "type" : "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "description": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "schema_version": {
+          "type": "long"
+        },
+        "last_updated_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "error_notification": {
+          "properties": {
+            "destination": {
+              "properties": {
+                "name": {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword",
+                      "ignore_above": 256
+                    }
+                  }
+                },
+                "type": {
+                  "type": "keyword"
+                },
+                "last_update_time": {
+                  "type": "date",
+                  "format": "strict_date_time||epoch_millis"
+                },
+                "chime": {
+                  "properties": {
+                    "url": {
+                      "type": "text",
+                      "fields": {
+                        "keyword": {
+                          "type": "keyword",
+                          "ignore_above": 256
+                        }
+                      }
+                    }
+                  }
+                },
+                "slack": {
+                  "properties": {
+                    "url": {
+                      "type": "text",
+                      "fields": {
+                        "keyword": {
+                          "type": "keyword",
+                          "ignore_above": 256
+                        }
+                      }
+                    }
+                  }
+                },
+                "custom_webhook": {
+                  "properties": {
+                    "url": {
+                      "type": "text",
+                      "fields": {
+                        "keyword": {
+                          "type": "keyword",
+                          "ignore_above": 256
+                        }
+                      }
+                    },
+                    "scheme": {
+                      "type": "keyword"
+                    },
+                    "host": {
+                      "type": "text"
+                    },
+                    "port": {
+                      "type": "integer"
+                    },
+                    "path": {
+                      "type": "keyword"
+                    },
+                    "query_params": {
+                      "type": "object",
+                      "enabled": false
+                    },
+                    "header_params": {
+                      "type": "object",
+                      "enabled": false
+                    },
+                    "username": {
+                      "type": "text"
+                    },
+                    "password": {
+                      "type": "text"
+                    }
+                  }
+                }
+              }
+            },
+            "message_template": {
+              "type": "object",
+              "enabled": false
+            }
+          }
+        },
+        "default_state": {
+          "type": "keyword"
+        },
+        "states": {
+          "type": "nested",
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "actions": {
+              "type": "nested",
+              "properties": {
+                "timeout": {
+                  "type": "keyword"
+                },
+                "retry": {
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "backoff": {
+                      "type": "keyword"
+                    },
+                    "delay": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "delete": {
+                  "type": "object"
+                },
+                "force_merge": {
+                  "properties": {
+                    "max_num_segments": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "read_only": {
+                  "type": "object"
+                },
+                "read_write": {
+                  "type": "object"
+                },
+                "replica_count": {
+                  "properties": {
+                    "number_of_replicas": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "close": {
+                  "type": "object"
+                },
+                "open": {
+                  "type": "object"
+                },
+                "snapshot": {
+                  "properties": {
+                    "repository": {
+                      "type": "keyword"
+                    },
+                    "snapshot": {
+                      "type": "keyword"
+                    },
+                    "include_global_state": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "rollover": {
+                  "properties": {
+                    "min_size": {
+                      "type": "keyword"
+                    },
+                    "min_index_age": {
+                      "type": "keyword"
+                    },
+                    "min_doc_count": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "notification": {
+                  "properties": {
+                    "destination": {
+                      "properties": {
+                        "name": {
+                          "type": "text",
+                          "fields": {
+                            "keyword": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            }
+                          }
+                        },
+                        "type": {
+                          "type": "keyword"
+                        },
+                        "last_update_time": {
+                          "type": "date",
+                          "format": "strict_date_time||epoch_millis"
+                        },
+                        "chime": {
+                          "properties": {
+                            "url": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "slack": {
+                          "properties": {
+                            "url": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "custom_webhook": {
+                          "properties": {
+                            "url": {
+                              "type": "text",
+                              "fields": {
+                                "keyword": {
+                                  "type": "keyword",
+                                  "ignore_above": 256
+                                }
+                              }
+                            },
+                            "scheme": {
+                              "type": "keyword"
+                            },
+                            "host": {
+                              "type": "text"
+                            },
+                            "port": {
+                              "type": "integer"
+                            },
+                            "path": {
+                              "type": "keyword"
+                            },
+                            "query_params": {
+                              "type": "object",
+                              "enabled": false
+                            },
+                            "header_params": {
+                              "type": "object",
+                              "enabled": false
+                            },
+                            "username": {
+                              "type": "text"
+                            },
+                            "password": {
+                              "type": "text"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "message_template": {
+                      "type": "object",
+                      "enabled": false
+                    }
+                  }
+                }
+              }
+            },
+            "transitions": {
+              "type": "nested",
+              "properties": {
+                "state_name": {
+                  "type": "keyword"
+                },
+                "conditions": {
+                  "type": "object",
+                  "enabled": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "managed_index": {
+      "properties": {
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "enabled_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "index" : {
+          "type" : "keyword"
+        },
+        "index_uuid" : {
+          "type" : "keyword"
+        },
+        "last_updated_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "policy_seq_no": {
+          "type": "long"
+        },
+        "policy_primary_term": {
+          "type": "long"
+        },
+        "policy_id": {
+          "type" : "keyword"
+        },
+        "policy": {
+          "type": "object",
+          "enabled": false
+        },
+        "change_policy": {
+          "properties": {
+            "policy_id": {
+              "type": "keyword"
+            },
+            "state": {
+              "type": "keyword"
+            },
+            "is_safe": {
+              "type": "boolean"
+            }
+          }
+        },
+        "schedule": {
+          "properties": {
+            "interval": {
+              "properties": {
+                "period": {
+                  "type": "integer"
+                },
+                "unit": {
+                  "type": "keyword"
+                },
+                "start_time": {
+                  "type": "date",
+                  "format": "strict_date_time||epoch_millis"
+                }
+              }
+            },
+            "cron": {
+              "properties": {
+                "expression": {
+                  "type": "keyword"
+                },
+                "timezone": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

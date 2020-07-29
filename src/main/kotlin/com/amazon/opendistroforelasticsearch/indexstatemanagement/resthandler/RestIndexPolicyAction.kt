@@ -141,7 +141,7 @@ class RestIndexPolicyAction(
         }
 
         private fun putPolicy() {
-            newPolicy.copy(schemaVersion = IndexUtils.indexManagementSchemaVersion)
+            newPolicy.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
 
             val indexRequest = IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
                     .setRefreshPolicy(refreshPolicy)

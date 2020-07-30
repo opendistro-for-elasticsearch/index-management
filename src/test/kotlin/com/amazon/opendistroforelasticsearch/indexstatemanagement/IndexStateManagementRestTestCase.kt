@@ -174,12 +174,12 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             } else {
                 it.put(ManagedIndexSettings.ROLLOVER_ALIAS.key, alias)
             }
-            if (replicas == null){
+            if (replicas == null) {
                 it.put("index.number_of_replicas", "1")
             } else {
                 it.put("index.number_of_replicas", replicas)
             }
-            if (shards == null){
+            if (shards == null) {
                 it.put("index.number_of_shards", "1")
             } else {
                 it.put("index.number_of_shards", shards)

@@ -22,6 +22,8 @@ class AttemptAllocationStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = true
+
     override suspend fun execute() {
         try {
             val response: AcknowledgedResponse = client.admin()

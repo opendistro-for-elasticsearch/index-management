@@ -80,7 +80,7 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
-    private val isMultiNode = System.getProperty("cluster.number_of_nodes", "1").toInt() > 1
+    protected val isMultiNode = System.getProperty("cluster.number_of_nodes", "1").toInt() > 1
 
     fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
@@ -159,7 +159,9 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     protected fun createIndex(
         index: String = randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
         policyID: String? = randomAlphaOfLength(10),
-        alias: String? = null
+        alias: String? = null,
+        replicas: String? = null,
+        shards: String? = null
     ): Pair<String, String?> {
         val settings = Settings.builder().let {
             if (policyID == null) {
@@ -171,6 +173,16 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
                 it.putNull(ManagedIndexSettings.ROLLOVER_ALIAS.key)
             } else {
                 it.put(ManagedIndexSettings.ROLLOVER_ALIAS.key, alias)
+            }
+            if (replicas == null){
+                it.put("index.number_of_replicas", "1")
+            } else {
+                it.put("index.number_of_replicas", replicas)
+            }
+            if (shards == null){
+                it.put("index.number_of_shards", "1")
+            } else {
+                it.put("index.number_of_shards", shards)
             }
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
@@ -430,6 +442,16 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return response.asMap()
     }
 
+    @Suppress("UNCHECKED_CAST")
+    protected fun getIndexShardNodes(indexName: String): List<Any> {
+        return getIndexShards(indexName).map { element -> (element as Map<String, String>)["node"]!! }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getIndexShards(indexName: String): List<Any> {
+        return getShardsList().filter { element -> (element as Map<String, String>)["index"]!!.contains(indexName) }
+    }
+
     // Calls explain API for a single concrete index and converts the response into a ManagedIndexMetaData
     // This only works for indices with a ManagedIndexMetaData that has been initialized
     protected fun getExplainManagedIndexMetaData(indexName: String): ManagedIndexMetaData {
@@ -467,6 +489,23 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     private fun getRepoPath(): String = System.getProperty("tests.path.repo")
+
+    private fun getShardsList(): List<Any> {
+        val response = client()
+                .makeRequest(
+                        "GET",
+                        "_cat/shards?format=json",
+                        emptyMap()
+                )
+        assertEquals("Unable to get allocation info", RestStatus.OK, response.restStatus())
+        try {
+            return jsonXContent
+                    .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, response.entity.content)
+                    .use { parser -> parser.list() }
+        } catch (e: IOException) {
+            throw ElasticsearchParseException("Failed to parse content to list", e)
+        }
+    }
 
     private fun getSnapshotsList(repository: String): List<Any> {
         val response = client()

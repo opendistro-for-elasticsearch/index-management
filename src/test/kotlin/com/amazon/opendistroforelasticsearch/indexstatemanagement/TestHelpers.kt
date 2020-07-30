@@ -169,9 +169,7 @@ fun randomAllocationActionConfig(require: Map<String, String> = emptyMap(), excl
     return AllocationActionConfig(require, include, exclude, index = 0)
 }
 
-
 fun randomDestination(type: DestinationType = randomDestinationType()): Destination {
-    val type = randomDestinationType()
     return Destination(
         type = type,
         chime = if (type == DestinationType.CHIME) randomChime() else null,

@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 3
+    "schema_version": 4
   },
   "dynamic": "strict",
   "properties": {
@@ -304,6 +304,23 @@
                     "message_template": {
                       "type": "object",
                       "enabled": false
+                    }
+                  }
+                },
+                "allocation": {
+                  "dynamic": "true",
+                  "properties": {
+                    "require": {
+                      "type": "object"
+                    },
+                    "include": {
+                      "type": "object"
+                    },
+                    "exclude": {
+                      "type": "object"
+                    },
+                    "wait_for": {
+                      "type": "boolean"
                     }
                   }
                 }

@@ -24,7 +24,7 @@ import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 
@@ -38,6 +38,8 @@ class AttemptSetReadOnlyStep(
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
+
+    override fun isIdempotent() = true
 
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index
@@ -59,7 +61,7 @@ class AttemptSetReadOnlyStep(
             val updateSettingsRequest = UpdateSettingsRequest()
                 .indices(indexName)
                 .settings(
-                    Settings.builder().put(IndexMetaData.SETTING_BLOCKS_WRITE, true)
+                    Settings.builder().put(IndexMetadata.SETTING_BLOCKS_WRITE, true)
                 )
             val response: AcknowledgedResponse = client.admin().indices()
                 .suspendUntil { updateSettings(updateSettingsRequest, it) }

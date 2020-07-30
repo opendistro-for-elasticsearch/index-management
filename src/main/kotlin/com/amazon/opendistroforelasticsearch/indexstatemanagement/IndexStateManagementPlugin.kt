@@ -51,6 +51,7 @@ import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
+import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptService
@@ -118,14 +119,14 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         nodesInCluster: Supplier<DiscoveryNodes>
     ): List<RestHandler> {
         return listOf(
-            RestIndexPolicyAction(settings, restController, clusterService, indexStateManagementIndices),
-            RestGetPolicyAction(settings, restController),
-            RestDeletePolicyAction(settings, restController),
-            RestExplainAction(settings, restController),
-            RestRetryFailedManagedIndexAction(settings, restController),
-            RestAddPolicyAction(settings, restController),
-            RestRemovePolicyAction(settings, restController),
-            RestChangePolicyAction(settings, restController, clusterService)
+            RestIndexPolicyAction(settings, clusterService, indexStateManagementIndices),
+            RestGetPolicyAction(),
+            RestDeletePolicyAction(),
+            RestExplainAction(),
+            RestRetryFailedManagedIndexAction(),
+            RestAddPolicyAction(),
+            RestRemovePolicyAction(),
+            RestChangePolicyAction(clusterService)
         )
     }
 
@@ -138,7 +139,9 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         xContentRegistry: NamedXContentRegistry,
         environment: Environment,
         nodeEnvironment: NodeEnvironment,
-        namedWriteableRegistry: NamedWriteableRegistry
+        namedWriteableRegistry: NamedWriteableRegistry,
+        indexNameExpressionResolver: IndexNameExpressionResolver,
+        repositoriesServiceSupplier: Supplier<RepositoriesService>
     ): Collection<Any> {
         val settings = environment.settings()
         this.clusterService = clusterService
@@ -181,7 +184,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
     override fun getActions(): List<ActionPlugin.ActionHandler<out ActionRequest, out ActionResponse>> {
         return listOf(
             ActionPlugin.ActionHandler(
-                UpdateManagedIndexMetaDataAction,
+                UpdateManagedIndexMetaDataAction.INSTANCE,
                 TransportUpdateManagedIndexMetaDataAction::class.java
             )
         )

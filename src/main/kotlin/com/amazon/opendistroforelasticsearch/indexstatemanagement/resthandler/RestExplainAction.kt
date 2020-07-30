@@ -24,30 +24,29 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
+import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestBuilderListener
 
-class RestExplainAction(
-    settings: Settings,
-    controller: RestController
-) : BaseRestHandler(settings) {
+class RestExplainAction : BaseRestHandler() {
 
     companion object {
         const val EXPLAIN_BASE_URI = "${IndexStateManagementPlugin.ISM_BASE_URI}/explain"
     }
 
-    init {
-        controller.registerHandler(RestRequest.Method.GET, EXPLAIN_BASE_URI, this)
-        controller.registerHandler(RestRequest.Method.GET, "$EXPLAIN_BASE_URI/{index}", this)
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(GET, EXPLAIN_BASE_URI),
+                Route(GET, "$EXPLAIN_BASE_URI/{index}")
+        )
     }
 
     override fun getName(): String {
@@ -66,7 +65,7 @@ class RestExplainAction(
 
         clusterStateRequest.clear()
             .indices(*indices)
-            .metaData(true)
+            .metadata(true)
             .local(false)
             .local(request.paramAsBoolean("local", clusterStateRequest.local()))
             .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
@@ -83,7 +82,7 @@ class RestExplainAction(
                 val state = clusterStateResponse.state
 
                 builder.startObject()
-                for (indexMetadataEntry in state.metaData.indices) {
+                for (indexMetadataEntry in state.metadata.indices) {
                     builder.startObject(indexMetadataEntry.key)
                     val indexMetadata = indexMetadataEntry.value
                     val managedIndexMetaDataMap = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)

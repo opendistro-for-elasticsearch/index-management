@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedI
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
+import org.hamcrest.collection.IsMapContaining
 import java.time.Instant
 import java.util.Locale
 
@@ -54,13 +55,11 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
 
         // the second execution we move into rollover action, we won't hit the timeout as this is the execution that sets the startTime
         updateManagedIndexConfigStartTime(managedIndexConfig)
-
-        val expectedInfoString = mapOf("message" to "Attempting to rollover").toString()
         waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString())),
-                getExplainMap(indexName),
-                strict = false
+            assertThat(
+                "Should be attempting to rollover",
+                getExplainManagedIndexMetaData(indexName).info,
+                IsMapContaining.hasEntry("message", "Attempting to rollover" as Any?)
             )
         }
 
@@ -73,6 +72,60 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
                         failed = true, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap))),
                 getExplainMap(indexName),
                 strict = false
+            )
+        }
+    }
+
+    // https://github.com/opendistro-for-elasticsearch/index-management/issues/130
+    fun `test action timeout doesn't bleed over into next action`() {
+        val indexName = "${testIndexName}_index_1"
+        val policyID = "${testIndexName}_testPolicyName_1"
+        val testPolicy = """
+        {"policy":{"description":"Default policy","default_state":"rolloverstate","states":[
+        {"name":"rolloverstate","actions":[{"timeout": "5s","open":{}},{"timeout":"1s","rollover":{"min_doc_count":100}}],
+        "transitions":[]}]}}
+        """.trimIndent()
+
+        createPolicyJson(testPolicy, policyID)
+
+        createIndex(indexName, policyID, "some_alias")
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+        // Change the start time so the job will trigger in 2 seconds.
+        // First execution. We need to initialize the policy.
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
+                getExplainMap(indexName),
+                strict = false
+            )
+        }
+
+        // the second execution we move into open action, we won't hit the timeout as this is the execution that sets the startTime
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        val expectedOpenInfoString = mapOf("message" to "Successfully opened index").toString()
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(indexName to listOf(ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedOpenInfoString == info.toString())),
+                getExplainMap(indexName),
+                strict = false
+            )
+        }
+
+        // wait 5 seconds for the timeout from the first action to have passed
+        Thread.sleep(5000L)
+
+        // the third execution we move into rollover action, we should not hit the timeout yet because its the first execution of rollover
+        // but there was a bug before where it would use the startTime from the previous actions metadata and immediately fail
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor {
+            assertThat(
+                "Should be attempting to rollover",
+                getExplainManagedIndexMetaData(indexName).info,
+                IsMapContaining.hasEntry("message", "Attempting to rollover" as Any?)
             )
         }
     }

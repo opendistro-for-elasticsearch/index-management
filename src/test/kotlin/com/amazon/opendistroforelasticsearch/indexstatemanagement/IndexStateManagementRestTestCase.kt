@@ -41,12 +41,16 @@ import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
+import org.elasticsearch.ElasticsearchParseException
+import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.client.RestClient
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.xcontent.DeprecationHandler
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -59,15 +63,24 @@ import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.rest.ESRestTestCase
+import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
+import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
+import java.nio.file.Path
+import java.nio.file.Files
+import javax.management.MBeanServerInvocationHandler
+import javax.management.ObjectName
+import javax.management.remote.JMXConnectorFactory
+import javax.management.remote.JMXServiceURL
 
 abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
 
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
+    private val isMultiNode = System.getProperty("cluster.number_of_nodes", "1").toInt() > 1
 
     fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
@@ -240,6 +253,17 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
     }
 
+    protected fun getManagedIndexConfigByDocId(id: String): ManagedIndexConfig? {
+        val response = client().makeRequest("GET", "$INDEX_STATE_MANAGEMENT_INDEX/_doc/$id")
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+        val getResponse = GetResponse.fromXContent(createParser(jsonXContent, response.entity.content))
+        assertTrue("Did not find managed index config", getResponse.isExists)
+        return getResponse?.run {
+            val xcp = createParser(jsonXContent, sourceAsBytesRef)
+            ManagedIndexConfig.parseWithType(xcp, id, seqNo, primaryTerm)
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     protected fun getHistorySearchResponse(index: String): SearchResponse {
         val request = """
@@ -282,7 +306,8 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
-        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}",
+        val waitForActiveShards = if (isMultiNode) "all" else "1"
+        val response = client().makeRequest("POST", "$INDEX_STATE_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
             StringEntity(
                 "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
                     "\"$startTimeMillis\"}}}}}",
@@ -328,23 +353,31 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
     }
 
+    // Validate segment count per shard by specifying the min and max it should be
     @Suppress("UNCHECKED_CAST")
-    protected fun getSegmentCount(index: String): Int {
-        val statsResponse: Map<String, Any> = getStats(index)
+    protected fun validateSegmentCount(index: String, min: Int? = null, max: Int? = null): Boolean {
+        if (min == null && max == null) throw IllegalArgumentException("Must provide at least a min or max")
+        val statsResponse: Map<String, Any> = getShardSegmentStats(index)
 
-        // Assert that shard count of stats response is 1 since the stats request being used is at the index level
-        // (meaning the segment count in the response is aggregated) but segment count for force merge
-        // (which this method is primarily being used for) is going to be validated per shard
-        val shardsInfo = statsResponse["_shards"] as Map<String, Int>
-        assertEquals("Shard count higher than expected", 1, shardsInfo["successful"])
-
-        val indicesStats = statsResponse["indices"] as Map<String, Map<String, Map<String, Map<String, Any?>>>>
-        return indicesStats[index]!!["primaries"]!!["segments"]!!["count"] as Int
+        val indicesStats = statsResponse["indices"] as Map<String, Map<String, Map<String, List<Map<String, Map<String, Any?>>>>>>
+        return indicesStats[index]!!["shards"]!!.values.all { list ->
+            list.filter { it["routing"]!!["primary"] == true }.all {
+                logger.info("Checking primary shard segments for $it")
+                if (it["routing"]!!["state"] != "STARTED") {
+                    false
+                } else {
+                    val count = it["segments"]!!["count"] as Int
+                    if (min != null && count < min) return false
+                    if (max != null && count > max) return false
+                    return true
+                }
+            }
+        }
     }
 
-    /** Get stats for [index] */
-    private fun getStats(index: String): Map<String, Any> {
-        val response = client().makeRequest("GET", "/$index/_stats")
+    /** Get shard segment stats for [index] */
+    private fun getShardSegmentStats(index: String): Map<String, Any> {
+        val response = client().makeRequest("GET", "/$index/_stats/segments?level=shards")
 
         assertEquals("Stats request failed", RestStatus.OK, response.restStatus())
 
@@ -366,13 +399,19 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     @Suppress("UNCHECKED_CAST")
     protected fun getIndexBlocksWriteSetting(indexName: String): String {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
-        return indexSettings[indexName]!!["settings"]!![IndexMetaData.SETTING_BLOCKS_WRITE] as String
+        return indexSettings[indexName]!!["settings"]!![IndexMetadata.SETTING_BLOCKS_WRITE] as String
     }
 
     @Suppress("UNCHECKED_CAST")
     protected fun getNumberOfReplicasSetting(indexName: String): Int {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
         return (indexSettings[indexName]!!["settings"]!!["index.number_of_replicas"] as String).toInt()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getIndexPrioritySetting(indexName: String): Int {
+        val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
+        return (indexSettings[indexName]!!["settings"]!!["index.priority"] as String).toInt()
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -412,6 +451,56 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         }
         return metadata
     }
+
+    protected fun createRepository(
+        repository: String
+    ) {
+        val path = getRepoPath()
+        val response = client()
+            .makeRequest(
+                "PUT",
+                "_snapshot/$repository",
+                emptyMap(),
+                StringEntity("{\"type\":\"fs\", \"settings\": {\"location\": \"$path\"}}", APPLICATION_JSON)
+            )
+        assertEquals("Unable to create a new repository", RestStatus.OK, response.restStatus())
+    }
+
+    private fun getRepoPath(): String = System.getProperty("tests.path.repo")
+
+    private fun getSnapshotsList(repository: String): List<Any> {
+        val response = client()
+            .makeRequest(
+                "GET",
+                "_cat/snapshots/$repository?format=json",
+                emptyMap()
+            )
+        assertEquals("Unable to get a snapshot", RestStatus.OK, response.restStatus())
+        try {
+            return jsonXContent
+                .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, response.entity.content)
+                .use { parser -> parser.list() }
+        } catch (e: IOException) {
+            throw ElasticsearchParseException("Failed to parse content to list", e)
+        }
+    }
+
+    protected fun deleteSnapshot(repository: String, snapshotName: String) {
+        val response = client().makeRequest("DELETE", "_snapshot/$repository/$snapshotName")
+        assertEquals("Unable to delete snapshot", RestStatus.OK, response.restStatus())
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertSnapshotExists(
+        repository: String,
+        snapshot: String
+    ) = require(getSnapshotsList(repository).any { element -> (element as Map<String, String>)["id"]!!.contains(snapshot) }) { "No snapshot found with id: $snapshot" }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertSnapshotFinishedWithSuccess(
+        repository: String,
+        snapshot: String
+    ) = require(getSnapshotsList(repository).any { element -> (element as Map<String, String>)["id"]!!.contains(snapshot) && "SUCCESS" == element["status"] }) { "Snapshot didn't finish with success." }
 
     /**
      * Compares responses returned by APIs such as those defined in [RetryFailedManagedIndexAction] and [RestAddPolicyAction]
@@ -511,5 +600,79 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         }
         return true
+    }
+
+    protected fun assertIndexExists(index: String) {
+        val response = client().makeRequest("HEAD", index)
+        assertEquals("Index $index does not exist.", RestStatus.OK, response.restStatus())
+    }
+
+    protected fun assertIndexDoesNotExist(index: String) {
+        val response = client().makeRequest("HEAD", index)
+        assertEquals("Index $index does exist.", RestStatus.NOT_FOUND, response.restStatus())
+    }
+
+    protected fun verifyIndexSchemaVersion(index: String, expectedVersion: Int) {
+        val indexMapping = client().getIndexMapping(index)
+        val indexName = indexMapping.keys.toList()[0]
+        val mappings = indexMapping.stringMap(indexName)?.stringMap("mappings")
+        var version = 0
+        if (mappings!!.containsKey("_meta")) {
+            val meta = mappings.stringMap("_meta")
+            if (meta!!.containsKey("schema_version")) version = meta.get("schema_version") as Int
+        }
+        assertEquals(expectedVersion, version)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun Map<String, Any>.stringMap(key: String): Map<String, Any>? {
+        val map = this as Map<String, Map<String, Any>>
+        return map[key]
+    }
+
+    fun RestClient.getIndexMapping(index: String): Map<String, Any> {
+        val response = this.makeRequest("GET", "$index/_mapping")
+        assertEquals(RestStatus.OK, response.restStatus())
+        return response.asMap()
+    }
+
+    companion object {
+        internal interface IProxy {
+            val version: String?
+            var sessionId: String?
+
+            fun getExecutionData(reset: Boolean): ByteArray?
+            fun dump(reset: Boolean)
+            fun reset()
+        }
+
+        /*
+        * We need to be able to dump the jacoco coverage before the cluster shuts down.
+        * The new internal testing framework removed some gradle tasks we were listening to,
+        * to choose a good time to do it. This will dump the executionData to file after each test.
+        * TODO: This is also currently just overwriting integTest.exec with the updated execData without
+        *   resetting after writing each time. This can be improved to either write an exec file per test
+        *   or by letting jacoco append to the file.
+        * */
+        @JvmStatic
+        @AfterClass
+        fun dumpCoverage() {
+            // jacoco.dir set in esplugin-coverage.gradle, if it doesn't exist we don't
+            // want to collect coverage, so we can return early
+            val jacocoBuildPath = System.getProperty("jacoco.dir") ?: return
+            val serverUrl = "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi"
+            JMXConnectorFactory.connect(JMXServiceURL(serverUrl)).use { connector ->
+                val proxy = MBeanServerInvocationHandler.newProxyInstance(
+                        connector.mBeanServerConnection,
+                        ObjectName("org.jacoco:type=Runtime"),
+                        IProxy::class.java,
+                        false
+                )
+                proxy.getExecutionData(false)?.let {
+                    val path = Path.of("$jacocoBuildPath/integTest.exec")
+                    Files.write(path, it)
+                }
+            }
+        }
     }
 }

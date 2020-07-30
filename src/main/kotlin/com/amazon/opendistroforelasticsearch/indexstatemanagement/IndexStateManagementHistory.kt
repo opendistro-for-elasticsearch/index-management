@@ -1,3 +1,18 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
@@ -103,10 +118,10 @@ class IndexStateManagementHistory(
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
         val request = RolloverRequest(IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS, null)
         request.createIndexRequest.index(IndexStateManagementIndices.HISTORY_INDEX_PATTERN)
-            .mapping(_DOC, indexStateManagementIndices.indexStateManagementHistoryMappings, XContentType.JSON)
+            .mapping(_DOC, IndexStateManagementIndices.indexStateManagementHistoryMappings, XContentType.JSON)
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
-        val response = client.admin().indices().rolloversIndex(request).actionGet()
+        val response = client.admin().indices().rolloverIndex(request).actionGet()
         if (!response.isRolledOver) {
             logger.info("${IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS} not rolled over. Conditions were: ${response.conditionStatus}")
         }
@@ -120,13 +135,13 @@ class IndexStateManagementHistory(
         val clusterStateRequest = ClusterStateRequest()
             .clear()
             .indices(IndexStateManagementIndices.HISTORY_ALL)
-            .metaData(true)
+            .metadata(true)
             .local(true)
             .indicesOptions(IndicesOptions.strictExpand())
 
         val clusterStateResponse = client.admin().cluster().state(clusterStateRequest).actionGet()
 
-        for (entry in clusterStateResponse.state.metaData.indices()) {
+        for (entry in clusterStateResponse.state.metadata.indices()) {
             val indexMetaData = entry.value
             val creationTime = indexMetaData.creationDate
 
@@ -134,7 +149,7 @@ class IndexStateManagementHistory(
                 val alias = indexMetaData.aliases.firstOrNull { IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS == it.value.alias }
                 if (alias != null && historyEnabled) {
                     // If index has write alias and history is enable, don't delete the index.
-                    break
+                    continue
                 }
 
                 indexToDelete.add(indexMetaData.index.name)
@@ -168,7 +183,11 @@ class IndexStateManagementHistory(
             return
         }
 
-        indexStateManagementIndices.initHistoryIndex()
+        if (!indexStateManagementIndices.checkAndUpdateHistoryIndex()) {
+            logger.error("Failed to create or update the ism history index:")
+            return // we can't continue to add the history documents below as it would potentially create dynamic mappings
+        }
+
         val docWriteRequest: List<DocWriteRequest<*>> = managedIndexMetaData
             .filter { shouldAddToHistory(it) }
             .map { indexHistory(it) }

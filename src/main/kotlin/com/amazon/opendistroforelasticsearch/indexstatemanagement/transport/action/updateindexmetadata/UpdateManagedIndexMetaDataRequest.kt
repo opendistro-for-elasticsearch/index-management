@@ -25,13 +25,21 @@ import org.elasticsearch.index.Index
 
 class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndexMetaDataRequest> {
 
-    lateinit var indicesToAddManagedIndexMetaDataTo: List<Pair<Index, ManagedIndexMetaData>>
+    var indicesToAddManagedIndexMetaDataTo: List<Pair<Index, ManagedIndexMetaData>>
         private set
 
-    lateinit var indicesToRemoveManagedIndexMetaDataFrom: List<Index>
+    var indicesToRemoveManagedIndexMetaDataFrom: List<Index>
         private set
 
-    constructor()
+    constructor(si: StreamInput) : super(si) {
+        indicesToAddManagedIndexMetaDataTo = si.readList {
+            val index = Index(it)
+            val managedIndexMetaData = ManagedIndexMetaData.fromStreamInput(it)
+            Pair(index, managedIndexMetaData)
+        }
+
+        indicesToRemoveManagedIndexMetaDataFrom = si.readList { Index(it) }
+    }
 
     constructor(
         indicesToAddManagedIndexMetaDataTo: List<Pair<Index, ManagedIndexMetaData>> = listOf(),
@@ -43,13 +51,6 @@ class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndex
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-
-        if (!this::indicesToAddManagedIndexMetaDataTo.isInitialized || !this::indicesToRemoveManagedIndexMetaDataFrom.isInitialized) {
-            validationException = addValidationError(
-                "Both Lists for UpdateManagedIndexMetaDataRequest must be initialized",
-                validationException
-            )
-        }
 
         if (this.indicesToAddManagedIndexMetaDataTo.isEmpty() && this.indicesToRemoveManagedIndexMetaDataFrom.isEmpty()) {
             validationException = addValidationError(
@@ -72,17 +73,5 @@ class UpdateManagedIndexMetaDataRequest : AcknowledgedRequest<UpdateManagedIndex
         streamOutput.writeCollection(indicesToRemoveManagedIndexMetaDataFrom) { so, index ->
             index.writeTo(so)
         }
-    }
-
-    override fun readFrom(streamInput: StreamInput) {
-        super.readFrom(streamInput)
-
-        indicesToAddManagedIndexMetaDataTo = streamInput.readList {
-            val index = Index(it)
-            val managedIndexMetaData = ManagedIndexMetaData.fromStreamInput(it)
-            Pair(index, managedIndexMetaData)
-        }
-
-        indicesToRemoveManagedIndexMetaDataFrom = streamInput.readList { Index(it) }
     }
 }

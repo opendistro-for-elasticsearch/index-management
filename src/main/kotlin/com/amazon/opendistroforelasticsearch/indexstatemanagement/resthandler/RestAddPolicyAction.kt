@@ -31,16 +31,16 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestResponse
@@ -51,14 +51,16 @@ import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 
-class RestAddPolicyAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
-
-    init {
-        controller.registerHandler(POST, ADD_POLICY_BASE_URI, this)
-        controller.registerHandler(POST, "$ADD_POLICY_BASE_URI/{index}", this)
-    }
+class RestAddPolicyAction : BaseRestHandler() {
 
     override fun getName(): String = "add_policy_action"
+
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(POST, ADD_POLICY_BASE_URI),
+                Route(POST, "$ADD_POLICY_BASE_URI/{index}")
+        )
+    }
 
     @Throws(IOException::class)
     @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
@@ -82,7 +84,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
         val clusterStateRequest = ClusterStateRequest()
             .clear()
             .indices(*indices)
-            .metaData(true)
+            .metadata(true)
             .local(false)
             .waitForTimeout(TimeValue.timeValueMillis(ADD_POLICY_TIMEOUT_IN_MILLIS))
             .indicesOptions(strictExpandOptions)
@@ -164,7 +166,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
         }
 
         private fun populateLists(state: ClusterState) {
-            for (indexMetaDataEntry in state.metaData.indices) {
+            for (indexMetaDataEntry in state.metadata.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 when {
                     indexMetaData.getPolicyID() != null ->
@@ -175,7 +177,7 @@ class RestAddPolicyAction(settings: Settings, controller: RestController) : Base
                                 "This index already has a policy, use the update policy API to update index policies"
                             )
                         )
-                    indexMetaData.state == IndexMetaData.State.CLOSE ->
+                    indexMetaData.state == IndexMetadata.State.CLOSE ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
                     else -> indicesToAddPolicyTo.add(indexMetaData.index)
                 }

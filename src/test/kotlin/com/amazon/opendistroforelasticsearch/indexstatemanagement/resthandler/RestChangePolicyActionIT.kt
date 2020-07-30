@@ -200,15 +200,15 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
 
         assertAffectedIndicesResponseIsEqual(mapOf(FAILURES to false, FAILED_INDICES to emptyList<Any>(), UPDATED_INDICES to 1), response.asMap())
 
-        waitFor { assertEquals(newPolicy.id, getManagedIndexConfig(index)?.changePolicy?.policyID) }
+        waitFor { assertEquals(newPolicy.id, getManagedIndexConfigByDocId(managedIndexConfig.id)?.changePolicy?.policyID) }
 
         // speed up to first execution where we initialize the policy on the job
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertEquals(newPolicy.id, getManagedIndexConfig(index)?.policyID) }
+        waitFor { assertEquals(newPolicy.id, getManagedIndexConfigByDocId(managedIndexConfig.id)?.policyID) }
 
         // The initialized policy should be the change policy one
-        val updatedManagedIndexConfig = getManagedIndexConfig(index)
+        val updatedManagedIndexConfig = getManagedIndexConfigByDocId(managedIndexConfig.id)
         assertNotNull("Updated managed index config is null", updatedManagedIndexConfig)
         assertNull("Updated change policy is not null", updatedManagedIndexConfig!!.changePolicy)
         assertEquals("Initialized policyId is not the change policy id", newPolicy.id, updatedManagedIndexConfig.policyID)
@@ -256,7 +256,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
 
         waitFor {
-            val updatedManagedIndexConfig = getManagedIndexConfig(index)
+            val updatedManagedIndexConfig = getManagedIndexConfigByDocId(managedIndexConfig.id)
             assertNotNull("Updated managed index config is null", updatedManagedIndexConfig)
             assertNotNull("Updated change policy is null", updatedManagedIndexConfig!!.changePolicy)
             assertEquals("Updated change policy policy id does not match", newPolicy.id, updatedManagedIndexConfig.changePolicy!!.policyID)
@@ -297,7 +297,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         // After first execution we should expect the change policy to still be null (since we haven't called it yet)
         // and the initial policy should of been cached
         val executedManagedIndexConfig: ManagedIndexConfig = waitFor {
-            val config = getManagedIndexConfig(index)
+            val config = getManagedIndexConfigByDocId(managedIndexConfig.id)
             assertNotNull("Executed managed index config is null", config)
             assertNull("Executed change policy is not null", config!!.changePolicy)
             assertNotNull("Executed policy is null", config.policy)
@@ -307,26 +307,28 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         }
 
         // We should expect the explain API to show an initialized ManagedIndexMetaData with the default state from the initial policy
-        val explainResponseMap = getExplainMap(index)
-        assertPredicatesOnMetaData(
-            listOf(
-                index to listOf(
-                    ManagedIndexSettings.POLICY_ID.key to policy.id::equals,
-                    ManagedIndexMetaData.INDEX to executedManagedIndexConfig.index::equals,
-                    ManagedIndexMetaData.INDEX_UUID to executedManagedIndexConfig.indexUuid::equals,
-                    ManagedIndexMetaData.POLICY_ID to executedManagedIndexConfig.policyID::equals,
-                    StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
-                        assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap)
-                )
-            ), explainResponseMap, false)
+        waitFor {
+            val explainResponseMap = getExplainMap(index)
+            assertPredicatesOnMetaData(
+                listOf(
+                    index to listOf(
+                        ManagedIndexSettings.POLICY_ID.key to policy.id::equals,
+                        ManagedIndexMetaData.INDEX to executedManagedIndexConfig.index::equals,
+                        ManagedIndexMetaData.INDEX_UUID to executedManagedIndexConfig.indexUuid::equals,
+                        ManagedIndexMetaData.POLICY_ID to executedManagedIndexConfig.policyID::equals,
+                        StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
+                            assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap)
+                    )
+                ), explainResponseMap, false)
+        }
 
         val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
-                "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
+            "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
         val expectedResponse = mapOf(
-                FAILURES to false,
-                FAILED_INDICES to emptyList<Any>(),
-                UPDATED_INDICES to 1
+            FAILURES to false,
+            FAILED_INDICES to emptyList<Any>(),
+            UPDATED_INDICES to 1
         )
         assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
 
@@ -335,7 +337,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
-            val config = getManagedIndexConfig(index)
+            val config = getManagedIndexConfigByDocId(managedIndexConfig.id)
             assertNotNull("Next managed index config is null", config)
             assertNotNull("Next change policy is null", config!!.changePolicy)
             assertNotNull("Next policy is null", config.policy)
@@ -346,26 +348,28 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         }
 
         // We should expect the explain API to show us in the ReadOnlyAction
-        assertPredicatesOnMetaData(
-            listOf(
-                index to listOf(
-                    ManagedIndexSettings.POLICY_ID.key to policy.id::equals,
-                    ManagedIndexMetaData.INDEX to executedManagedIndexConfig.index::equals,
-                    ManagedIndexMetaData.INDEX_UUID to executedManagedIndexConfig.indexUuid::equals,
-                    ManagedIndexMetaData.POLICY_ID to executedManagedIndexConfig.policyID::equals,
-                    StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(
+                    index to listOf(
+                        ManagedIndexSettings.POLICY_ID.key to policy.id::equals,
+                        ManagedIndexMetaData.INDEX to executedManagedIndexConfig.index::equals,
+                        ManagedIndexMetaData.INDEX_UUID to executedManagedIndexConfig.indexUuid::equals,
+                        ManagedIndexMetaData.POLICY_ID to executedManagedIndexConfig.policyID::equals,
+                        StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
                             assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
-                    ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
+                        ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
                             assertActionEquals(ActionMetaData(name = ActionConfig.ActionType.READ_ONLY.type, startTime = Instant.now().toEpochMilli(), index = 0,
-                                    failed = false, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
-                )
-            ), getExplainMap(index), false)
+                                failed = false, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
+                    )
+                ), getExplainMap(index), false)
+        }
 
         // speed up to third execution so that we try to move to transitions and trigger a change policy
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         val changedManagedIndexConfig: ManagedIndexConfig = waitFor {
-            val config = getManagedIndexConfig(index)
+            val config = getManagedIndexConfigByDocId(managedIndexConfig.id)
             assertNotNull("Changed managed index config is null", config)
             assertNull("Changed change policy is not null", config!!.changePolicy)
             assertNotNull("Changed policy is null", config.policy)
@@ -375,20 +379,22 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         }
 
         // We should expect the explain API to show us with the new policy
-        assertPredicatesOnMetaData(
-            listOf(
-                index to listOf(
-                    ManagedIndexSettings.POLICY_ID.key to newPolicy.id::equals,
-                    ManagedIndexMetaData.INDEX to changedManagedIndexConfig.index::equals,
-                    ManagedIndexMetaData.INDEX_UUID to changedManagedIndexConfig.indexUuid::equals,
-                    ManagedIndexMetaData.POLICY_ID to changedManagedIndexConfig.policyID::equals,
-                    StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(
+                    index to listOf(
+                        ManagedIndexSettings.POLICY_ID.key to newPolicy.id::equals,
+                        ManagedIndexMetaData.INDEX to changedManagedIndexConfig.index::equals,
+                        ManagedIndexMetaData.INDEX_UUID to changedManagedIndexConfig.indexUuid::equals,
+                        ManagedIndexMetaData.POLICY_ID to changedManagedIndexConfig.policyID::equals,
+                        StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
                             assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
-                    ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
+                        ActionMetaData.ACTION to fun(actionMetaDataMap: Any?): Boolean =
                             assertActionEquals(ActionMetaData(name = ActionConfig.ActionType.TRANSITION.type, startTime = Instant.now().toEpochMilli(), index = 0,
-                                    failed = false, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
-                )
-            ), getExplainMap(index), false)
+                                failed = false, consumedRetries = 0, lastRetryTime = null, actionProperties = null), actionMetaDataMap)
+                    )
+                ), getExplainMap(index), false)
+        }
     }
 
     fun `test change policy API should only apply to indices in the state filter`() {
@@ -433,7 +439,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         val newPolicy = createRandomPolicy()
         val changePolicy = ChangePolicy(newPolicy.id, null, listOf(StateFilter(state = firstState.name)), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
-                "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$firstIndex,$secondIndex", emptyMap(), changePolicy.toHttpEntity())
+            "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$firstIndex,$secondIndex", emptyMap(), changePolicy.toHttpEntity())
         val expectedResponse = mapOf(
             FAILURES to false,
             FAILED_INDICES to emptyList<Any>(),
@@ -443,12 +449,12 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
 
         waitFor {
             // The first managed index should not have a change policy added to it as it should of been filtered out from the states filter
-            val nextFirstManagedIndexConfig = getManagedIndexConfig(firstIndex)
+            val nextFirstManagedIndexConfig = getManagedIndexConfigByDocId(firstManagedIndexConfig.id)
             assertNotNull("Next first managed index config is null", nextFirstManagedIndexConfig)
             assertNull("Next first change policy is not null", nextFirstManagedIndexConfig!!.changePolicy)
 
             // The second managed index should have a change policy added to it
-            val nextSecondManagedIndexConfig = getManagedIndexConfig(secondIndex)
+            val nextSecondManagedIndexConfig = getManagedIndexConfigByDocId(secondManagedIndexConfig.id)
             assertNotNull("Next second managed index config is null", nextSecondManagedIndexConfig)
             assertNotNull("Next second change policy is null", nextSecondManagedIndexConfig!!.changePolicy)
         }
@@ -479,7 +485,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
 
         // The initialized policy should be the change policy one
         val updatedManagedIndexConfig: ManagedIndexConfig = waitFor {
-            val config = getManagedIndexConfig(index)
+            val config = getManagedIndexConfigByDocId(managedIndexConfig.id)
             assertNotNull("Updated managed index config is null", config)
             assertNull("Updated change policy is not null", config!!.changePolicy)
             assertEquals("Initialized policyId is not the change policy id", newPolicy.id, config.policyID)
@@ -491,15 +497,17 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         }
 
         // should expect to see us starting in the state mentioned in changepolicy
-        assertPredicatesOnMetaData(
-            listOf(
-                index to listOf(
-                    ManagedIndexMetaData.INDEX_UUID to updatedManagedIndexConfig.indexUuid::equals,
-                    ManagedIndexMetaData.POLICY_ID to newPolicy.id::equals,
-                    StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
+        waitFor {
+            assertPredicatesOnMetaData(
+                listOf(
+                    index to listOf(
+                        ManagedIndexMetaData.INDEX_UUID to updatedManagedIndexConfig.indexUuid::equals,
+                        ManagedIndexMetaData.POLICY_ID to newPolicy.id::equals,
+                        StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
                             assertStateEquals(StateMetaData("some_other_state", Instant.now().toEpochMilli()), stateMetaDataMap)
-                )
-            ), getExplainMap(index), false)
+                    )
+                ), getExplainMap(index), false)
+        }
     }
 
     fun `test allowing change policy to happen in middle of state if same state structure`() {
@@ -545,15 +553,15 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
 
         // the change policy REST API should of set safe to true as the policies have the same state/actions
-        waitFor { assertEquals(true, getManagedIndexConfig(indexName)?.changePolicy?.isSafe) }
+        waitFor { assertEquals(true, getManagedIndexConfigByDocId(managedIndexConfig.id)?.changePolicy?.isSafe) }
 
         // speed up to next execution where we should swap the policy even while in the middle of the
         // rollover action and fix our minDocs being too high
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
-            assertNull(getManagedIndexConfig(indexName)?.changePolicy)
-            assertEquals(newPolicy.id, getManagedIndexConfig(indexName)?.policyID)
+            assertNull(getManagedIndexConfigByDocId(managedIndexConfig.id)?.changePolicy)
+            assertEquals(newPolicy.id, getManagedIndexConfigByDocId(managedIndexConfig.id)?.policyID)
             assertEquals(newPolicy.id, getExplainManagedIndexMetaData(indexName).policyID)
         }
 
@@ -596,7 +604,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertAffectedIndicesResponseIsEqual(expectedResponse, response.asMap())
 
         // the change policy REST API should set the ChangePolicy on the config job
-        waitFor { assertEquals(policy.id, getManagedIndexConfig(indexName)?.changePolicy?.policyID) }
+        waitFor { assertEquals(policy.id, getManagedIndexConfigByDocId(managedIndexConfig.id)?.changePolicy?.policyID) }
 
         // retry failed index
         val retryResponse = client().makeRequest(
@@ -615,9 +623,9 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
-            assertNull(getManagedIndexConfig(indexName)?.changePolicy)
-            assertNotNull(getManagedIndexConfig(indexName)?.policy)
-            assertEquals(policy.id, getManagedIndexConfig(indexName)?.policyID)
+            assertNull(getManagedIndexConfigByDocId(managedIndexConfig.id)?.changePolicy)
+            assertNotNull(getManagedIndexConfigByDocId(managedIndexConfig.id)?.policy)
+            assertEquals(policy.id, getManagedIndexConfigByDocId(managedIndexConfig.id)?.policyID)
             assertEquals(policy.id, getExplainManagedIndexMetaData(indexName).policyID)
             assertEquals("Successfully initialized policy: ${policy.id}", getExplainManagedIndexMetaData(indexName).info?.get("message"))
         }

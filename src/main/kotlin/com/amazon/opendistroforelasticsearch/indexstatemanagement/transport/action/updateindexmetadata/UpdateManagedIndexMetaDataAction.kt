@@ -15,11 +15,18 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata
 
-import org.elasticsearch.action.Action
+import org.elasticsearch.action.ActionType
 import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.common.io.stream.Writeable
 
-object UpdateManagedIndexMetaDataAction : Action<AcknowledgedResponse>("cluster:admin/ism/update/managedindexmetadata") {
-    override fun newResponse(): AcknowledgedResponse {
-        return AcknowledgedResponse()
+class UpdateManagedIndexMetaDataAction : ActionType<AcknowledgedResponse>(NAME, reader) {
+
+    companion object {
+        const val NAME = "cluster:admin/ism/update/managedindexmetadata"
+        val INSTANCE = UpdateManagedIndexMetaDataAction()
+
+        val reader = Writeable.Reader { AcknowledgedResponse(it) }
     }
+
+    override fun getResponseReader(): Writeable.Reader<AcknowledgedResponse> = reader
 }

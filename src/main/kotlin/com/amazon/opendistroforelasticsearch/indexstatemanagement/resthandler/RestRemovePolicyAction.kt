@@ -30,14 +30,14 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestResponse
@@ -46,11 +46,13 @@ import org.elasticsearch.rest.action.RestActionListener
 import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 
-class RestRemovePolicyAction(settings: Settings, controller: RestController) : BaseRestHandler(settings) {
+class RestRemovePolicyAction : BaseRestHandler() {
 
-    init {
-        controller.registerHandler(POST, REMOVE_POLICY_BASE_URI, this)
-        controller.registerHandler(POST, "$REMOVE_POLICY_BASE_URI/{index}", this)
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(POST, REMOVE_POLICY_BASE_URI),
+                Route(POST, "$REMOVE_POLICY_BASE_URI/{index}")
+        )
     }
 
     override fun getName(): String = "remove_policy_action"
@@ -69,7 +71,7 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
         val clusterStateRequest = ClusterStateRequest()
             .clear()
             .indices(*indices)
-            .metaData(true)
+            .metadata(true)
             .local(false)
             .indicesOptions(strictExpandOptions)
 
@@ -136,14 +138,14 @@ class RestRemovePolicyAction(settings: Settings, controller: RestController) : B
         }
 
         private fun populateLists(state: ClusterState) {
-            for (indexMetaDataEntry in state.metaData.indices) {
+            for (indexMetaDataEntry in state.metadata.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 when {
                     indexMetaData.getPolicyID() == null ->
                         failedIndices.add(
                             FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index does not have a policy to remove")
                         )
-                    indexMetaData.state == IndexMetaData.State.CLOSE ->
+                    indexMetaData.state == IndexMetadata.State.CLOSE ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
                     else -> indicesToRemovePolicyFrom.add(indexMetaData.index)
                 }

@@ -23,9 +23,9 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterName
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.ESAllocationTestCase
-import org.elasticsearch.cluster.metadata.IndexMetaData
-import org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_INDEX_UUID
-import org.elasticsearch.cluster.metadata.MetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
+import org.elasticsearch.cluster.metadata.IndexMetadata.SETTING_INDEX_UUID
+import org.elasticsearch.cluster.metadata.Metadata
 import org.elasticsearch.cluster.node.DiscoveryNode
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.ClusterSettings
@@ -64,8 +64,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
 
         settings = Settings.builder().build()
 
-        discoveryNode = DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), emptyMap<String, String>(),
-                DiscoveryNode.Role.values().toSet(), Version.CURRENT)
+        discoveryNode = DiscoveryNode("node", ESTestCase.buildNewFakeTransportAddress(), Version.CURRENT)
 
         val settingSet = hashSetOf<Setting<*>>()
         settingSet.addAll(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS)
@@ -129,7 +128,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
     }
 
     fun `test sweep cluster state`() {
-        val metaData = MetaData.builder()
+        val metadata = Metadata.builder()
                 .put(createIndexMetaData("index-with-policy", 1, 3, "first_policy"))
                 .put(createIndexMetaData("index-with-null-policy", 1, 3, null))
                 .put(createIndexMetaData("index-with-empty-policy", 1, 3, ""))
@@ -138,7 +137,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
                 .build()
 
         val clusterState = ClusterState.builder(ClusterName("cluster_name"))
-                .metaData(metaData)
+                .metadata(metadata)
                 .build()
 
         val results = coordinator.sweepClusterState(clusterState)
@@ -149,13 +148,13 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         assertFalse("Swept index with blank policy_id", results.values.any { it.index == "index-with-blank-policy" })
     }
 
-    private fun createIndexMetaData(indexName: String, replicaNumber: Int, shardNumber: Int, policyID: String?): IndexMetaData.Builder {
+    private fun createIndexMetaData(indexName: String, replicaNumber: Int, shardNumber: Int, policyID: String?): IndexMetadata.Builder {
         val defaultSettings = Settings.builder()
-                .put(IndexMetaData.SETTING_VERSION_CREATED, Version.CURRENT)
+                .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
                 .put(ManagedIndexSettings.POLICY_ID.key, policyID)
                 .put(SETTING_INDEX_UUID, randomAlphaOfLength(20))
                 .build()
-        return IndexMetaData.Builder(indexName)
+        return IndexMetadata.Builder(indexName)
                 .settings(defaultSettings)
                 .numberOfReplicas(replicaNumber)
                 .numberOfShards(shardNumber)

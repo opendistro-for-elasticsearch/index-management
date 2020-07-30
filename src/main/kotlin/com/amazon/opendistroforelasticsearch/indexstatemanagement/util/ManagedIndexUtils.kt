@@ -46,6 +46,7 @@ import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.unit.ByteSizeValue
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.BoolQueryBuilder
@@ -193,7 +194,9 @@ fun Transition.evaluateConditions(
     }
 
     if (this.conditions.indexAge != null) {
-        val elapsedTime = Instant.now().toEpochMilli() - indexCreationDate.toEpochMilli()
+        val indexCreationDateMilli = indexCreationDate.toEpochMilli()
+        if (indexCreationDateMilli == -1L) return false // transitions cannot currently be ORd like rollover, so we must return here
+        val elapsedTime = Instant.now().toEpochMilli() - indexCreationDateMilli
         return this.conditions.indexAge.millis <= elapsedTime
     }
 
@@ -214,26 +217,31 @@ fun Transition.hasStatsConditions(): Boolean = this.conditions?.docCount != null
 
 @Suppress("ReturnCount")
 fun RolloverActionConfig.evaluateConditions(
-    indexCreationDate: Instant,
+    indexAgeTimeValue: TimeValue,
     numDocs: Long,
     indexSize: ByteSizeValue
 ): Boolean {
+    if (this.minDocs == null &&
+        this.minAge == null &&
+        this.minSize == null) {
+        // If no conditions specified we default to true
+        return true
+    }
 
     if (this.minDocs != null) {
-        return this.minDocs <= numDocs
+        if (this.minDocs <= numDocs) return true
     }
 
     if (this.minAge != null) {
-        val elapsedTime = Instant.now().toEpochMilli() - indexCreationDate.toEpochMilli()
-        return this.minAge.millis <= elapsedTime
+        if (this.minAge.millis <= indexAgeTimeValue.millis) return true
     }
 
     if (this.minSize != null) {
-        return this.minSize <= indexSize
+        if (this.minSize <= indexSize) return true
     }
 
-    // If no conditions specified we default to true
-    return true
+    // return false if non of the conditions were true.
+    return false
 }
 
 fun Policy.getStateToExecute(managedIndexMetaData: ManagedIndexMetaData): State? {

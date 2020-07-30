@@ -1,3 +1,18 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
@@ -108,11 +123,12 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         // Second execution is to fail the step once.
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
+
+        waitFor { assertEquals(1, getExplainManagedIndexMetaData(indexName).actionMetaData?.consumedRetries) }
 
         // Third execution should not run job since we have the retry backoff.
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
+        Thread.sleep(5000) // currently there is nothing to compare when backing off so we have to sleep
 
         // Fourth execution should not run job since we have the retry backoff.
         updateManagedIndexConfigStartTime(managedIndexConfig)

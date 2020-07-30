@@ -20,13 +20,14 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
 import kotlinx.coroutines.delay
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.client.ElasticsearchClient
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -125,6 +126,20 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
         }
 
 /**
+ * Converts [LockService] methods that take a callback into a kotlin suspending function.
+ *
+ * @param block - a block of code that is passed an [ActionListener] that should be passed to the LockService API.
+ */
+suspend fun <T> LockService.suspendUntil(block: LockService.(ActionListener<T>) -> Unit): T =
+    suspendCoroutine { cont ->
+        block(object : ActionListener<T> {
+            override fun onResponse(response: T) = cont.resume(response)
+
+            override fun onFailure(e: Exception) = cont.resumeWithException(e)
+        })
+    }
+
+/**
  * Compares current and previous IndexMetaData to determine if we should create [ManagedIndexConfig].
  *
  * If [getPolicyID] returns null then we should not create a [ManagedIndexConfig].
@@ -135,23 +150,23 @@ suspend fun <C : ElasticsearchClient, T> C.suspendUntil(block: C.(ActionListener
  * @param previousIndexMetaData the previous [IndexMetaData].
  * @return whether a [ManagedIndexConfig] should be created.
  */
-fun IndexMetaData.shouldCreateManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
+fun IndexMetadata.shouldCreateManagedIndexConfig(previousIndexMetaData: IndexMetadata?): Boolean {
     if (this.getPolicyID() == null) return false
 
     return previousIndexMetaData?.getPolicyID() == null
 }
 
 /**
- * Compares current and previous IndexMetaData to determine if we should delete [ManagedIndexConfig].
+ * Compares current and previous IndexMetadata to determine if we should delete [ManagedIndexConfig].
  *
- * If the previous IndexMetaData is null or its [getPolicyID] returns null then there should
+ * If the previous IndexMetadata is null or its [getPolicyID] returns null then there should
  * be no [ManagedIndexConfig] to delete. Else if the current [getPolicyID] returns null
  * then it means we should delete the existing [ManagedIndexConfig].
  *
- * @param previousIndexMetaData the previous [IndexMetaData].
+ * @param previousIndexMetaData the previous [IndexMetadata].
  * @return whether a [ManagedIndexConfig] should be deleted.
  */
-fun IndexMetaData.shouldDeleteManagedIndexConfig(previousIndexMetaData: IndexMetaData?): Boolean {
+fun IndexMetadata.shouldDeleteManagedIndexConfig(previousIndexMetaData: IndexMetadata?): Boolean {
     if (previousIndexMetaData?.getPolicyID() == null) return false
 
     return this.getPolicyID() == null
@@ -163,13 +178,13 @@ fun IndexMetaData.shouldDeleteManagedIndexConfig(previousIndexMetaData: IndexMet
  * If [getPolicyID] returns null but [ManagedIndexMetaData] is not null then the policy was removed and
  * the [ManagedIndexMetaData] remains and should be removed.
  */
-fun IndexMetaData.shouldDeleteManagedIndexMetaData(): Boolean =
+fun IndexMetadata.shouldDeleteManagedIndexMetaData(): Boolean =
     this.getPolicyID() == null && this.getManagedIndexMetaData() != null
 
 /**
  * Returns the current policy_id if it exists and is valid otherwise returns null.
  * */
-fun IndexMetaData.getPolicyID(): String? {
+fun IndexMetadata.getPolicyID(): String? {
     if (this.settings.get(ManagedIndexSettings.POLICY_ID.key).isNullOrBlank()) return null
 
     return this.settings.get(ManagedIndexSettings.POLICY_ID.key)
@@ -178,13 +193,13 @@ fun IndexMetaData.getPolicyID(): String? {
 /**
  * Returns the current rollover_alias if it exists otherwise returns null.
  * */
-fun IndexMetaData.getRolloverAlias(): String? {
+fun IndexMetadata.getRolloverAlias(): String? {
     if (this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key).isNullOrBlank()) return null
 
     return this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key)
 }
 
-fun IndexMetaData.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexConfig? {
+fun IndexMetadata.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexConfig? {
     val index = this.index.name
     val uuid = this.index.uuid
     val policyID = this.getPolicyID()
@@ -194,7 +209,7 @@ fun IndexMetaData.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexC
     return ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyID = policyID)
 }
 
-fun IndexMetaData.getManagedIndexMetaData(): ManagedIndexMetaData? {
+fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
     val existingMetaDataMap = this.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
 
     if (existingMetaDataMap != null) {

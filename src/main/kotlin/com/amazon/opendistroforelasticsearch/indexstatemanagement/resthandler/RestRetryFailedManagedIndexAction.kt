@@ -40,26 +40,25 @@ import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestChannel
-import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.rest.RestRequest.Method.POST
 
-class RestRetryFailedManagedIndexAction(
-    settings: Settings,
-    controller: RestController
-) : BaseRestHandler(settings) {
+class RestRetryFailedManagedIndexAction : BaseRestHandler() {
 
     private val log = LogManager.getLogger(javaClass)
 
-    init {
-        controller.registerHandler(RestRequest.Method.POST, RETRY_BASE_URI, this)
-        controller.registerHandler(RestRequest.Method.POST, "$RETRY_BASE_URI/{index}", this)
+    override fun routes(): List<Route> {
+        return listOf(
+                Route(POST, RETRY_BASE_URI),
+                Route(POST, "$RETRY_BASE_URI/{index}")
+        )
     }
 
     override fun getName(): String {
@@ -83,7 +82,7 @@ class RestRetryFailedManagedIndexAction(
         val clusterStateRequest = ClusterStateRequest()
         clusterStateRequest.clear()
             .indices(*indices)
-            .metaData(true)
+            .metadata(true)
             .local(false)
             .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
             .indicesOptions(strictExpandIndicesOptions)
@@ -121,7 +120,7 @@ class RestRetryFailedManagedIndexAction(
         }
 
         private fun populateList(state: ClusterState) {
-            for (indexMetaDataEntry in state.metaData.indices) {
+            for (indexMetaDataEntry in state.metadata.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 val managedIndexMetaData = indexMetaData.getManagedIndexMetaData()
                 when {
@@ -154,7 +153,12 @@ class RestRetryFailedManagedIndexAction(
                         Pair(Index(managedIndexMetaData.index, managedIndexMetaData.indexUuid), managedIndexMetaData.copy(
                             stepMetaData = null,
                             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                            actionMetaData = managedIndexMetaData.actionMetaData?.copy(failed = false, consumedRetries = 0, lastRetryTime = null, startTime = null),
+                            actionMetaData = managedIndexMetaData.actionMetaData?.copy(
+                                failed = false,
+                                consumedRetries = 0,
+                                lastRetryTime = null,
+                                startTime = null
+                            ),
                             transitionTo = startState,
                             info = mapOf("message" to "Attempting to retry")
                         ))
@@ -166,7 +170,7 @@ class RestRetryFailedManagedIndexAction(
                 val updateManagedIndexMetaDataRequest =
                     UpdateManagedIndexMetaDataRequest(indicesToAddManagedIndexMetaDataTo = listOfIndexMetaData)
                 client.execute(
-                    UpdateManagedIndexMetaDataAction,
+                    UpdateManagedIndexMetaDataAction.INSTANCE,
                     updateManagedIndexMetaDataRequest,
                     ActionListener.wrap(::onUpdateManagedIndexMetaDataActionResponse, ::onFailure)
                 )

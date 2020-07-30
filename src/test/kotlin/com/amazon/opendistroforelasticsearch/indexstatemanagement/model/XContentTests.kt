@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.nonNullRandomC
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomAllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDeleteActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomDestination
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomNotificationActionConfig
@@ -27,10 +28,13 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomIndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomSnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.toJsonString
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.DestinationType
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
@@ -118,6 +122,14 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping ReplicaCountActionConfig doesn't work", replicaCountActionConfig, parsedReplicaCountActionConfig)
     }
 
+    fun `test set_index_priority action config parsing`() {
+        val indexPriorityActionConfig = randomIndexPriorityActionConfig()
+
+        val indexPriorityActionConfigString = indexPriorityActionConfig.toJsonString()
+        val parsedIndexPriorityActionConfig = ActionConfig.parse(parser(indexPriorityActionConfigString), 0)
+        assertEquals("Round tripping indexPriorityActionConfig doesn't work", indexPriorityActionConfig, parsedIndexPriorityActionConfig)
+    }
+
     fun `test force_merge action config parsing`() {
         val forceMergeActionConfig = randomForceMergeActionConfig()
 
@@ -127,11 +139,32 @@ class XContentTests : ESTestCase() {
     }
 
     fun `test notification action config parsing`() {
-        val notificationActionConfig = randomNotificationActionConfig()
+        val chimeNotificationActionConfig = randomNotificationActionConfig(destination = randomDestination(type = DestinationType.CHIME))
+        val slackNotificationActionConfig = randomNotificationActionConfig(destination = randomDestination(type = DestinationType.SLACK))
+        val customNotificationActionConfig = randomNotificationActionConfig(destination = randomDestination(type = DestinationType.CUSTOM_WEBHOOK))
 
-        val notificationActionConfigString = notificationActionConfig.toJsonString()
-        val parsedNotificationActionConfig = ActionConfig.parse(parser(notificationActionConfigString), 0)
-        assertEquals("Round tripping NotificationActionConfig doesn't work", notificationActionConfig, parsedNotificationActionConfig)
+        val chimeNotificationActionConfigString = chimeNotificationActionConfig.toJsonString()
+        val chimeParsedNotificationActionConfig = ActionConfig.parse(parser(chimeNotificationActionConfigString), 0)
+        assertEquals("Round tripping chime NotificationActionConfig doesn't work",
+            chimeNotificationActionConfig, chimeParsedNotificationActionConfig)
+
+        val slackNotificationActionConfigString = slackNotificationActionConfig.toJsonString()
+        val slackParsedNotificationActionConfig = ActionConfig.parse(parser(slackNotificationActionConfigString), 0)
+        assertEquals("Round tripping slack NotificationActionConfig doesn't work",
+            slackNotificationActionConfig, slackParsedNotificationActionConfig)
+
+        val customNotificationActionConfigString = customNotificationActionConfig.toJsonString()
+        val customParsedNotificationActionConfig = ActionConfig.parse(parser(customNotificationActionConfigString), 0)
+        assertEquals("Round tripping custom webhook NotificationActionConfig doesn't work",
+            customNotificationActionConfig, customParsedNotificationActionConfig)
+    }
+
+    fun `test snapshot action config parsing`() {
+        val snapshotActionConfig = randomSnapshotActionConfig("repository", "snapshot")
+
+        val snapshotActionConfigString = snapshotActionConfig.toJsonString()
+        val parsedNotificationActionConfig = ActionConfig.parse(parser(snapshotActionConfigString), 0)
+        assertEquals("Round tripping SnapshotActionConfig doesn't work", snapshotActionConfig, parsedNotificationActionConfig)
     }
 
     fun `test allocation action config parsing`() {

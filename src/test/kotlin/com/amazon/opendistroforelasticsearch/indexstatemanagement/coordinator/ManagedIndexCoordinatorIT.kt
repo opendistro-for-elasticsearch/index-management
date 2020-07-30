@@ -168,8 +168,9 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
         // Confirm job was disabled
         val disabledManagedIndexConfig: ManagedIndexConfig = waitFor {
-            val config = getExistingManagedIndexConfig(indexName)
-            assertEquals("ManagedIndexConfig was not disabled", false, config.enabled)
+            val config = getManagedIndexConfigByDocId(managedIndexConfig.id)
+            assertNotNull("Could not find ManagedIndexConfig", config)
+            assertEquals("ManagedIndexConfig was not disabled", false, config!!.enabled)
             config
         }
 
@@ -239,7 +240,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)
 
-        waitFor { assertTrue("Segment count for [$indexName] was less than expected", getSegmentCount(indexName) > 1) }
+        waitFor { assertTrue("Segment count for [$indexName] was less than expected", validateSegmentCount(indexName, min = 2)) }
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
@@ -258,7 +259,6 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
         // Third execution: Force merge operation is kicked off
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
 
         // Verify maxNumSegments is set in action properties when kicking off force merge
         waitFor {
@@ -274,13 +274,15 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
         // Fourth execution: WaitForForceMergeStep is not safe to disable on, so the job should not disable yet
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
+
+        // Confirm we successfully executed the WaitForForceMergeStep
+        waitFor { assertEquals("Force merge completed", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // Confirm job was not disabled
         assertEquals("ManagedIndexConfig was disabled early", true, getExistingManagedIndexConfig(indexName).enabled)
 
         // Validate segments were merged
-        waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
+        assertTrue("Segment count for [$indexName] after force merge is incorrect", validateSegmentCount(indexName, min = 1, max = 1))
 
         // Fifth execution: Attempt transition, which is safe to disable on, so job should be disabled
         updateManagedIndexConfigStartTime(managedIndexConfig)

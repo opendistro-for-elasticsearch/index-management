@@ -32,7 +32,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.N
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.IndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.destination.Chime
@@ -145,21 +147,30 @@ fun randomReplicaCountActionConfig(numOfReplicas: Int = ESRestTestCase.randomInt
     return ReplicaCountActionConfig(index = 0, numOfReplicas = numOfReplicas)
 }
 
+fun randomIndexPriorityActionConfig(indexPriority: Int = ESRestTestCase.randomIntBetween(0, 100)): IndexPriorityActionConfig {
+    return IndexPriorityActionConfig(index = 0, indexPriority = indexPriority)
+}
+
 fun randomForceMergeActionConfig(
     maxNumSegments: Int = ESRestTestCase.randomIntBetween(1, 50)
 ): ForceMergeActionConfig {
     return ForceMergeActionConfig(maxNumSegments = maxNumSegments, index = 0)
 }
 
-fun randomNotificationActionConfig(): NotificationActionConfig {
-    return NotificationActionConfig(destination = randomDestination(), messageTemplate = randomTemplateScript("random message"), index = 0)
+fun randomNotificationActionConfig(
+    destination: Destination = randomDestination(),
+    messageTemplate: Script = randomTemplateScript("random message"),
+    index: Int = 0
+): NotificationActionConfig {
+    return NotificationActionConfig(destination, messageTemplate, index)
 }
 
 fun randomAllocationActionConfig(require: Map<String, String> = emptyMap(), exclude: Map<String, String> = emptyMap(), include: Map<String, String> = emptyMap()): AllocationActionConfig {
     return AllocationActionConfig(require, include, exclude, index = 0)
 }
 
-fun randomDestination(): Destination {
+
+fun randomDestination(type: DestinationType = randomDestinationType()): Destination {
     val type = randomDestinationType()
     return Destination(
         type = type,
@@ -200,6 +211,10 @@ fun randomTemplateScript(
     source: String,
     params: Map<String, String> = emptyMap()
 ): Script = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, source, params)
+
+fun randomSnapshotActionConfig(repository: String? = null, snapshot: String? = null): SnapshotActionConfig {
+    return SnapshotActionConfig(repository, snapshot, index = 0)
+}
 
 /**
  * Helper functions for creating a random Conditions object
@@ -345,6 +360,11 @@ fun ReplicaCountActionConfig.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
+fun IndexPriorityActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
 fun ForceMergeActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
@@ -366,6 +386,11 @@ fun ChangePolicy.toJsonString(): String {
 }
 
 fun ManagedIndexConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun SnapshotActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

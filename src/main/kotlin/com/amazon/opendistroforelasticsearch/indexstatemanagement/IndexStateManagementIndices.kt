@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util._DOC
 import org.apache.logging.log4j.LogManager
@@ -27,9 +28,11 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 
 @OpenForTesting
@@ -40,15 +43,22 @@ class IndexStateManagementIndices(
 
     private val logger = LogManager.getLogger(javaClass)
 
-    val indexStateManagementMappings = javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText()
-
-    val indexStateManagementHistoryMappings = javaClass.classLoader.getResource("mappings/opendistro-ism-history.json").readText()
-
-    fun initIndexStateManagementIndex(actionListener: ActionListener<CreateIndexResponse>) {
+    fun checkAndUpdateISMConfigIndex(actionListener: ActionListener<AcknowledgedResponse>) {
         if (!indexStateManagementIndexExists()) {
             val indexRequest = CreateIndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
                     .mapping(_DOC, indexStateManagementMappings, XContentType.JSON)
-            client.create(indexRequest, actionListener)
+                    .settings(Settings.builder().put("index.hidden", true).build())
+            client.create(indexRequest, object : ActionListener<CreateIndexResponse> {
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(e)
+                }
+
+                override fun onResponse(response: CreateIndexResponse) {
+                    actionListener.onResponse(response)
+                }
+            })
+        } else {
+            IndexUtils.checkAndUpdateConfigIndexMapping(clusterService.state(), client, actionListener)
         }
     }
 
@@ -62,7 +72,7 @@ class IndexStateManagementIndices(
         if (indexStateManagementIndexExists()) return true
 
         return try {
-            val response: CreateIndexResponse = client.suspendUntil { initIndexStateManagementIndex(it) }
+            val response: AcknowledgedResponse = client.suspendUntil { checkAndUpdateISMConfigIndex(it) }
             if (response.isAcknowledged) {
                 return true
             }
@@ -79,11 +89,22 @@ class IndexStateManagementIndices(
     /**
      * ============== History =============
      */
-    fun indexStateManagementIndexHistoryExists(): Boolean = clusterService.state().metaData.hasAlias(HISTORY_WRITE_INDEX_ALIAS)
+    fun indexStateManagementIndexHistoryExists(): Boolean = clusterService.state().metadata.hasAlias(HISTORY_WRITE_INDEX_ALIAS)
 
-    suspend fun initHistoryIndex() {
-        if (!indexStateManagementIndexHistoryExists())
-            createHistoryIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX_ALIAS)
+    @Suppress("ReturnCount")
+    suspend fun checkAndUpdateHistoryIndex(): Boolean {
+        if (!indexStateManagementIndexHistoryExists()) {
+            return createHistoryIndex(HISTORY_INDEX_PATTERN, HISTORY_WRITE_INDEX_ALIAS)
+        } else {
+            val response: AcknowledgedResponse = client.suspendUntil {
+                IndexUtils.checkAndUpdateHistoryIndexMapping(clusterService.state(), client, it)
+            }
+            if (response.isAcknowledged) {
+                return true
+            }
+            logger.error("Updating $HISTORY_WRITE_INDEX_ALIAS with new mappings NOT acknowledged")
+            return false
+        }
     }
 
     private suspend fun createHistoryIndex(index: String, alias: String? = null): Boolean {
@@ -95,7 +116,9 @@ class IndexStateManagementIndices(
         }
         if (existsResponse.isExists) return true
 
-        val request = CreateIndexRequest(index).mapping(_DOC, indexStateManagementHistoryMappings, XContentType.JSON)
+        val request = CreateIndexRequest(index)
+                .mapping(_DOC, indexStateManagementHistoryMappings, XContentType.JSON)
+                .settings(Settings.builder().put("index.hidden", true).build())
         if (alias != null) request.alias(Alias(alias))
         return try {
             val createIndexResponse: CreateIndexResponse = client.suspendUntil { client.create(request, it) }
@@ -118,5 +141,10 @@ class IndexStateManagementIndices(
         const val HISTORY_WRITE_INDEX_ALIAS = "$HISTORY_INDEX_BASE-write"
         const val HISTORY_INDEX_PATTERN = "<$HISTORY_INDEX_BASE-{now/d{yyyy.MM.dd}}-1>"
         const val HISTORY_ALL = "$HISTORY_INDEX_BASE*"
+
+        val indexStateManagementMappings = IndexStateManagementIndices::class.java.classLoader
+            .getResource("mappings/opendistro-ism-config.json").readText()
+        val indexStateManagementHistoryMappings = IndexStateManagementIndices::class.java.classLoader
+            .getResource("mappings/opendistro-ism-history.json").readText()
     }
 }

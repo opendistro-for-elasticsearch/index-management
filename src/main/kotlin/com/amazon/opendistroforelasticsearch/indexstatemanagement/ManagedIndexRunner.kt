@@ -45,6 +45,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStartingManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getStateToExecute
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getCompletedManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.getUpdatedActionMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasDifferentJobInterval
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasTimedOut
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasVersionConflict
@@ -81,7 +82,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.health.ClusterHealthStatus
 import org.elasticsearch.cluster.health.ClusterStateHealth
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -174,13 +175,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         launch {
             // Attempt to acquire lock
-            val lock: LockModel? = withContext(Dispatchers.IO) { context.lockService.acquireLock(job, context) }
+            val lock: LockModel? = context.lockService.suspendUntil { acquireLock(job, context, it) }
             if (lock == null) {
                 logger.debug("Could not acquire lock for ${job.index}")
             } else {
                 runManagedIndexConfig(job)
                 // Release lock
-                val released = withContext(Dispatchers.IO) { context.lockService.release(lock) }
+                val released: Boolean = context.lockService.suspendUntil { release(lock, it) }
                 if (!released) {
                     logger.debug("Could not release lock for ${job.index}")
                 }
@@ -233,6 +234,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val state = policy.getStateToExecute(managedIndexMetaData)
         val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
+        val currentActionMetaData = action?.getUpdatedActionMetaData(managedIndexMetaData, state)
 
         // If Index State Management is disabled and the current step is not null and safe to disable on
         // then disable the job and return early
@@ -241,11 +243,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
-        if (action?.hasTimedOut(managedIndexMetaData.actionMetaData) == true) {
+        if (action?.hasTimedOut(currentActionMetaData) == true) {
             val info = mapOf("message" to "Action timed out")
             logger.error("Action=${action.type.type} has timed out")
             val updated = updateManagedIndexMetaData(managedIndexMetaData
-                .copy(actionMetaData = managedIndexMetaData.actionMetaData?.copy(failed = true), info = info))
+                .copy(actionMetaData = currentActionMetaData?.copy(failed = true), info = info))
             if (updated) disableManagedIndexConfig(managedIndexConfig)
             return
         }
@@ -255,7 +257,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
-        val shouldBackOff = action?.shouldBackoff(managedIndexMetaData.actionMetaData, action.config.configRetry)
+        val shouldBackOff = action?.shouldBackoff(currentActionMetaData, action.config.configRetry)
         if (shouldBackOff?.first == true) {
             // If we should back off then exit early.
             logger.info("Backoff for retrying. Remaining time ${shouldBackOff.second}")
@@ -263,10 +265,14 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
 
         if (managedIndexMetaData.stepMetaData?.stepStatus == Step.StepStatus.STARTING) {
-            val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
-            val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
-            if (updated) disableManagedIndexConfig(managedIndexConfig)
-            return
+            val isIdempotent = step?.isIdempotent()
+            logger.info("Previous execution failed to update step status, isIdempotent=$isIdempotent")
+            if (isIdempotent != true) {
+                val info = mapOf("message" to "Previous action was not able to update IndexMetaData.")
+                val updated = updateManagedIndexMetaData(managedIndexMetaData.copy(policyRetryInfo = PolicyRetryInfoMetaData(true, 0), info = info))
+                if (updated) disableManagedIndexConfig(managedIndexConfig)
+                return
+            }
         }
 
         // If this action is not allowed and the step to be executed is the first step in the action then we will fail
@@ -282,9 +288,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val startingManagedIndexMetaData = managedIndexMetaData.getStartingManagedIndexMetaData(state, action, step)
         val updateResult = updateManagedIndexMetaData(startingManagedIndexMetaData)
 
-        val actionMetaData = startingManagedIndexMetaData.actionMetaData
-
-        if (updateResult && state != null && action != null && step != null && actionMetaData != null) {
+        if (updateResult && state != null && action != null && step != null && currentActionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
             step.execute()
             var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(action, step)
@@ -510,7 +514,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 )
             )
             updateMetaDataRetryPolicy.retry(logger) {
-                val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction, request, it) }
+                val response: AcknowledgedResponse = client.suspendUntil { execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, it) }
                 if (response.isAcknowledged) {
                     result = true
                 } else {
@@ -674,19 +678,19 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     private fun clusterIsRed(): Boolean = ClusterStateHealth(clusterService.state()).status == ClusterHealthStatus.RED
 
-    private suspend fun getIndexMetaData(index: String): IndexMetaData? {
-        var indexMetaData: IndexMetaData? = null
+    private suspend fun getIndexMetaData(index: String): IndexMetadata? {
+        var indexMetaData: IndexMetadata? = null
         try {
             val clusterStateRequest = ClusterStateRequest()
                 .clear()
                 .indices(index)
-                .metaData(true)
+                .metadata(true)
                 .local(false)
                 .indicesOptions(IndicesOptions.strictExpand())
 
             val response: ClusterStateResponse = client.admin().cluster().suspendUntil { state(clusterStateRequest, it) }
 
-            indexMetaData = response.state.metaData.indices.firstOrNull()?.value
+            indexMetaData = response.state.metadata.indices.firstOrNull()?.value
             if (indexMetaData == null) {
                 logger.error("Could not find IndexMetaData in master cluster state for $index")
             }

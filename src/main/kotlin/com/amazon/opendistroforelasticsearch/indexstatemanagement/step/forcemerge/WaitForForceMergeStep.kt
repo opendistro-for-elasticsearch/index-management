@@ -41,6 +41,8 @@ class WaitForForceMergeStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
 
+    override fun isIdempotent() = true
+
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute() {
         val indexName = managedIndexMetaData.index
@@ -99,7 +101,8 @@ class WaitForForceMergeStep(
 
         if (actionProperties?.maxNumSegments == null) {
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "Unable to retrieve [${ActionProperties.MAX_NUM_SEGMENTS}] from ActionProperties=$actionProperties")
+            info = mapOf("message" to "Unable to retrieve [${ActionProperties.Properties.MAX_NUM_SEGMENTS.key}]" +
+                    " from ActionProperties=$actionProperties")
             return null
         }
 
@@ -112,7 +115,15 @@ class WaitForForceMergeStep(
             val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
             if (statsResponse.status == RestStatus.OK) {
-                return statsResponse.shards.count { it.stats.segments.count > maxNumSegments }
+                return statsResponse.shards.count {
+                    val count = it.stats.segments?.count
+                    if (count == null) {
+                        logger.warn("$indexName wait for force merge had null segments")
+                        false
+                    } else {
+                        count > maxNumSegments
+                    }
+                }
             }
 
             logger.debug("Failed to get index stats for index: [$indexName], status response: [${statsResponse.status}]")

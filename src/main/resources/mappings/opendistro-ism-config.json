@@ -1,4 +1,7 @@
 {
+  "_meta" : {
+    "schema_version": 3
+  },
   "dynamic": "strict",
   "properties": {
     "policy": {
@@ -168,6 +171,13 @@
                 "replica_count": {
                   "properties": {
                     "number_of_replicas": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "index_priority": {
+                  "properties": {
+                    "priority": {
                       "type": "integer"
                     }
                   }

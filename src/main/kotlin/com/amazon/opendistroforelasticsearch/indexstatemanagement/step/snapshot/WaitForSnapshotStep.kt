@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotStatus
 import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotsStatusRequest
 import org.elasticsearch.action.admin.cluster.snapshots.status.SnapshotsStatusResponse
@@ -43,10 +44,9 @@ class WaitForSnapshotStep(
     override fun isIdempotent() = true
 
     @Suppress("ComplexMethod")
-    override suspend fun execute() {
+    override suspend fun execute(): WaitForSnapshotStep {
         try {
-            logger.info("Waiting for snapshot to complete...")
-            val snapshotName = getSnapshotName() ?: return
+            val snapshotName = getSnapshotName() ?: return this
             val request = SnapshotsStatusRequest()
                 .snapshots(arrayOf(snapshotName))
                 .repository(config.repository)
@@ -61,41 +61,42 @@ class WaitForSnapshotStep(
                 when (status.state) {
                     State.INIT, State.STARTED, State.WAITING -> {
                         stepStatus = StepStatus.CONDITION_NOT_MET
-                        info = mapOf("message" to "Creating snapshot in progress for index: ${managedIndexMetaData.index}",
-                            "state" to status.state.name)
+                        info = mapOf("message" to getSnapshotInProgressMessage(indexName), "state" to status.state.name)
                     }
                     State.SUCCESS -> {
                         stepStatus = StepStatus.COMPLETED
-                        info = mapOf("message" to "Snapshot successfully created for index: ${managedIndexMetaData.index}",
-                            "state" to status.state.name)
+                        info = mapOf("message" to getSuccessMessage(indexName), "state" to status.state.name)
                     }
                     else -> { // State.FAILED, State.ABORTED, State.MISSING, null
+                        val message = getFailedExistsMessage(indexName)
+                        logger.warn(message)
                         stepStatus = StepStatus.FAILED
-                        info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}",
-                            "state" to status.state.name)
+                        info = mapOf("message" to message, "state" to status.state.name)
                     }
                 }
             } else {
+                val message = getFailedExistsMessage(indexName)
+                logger.warn(message)
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Snapshot doesn't exist for index: ${managedIndexMetaData.index}")
+                info = mapOf("message" to message)
             }
         } catch (e: RemoteTransportException) {
-            val message = "Failed to get status of snapshot for index: ${managedIndexMetaData.index}"
-            logger.error(message, e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to message)
-            val errorMessage = e.cause?.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            val message = "Failed to get status of snapshot for index: ${managedIndexMetaData.index}"
-            logger.error(message, e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to message)
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e)
         }
+
+        return this
+    }
+
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     private fun getSnapshotName(): String? {
@@ -103,7 +104,7 @@ class WaitForSnapshotStep(
 
         if (actionProperties?.snapshotName == null) {
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "Unable to retrieve [${ActionProperties.Properties.SNAPSHOT_NAME.key}] from ActionProperties=$actionProperties")
+            info = mapOf("message" to getFailedActionPropertiesMessage(indexName, actionProperties))
             return null
         }
 
@@ -120,5 +121,11 @@ class WaitForSnapshotStep(
 
     companion object {
         const val name = "wait_for_snapshot"
+        fun getFailedMessage(index: String) = "Failed to get status of snapshot [index=$index]"
+        fun getFailedExistsMessage(index: String) = "Snapshot doesn't exist [index=$index]"
+        fun getFailedActionPropertiesMessage(index: String, actionProperties: ActionProperties?) =
+            "Unable to retrieve [${ActionProperties.Properties.SNAPSHOT_NAME.key}] from ActionProperties=$actionProperties [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully created snapshot [index=$index]"
+        fun getSnapshotInProgressMessage(index: String) = "Snapshot currently in progress [index=$index]"
     }
 }

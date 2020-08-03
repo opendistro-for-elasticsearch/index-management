@@ -65,8 +65,8 @@ integTestCluster {
 jacocoTestReport {
     dependsOn integTest, test
     executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
-    sourceDirectories = sourceSets.main.allSource
-    classDirectories = sourceSets.main.output
+    sourceDirectories.from = "src/main/kotlin"
+    classDirectories.from = sourceSets.main.output
     reports {
         html.enabled = true // human readable
         xml.enabled = true // for coverlay

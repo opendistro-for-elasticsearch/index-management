@@ -254,7 +254,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
             )
         }
 
-        // speed up to execute first action, readonly
+        // speed up to execute set read only force merge step
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
@@ -271,7 +271,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         // close the index to cause next execution to fail
         closeIndex(indexName)
 
-        // speed up to execute first action and fail, call force merge
+        // speed up to execute attempt call force merge step
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // verify failed and save the startTime

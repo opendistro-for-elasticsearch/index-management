@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomAllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomRolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomSnapshotActionConfig
@@ -66,6 +67,12 @@ class ActionConfigTests : ESTestCase() {
     fun `test snapshot action empty repository fails`() {
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for repository equals to null") {
             randomSnapshotActionConfig(snapshot = "snapshot")
+        }
+    }
+
+    fun `test allocation action empty parameters fails`() {
+        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for empty parameters") {
+            randomAllocationActionConfig()
         }
     }
 }

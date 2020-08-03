@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.StateFilter
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.AllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.DeleteActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.NotificationActionConfig
@@ -162,6 +163,10 @@ fun randomNotificationActionConfig(
     index: Int = 0
 ): NotificationActionConfig {
     return NotificationActionConfig(destination, messageTemplate, index)
+}
+
+fun randomAllocationActionConfig(require: Map<String, String> = emptyMap(), exclude: Map<String, String> = emptyMap(), include: Map<String, String> = emptyMap()): AllocationActionConfig {
+    return AllocationActionConfig(require, include, exclude, index = 0)
 }
 
 fun randomDestination(type: DestinationType = randomDestinationType()): Destination {
@@ -364,6 +369,11 @@ fun ForceMergeActionConfig.toJsonString(): String {
 }
 
 fun NotificationActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun AllocationActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

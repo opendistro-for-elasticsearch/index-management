@@ -63,7 +63,8 @@ abstract class ActionConfig(
         FORCE_MERGE("force_merge"),
         NOTIFICATION("notification"),
         SNAPSHOT("snapshot"),
-        INDEX_PRIORITY("index_priority");
+        INDEX_PRIORITY("index_priority"),
+        ALLOCATION("allocation");
 
         override fun toString(): String {
             return type
@@ -98,6 +99,7 @@ abstract class ActionConfig(
                     ActionType.NOTIFICATION.type -> actionConfig = NotificationActionConfig.parse(xcp, index)
                     ActionType.SNAPSHOT.type -> actionConfig = SnapshotActionConfig.parse(xcp, index)
                     ActionType.INDEX_PRIORITY.type -> actionConfig = IndexPriorityActionConfig.parse(xcp, index)
+                    ActionType.ALLOCATION.type -> actionConfig = AllocationActionConfig.parse(xcp, index)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Action.")
                 }
             }

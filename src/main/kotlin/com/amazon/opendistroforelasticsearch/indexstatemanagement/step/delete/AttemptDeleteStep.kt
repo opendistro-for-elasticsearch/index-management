@@ -21,11 +21,13 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.D
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.snapshots.SnapshotInProgressException
+import org.elasticsearch.transport.RemoteTransportException
 import java.lang.Exception
 
 class AttemptDeleteStep(
@@ -42,30 +44,51 @@ class AttemptDeleteStep(
     override fun isIdempotent() = true
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
+    override suspend fun execute(): AttemptDeleteStep {
         try {
             val response: AcknowledgedResponse = client.admin().indices()
-                .suspendUntil { delete(DeleteIndexRequest(managedIndexMetaData.index), it) }
+                .suspendUntil { delete(DeleteIndexRequest(indexName), it) }
 
             if (response.isAcknowledged) {
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Deleted index")
+                info = mapOf("message" to getSuccessMessage(indexName))
             } else {
+                val message = getFailedMessage(indexName)
+                logger.warn(message)
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to delete index")
+                info = mapOf("message" to message)
+            }
+        } catch (e: RemoteTransportException) {
+            val cause = ExceptionsHelper.unwrapCause(e)
+            if (cause is SnapshotInProgressException) {
+                resolveSnapshotException(cause)
+            } else {
+                resolveException(cause as Exception)
             }
         } catch (e: SnapshotInProgressException) {
-            logger.warn("Failed to delete index [index=${managedIndexMetaData.index}] with snapshot in progress")
-            stepStatus = StepStatus.CONDITION_NOT_MET
-            info = mapOf("message" to "Index had snapshot in progress, retrying deletion")
+            resolveSnapshotException(e)
         } catch (e: Exception) {
-            logger.error("Failed to delete index [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to delete index")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            resolveException(e)
         }
+
+        return this
+    }
+
+    private fun resolveSnapshotException(e: SnapshotInProgressException) {
+        val message = getSnapshotMessage(indexName)
+        logger.warn(message, e)
+        stepStatus = StepStatus.CONDITION_NOT_MET
+        info = mapOf("message" to message)
+    }
+
+    private fun resolveException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -78,5 +101,8 @@ class AttemptDeleteStep(
 
     companion object {
         const val name = "attempt_delete"
+        fun getFailedMessage(index: String) = "Failed to delete index [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully deleted index [index=$index]"
+        fun getSnapshotMessage(index: String) = "Index had snapshot in progress, retrying deletion [index=$index]"
     }
 }

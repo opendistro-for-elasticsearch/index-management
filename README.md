@@ -64,15 +64,6 @@ The project in this package uses the [Gradle](https://docs.gradle.org/current/us
 
 However, to build the `index management` plugin project, we also use the Elastic build tools for Gradle.  These tools are idiosyncratic and don't always follow the conventions and instructions for building regular Java code using Gradle. Not everything in `index management` will work the way it's described in the Gradle documentation. If you encounter such a situation, the Elastic build tools [source code](https://github.com/elastic/elasticsearch/tree/master/buildSrc/src/main/groovy/org/elasticsearch/gradle) is your best bet for figuring out what's going on.
 
-This project currently uses the Notification subproject from the [Alerting plugin](https://github.com/opendistro-for-elasticsearch/alerting). There is an [open PR](https://github.com/opendistro-for-elasticsearch/alerting/pull/97) that introduces the maven publish task in Alerting for publishing the Notification jars. Until this PR is fully merged and jars published you will need to pull down the PR yourself and publish the jars to your local maven repository in order to build Index Management.
-
-1. Visit the PR [here](https://github.com/opendistro-for-elasticsearch/alerting/pull/97) and pull down the Alerting plugin along with the PR changes
-2. You may need to cherry-pick the changes into a separate branch if you require a specific version to be published
-3. Build the Alerting plugin (w/ the changes in PR) and publish the artifacts to your local maven repository
-     1. `./gradlew clean`
-     2. `./gradlew build` or `./gradlew assemble` build will run the tests and build artifacts, assemble will only build the artifacts
-     3. `./gradlew publishToMavenLocal` publishes artifacts to your local maven repository
-
 ### Building from the command line
 
 1. `./gradlew build` builds and tests project.

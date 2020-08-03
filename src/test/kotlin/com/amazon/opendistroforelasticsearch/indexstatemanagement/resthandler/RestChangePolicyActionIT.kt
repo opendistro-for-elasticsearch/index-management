@@ -34,6 +34,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReplicaC
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestChangePolicyAction.Companion.INDEX_NOT_MANAGED
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.UPDATED_INDICES
@@ -536,7 +537,8 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         // verify we are in rollover and have not completed it yet
         waitFor {
             assertEquals(ActionConfig.ActionType.ROLLOVER.type, getExplainManagedIndexMetaData(indexName).actionMetaData?.name)
-            assertEquals("Attempting to rollover", getExplainManagedIndexMetaData(indexName).info?.get("message"))
+            assertEquals(AttemptRolloverStep.getAttemptingMessage(indexName),
+                getExplainManagedIndexMetaData(indexName).info?.get("message"))
         }
 
         val newStateWithReadOnlyAction = randomState(name = stateWithReadOnlyAction.name, actions = listOf(actionConfig.copy(minDocs = 5)))
@@ -569,7 +571,8 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         // which should now actually rollover because 5 docs is less than 10 docs
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertEquals("Rolled over index", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(AttemptRolloverStep.getSuccessMessage(indexName),
+            getExplainManagedIndexMetaData(indexName).info?.get("message")) }
     }
 
     fun `test changing failed init policy`() {

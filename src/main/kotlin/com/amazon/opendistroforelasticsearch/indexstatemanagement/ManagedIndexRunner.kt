@@ -290,7 +290,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         if (updateResult && state != null && action != null && step != null && currentActionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
-            step.execute()
+            step.preExecute(logger).execute().postExecute(logger)
             var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(action, step)
 
             if (executedManagedIndexMetaData.isFailed) {

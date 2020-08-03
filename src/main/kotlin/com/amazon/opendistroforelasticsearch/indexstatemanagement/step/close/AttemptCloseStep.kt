@@ -21,11 +21,13 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.C
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.close.CloseIndexRequest
 import org.elasticsearch.action.admin.indices.close.CloseIndexResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.snapshots.SnapshotInProgressException
+import org.elasticsearch.transport.RemoteTransportException
 
 class AttemptCloseStep(
     val clusterService: ClusterService,
@@ -41,34 +43,52 @@ class AttemptCloseStep(
     override fun isIdempotent() = true
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
-        val index = managedIndexMetaData.index
+    override suspend fun execute(): AttemptCloseStep {
         try {
-            logger.info("Executing close on $index")
             val closeIndexRequest = CloseIndexRequest()
-                .indices(index)
+                .indices(indexName)
 
             val response: CloseIndexResponse = client.admin().indices().suspendUntil { close(closeIndexRequest, it) }
-            logger.info("Close index for $index was acknowledged=${response.isAcknowledged}")
             if (response.isAcknowledged) {
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Successfully closed index")
+                info = mapOf("message" to getSuccessMessage(indexName))
             } else {
+                val message = getFailedMessage(indexName)
+                logger.warn(message)
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to close index")
+                info = mapOf("message" to message)
+            }
+        } catch (e: RemoteTransportException) {
+            val cause = ExceptionsHelper.unwrapCause(e)
+            if (cause is SnapshotInProgressException) {
+                resolveSnapshotException(cause)
+            } else {
+                resolveException(cause as Exception)
             }
         } catch (e: SnapshotInProgressException) {
-            logger.warn("Failed to close index [index=$index] with snapshot in progress")
-            stepStatus = StepStatus.CONDITION_NOT_MET
-            info = mapOf("message" to "Index had snapshot in progress, retrying closing")
+            resolveSnapshotException(e)
         } catch (e: Exception) {
-            logger.error("Failed to set index to close [index=$index]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set index to close")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            resolveException(e)
         }
+
+        return this
+    }
+
+    private fun resolveSnapshotException(e: SnapshotInProgressException) {
+        val message = getSnapshotMessage(indexName)
+        logger.warn(message, e)
+        stepStatus = StepStatus.CONDITION_NOT_MET
+        info = mapOf("message" to message)
+    }
+
+    private fun resolveException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -77,5 +97,11 @@ class AttemptCloseStep(
             transitionTo = null,
             info = info
         )
+    }
+
+    companion object {
+        fun getFailedMessage(index: String) = "Failed to close index [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully closed index [index=$index]"
+        fun getSnapshotMessage(index: String) = "Index had snapshot in progress, retrying closing [index=$index]"
     }
 }

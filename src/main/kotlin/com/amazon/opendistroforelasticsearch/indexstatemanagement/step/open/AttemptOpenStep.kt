@@ -21,10 +21,12 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.O
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.open.OpenIndexRequest
 import org.elasticsearch.action.admin.indices.open.OpenIndexResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.transport.RemoteTransportException
 
 class AttemptOpenStep(
     val clusterService: ClusterService,
@@ -40,28 +42,38 @@ class AttemptOpenStep(
     override fun isIdempotent() = true
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
+    override suspend fun execute(): AttemptOpenStep {
         try {
-            logger.info("Executing open on ${managedIndexMetaData.index}")
             val openIndexRequest = OpenIndexRequest()
-                .indices(managedIndexMetaData.index)
+                .indices(indexName)
 
             val response: OpenIndexResponse = client.admin().indices().suspendUntil { open(openIndexRequest, it) }
             if (response.isAcknowledged) {
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Successfully opened index")
+                info = mapOf("message" to getSuccessMessage(indexName))
             } else {
+                val message = getFailedMessage(indexName)
+                logger.warn(message)
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to open index: ${managedIndexMetaData.index}")
+                info = mapOf("message" to message)
             }
+        } catch (e: RemoteTransportException) {
+            resolveException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            logger.error("Failed to set index to open [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set index to open")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            resolveException(e)
         }
+
+        return this
+    }
+
+    private fun resolveException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -70,5 +82,10 @@ class AttemptOpenStep(
             transitionTo = null,
             info = info
         )
+    }
+
+    companion object {
+        fun getFailedMessage(index: String) = "Failed to open index [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully opened index [index=$index]"
     }
 }

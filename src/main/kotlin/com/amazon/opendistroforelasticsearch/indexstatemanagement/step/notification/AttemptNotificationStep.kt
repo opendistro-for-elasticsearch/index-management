@@ -44,24 +44,30 @@ class AttemptNotificationStep(
     override fun isIdempotent() = false
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
+    override suspend fun execute(): AttemptNotificationStep {
         try {
-            logger.info("Executing $name on ${managedIndexMetaData.index}")
             withContext(Dispatchers.IO) {
                 config.destination.publish(null, compileTemplate(config.messageTemplate, managedIndexMetaData))
             }
 
             // publish internally throws an error for any invalid responses so its safe to assume if we reach this point it was successful
             stepStatus = StepStatus.COMPLETED
-            info = mapOf("message" to "Successfully sent notification")
+            info = mapOf("message" to getSuccessMessage(indexName))
         } catch (e: Exception) {
-            logger.error("Failed to send notification [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to send notification")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            resolveException(e)
         }
+
+        return this
+    }
+
+    private fun resolveException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -76,5 +82,10 @@ class AttemptNotificationStep(
         return scriptService.compile(template, TemplateScript.CONTEXT)
             .newInstance(template.params + mapOf("ctx" to managedIndexMetaData.convertToMap()))
             .execute()
+    }
+
+    companion object {
+        fun getFailedMessage(index: String) = "Failed to send notification [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully sent notification [index=$index]"
     }
 }

@@ -28,6 +28,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.F
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
@@ -196,16 +198,16 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         updateClusterSetting(ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED.key, "true")
 
         // Confirm job was re-enabled
-        val enableddManagedIndexConfig: ManagedIndexConfig = waitFor {
+        val enabledManagedIndexConfig: ManagedIndexConfig = waitFor {
             val config = getExistingManagedIndexConfig(indexName)
             assertEquals("ManagedIndexConfig was not re-enabled", true, config.enabled)
             config
         }
 
         // Speed up to next execution where the job should be rescheduled and the index rolled over
-        updateManagedIndexConfigStartTime(enableddManagedIndexConfig)
+        updateManagedIndexConfigStartTime(enabledManagedIndexConfig)
 
-        waitFor { assertEquals("Rolled over index", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(AttemptRolloverStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
     }
 
     fun `test not disabling ism on unsafe step`() {
@@ -276,7 +278,8 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // Confirm we successfully executed the WaitForForceMergeStep
-        waitFor { assertEquals("Force merge completed", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(WaitForForceMergeStep.getSuccessMessage(indexName),
+            getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // Confirm job was not disabled
         assertEquals("ManagedIndexConfig was disabled early", true, getExistingManagedIndexConfig(indexName).enabled)
@@ -288,7 +291,8 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // Explain API info should still be that of the last executed Step
-        waitFor { assertEquals("Force merge completed", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(WaitForForceMergeStep.getSuccessMessage(indexName),
+            getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // Confirm job was disabled
         val disabledManagedIndexConfig: ManagedIndexConfig = waitFor {
@@ -301,7 +305,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(disabledManagedIndexConfig)
 
         waitFor {
-            val expectedInfoString = mapOf("message" to "Force merge completed").toString()
+            val expectedInfoString = mapOf("message" to WaitForForceMergeStep.getSuccessMessage(indexName)).toString()
             assertPredicatesOnMetaData(
                 listOf(
                     indexName to listOf(

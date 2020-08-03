@@ -29,6 +29,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomReadWrit
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomTransition
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readonly.SetReadOnlyStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readwrite.SetReadWriteStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.transition.AttemptTransitionStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import java.time.Instant
@@ -130,19 +133,19 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
 
         // speed up to first execution that should set index to read only
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Set index to read-only", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(SetReadOnlyStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // speed up to second execution that should transition to second_state
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Transitioning to second_state", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(AttemptTransitionStep.getSuccessMessage(indexName, secondState.name), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // speed up to third execution that should set index back to read write
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Set index to read-write", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(SetReadWriteStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // speed up to fourth execution that should transition to first_state
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Transitioning to first_state", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(AttemptTransitionStep.getSuccessMessage(indexName, firstState.name), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // remove read_only from the allowlist
         val allowedActions = ActionConfig.ActionType.values().toList()

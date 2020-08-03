@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import java.time.Instant
 import java.util.Locale
@@ -42,7 +43,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         val indexName = "${testIndexName}_index_1"
         val policyID = "${testIndexName}_testPolicyName_1"
         createPolicyJson(testPolicy, policyID)
-        val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
+        val expectedInfoString = mapOf("message" to AttemptRolloverStep.getFailedNoValidAliasMessage(indexName)).toString()
 
         createIndex(indexName, policyID)
 
@@ -134,7 +135,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
 
         // even if we ran couple times we should have backed off and only retried once.
         waitFor {
-            val expectedInfoString = mapOf("message" to "There is no valid rollover_alias=null set on $indexName").toString()
+            val expectedInfoString = mapOf("message" to AttemptRolloverStep.getFailedNoValidAliasMessage(indexName)).toString()
             assertPredicatesOnMetaData(
                 listOf(
                     indexName to listOf(

@@ -67,7 +67,7 @@ class WaitForSnapshotStep(
                         stepStatus = StepStatus.COMPLETED
                         info = mapOf("message" to getSuccessMessage(indexName), "state" to status.state.name)
                     }
-                    else -> { // State.FAILED, State.ABORTED, null
+                    else -> { // State.FAILED, State.ABORTED
                         val message = getFailedExistsMessage(indexName)
                         logger.warn(message)
                         stepStatus = StepStatus.FAILED

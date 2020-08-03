@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.AllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.allocation.AttemptAllocationStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.junit.Assume
 import java.time.Instant
@@ -253,7 +254,7 @@ class AllocationActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
-            assertEquals("Failed to update settings with allocation.", getExplainManagedIndexMetaData(indexName).info?.get("message"))
+            assertEquals(AttemptAllocationStep.getFailedMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message"))
         }
     }
 }

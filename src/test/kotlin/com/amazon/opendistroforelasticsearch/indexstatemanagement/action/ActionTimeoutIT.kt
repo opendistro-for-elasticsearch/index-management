@@ -19,6 +19,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.open.AttemptOpenStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.hamcrest.collection.IsMapContaining
 import java.time.Instant
@@ -59,7 +61,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
             assertThat(
                 "Should be attempting to rollover",
                 getExplainManagedIndexMetaData(indexName).info,
-                IsMapContaining.hasEntry("message", "Attempting to rollover" as Any?)
+                IsMapContaining.hasEntry("message", AttemptRolloverStep.getAttemptingMessage(indexName) as Any?)
             )
         }
 
@@ -106,7 +108,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         // the second execution we move into open action, we won't hit the timeout as this is the execution that sets the startTime
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        val expectedOpenInfoString = mapOf("message" to "Successfully opened index").toString()
+        val expectedOpenInfoString = mapOf("message" to AttemptOpenStep.getSuccessMessage(indexName)).toString()
         waitFor {
             assertPredicatesOnMetaData(
                 listOf(indexName to listOf(ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedOpenInfoString == info.toString())),
@@ -125,7 +127,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
             assertThat(
                 "Should be attempting to rollover",
                 getExplainManagedIndexMetaData(indexName).info,
-                IsMapContaining.hasEntry("message", "Attempting to rollover" as Any?)
+                IsMapContaining.hasEntry("message", AttemptRolloverStep.getAttemptingMessage(indexName) as Any?)
             )
         }
     }

@@ -39,20 +39,17 @@ class AttemptAllocationStep(
 
     override fun isIdempotent() = true
 
-    override suspend fun execute() {
+    override suspend fun execute(): AttemptAllocationStep {
         try {
             val response: AcknowledgedResponse = client.admin()
                 .indices()
                 .suspendUntil { updateSettings(UpdateSettingsRequest(buildSettings(), managedIndexMetaData.index), it) }
             handleResponse(response)
         } catch (e: Exception) {
-            logger.error(ERROR_MESSAGE, e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to ERROR_MESSAGE)
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e)
         }
+
+        return this
     }
 
     private fun buildSettings(): Settings {
@@ -63,13 +60,23 @@ class AttemptAllocationStep(
         return builder.build()
     }
 
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
+    }
+
     private fun handleResponse(response: AcknowledgedResponse) {
         if (response.isAcknowledged) {
             stepStatus = StepStatus.COMPLETED
-            info = mapOf("message" to "Updated settings with allocation.")
+            info = mapOf("message" to getSuccessMessage(indexName))
         } else {
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to ERROR_MESSAGE)
+            info = mapOf("message" to getFailedMessage(indexName))
         }
     }
 
@@ -82,7 +89,8 @@ class AttemptAllocationStep(
     }
 
     companion object {
-        private const val ERROR_MESSAGE = "Failed to update settings with allocation."
         private const val SETTINGS_PREFIX = "index.routing.allocation."
+        fun getFailedMessage(index: String) = "Failed to update allocation setting [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully updated allocation setting [index=$index]"
     }
 }

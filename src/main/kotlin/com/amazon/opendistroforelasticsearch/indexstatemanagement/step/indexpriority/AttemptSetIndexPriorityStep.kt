@@ -21,11 +21,14 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.I
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.metadata.IndexMetadata.SETTING_PRIORITY
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.transport.RemoteTransportException
 
 class AttemptSetIndexPriorityStep(
     val clusterService: ClusterService,
@@ -41,32 +44,40 @@ class AttemptSetIndexPriorityStep(
     override fun isIdempotent() = true
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
-        val indexPriority = config.indexPriority
+    override suspend fun execute(): AttemptSetIndexPriorityStep {
         try {
-            logger.info("Executing $name on ${managedIndexMetaData.index}")
             val updateSettingsRequest = UpdateSettingsRequest()
                     .indices(managedIndexMetaData.index)
-                    .settings(Settings.builder().put("index.priority", indexPriority))
+                    .settings(Settings.builder().put(SETTING_PRIORITY, config.indexPriority))
             val response: AcknowledgedResponse = client.admin().indices()
                     .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
             if (response.isAcknowledged) {
-                logger.info("Successfully executed $name on ${managedIndexMetaData.index}")
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Successfully set index priority to $indexPriority")
+                info = mapOf("message" to getSuccessMessage(indexName, config.indexPriority))
             } else {
+                val message = getFailedMessage(indexName, config.indexPriority)
+                logger.warn(message)
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to set index priority to $indexPriority")
+                info = mapOf("message" to message)
             }
+        } catch (e: RemoteTransportException) {
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            logger.error("Failed to set index priority [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set index priority to $indexPriority")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e)
         }
+
+        return this
+    }
+
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName, config.indexPriority)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -75,5 +86,10 @@ class AttemptSetIndexPriorityStep(
             transitionTo = null,
             info = info
         )
+    }
+
+    companion object {
+        fun getFailedMessage(index: String, indexPriority: Int) = "Failed to set index priority to $indexPriority [index=$index]"
+        fun getSuccessMessage(index: String, indexPriority: Int) = "Successfully set index priority to $indexPriority [index=$index]"
     }
 }

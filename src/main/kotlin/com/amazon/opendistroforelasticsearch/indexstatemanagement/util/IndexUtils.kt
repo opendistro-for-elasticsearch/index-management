@@ -48,6 +48,7 @@ class IndexUtils {
             indexManagementHistorySchemaVersion = getSchemaVersion(IndexStateManagementIndices.indexStateManagementHistoryMappings)
         }
 
+        @Suppress("NestedBlockDepth")
         fun getSchemaVersion(mapping: String): Long {
             val xcp = XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY,
                 LoggingDeprecationHandler.INSTANCE, mapping)
@@ -120,6 +121,7 @@ class IndexUtils {
         }
 
         @OpenForTesting
+        @Suppress("LongParameterList")
         fun checkAndUpdateIndexMapping(
             index: String,
             schemaVersion: Long,
@@ -142,6 +144,7 @@ class IndexUtils {
         }
 
         @OpenForTesting
+        @Suppress("LongParameterList")
         fun checkAndUpdateAliasMapping(
             alias: String,
             schemaVersion: Long,

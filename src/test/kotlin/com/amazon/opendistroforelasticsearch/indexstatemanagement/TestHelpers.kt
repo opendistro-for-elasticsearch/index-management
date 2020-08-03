@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ChangePo
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Conditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.StateFilter
@@ -386,6 +387,11 @@ fun ChangePolicy.toJsonString(): String {
 fun ManagedIndexConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun ManagedIndexMetaData.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder().startObject()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject().string()
 }
 
 fun SnapshotActionConfig.toJsonString(): String {

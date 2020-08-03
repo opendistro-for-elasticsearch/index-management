@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getRolloverAlias
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getUsefulCauseString
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
@@ -49,27 +50,26 @@ class AttemptRolloverStep(
     override fun isIdempotent() = false
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
-        val index = managedIndexMetaData.index
+    override suspend fun execute(): AttemptRolloverStep {
         // If we have already rolled over this index then fail as we only allow an index to be rolled over once
         if (managedIndexMetaData.rolledOver == true) {
-            logger.warn("$index was already rolled over, cannot execute rollover step")
+            logger.warn("$indexName was already rolled over, cannot execute rollover step")
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "This index has already been rolled over")
-            return
+            info = mapOf("message" to getFailedDuplicateRolloverMessage(indexName))
+            return this
         }
 
         val alias = getAliasOrUpdateInfo()
         // If alias is null we already updated failed info from getAliasOrUpdateInfo and can return early
-        alias ?: return
+        alias ?: return this
 
         val statsResponse = getIndexStatsOrUpdateInfo()
         // If statsResponse is null we already updated failed info from getIndexStatsOrUpdateInfo and can return early
-        statsResponse ?: return
+        statsResponse ?: return this
 
-        val indexCreationDate = clusterService.state().metadata().index(index).creationDate
+        val indexCreationDate = clusterService.state().metadata().index(indexName).creationDate
         val indexAgeTimeValue = if (indexCreationDate == -1L) {
-            logger.warn("$index had an indexCreationDate=-1L, cannot use for comparison")
+            logger.warn("$indexName had an indexCreationDate=-1L, cannot use for comparison")
             // since we cannot use for comparison, we can set it to 0 as minAge will never be <= 0
             TimeValue.timeValueMillis(0)
         } else {
@@ -100,13 +100,15 @@ class AttemptRolloverStep(
         ).toMap()
 
         if (config.evaluateConditions(indexAgeTimeValue, numDocs, indexSize)) {
-            logger.info("$index rollover conditions evaluated to true [indexCreationDate=$indexCreationDate," +
+            logger.info("$indexName rollover conditions evaluated to true [indexCreationDate=$indexCreationDate," +
                     " numDocs=$numDocs, indexSize=${indexSize.bytes}]")
             executeRollover(alias, conditions)
         } else {
             stepStatus = StepStatus.CONDITION_NOT_MET
-            info = mapOf("message" to "Attempting to rollover", "conditions" to conditions)
+            info = mapOf("message" to getAttemptingMessage(indexName), "conditions" to conditions)
         }
+
+        return this
     }
 
     @Suppress("ComplexMethod")
@@ -122,34 +124,33 @@ class AttemptRolloverStep(
             if (response.isAcknowledged) {
                 stepStatus = StepStatus.COMPLETED
                 info = listOfNotNull(
-                    "message" to "Rolled over index",
+                    "message" to getSuccessMessage(indexName),
                     if (conditions.isEmpty()) null else "conditions" to conditions // don't show empty conditions object if no conditions specified
                 ).toMap()
             } else {
                 // If the alias update response is NOT acknowledged we will get back isAcknowledged=false
                 // This means the new index was created but we failed to swap the alias
+                val message = getFailedAliasUpdateMessage(indexName, response.newIndex)
+                logger.warn(message)
                 stepStatus = StepStatus.FAILED
                 info = listOfNotNull(
-                    "message" to "New index created (${response.newIndex}), but failed to update alias",
+                    "message" to message,
                     if (conditions.isEmpty()) null else "conditions" to conditions // don't show empty conditions object if no conditions specified
                 ).toMap()
             }
         } catch (e: Exception) {
-            logger.error("Failed to rollover index [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to rollover index")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo.put("cause", errorMessage)
-            info = mutableInfo.toMap()
+            handleException(e)
         }
     }
 
     private fun getAliasOrUpdateInfo(): String? {
-        val alias = clusterService.state().metadata().index(managedIndexMetaData.index).getRolloverAlias()
+        val alias = clusterService.state().metadata().index(indexName).getRolloverAlias()
 
         if (alias == null) {
+            val message = getFailedNoValidAliasMessage(indexName)
+            logger.warn(message)
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "There is no valid rollover_alias=$alias set on ${managedIndexMetaData.index}")
+            info = mapOf("message" to message)
         }
 
         return alias
@@ -158,32 +159,41 @@ class AttemptRolloverStep(
     private suspend fun getIndexStatsOrUpdateInfo(): IndicesStatsResponse? {
         try {
             val statsRequest = IndicesStatsRequest()
-                    .indices(managedIndexMetaData.index).clear().docs(true)
+                    .indices(indexName).clear().docs(true)
             val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
             if (statsResponse.status == RestStatus.OK) {
                 return statsResponse
             }
 
-            logger.debug(
-                "Failed to get index stats for index: [${managedIndexMetaData.index}], status response: [${statsResponse.status}]"
-            )
-
+            val message = getFailedEvaluateMessage(indexName)
+            logger.warn("$message - ${statsResponse.status}")
             stepStatus = StepStatus.FAILED
             info = mapOf(
-                "message" to "Failed to evaluate conditions for rollover",
-                "shard_failures" to statsResponse.shardFailures.map { it.toString() }
+                "message" to message,
+                "shard_failures" to statsResponse.shardFailures.map { it.getUsefulCauseString() }
             )
         } catch (e: Exception) {
-            logger.error("Failed to evaluate conditions for rollover [index=${managedIndexMetaData.index}]", e)
+            val message = getFailedEvaluateMessage(indexName)
+            logger.error(message, e)
             stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to evaluate conditions for rollover")
+            val mutableInfo = mutableMapOf("message" to message)
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
         }
 
         return null
+    }
+
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -193,5 +203,16 @@ class AttemptRolloverStep(
             transitionTo = null,
             info = info
         )
+    }
+
+    companion object {
+        fun getFailedMessage(index: String) = "Failed to rollover index [index=$index]"
+        fun getFailedAliasUpdateMessage(index: String, newIndex: String) =
+            "New index created, but failed to update alias [index=$index, newIndex=$newIndex]"
+        fun getFailedNoValidAliasMessage(index: String) = "Missing rollover_alias index setting [index=$index]"
+        fun getFailedDuplicateRolloverMessage(index: String) = "Index has already been rolled over [index=$index]"
+        fun getFailedEvaluateMessage(index: String) = "Failed to evaluate conditions for rollover [index=$index]"
+        fun getAttemptingMessage(index: String) = "Attempting to rollover index [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully rolled over index [index=$index]"
     }
 }

@@ -308,16 +308,18 @@
                   }
                 },
                 "allocation": {
-                  "dynamic": "true",
                   "properties": {
                     "require": {
-                      "type": "object"
+                      "type": "object",
+                      "enabled": false
                     },
                     "include": {
-                      "type": "object"
+                      "type": "object",
+                      "enabled": false
                     },
                     "exclude": {
-                      "type": "object"
+                      "type": "object",
+                      "enabled": false
                     },
                     "wait_for": {
                       "type": "boolean"

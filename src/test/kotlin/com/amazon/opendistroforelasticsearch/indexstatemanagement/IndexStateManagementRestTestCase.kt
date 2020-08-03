@@ -452,6 +452,24 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return getShardsList().filter { element -> (element as Map<String, String>)["index"]!!.contains(indexName) }
     }
 
+    @Suppress("UNCHECKED_CAST")
+    protected fun getNodes(): MutableSet<String> {
+        val response = client()
+                .makeRequest(
+                        "GET",
+                        "_cat/nodes?format=json",
+                        emptyMap()
+                )
+        assertEquals("Unable to get nodes", RestStatus.OK, response.restStatus())
+        try {
+            return jsonXContent
+                    .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, response.entity.content)
+                    .use { parser -> parser.list() }.map { element -> (element as Map<String, String>)["name"]!! }.toMutableSet()
+        } catch (e: IOException) {
+            throw ElasticsearchParseException("Failed to parse content to list", e)
+        }
+    }
+
     // Calls explain API for a single concrete index and converts the response into a ManagedIndexMetaData
     // This only works for indices with a ManagedIndexMetaData that has been initialized
     protected fun getExplainManagedIndexMetaData(indexName: String): ManagedIndexMetaData {

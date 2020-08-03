@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.cluster.snapshots.create.CreateSnapshotRequest
 import org.elasticsearch.action.admin.cluster.snapshots.create.CreateSnapshotResponse
 import org.elasticsearch.client.Client
@@ -49,9 +50,8 @@ class AttemptSnapshotStep(
     override fun isIdempotent() = false
 
     @Suppress("TooGenericExceptionCaught", "ComplexMethod")
-    override suspend fun execute() {
+    override suspend fun execute(): AttemptSnapshotStep {
         try {
-            logger.info("Executing snapshot on ${managedIndexMetaData.index}")
             snapshotName = config
                     .snapshot
                     .plus("-")
@@ -62,7 +62,7 @@ class AttemptSnapshotStep(
 
             val createSnapshotRequest = CreateSnapshotRequest()
                     .userMetadata(mapOf("snapshot_created" to "Open Distro for Elasticsearch Index Management"))
-                    .indices(managedIndexMetaData.index)
+                    .indices(indexName)
                     .snapshot(snapshotName)
                     .repository(config.repository)
                     .waitForCompletion(false)
@@ -71,41 +71,46 @@ class AttemptSnapshotStep(
             when (response.status()) {
                 RestStatus.ACCEPTED -> {
                     stepStatus = StepStatus.COMPLETED
-                    mutableInfo["message"] = "Snapshot creation started for index: ${managedIndexMetaData.index}"
+                    mutableInfo["message"] = getSuccessMessage(indexName)
                 }
                 RestStatus.OK -> {
                     stepStatus = StepStatus.COMPLETED
-                    mutableInfo["message"] = "Snapshot created for index: ${managedIndexMetaData.index}"
+                    mutableInfo["message"] = getSuccessMessage(indexName)
                 }
                 else -> {
+                    val message = getFailedMessage(indexName)
+                    logger.warn("$message - $response")
                     stepStatus = StepStatus.FAILED
-                    mutableInfo["message"] = "There was an error during snapshot creation for index: ${managedIndexMetaData.index}"
+                    mutableInfo["message"] = getFailedMessage(indexName)
                     mutableInfo["cause"] = response.toString()
                 }
             }
             info = mutableInfo.toMap()
         } catch (e: RemoteTransportException) {
-            if (e.cause is ConcurrentSnapshotExecutionException) {
-                resolveSnapshotException(e.cause as ConcurrentSnapshotExecutionException)
+            val cause = ExceptionsHelper.unwrapCause(e)
+            if (cause is ConcurrentSnapshotExecutionException) {
+                handleSnapshotException(cause)
             } else {
-                resolveException(e)
+                handleException(cause as Exception)
             }
         } catch (e: ConcurrentSnapshotExecutionException) {
-            resolveSnapshotException(e)
+            handleSnapshotException(e)
         } catch (e: Exception) {
-            resolveException(e)
+            handleException(e)
         }
+
+        return this
     }
 
-    private fun resolveSnapshotException(e: ConcurrentSnapshotExecutionException) {
-        val message = "Snapshot creation already in progress."
+    private fun handleSnapshotException(e: ConcurrentSnapshotExecutionException) {
+        val message = getFailedConcurrentSnapshotMessage(indexName)
         logger.debug(message, e)
         stepStatus = StepStatus.CONDITION_NOT_MET
         info = mapOf("message" to message)
     }
 
-    private fun resolveException(e: Exception) {
-        val message = "Failed to create snapshot for index: ${managedIndexMetaData.index}"
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED
         val mutableInfo = mutableMapOf("message" to message)
@@ -126,5 +131,8 @@ class AttemptSnapshotStep(
 
     companion object {
         const val name = "attempt_snapshot"
+        fun getFailedMessage(index: String) = "Failed to create snapshot [index=$index]"
+        fun getFailedConcurrentSnapshotMessage(index: String) = "Concurrent snapshot in progress, retrying next execution [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully started snapshot [index=$index]"
     }
 }

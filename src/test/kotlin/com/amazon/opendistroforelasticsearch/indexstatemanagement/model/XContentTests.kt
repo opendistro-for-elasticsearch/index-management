@@ -187,6 +187,27 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping ManagedIndexConfig doesn't work with id and version", configThree, parsedConfigThree)
     }
 
+    fun `test managed index metadata parsing`() {
+        val metadata = ManagedIndexMetaData(
+            index = randomAlphaOfLength(10),
+            indexUuid = randomAlphaOfLength(10),
+            policyID = randomAlphaOfLength(10),
+            policySeqNo = randomNonNegativeLong(),
+            policyPrimaryTerm = randomNonNegativeLong(),
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = randomAlphaOfLength(10),
+            stateMetaData = null,
+            actionMetaData = null,
+            stepMetaData = null,
+            policyRetryInfo = null,
+            info = null
+        )
+        val metadataString = metadata.toJsonString()
+        val parsedMetaData = ManagedIndexMetaData.parse(parser(metadataString))
+        assertEquals("Round tripping ManagedIndexMetaData doesn't work", metadata, parsedMetaData)
+    }
+
     fun `test change policy parsing`() {
         val changePolicy = randomChangePolicy()
 

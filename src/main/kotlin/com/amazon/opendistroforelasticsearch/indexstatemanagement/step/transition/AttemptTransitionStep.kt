@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.transition
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getUsefulCauseString
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.TransitionsActionConfig
@@ -23,14 +24,16 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.evaluateConditions
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.hasStatsConditions
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.rest.RestStatus
-import java.lang.Exception
+import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
+import kotlin.Exception
 
 /**
  * Attempt to transition to the next state
@@ -53,21 +56,20 @@ class AttemptTransitionStep(
 
     override fun isIdempotent() = true
 
-    @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
-        val index = managedIndexMetaData.index
+    @Suppress("TooGenericExceptionCaught", "ReturnCount", "ComplexMethod")
+    override suspend fun execute(): AttemptTransitionStep {
         try {
             if (config.transitions.isEmpty()) {
-                logger.info("$index transitions are empty, completing policy")
+                logger.info("$indexName transitions are empty, completing policy")
                 policyCompleted = true
                 stepStatus = StepStatus.COMPLETED
-                return
+                return this
             }
 
-            val indexCreationDate = clusterService.state().metadata().index(index).creationDate
+            val indexCreationDate = clusterService.state().metadata().index(indexName).creationDate
             val indexCreationDateInstant = Instant.ofEpochMilli(indexCreationDate)
             if (indexCreationDate == -1L) {
-                logger.warn("$index had an indexCreationDate=-1L, cannot use for comparison")
+                logger.warn("$indexName had an indexCreationDate=-1L, cannot use for comparison")
             }
             val stepStartTime = getStepStartTime()
             var numDocs: Long? = null
@@ -75,47 +77,54 @@ class AttemptTransitionStep(
 
             if (config.transitions.any { it.hasStatsConditions() }) {
                 val statsRequest = IndicesStatsRequest()
-                    .indices(index).clear().docs(true)
+                    .indices(indexName).clear().docs(true)
                 val statsResponse: IndicesStatsResponse = client.admin().indices().suspendUntil { stats(statsRequest, it) }
 
                 if (statsResponse.status != RestStatus.OK) {
-                    logger.debug(
-                        "Failed to get index stats for index: [$index], status response: [${statsResponse.status}]"
-                    )
-
+                    val message = getFailedStatsMessage(indexName)
+                    logger.warn("$message - ${statsResponse.status}")
                     stepStatus = StepStatus.FAILED
                     info = mapOf(
-                        "message" to "Failed to evaluate conditions for transition",
-                        "shard_failures" to statsResponse.shardFailures.map { it.toString() }
+                        "message" to message,
+                        "shard_failures" to statsResponse.shardFailures.map { it.getUsefulCauseString() }
                     )
-                    return
+                    return this
                 }
-
-                numDocs = statsResponse.primaries.docs?.count ?: 0
-                indexSize = ByteSizeValue(statsResponse.primaries.docs?.totalSizeInBytes ?: 0)
+                numDocs = statsResponse.primaries.getDocs()?.count ?: 0
+                indexSize = ByteSizeValue(statsResponse.primaries.getDocs()?.totalSizeInBytes ?: 0)
             }
 
             // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true
             stateName = config.transitions.find { it.evaluateConditions(indexCreationDateInstant, numDocs, indexSize, stepStartTime) }?.stateName
             val message: String
+            val stateName = stateName // shadowed on purpose to prevent var from changing
             if (stateName != null) {
-                logger.info("$index transition conditions evaluated to true [indexCreationDate=$indexCreationDate," +
+                logger.info("$indexName transition conditions evaluated to true [indexCreationDate=$indexCreationDate," +
                         " numDocs=$numDocs, indexSize=${indexSize?.bytes},stepStartTime=${stepStartTime.toEpochMilli()}]")
                 stepStatus = StepStatus.COMPLETED
-                message = "Transitioning to $stateName"
+                message = getSuccessMessage(indexName, stateName)
             } else {
                 stepStatus = StepStatus.CONDITION_NOT_MET
-                message = "Attempting to transition"
+                message = getEvaluatingMessage(indexName)
             }
             info = mapOf("message" to message)
+        } catch (e: RemoteTransportException) {
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            logger.error("Failed to transition index [index=$index]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to transition index")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e)
         }
+
+        return this
+    }
+
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -125,5 +134,12 @@ class AttemptTransitionStep(
             stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
             info = info
         )
+    }
+
+    companion object {
+        fun getFailedMessage(index: String) = "Failed to transition index [index=$index]"
+        fun getFailedStatsMessage(index: String) = "Failed to get stats information for the index [index=$index]"
+        fun getEvaluatingMessage(index: String) = "Evaluating transition conditions [index=$index]"
+        fun getSuccessMessage(index: String, state: String) = "Transitioning to $state [index=$index]"
     }
 }

@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getUsefulCauseString
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
@@ -43,26 +44,22 @@ class WaitForForceMergeStep(
 
     override fun isIdempotent() = true
 
-    @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
-        val indexName = managedIndexMetaData.index
-
-        logger.info("Checking if force merge is complete on [$indexName]")
-
+    @Suppress("TooGenericExceptionCaught", "ReturnCount")
+    override suspend fun execute(): WaitForForceMergeStep {
         // Retrieve maxNumSegments value from ActionProperties. If ActionProperties is null, update failed info and return early.
-        val maxNumSegments = getMaxNumSegments() ?: return
+        val maxNumSegments = getMaxNumSegments() ?: return this
 
         // Get the number of shards with a segment count greater than maxNumSegments, meaning they are still merging
         val shardsStillMergingSegments = getShardsStillMergingSegments(indexName, maxNumSegments)
         // If shardsStillMergingSegments is null, failed info has already been updated and can return early
-        shardsStillMergingSegments ?: return
+        shardsStillMergingSegments ?: return this
 
         // If there are no longer shardsStillMergingSegments, then the force merge has completed
         if (shardsStillMergingSegments == 0) {
-            logger.info("Force merge completed on [$indexName]")
-
+            val message = getSuccessMessage(indexName)
+            logger.info(message)
             stepStatus = StepStatus.COMPLETED
-            info = mapOf("message" to "Force merge completed")
+            info = mapOf("message" to message)
         } else {
             /*
              * If there are still shards with segments merging then no action is taken and the step will be reevaluated
@@ -79,21 +76,21 @@ class WaitForForceMergeStep(
             val timeoutInSeconds: Long = config.configTimeout?.timeout?.seconds ?: FORCE_MERGE_TIMEOUT_IN_SECONDS
 
             if (timeWaitingForForceMerge.toSeconds() > timeoutInSeconds) {
-                logger.error(
-                    "Force merge on [$indexName] timed out with [$shardsStillMergingSegments] shards containing unmerged segments"
-                )
+                logger.error("Force merge on [$indexName] timed out with" +
+                    " [$shardsStillMergingSegments] shards containing unmerged segments")
 
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Force merge timed out")
+                info = mapOf("message" to getFailedTimedOutMessage(indexName))
             } else {
-                logger.debug(
-                    "Force merge still running on [$indexName] with [$shardsStillMergingSegments] shards containing unmerged segments"
-                )
+                logger.debug("Force merge still running on [$indexName] with" +
+                    " [$shardsStillMergingSegments] shards containing unmerged segments")
 
                 stepStatus = StepStatus.CONDITION_NOT_MET
-                info = mapOf("message" to "Waiting for force merge to complete")
+                info = mapOf("message" to getWaitingMessage(indexName))
             }
         }
+
+        return this
     }
 
     private fun getMaxNumSegments(): Int? {
@@ -126,17 +123,18 @@ class WaitForForceMergeStep(
                 }
             }
 
-            logger.debug("Failed to get index stats for index: [$indexName], status response: [${statsResponse.status}]")
-
+            val message = getFailedSegmentCheckMessage(indexName)
+            logger.warn("$message - ${statsResponse.status}")
             stepStatus = StepStatus.FAILED
             info = mapOf(
-                "message" to "Failed to check segments when waiting for force merge to complete",
-                "shard_failures" to statsResponse.shardFailures.map { it.toString() }
+                "message" to message,
+                "shard_failures" to statsResponse.shardFailures.map { it.getUsefulCauseString() }
             )
         } catch (e: Exception) {
-            logger.error("Failed to check segments when waiting for force merge to complete [index=${managedIndexMetaData.index}]", e)
+            val message = getFailedSegmentCheckMessage(indexName)
+            logger.error(message, e)
             stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to check segments when waiting for force merge to complete")
+            val mutableInfo = mutableMapOf("message" to message)
             val errorMessage = e.message
             if (errorMessage != null) mutableInfo["cause"] = errorMessage
             info = mutableInfo.toMap()
@@ -170,7 +168,10 @@ class WaitForForceMergeStep(
 
     companion object {
         const val name = "wait_for_force_merge"
-
         const val FORCE_MERGE_TIMEOUT_IN_SECONDS = 43200L // 12 hours
+        fun getFailedTimedOutMessage(index: String) = "Force merge timed out [index=$index]"
+        fun getFailedSegmentCheckMessage(index: String) = "Failed to check segments when waiting for force merge to complete [index=$index]"
+        fun getWaitingMessage(index: String) = "Waiting for force merge to complete [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully confirmed segments force merged [index=$index]"
     }
 }

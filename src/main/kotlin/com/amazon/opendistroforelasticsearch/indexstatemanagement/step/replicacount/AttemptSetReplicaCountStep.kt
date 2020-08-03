@@ -21,11 +21,14 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.R
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.metadata.IndexMetadata.SETTING_NUMBER_OF_REPLICAS
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.transport.RemoteTransportException
 
 class AttemptSetReplicaCountStep(
     val clusterService: ClusterService,
@@ -37,36 +40,45 @@ class AttemptSetReplicaCountStep(
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
+    private val numOfReplicas = config.numOfReplicas
 
     override fun isIdempotent() = true
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
-        val numOfReplicas = config.numOfReplicas
+    override suspend fun execute(): AttemptSetReplicaCountStep {
         try {
-            logger.info("Executing $name on ${managedIndexMetaData.index}")
             val updateSettingsRequest = UpdateSettingsRequest()
-                    .indices(managedIndexMetaData.index)
-                    .settings(Settings.builder().put("index.number_of_replicas", numOfReplicas))
+                    .indices(indexName)
+                    .settings(Settings.builder().put(SETTING_NUMBER_OF_REPLICAS, numOfReplicas))
             val response: AcknowledgedResponse = client.admin().indices()
                     .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
             if (response.isAcknowledged) {
-                logger.info("Successfully executed $name on ${managedIndexMetaData.index}")
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Set number_of_replicas to $numOfReplicas")
+                info = mapOf("message" to getSuccessMessage(indexName, numOfReplicas))
             } else {
+                val message = getFailedMessage(indexName, numOfReplicas)
+                logger.warn(message)
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to set number_of_replicas to $numOfReplicas")
+                info = mapOf("message" to message)
             }
+        } catch (e: RemoteTransportException) {
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            logger.error("Failed to set number_of_replicas [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set number_of_replicas to $numOfReplicas")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e)
         }
+
+        return this
+    }
+
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName, numOfReplicas)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -75,5 +87,10 @@ class AttemptSetReplicaCountStep(
             transitionTo = null,
             info = info
         )
+    }
+
+    companion object {
+        fun getFailedMessage(index: String, numOfReplicas: Int) = "Failed to set number_of_replicas to $numOfReplicas [index=$index]"
+        fun getSuccessMessage(index: String, numOfReplicas: Int) = "Successfully set number_of_replicas to $numOfReplicas [index=$index]"
     }
 }

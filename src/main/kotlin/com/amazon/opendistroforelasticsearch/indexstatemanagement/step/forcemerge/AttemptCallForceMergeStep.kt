@@ -15,18 +15,27 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.getUsefulCauseString
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeRequest
 import org.elasticsearch.action.admin.indices.forcemerge.ForceMergeResponse
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.transport.RemoteTransportException
+import java.time.Instant
 
 class AttemptCallForceMergeStep(
     val clusterService: ClusterService,
@@ -42,35 +51,61 @@ class AttemptCallForceMergeStep(
     override fun isIdempotent() = false
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
+    override suspend fun execute(): AttemptCallForceMergeStep {
         try {
-            val indexName = managedIndexMetaData.index
 
-            logger.info("Attempting to force merge on [$indexName]")
+            val startTime = Instant.now().toEpochMilli()
             val request = ForceMergeRequest(indexName).maxNumSegments(config.maxNumSegments)
-            val response: ForceMergeResponse = client.admin().indices().suspendUntil { forceMerge(request, it) }
+            var response: ForceMergeResponse? = null
+            var throwable: Throwable? = null
+            GlobalScope.launch(Dispatchers.IO + CoroutineName("ISM-ForceMerge-$indexName")) {
+                try {
+                    response = client.admin().indices().suspendUntil { forceMerge(request, it) }
+                    if (response?.status == RestStatus.OK) {
+                        logger.info(getSuccessMessage(indexName))
+                    } else {
+                        logger.warn(getFailedMessage(indexName))
+                    }
+                } catch (t: Throwable) {
+                    throwable = t
+                }
+            }
 
-            // If response is OK then the force merge operation has started
-            if (response.status == RestStatus.OK) {
+            while (response == null && (Instant.now().toEpochMilli() - startTime) < FIVE_MINUTES_IN_MILLIS) {
+                delay(FIVE_SECONDS_IN_MILLIS)
+                throwable?.let { throw it }
+            }
+
+            val shadowedResponse = response
+            if (shadowedResponse?.let { it.status == RestStatus.OK } != false) {
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Started force merge")
+                info = mapOf("message" to if (shadowedResponse == null) getSuccessfulCallMessage(indexName) else getSuccessMessage(indexName))
             } else {
                 // Otherwise the request to force merge encountered some problem
                 stepStatus = StepStatus.FAILED
                 info = mapOf(
-                    "message" to "Failed to start force merge",
-                    "status" to response.status,
-                    "shard_failures" to response.shardFailures.map { it.toString() }
+                    "message" to getFailedMessage(indexName),
+                    "status" to shadowedResponse.status,
+                    "shard_failures" to shadowedResponse.shardFailures.map { it.getUsefulCauseString() }
                 )
             }
+        } catch (e: RemoteTransportException) {
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            logger.error("Failed to start force merge [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to start force merge")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e)
         }
+
+        return this
+    }
+
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -87,5 +122,10 @@ class AttemptCallForceMergeStep(
 
     companion object {
         const val name = "attempt_call_force_merge"
+        const val FIVE_MINUTES_IN_MILLIS = 1000 * 60 * 5 // how long to wait for the force merge request before moving on
+        const val FIVE_SECONDS_IN_MILLIS = 1000L * 5L // delay
+        fun getFailedMessage(index: String) = "Failed to start force merge [index=$index]"
+        fun getSuccessfulCallMessage(index: String) = "Successfully called force merge [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully completed force merge [index=$index]"
     }
 }

@@ -28,6 +28,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.F
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
@@ -195,16 +197,16 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         updateClusterSetting(ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED.key, "true")
 
         // Confirm job was re-enabled
-        val enableddManagedIndexConfig: ManagedIndexConfig = waitFor {
+        val enabledManagedIndexConfig: ManagedIndexConfig = waitFor {
             val config = getExistingManagedIndexConfig(indexName)
             assertEquals("ManagedIndexConfig was not re-enabled", true, config.enabled)
             config
         }
 
         // Speed up to next execution where the job should be rescheduled and the index rolled over
-        updateManagedIndexConfigStartTime(enableddManagedIndexConfig)
+        updateManagedIndexConfigStartTime(enabledManagedIndexConfig)
 
-        waitFor { assertEquals("Rolled over index", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(AttemptRolloverStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
     }
 
     fun `test not disabling ism on unsafe step`() {
@@ -239,7 +241,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         // Add sample data to increase segment count, passing in a delay to ensure multiple segments get created
         insertSampleData(indexName, 3, 1000)
 
-        waitFor { assertTrue("Segment count for [$indexName] was less than expected", getSegmentCount(indexName) > 1) }
+        waitFor { assertTrue("Segment count for [$indexName] was less than expected", validateSegmentCount(indexName, min = 2)) }
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
@@ -258,7 +260,6 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
         // Third execution: Force merge operation is kicked off
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
 
         // Verify maxNumSegments is set in action properties when kicking off force merge
         waitFor {
@@ -274,19 +275,23 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
         // Fourth execution: WaitForForceMergeStep is not safe to disable on, so the job should not disable yet
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        Thread.sleep(3000)
+
+        // Confirm we successfully executed the WaitForForceMergeStep
+        waitFor { assertEquals(WaitForForceMergeStep.getSuccessMessage(indexName),
+            getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // Confirm job was not disabled
         assertEquals("ManagedIndexConfig was disabled early", true, getExistingManagedIndexConfig(indexName).enabled)
 
         // Validate segments were merged
-        waitFor { assertEquals("Segment count for [$indexName] after force merge is incorrect", 1, getSegmentCount(indexName)) }
+        waitFor { assertTrue("Segment count for [$indexName] after force merge is incorrect", validateSegmentCount(indexName, min = 1, max = 1)) }
 
         // Fifth execution: Attempt transition, which is safe to disable on, so job should be disabled
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         // Explain API info should still be that of the last executed Step
-        waitFor { assertEquals("Force merge completed", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(WaitForForceMergeStep.getSuccessMessage(indexName),
+            getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // Confirm job was disabled
         val disabledManagedIndexConfig: ManagedIndexConfig = waitFor {
@@ -299,7 +304,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(disabledManagedIndexConfig)
 
         waitFor {
-            val expectedInfoString = mapOf("message" to "Force merge completed").toString()
+            val expectedInfoString = mapOf("message" to WaitForForceMergeStep.getSuccessMessage(indexName)).toString()
             assertPredicatesOnMetaData(
                 listOf(
                     indexName to listOf(

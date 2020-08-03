@@ -48,9 +48,7 @@ class SetReadOnlyStep(
         try {
             val updateSettingsRequest = UpdateSettingsRequest()
                 .indices(indexName)
-                .settings(
-                    Settings.builder().put(SETTING_BLOCKS_WRITE, true)
-                )
+                .settings(Settings.builder().put(SETTING_BLOCKS_WRITE, true))
             val response: AcknowledgedResponse = client.admin().indices()
                 .suspendUntil { updateSettings(updateSettingsRequest, it) }
 

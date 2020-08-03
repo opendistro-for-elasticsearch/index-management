@@ -30,6 +30,7 @@ abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMeta
         logger.info("Executing $name for ${managedIndexMetaData.index}")
         return this
     }
+
     abstract suspend fun execute(): Step
 
     fun postExecute(logger: Logger): Step {

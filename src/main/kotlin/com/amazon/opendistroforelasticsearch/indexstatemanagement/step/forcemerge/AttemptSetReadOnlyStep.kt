@@ -77,15 +77,15 @@ class AttemptSetReadOnlyStep(
             stepStatus = StepStatus.FAILED
             info = mapOf("message" to message)
         } catch (e: RemoteTransportException) {
-            resolveException(ExceptionsHelper.unwrapCause(e) as Exception)
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            resolveException(e)
+            handleException(e)
         }
 
         return false
     }
 
-    private fun resolveException(e: Exception) {
+    private fun handleException(e: Exception) {
         val message = getFailedMessage(indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED

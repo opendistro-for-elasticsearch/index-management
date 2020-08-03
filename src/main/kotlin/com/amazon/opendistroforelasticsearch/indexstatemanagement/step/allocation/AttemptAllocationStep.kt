@@ -46,7 +46,7 @@ class AttemptAllocationStep(
                 .suspendUntil { updateSettings(UpdateSettingsRequest(buildSettings(), managedIndexMetaData.index), it) }
             handleResponse(response)
         } catch (e: Exception) {
-            resolveException(e)
+            handleException(e)
         }
 
         return this
@@ -60,7 +60,7 @@ class AttemptAllocationStep(
         return builder.build()
     }
 
-    private fun resolveException(e: Exception) {
+    private fun handleException(e: Exception) {
         val message = getFailedMessage(indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED

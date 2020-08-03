@@ -79,7 +79,7 @@ class AttemptCallForceMergeStep(
             val shadowedResponse = response
             if (shadowedResponse?.let { it.status == RestStatus.OK } != false) {
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to getSuccessMessage(indexName))
+                info = mapOf("message" to if (shadowedResponse == null) getSuccessfulCallMessage(indexName) else getSuccessMessage(indexName))
             } else {
                 // Otherwise the request to force merge encountered some problem
                 stepStatus = StepStatus.FAILED
@@ -90,15 +90,15 @@ class AttemptCallForceMergeStep(
                 )
             }
         } catch (e: RemoteTransportException) {
-            resolveException(ExceptionsHelper.unwrapCause(e) as Exception)
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            resolveException(e)
+            handleException(e)
         }
 
         return this
     }
 
-    private fun resolveException(e: Exception) {
+    private fun handleException(e: Exception) {
         val message = getFailedMessage(indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED
@@ -125,6 +125,7 @@ class AttemptCallForceMergeStep(
         const val FIVE_MINUTES_IN_MILLIS = 1000 * 60 * 5 // how long to wait for the force merge request before moving on
         const val FIVE_SECONDS_IN_MILLIS = 1000L * 5L // delay
         fun getFailedMessage(index: String) = "Failed to start force merge [index=$index]"
+        fun getSuccessfulCallMessage(index: String) = "Successfully called force merge [index=$index]"
         fun getSuccessMessage(index: String) = "Successfully completed force merge [index=$index]"
     }
 }

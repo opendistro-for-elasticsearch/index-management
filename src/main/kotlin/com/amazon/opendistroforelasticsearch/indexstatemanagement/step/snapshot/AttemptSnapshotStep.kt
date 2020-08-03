@@ -89,27 +89,27 @@ class AttemptSnapshotStep(
         } catch (e: RemoteTransportException) {
             val cause = ExceptionsHelper.unwrapCause(e)
             if (cause is ConcurrentSnapshotExecutionException) {
-                resolveSnapshotException(cause)
+                handleSnapshotException(cause)
             } else {
-                resolveException(cause as Exception)
+                handleException(cause as Exception)
             }
         } catch (e: ConcurrentSnapshotExecutionException) {
-            resolveSnapshotException(e)
+            handleSnapshotException(e)
         } catch (e: Exception) {
-            resolveException(e)
+            handleException(e)
         }
 
         return this
     }
 
-    private fun resolveSnapshotException(e: ConcurrentSnapshotExecutionException) {
+    private fun handleSnapshotException(e: ConcurrentSnapshotExecutionException) {
         val message = getFailedConcurrentSnapshotMessage(indexName)
         logger.debug(message, e)
         stepStatus = StepStatus.CONDITION_NOT_MET
         info = mapOf("message" to message)
     }
 
-    private fun resolveException(e: Exception) {
+    private fun handleException(e: Exception) {
         val message = getFailedMessage(indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED

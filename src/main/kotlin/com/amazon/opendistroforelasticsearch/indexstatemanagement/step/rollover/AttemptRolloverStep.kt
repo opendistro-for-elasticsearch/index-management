@@ -55,7 +55,7 @@ class AttemptRolloverStep(
         if (managedIndexMetaData.rolledOver == true) {
             logger.warn("$indexName was already rolled over, cannot execute rollover step")
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to getFailedDuplicateRollover(indexName))
+            info = mapOf("message" to getFailedDuplicateRolloverMessage(indexName))
             return this
         }
 
@@ -139,7 +139,7 @@ class AttemptRolloverStep(
                 ).toMap()
             }
         } catch (e: Exception) {
-            resolveException(e)
+            handleException(e)
         }
     }
 
@@ -186,7 +186,7 @@ class AttemptRolloverStep(
         return null
     }
 
-    private fun resolveException(e: Exception) {
+    private fun handleException(e: Exception) {
         val message = getFailedMessage(indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED
@@ -210,7 +210,7 @@ class AttemptRolloverStep(
         fun getFailedAliasUpdateMessage(index: String, newIndex: String) =
             "New index created, but failed to update alias [index=$index, newIndex=$newIndex]"
         fun getFailedNoValidAliasMessage(index: String) = "Missing rollover_alias index setting [index=$index]"
-        fun getFailedDuplicateRollover(index: String) = "Index has already been rolled over [index=$index]"
+        fun getFailedDuplicateRolloverMessage(index: String) = "Index has already been rolled over [index=$index]"
         fun getFailedEvaluateMessage(index: String) = "Failed to evaluate conditions for rollover [index=$index]"
         fun getAttemptingMessage(index: String) = "Attempting to rollover index [index=$index]"
         fun getSuccessMessage(index: String) = "Successfully rolled over index [index=$index]"

@@ -61,27 +61,27 @@ class AttemptDeleteStep(
         } catch (e: RemoteTransportException) {
             val cause = ExceptionsHelper.unwrapCause(e)
             if (cause is SnapshotInProgressException) {
-                resolveSnapshotException(cause)
+                handleSnapshotException(cause)
             } else {
-                resolveException(cause as Exception)
+                handleException(cause as Exception)
             }
         } catch (e: SnapshotInProgressException) {
-            resolveSnapshotException(e)
+            handleSnapshotException(e)
         } catch (e: Exception) {
-            resolveException(e)
+            handleException(e)
         }
 
         return this
     }
 
-    private fun resolveSnapshotException(e: SnapshotInProgressException) {
+    private fun handleSnapshotException(e: SnapshotInProgressException) {
         val message = getSnapshotMessage(indexName)
         logger.warn(message, e)
         stepStatus = StepStatus.CONDITION_NOT_MET
         info = mapOf("message" to message)
     }
 
-    private fun resolveException(e: Exception) {
+    private fun handleException(e: Exception) {
         val message = getFailedMessage(indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED

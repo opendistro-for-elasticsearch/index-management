@@ -54,13 +54,13 @@ class AttemptNotificationStep(
             stepStatus = StepStatus.COMPLETED
             info = mapOf("message" to getSuccessMessage(indexName))
         } catch (e: Exception) {
-            resolveException(e)
+            handleException(e)
         }
 
         return this
     }
 
-    private fun resolveException(e: Exception) {
+    private fun handleException(e: Exception) {
         val message = getFailedMessage(indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED

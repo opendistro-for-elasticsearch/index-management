@@ -21,12 +21,14 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.F
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_BLOCKS_WRITE
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.transport.RemoteTransportException
 
 class AttemptSetReadOnlyStep(
     val clusterService: ClusterService,
@@ -41,18 +43,17 @@ class AttemptSetReadOnlyStep(
 
     override fun isIdempotent() = true
 
-    override suspend fun execute() {
-        val indexName = managedIndexMetaData.index
-
-        logger.info("Attempting to set [$indexName] to read-only for force_merge action")
+    override suspend fun execute(): AttemptSetReadOnlyStep {
         val indexSetToReadOnly = setIndexToReadOnly(indexName)
 
         // If setIndexToReadOnly returns false, updating settings failed and failed info was already updated, can return early
-        if (!indexSetToReadOnly) return
+        if (!indexSetToReadOnly) return this
 
         // Complete step since index is read-only
         stepStatus = StepStatus.COMPLETED
-        info = mapOf("message" to "Set index to read-only")
+        info = mapOf("message" to getSuccessMessage(indexName))
+
+        return this
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -60,31 +61,36 @@ class AttemptSetReadOnlyStep(
         try {
             val updateSettingsRequest = UpdateSettingsRequest()
                 .indices(indexName)
-                .settings(
-                    Settings.builder().put(IndexMetaData.SETTING_BLOCKS_WRITE, true)
-                )
+                .settings(Settings.builder().put(SETTING_BLOCKS_WRITE, true))
             val response: AcknowledgedResponse = client.admin().indices()
                 .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
             if (response.isAcknowledged) {
-                logger.info("Successfully set [$indexName] to read-only for force_merge action")
                 return true
             }
 
             // If response is not acknowledged, then add failed info
-            logger.error("Request to set [$indexName] to read-only was NOT acknowledged")
+            val message = getFailedMessage(indexName)
+            logger.warn(message)
             stepStatus = StepStatus.FAILED
-            info = mapOf("message" to "Failed to set index to read-only")
+            info = mapOf("message" to message)
+        } catch (e: RemoteTransportException) {
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            logger.error("Failed to set index to read-only [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set index to read-only")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e)
         }
 
         return false
+    }
+
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData =
@@ -92,5 +98,7 @@ class AttemptSetReadOnlyStep(
 
     companion object {
         const val name = "attempt_set_read_only"
+        fun getFailedMessage(index: String) = "Failed to set index to read-only [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully set index to read-only [index=$index]"
     }
 }

@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.readonly.SetReadOnlyStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.action.search.SearchResponse
 import java.time.Instant
@@ -91,7 +92,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Set index to read-only")
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -157,7 +158,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Set index to read-only")
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -223,7 +224,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Set index to read-only")
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -313,7 +314,7 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory1.actionMetaData!!.startTime, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Set index to read-only")
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
         )
 
         assertEquals(expectedHistory1, actualHistory1)

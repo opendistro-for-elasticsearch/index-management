@@ -90,9 +90,8 @@ class AttemptTransitionStep(
                     )
                     return this
                 }
-
-                numDocs = statsResponse.primaries.docs?.count ?: 0
-                indexSize = ByteSizeValue(statsResponse.primaries.docs?.totalSizeInBytes ?: 0)
+                numDocs = statsResponse.primaries.getDocs()?.count ?: 0
+                indexSize = ByteSizeValue(statsResponse.primaries.getDocs()?.totalSizeInBytes ?: 0)
             }
 
             // Find the first transition that evaluates to true and get the state to transition to, otherwise return null if none are true

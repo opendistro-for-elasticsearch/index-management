@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import org.elasticsearch.common.unit.ByteSizeUnit
 import org.elasticsearch.common.unit.ByteSizeValue
@@ -66,7 +67,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
-            assertEquals("Index did not rollover.", "Rolled over index", info["message"])
+            assertEquals("Index did not rollover.", AttemptRolloverStep.getSuccessMessage(firstIndex), info["message"])
             assertNull("Should not have conditions if none specified", info["conditions"])
         }
         Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))
@@ -104,7 +105,8 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
-            assertEquals("Index rollover before it met the condition.", "Attempting to rollover", info["message"])
+            assertEquals("Index rollover before it met the condition.",
+                AttemptRolloverStep.getAttemptingMessage(firstIndex), info["message"])
             val conditions = info["conditions"] as Map<String, Any?>
             assertEquals("Did not have exclusively min size and min doc count conditions",
                     setOf(RolloverActionConfig.MIN_SIZE_FIELD, RolloverActionConfig.MIN_DOC_COUNT_FIELD), conditions.keys)
@@ -122,7 +124,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
-            assertEquals("Index did not rollover", "Rolled over index", info["message"])
+            assertEquals("Index did not rollover", AttemptRolloverStep.getSuccessMessage(firstIndex), info["message"])
             val conditions = info["conditions"] as Map<String, Any?>
             assertEquals("Did not have exclusively min size and min doc count conditions",
                     setOf(RolloverActionConfig.MIN_SIZE_FIELD, RolloverActionConfig.MIN_DOC_COUNT_FIELD), conditions.keys)
@@ -168,7 +170,8 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
-            assertEquals("Index rollover before it met the condition.", "Attempting to rollover", info["message"])
+            assertEquals("Index rollover before it met the condition.",
+                AttemptRolloverStep.getAttemptingMessage(firstIndex), info["message"])
             val conditions = info["conditions"] as Map<String, Any?>
             assertEquals("Did not have exclusively min age and min doc count conditions",
                     setOf(RolloverActionConfig.MIN_INDEX_AGE_FIELD, RolloverActionConfig.MIN_DOC_COUNT_FIELD), conditions.keys)
@@ -186,7 +189,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
-            assertEquals("Index did not rollover", "Rolled over index", info["message"])
+            assertEquals("Index did not rollover", AttemptRolloverStep.getSuccessMessage(firstIndex), info["message"])
             val conditions = info["conditions"] as Map<String, Any?>
             assertEquals("Did not have exclusively min age and min doc count conditions",
                     setOf(RolloverActionConfig.MIN_INDEX_AGE_FIELD, RolloverActionConfig.MIN_DOC_COUNT_FIELD), conditions.keys)

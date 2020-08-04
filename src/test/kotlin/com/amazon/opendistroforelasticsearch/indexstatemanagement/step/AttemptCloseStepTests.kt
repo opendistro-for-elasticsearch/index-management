@@ -32,6 +32,7 @@ import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.snapshots.SnapshotInProgressException
 import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.transport.RemoteTransportException
 import kotlin.IllegalArgumentException
 
 class AttemptCloseStepTests : ESTestCase() {
@@ -76,7 +77,6 @@ class AttemptCloseStepTests : ESTestCase() {
             val attemptCloseStep = AttemptCloseStep(clusterService, client, closeActionConfig, managedIndexMetaData)
             attemptCloseStep.execute()
             val updatedManagedIndexMetaData = attemptCloseStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
-            logger.info(updatedManagedIndexMetaData)
             assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
         }
     }
@@ -92,6 +92,35 @@ class AttemptCloseStepTests : ESTestCase() {
             attemptCloseStep.execute()
             val updatedManagedIndexMetaData = attemptCloseStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
             assertEquals("Step status is not CONDITION_NOT_MET", Step.StepStatus.CONDITION_NOT_MET, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
+        }
+    }
+
+    fun `test close step remote transport snapshot in progress exception`() {
+        val exception = RemoteTransportException("rte", SnapshotInProgressException("nested"))
+        val client = getClient(getAdminClient(getIndicesAdminClient(null, exception)))
+
+        runBlocking {
+            val closeActionConfig = CloseActionConfig(0)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val attemptCloseStep = AttemptCloseStep(clusterService, client, closeActionConfig, managedIndexMetaData)
+            attemptCloseStep.execute()
+            val updatedManagedIndexMetaData = attemptCloseStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
+            assertEquals("Step status is not CONDITION_NOT_MET", Step.StepStatus.CONDITION_NOT_MET, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
+        }
+    }
+
+    fun `test close step remote transport exception`() {
+        val exception = RemoteTransportException("rte", IllegalArgumentException("nested"))
+        val client = getClient(getAdminClient(getIndicesAdminClient(null, exception)))
+
+        runBlocking {
+            val closeActionConfig = CloseActionConfig(0)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val attemptCloseStep = AttemptCloseStep(clusterService, client, closeActionConfig, managedIndexMetaData)
+            attemptCloseStep.execute()
+            val updatedManagedIndexMetaData = attemptCloseStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
+            assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
+            assertEquals("Did not get cause from nested exception", "nested", updatedManagedIndexMetaData.info!!["cause"])
         }
     }
 

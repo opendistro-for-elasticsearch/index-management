@@ -40,6 +40,7 @@ data class SweptManagedIndexConfig(
 ) {
 
     companion object {
+        @Suppress("ComplexMethod")
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndexConfig {

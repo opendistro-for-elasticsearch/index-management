@@ -69,7 +69,7 @@ testClusters.integTest {
 jacocoTestReport {
     dependsOn integTest, test
     executionData dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile
-    sourceDirectories.from = sourceSets.main.allSource
+    sourceDirectories.from = "src/main/kotlin"
     classDirectories.from = sourceSets.main.output
     reports {
         html.enabled = true // human readable

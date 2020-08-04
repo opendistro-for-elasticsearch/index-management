@@ -21,11 +21,14 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.R
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_BLOCKS_WRITE
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.transport.RemoteTransportException
 
 class SetReadOnlyStep(
     val clusterService: ClusterService,
@@ -41,31 +44,40 @@ class SetReadOnlyStep(
     override fun isIdempotent() = true
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun execute() {
+    override suspend fun execute(): SetReadOnlyStep {
         try {
             val updateSettingsRequest = UpdateSettingsRequest()
-                .indices(managedIndexMetaData.index)
-                .settings(
-                    Settings.builder().put("index.blocks.write", true)
-                )
+                .indices(indexName)
+                .settings(Settings.builder().put(SETTING_BLOCKS_WRITE, true))
             val response: AcknowledgedResponse = client.admin().indices()
                 .suspendUntil { updateSettings(updateSettingsRequest, it) }
 
             if (response.isAcknowledged) {
                 stepStatus = StepStatus.COMPLETED
-                info = mapOf("message" to "Set index to read-only")
+                info = mapOf("message" to getSuccessMessage(indexName))
             } else {
+                val message = getFailedMessage(indexName)
+                logger.warn(message)
                 stepStatus = StepStatus.FAILED
-                info = mapOf("message" to "Failed to set index to read-only")
+                info = mapOf("message" to message)
             }
+        } catch (e: RemoteTransportException) {
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            logger.error("Failed to set index to read-only [index=${managedIndexMetaData.index}]", e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to "Failed to set index to read-only")
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e)
         }
+
+        return this
+    }
+
+    private fun handleException(e: Exception) {
+        val message = getFailedMessage(indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        val mutableInfo = mutableMapOf("message" to message)
+        val errorMessage = e.message
+        if (errorMessage != null) mutableInfo["cause"] = errorMessage
+        info = mutableInfo.toMap()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
@@ -74,5 +86,10 @@ class SetReadOnlyStep(
             transitionTo = null,
             info = info
         )
+    }
+
+    companion object {
+        fun getFailedMessage(index: String) = "Failed to set index to read-only [index=$index]"
+        fun getSuccessMessage(index: String) = "Successfully set index to read-only [index=$index]"
     }
 }

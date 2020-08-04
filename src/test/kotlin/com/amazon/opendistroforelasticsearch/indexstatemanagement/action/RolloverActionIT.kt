@@ -16,17 +16,16 @@
 package com.amazon.opendistroforelasticsearch.indexstatemanagement.action
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
-import org.apache.http.entity.ContentType
-import org.apache.http.entity.StringEntity
 import org.elasticsearch.common.unit.ByteSizeUnit
 import org.elasticsearch.common.unit.ByteSizeValue
-import org.elasticsearch.rest.RestRequest
+import org.elasticsearch.common.unit.TimeValue
+import org.hamcrest.core.Is.isA
 import org.junit.Assert
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -36,6 +35,7 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
+    @Suppress("UNCHECKED_CAST")
     fun `test rollover no condition`() {
         val aliasName = "${testIndexName}_alias"
         val indexNameBase = "${testIndexName}_index"
@@ -65,10 +65,15 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
 
         // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Index did not rollover.", mapOf("message" to "Rolled over index"), getExplainManagedIndexMetaData(firstIndex).info) }
+        waitFor {
+            val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
+            assertEquals("Index did not rollover.", AttemptRolloverStep.getSuccessMessage(firstIndex), info["message"])
+            assertNull("Should not have conditions if none specified", info["conditions"])
+        }
         Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun `test rollover multi condition byte size`() {
         val aliasName = "${testIndexName}_byte_alias"
         val indexNameBase = "${testIndexName}_index_byte"
@@ -98,36 +103,48 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
 
         // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Index rollover before it met the condition.", mapOf("message" to "Attempting to rollover"), getExplainManagedIndexMetaData(firstIndex).info) }
+        waitFor {
+            val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
+            assertEquals("Index rollover before it met the condition.",
+                AttemptRolloverStep.getAttemptingMessage(firstIndex), info["message"])
+            val conditions = info["conditions"] as Map<String, Any?>
+            assertEquals("Did not have exclusively min size and min doc count conditions",
+                    setOf(RolloverActionConfig.MIN_SIZE_FIELD, RolloverActionConfig.MIN_DOC_COUNT_FIELD), conditions.keys)
+            val minSize = conditions[RolloverActionConfig.MIN_SIZE_FIELD] as Map<String, Any?>
+            val minDocCount = conditions[RolloverActionConfig.MIN_DOC_COUNT_FIELD] as Map<String, Any?>
+            assertEquals("Did not have min size condition", "10b", minSize["condition"])
+            assertThat("Did not have min size current", minSize["current"], isA(String::class.java))
+            assertEquals("Did not have min doc count condition", 1000000, minDocCount["condition"])
+            assertEquals("Did not have min doc count current", 0, minDocCount["current"])
+        }
 
-        client().makeRequest(
-            RestRequest.Method.PUT.toString(),
-            "$firstIndex/_doc/1111",
-            StringEntity("{ \"testkey\": \"some valueaaaaaaa\" }", ContentType.APPLICATION_JSON)
-        )
-        client().makeRequest(
-            RestRequest.Method.PUT.toString(),
-            "$firstIndex/_doc/2222",
-            StringEntity("{ \"testkey1\": \"some value1\" }", ContentType.APPLICATION_JSON)
-        )
-        client().makeRequest(
-            RestRequest.Method.PUT.toString(),
-            "$firstIndex/_doc/3333",
-            StringEntity("{ \"testkey2\": \"some value2\" }", ContentType.APPLICATION_JSON)
-        )
+        insertSampleData(index = firstIndex, docCount = 5, delay = 0)
 
         // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Index did not rollover.", mapOf("message" to "Rolled over index"), getExplainManagedIndexMetaData(firstIndex).info) }
+        waitFor {
+            val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
+            assertEquals("Index did not rollover", AttemptRolloverStep.getSuccessMessage(firstIndex), info["message"])
+            val conditions = info["conditions"] as Map<String, Any?>
+            assertEquals("Did not have exclusively min size and min doc count conditions",
+                    setOf(RolloverActionConfig.MIN_SIZE_FIELD, RolloverActionConfig.MIN_DOC_COUNT_FIELD), conditions.keys)
+            val minSize = conditions[RolloverActionConfig.MIN_SIZE_FIELD] as Map<String, Any?>
+            val minDocCount = conditions[RolloverActionConfig.MIN_DOC_COUNT_FIELD] as Map<String, Any?>
+            assertEquals("Did not have min size condition", "10b", minSize["condition"])
+            assertThat("Did not have min size current", minSize["current"], isA(String::class.java))
+            assertEquals("Did not have min doc count condition", 1000000, minDocCount["condition"])
+            assertEquals("Did not have min doc count current", 5, minDocCount["current"])
+        }
         Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun `test rollover multi condition doc size`() {
         val aliasName = "${testIndexName}_doc_alias"
         val indexNameBase = "${testIndexName}_index_doc"
         val firstIndex = "$indexNameBase-1"
         val policyID = "${testIndexName}_testPolicyName_doc_1"
-        val actionConfig = RolloverActionConfig(ByteSizeValue(10, ByteSizeUnit.TB), 3, null, 0)
+        val actionConfig = RolloverActionConfig(null, 3, TimeValue.timeValueDays(2), 0)
         val states = listOf(State(name = "RolloverAction", actions = listOf(actionConfig), transitions = listOf()))
         val policy = Policy(
             id = policyID,
@@ -151,27 +168,38 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
 
         // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Index rollover before it met the condition.", mapOf("message" to "Attempting to rollover"), getExplainManagedIndexMetaData(firstIndex).info) }
+        waitFor {
+            val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
+            assertEquals("Index rollover before it met the condition.",
+                AttemptRolloverStep.getAttemptingMessage(firstIndex), info["message"])
+            val conditions = info["conditions"] as Map<String, Any?>
+            assertEquals("Did not have exclusively min age and min doc count conditions",
+                    setOf(RolloverActionConfig.MIN_INDEX_AGE_FIELD, RolloverActionConfig.MIN_DOC_COUNT_FIELD), conditions.keys)
+            val minAge = conditions[RolloverActionConfig.MIN_INDEX_AGE_FIELD] as Map<String, Any?>
+            val minDocCount = conditions[RolloverActionConfig.MIN_DOC_COUNT_FIELD] as Map<String, Any?>
+            assertEquals("Did not have min age condition", "2d", minAge["condition"])
+            assertThat("Did not have min age current", minAge["current"], isA(String::class.java))
+            assertEquals("Did not have min doc count condition", 3, minDocCount["condition"])
+            assertEquals("Did not have min doc count current", 0, minDocCount["current"])
+        }
 
-        client().makeRequest(
-            RestRequest.Method.PUT.toString(),
-            "$firstIndex/_doc/1111",
-            StringEntity("{ \"testkey\": \"some value\" }", ContentType.APPLICATION_JSON)
-        )
-        client().makeRequest(
-            RestRequest.Method.PUT.toString(),
-            "$firstIndex/_doc/2222",
-            StringEntity("{ \"testkey1\": \"some value1\" }", ContentType.APPLICATION_JSON)
-        )
-        client().makeRequest(
-            RestRequest.Method.PUT.toString(),
-            "$firstIndex/_doc/3333",
-            StringEntity("{ \"testkey2\": \"some value2\" }", ContentType.APPLICATION_JSON)
-        )
+        insertSampleData(index = firstIndex, docCount = 5, delay = 0)
 
         // Need to speed up to second execution where it will trigger the first execution of the action
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Index did not rollover.", mapOf("message" to "Rolled over index"), getExplainManagedIndexMetaData(firstIndex).info) }
+        waitFor {
+            val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
+            assertEquals("Index did not rollover", AttemptRolloverStep.getSuccessMessage(firstIndex), info["message"])
+            val conditions = info["conditions"] as Map<String, Any?>
+            assertEquals("Did not have exclusively min age and min doc count conditions",
+                    setOf(RolloverActionConfig.MIN_INDEX_AGE_FIELD, RolloverActionConfig.MIN_DOC_COUNT_FIELD), conditions.keys)
+            val minAge = conditions[RolloverActionConfig.MIN_INDEX_AGE_FIELD] as Map<String, Any?>
+            val minDocCount = conditions[RolloverActionConfig.MIN_DOC_COUNT_FIELD] as Map<String, Any?>
+            assertEquals("Did not have min age condition", "2d", minAge["condition"])
+            assertThat("Did not have min age current", minAge["current"], isA(String::class.java))
+            assertEquals("Did not have min doc count condition", 3, minDocCount["condition"])
+            assertEquals("Did not have min doc count current", 5, minDocCount["current"])
+        }
         Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))
     }
 }

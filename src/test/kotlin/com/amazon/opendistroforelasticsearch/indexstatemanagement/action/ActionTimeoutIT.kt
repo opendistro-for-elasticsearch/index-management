@@ -19,7 +19,10 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateMana
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.ActionMetaData
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.open.AttemptOpenStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
+import org.hamcrest.collection.IsMapContaining
 import java.time.Instant
 import java.util.Locale
 
@@ -54,13 +57,11 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
 
         // the second execution we move into rollover action, we won't hit the timeout as this is the execution that sets the startTime
         updateManagedIndexConfigStartTime(managedIndexConfig)
-
-        val expectedInfoString = mapOf("message" to "Attempting to rollover").toString()
         waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString())),
-                getExplainMap(indexName),
-                strict = false
+            assertThat(
+                "Should be attempting to rollover",
+                getExplainManagedIndexMetaData(indexName).info,
+                IsMapContaining.hasEntry("message", AttemptRolloverStep.getAttemptingMessage(indexName) as Any?)
             )
         }
 
@@ -107,7 +108,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         // the second execution we move into open action, we won't hit the timeout as this is the execution that sets the startTime
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        val expectedOpenInfoString = mapOf("message" to "Successfully opened index").toString()
+        val expectedOpenInfoString = mapOf("message" to AttemptOpenStep.getSuccessMessage(indexName)).toString()
         waitFor {
             assertPredicatesOnMetaData(
                 listOf(indexName to listOf(ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedOpenInfoString == info.toString())),
@@ -122,13 +123,11 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         // the third execution we move into rollover action, we should not hit the timeout yet because its the first execution of rollover
         // but there was a bug before where it would use the startTime from the previous actions metadata and immediately fail
         updateManagedIndexConfigStartTime(managedIndexConfig)
-
-        val expectedRolloverInfoString = mapOf("message" to "Attempting to rollover").toString()
         waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedRolloverInfoString == info.toString())),
-                getExplainMap(indexName),
-                strict = false
+            assertThat(
+                "Should be attempting to rollover",
+                getExplainManagedIndexMetaData(indexName).info,
+                IsMapContaining.hasEntry("message", AttemptRolloverStep.getAttemptingMessage(indexName) as Any?)
             )
         }
     }

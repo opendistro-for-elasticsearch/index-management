@@ -24,8 +24,10 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
 import kotlinx.coroutines.delay
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BackoffPolicy
+import org.elasticsearch.action.support.DefaultShardOperationFailedException
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.cluster.metadata.IndexMetaData
 import org.elasticsearch.common.bytes.BytesReference
@@ -36,6 +38,7 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -202,9 +205,7 @@ fun IndexMetaData.getRolloverAlias(): String? {
 fun IndexMetaData.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexConfig? {
     val index = this.index.name
     val uuid = this.index.uuid
-    val policyID = this.getPolicyID()
-
-    if (policyID == null) return null
+    val policyID = this.getPolicyID() ?: return null
 
     return ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyID = policyID)
 }
@@ -216,4 +217,14 @@ fun IndexMetaData.getManagedIndexMetaData(): ManagedIndexMetaData? {
         return ManagedIndexMetaData.fromMap(existingMetaDataMap)
     }
     return null
+}
+
+fun Throwable.findRemoteTransportException(): RemoteTransportException? {
+    if (this is RemoteTransportException) return this
+    return this.cause?.findRemoteTransportException()
+}
+
+fun DefaultShardOperationFailedException.getUsefulCauseString(): String {
+    val rte = this.cause?.findRemoteTransportException()
+    return if (rte == null) this.toString() else ExceptionsHelper.unwrapCause(rte).toString()
 }

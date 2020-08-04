@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.snapshot.AttemptSnapshotStep
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.snapshot.WaitForSnapshotStep
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.waitFor
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -100,11 +102,11 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
 
         // Change the start time so attempt snapshot step with execute
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Snapshot creation started for index: $indexName", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(AttemptSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // Change the start time so wait for snapshot step will execute
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Snapshot successfully created for index: $indexName", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(WaitForSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // verify we set snapshotName in action properties
         waitFor {
@@ -149,7 +151,7 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
 
         // Change the start time so attempt snapshot step with execute
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Snapshot creation started for index: $indexName", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor { assertEquals(AttemptSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
 
         // Confirm successful snapshot creation
         waitFor { assertSnapshotExists(repository, snapshot) }
@@ -163,7 +165,7 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
         // Change the start time so wait for snapshot step will execute where we should see a missing snapshot exception
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
-            assertEquals("Failed to get status of snapshot for index: $indexName", getExplainManagedIndexMetaData(indexName).info?.get("message"))
+            assertEquals(WaitForSnapshotStep.getFailedMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message"))
             assertEquals("[$repository:$snapshotName] is missing", getExplainManagedIndexMetaData(indexName).info?.get("cause"))
         }
     }

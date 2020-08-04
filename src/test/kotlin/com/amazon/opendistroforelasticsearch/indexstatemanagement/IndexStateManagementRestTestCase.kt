@@ -330,22 +330,28 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    protected fun getSegmentCount(index: String): Int {
-        val statsResponse: Map<String, Any> = getStats(index)
+    protected fun validateSegmentCount(index: String, min: Int? = null, max: Int? = null): Boolean {
+        if (min == null && max == null) throw IllegalArgumentException("Must provide at least a min or max")
+        val statsResponse: Map<String, Any> = getShardSegmentStats(index)
 
-        // Assert that shard count of stats response is 1 since the stats request being used is at the index level
-        // (meaning the segment count in the response is aggregated) but segment count for force merge
-        // (which this method is primarily being used for) is going to be validated per shard
-        val shardsInfo = statsResponse["_shards"] as Map<String, Int>
-        assertEquals("Shard count higher than expected", 1, shardsInfo["successful"])
-
-        val indicesStats = statsResponse["indices"] as Map<String, Map<String, Map<String, Map<String, Any?>>>>
-        return indicesStats[index]!!["primaries"]!!["segments"]!!["count"] as Int
+        val indicesStats = statsResponse["indices"] as Map<String, Map<String, Map<String, List<Map<String, Map<String, Any?>>>>>>
+        return indicesStats[index]!!["shards"]!!.values.all { list ->
+            list.filter { it["routing"]!!["primary"] == true }.all {
+                if (it["routing"]!!["state"] != "STARTED") {
+                    false
+                } else {
+                    val count = it["segments"]!!["count"] as Int
+                    if (min != null && count < min) return false
+                    if (max != null && count > max) return false
+                    return true
+                }
+            }
+        }
     }
 
     /** Get stats for [index] */
-    private fun getStats(index: String): Map<String, Any> {
-        val response = client().makeRequest("GET", "/$index/_stats")
+    private fun getShardSegmentStats(index: String): Map<String, Any> {
+        val response = client().makeRequest("GET", "/$index/_stats/segments?level=shards")
 
         assertEquals("Stats request failed", RestStatus.OK, response.restStatus())
 

@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexstatemanagement.step
 
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StepMetaData
+import org.apache.logging.log4j.Logger
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -25,7 +26,17 @@ import java.util.Locale
 
 abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMetaData, val isSafeToDisableOn: Boolean = true) {
 
-    abstract suspend fun execute()
+    fun preExecute(logger: Logger): Step {
+        logger.info("Executing $name for ${managedIndexMetaData.index}")
+        return this
+    }
+
+    abstract suspend fun execute(): Step
+
+    fun postExecute(logger: Logger): Step {
+        logger.info("Finished executing $name for ${managedIndexMetaData.index}")
+        return this
+    }
 
     abstract fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData
 
@@ -44,9 +55,7 @@ abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMeta
      */
     abstract fun isIdempotent(): Boolean
 
-    fun getStartingStepMetaData(): StepMetaData {
-        return StepMetaData(name, getStepStartTime().toEpochMilli(), StepStatus.STARTING)
-    }
+    fun getStartingStepMetaData(): StepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), StepStatus.STARTING)
 
     fun getStepStartTime(): Instant {
         if (managedIndexMetaData.stepMetaData == null || managedIndexMetaData.stepMetaData.name != this.name) {
@@ -54,6 +63,8 @@ abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMeta
         }
         return Instant.ofEpochMilli(managedIndexMetaData.stepMetaData.startTime)
     }
+
+    protected val indexName: String = managedIndexMetaData.index
 
     enum class StepStatus(val status: String) : Writeable {
         STARTING("starting"),

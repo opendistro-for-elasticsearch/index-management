@@ -202,4 +202,43 @@ class RolloverActionIT : IndexStateManagementRestTestCase() {
         }
         Assert.assertTrue("New rollover index does not exist.", indexExists("$indexNameBase-000002"))
     }
+
+    @Suppress("UNCHECKED_CAST")
+    fun `test rollover on nonwrite index should fail`() {
+        val aliasName = "${testIndexName}_nonwrite_alias"
+        val indexNameBase = "${testIndexName}_nonwrite_index"
+        val firstIndex = "$indexNameBase-1"
+        val policyID = "${testIndexName}_testPolicyName_nonwrite_1"
+        val actionConfig = RolloverActionConfig(null, null, null, 0)
+        val states = listOf(State(name = "RolloverAction", actions = listOf(actionConfig), transitions = listOf()))
+        val policy = Policy(
+                id = policyID,
+                description = "$testIndexName description",
+                schemaVersion = 1L,
+                lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+                errorNotification = randomErrorNotification(),
+                defaultState = states[0].name,
+                states = states
+        )
+
+        createPolicy(policy, policyID)
+        // create index defaults
+        createIndex(firstIndex, policyID, aliasName)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(firstIndex)
+
+        // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(firstIndex).policyID) }
+
+        rolloverAlias(aliasName)
+
+        // Need to speed up to second execution where it will trigger the first execution of the action
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor {
+            val info = getExplainManagedIndexMetaData(firstIndex).info as Map<String, Any?>
+            assertEquals("Index did rollover.", AttemptRolloverStep.getFailedNonWriteIndexMessage(firstIndex, aliasName), info["message"])
+        }
+        Assert.assertTrue("Third rollover index exist.", !indexExists("$indexNameBase-000003"))
+    }
 }

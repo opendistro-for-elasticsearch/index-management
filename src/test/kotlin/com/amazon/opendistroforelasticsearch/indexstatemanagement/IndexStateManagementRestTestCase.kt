@@ -190,6 +190,16 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         return index to policyID
     }
 
+    protected fun rolloverAlias(alias: String) {
+        client()
+        val response = client()
+                .makeRequest(
+                        "POST",
+                        "$alias/_rollover"
+                )
+        assertEquals("Unable to rollover alias", RestStatus.OK, response.restStatus())
+    }
+
     /** Refresh all indices in the cluster */
     protected fun refresh() {
         val request = Request("POST", "/_refresh")

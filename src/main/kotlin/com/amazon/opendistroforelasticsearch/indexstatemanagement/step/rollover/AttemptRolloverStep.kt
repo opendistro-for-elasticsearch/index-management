@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.evaluateConditions
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverResponse
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest
@@ -99,16 +100,26 @@ class AttemptRolloverStep(
                 }
         ).toMap()
 
-        if (config.evaluateConditions(indexAgeTimeValue, numDocs, indexSize)) {
-            logger.info("$indexName rollover conditions evaluated to true [indexCreationDate=$indexCreationDate," +
-                    " numDocs=$numDocs, indexSize=${indexSize.bytes}]")
-            executeRollover(alias, conditions)
+        if (evaluateWriteIndex(alias)) {
+            if (config.evaluateConditions(indexAgeTimeValue, numDocs, indexSize)) {
+                logger.info("$indexName rollover conditions evaluated to true [indexCreationDate=$indexCreationDate," +
+                        " numDocs=$numDocs, indexSize=${indexSize.bytes}]")
+                executeRollover(alias, conditions)
+            } else {
+                stepStatus = StepStatus.CONDITION_NOT_MET
+                info = mapOf("message" to getAttemptingMessage(indexName), "conditions" to conditions)
+            }
         } else {
-            stepStatus = StepStatus.CONDITION_NOT_MET
-            info = mapOf("message" to getAttemptingMessage(indexName), "conditions" to conditions)
+            stepStatus = StepStatus.FAILED
+            info = mapOf("message" to getFailedNonWriteIndexMessage(indexName, alias))
         }
 
         return this
+    }
+
+    private fun evaluateWriteIndex(alias: String): Boolean {
+        val aliases = client.admin().indices().getAliases(GetAliasesRequest().aliases(alias).indices(indexName))
+        return aliases.get().aliases[indexName][0].writeIndex()
     }
 
     @Suppress("ComplexMethod")
@@ -214,5 +225,6 @@ class AttemptRolloverStep(
         fun getFailedEvaluateMessage(index: String) = "Failed to evaluate conditions for rollover [index=$index]"
         fun getAttemptingMessage(index: String) = "Attempting to rollover index [index=$index]"
         fun getSuccessMessage(index: String) = "Successfully rolled over index [index=$index]"
+        fun getFailedNonWriteIndexMessage(index: String, alias: String) = "Index $index is not a write index for alias $alias"
     }
 }

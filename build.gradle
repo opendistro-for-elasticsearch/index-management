@@ -59,13 +59,13 @@ check.dependsOn jacocoTestReport
 
 esplugin {
     name 'opendistro_index_management'
-    description 'Open Distro Index State Management Plugin'
-    classname 'com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin'
+    description 'Open Distro Index Management Plugin'
+    classname 'com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin'
     extendedPlugins = ['opendistro-job-scheduler']
 }
 
 allOpen {
-    annotation("com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting")
+    annotation("com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting")
 }
 
 configurations {

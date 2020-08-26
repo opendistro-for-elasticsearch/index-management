@@ -43,7 +43,7 @@ class IndexManagementIndices(
 
     private val logger = LogManager.getLogger(javaClass)
 
-    fun checkAndUpdateISMConfigIndex(actionListener: ActionListener<AcknowledgedResponse>) {
+    fun checkAndUpdateIMConfigIndex(actionListener: ActionListener<AcknowledgedResponse>) {
         if (!indexManagementIndexExists()) {
             val indexRequest = CreateIndexRequest(INDEX_MANAGEMENT_INDEX)
                     .mapping(_DOC, indexManagementMappings, XContentType.JSON)
@@ -72,7 +72,7 @@ class IndexManagementIndices(
         if (indexManagementIndexExists()) return true
 
         return try {
-            val response: AcknowledgedResponse = client.suspendUntil { checkAndUpdateISMConfigIndex(it) }
+            val response: AcknowledgedResponse = client.suspendUntil { checkAndUpdateIMConfigIndex(it) }
             if (response.isAcknowledged) {
                 return true
             }

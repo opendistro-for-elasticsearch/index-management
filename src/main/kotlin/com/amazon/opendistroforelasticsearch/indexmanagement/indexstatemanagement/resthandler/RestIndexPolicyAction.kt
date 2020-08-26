@@ -123,7 +123,7 @@ class RestIndexPolicyAction(
     ) : AsyncActionHandler(client, channel) {
 
         fun start() {
-            ismIndices.checkAndUpdateISMConfigIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
+            ismIndices.checkAndUpdateIMConfigIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
         }
 
         private fun onCreateMappingsResponse(response: AcknowledgedResponse) {

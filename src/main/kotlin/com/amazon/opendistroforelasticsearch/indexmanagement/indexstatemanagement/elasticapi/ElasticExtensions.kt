@@ -188,17 +188,18 @@ fun IndexMetadata.shouldDeleteManagedIndexMetaData(): Boolean =
  * Returns the current policy_id if it exists and is valid otherwise returns null.
  * */
 fun IndexMetadata.getPolicyID(): String? {
-    if (ManagedIndexSettings.POLICY_ID.get(this.settings).isNullOrBlank()) return null
-    return ManagedIndexSettings.POLICY_ID.get(this.settings)
+    if (this.settings.get(ManagedIndexSettings.POLICY_ID.key).isNullOrBlank()) return null
+
+    return this.settings.get(ManagedIndexSettings.POLICY_ID.key)
 }
 
 /**
  * Returns the current rollover_alias if it exists otherwise returns null.
  * */
 fun IndexMetadata.getRolloverAlias(): String? {
-    if (ManagedIndexSettings.ROLLOVER_ALIAS.get(this.settings).isNullOrBlank()) return null
+    if (this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key).isNullOrBlank()) return null
 
-    return ManagedIndexSettings.ROLLOVER_ALIAS.get(this.settings)
+    return this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key)
 }
 
 fun IndexMetadata.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexConfig? {

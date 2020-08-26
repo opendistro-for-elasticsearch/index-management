@@ -14,7 +14,7 @@ Compatible with Elasticsearch 7.9.
 
 ### Infrastructure
 * Adds codecov yml file to reduce flakiness in coverage check ([#251](https://github.com/opendistro-for-elasticsearch/index-management/pull/251))
-* Adds support for multi-node run/testing and updates tests [(#254)](https://github.com/opendistro-for-elasticsearch/index-management/pull/254))
+* Adds support for multi-node run/testing and updates tests ([#254](https://github.com/opendistro-for-elasticsearch/index-management/pull/254))
 * Adds multi node test workflow ([#256](https://github.com/opendistro-for-elasticsearch/index-management/pull/256))
 * release notes automation ([#258](https://github.com/opendistro-for-elasticsearch/index-management/pull/258))
 

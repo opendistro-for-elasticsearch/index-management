@@ -1,6 +1,6 @@
-package com.amazon.opendistroforelasticsearch.indexstatemanagement
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.OpenForTesting
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction

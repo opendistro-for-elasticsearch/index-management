@@ -15,10 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.get.GetResponse
@@ -107,7 +110,7 @@ class RestExplainAction : BaseRestHandler() {
             }
 
             val mgetRequest = MultiGetRequest()
-            indexMetadataUuids.forEach { mgetRequest.add(MultiGetRequest.Item(INDEX_STATE_MANAGEMENT_INDEX, it)) }
+            indexMetadataUuids.forEach { mgetRequest.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, it)) }
             client.multiGet(mgetRequest, mgetMetadataListener(channel))
         }
 

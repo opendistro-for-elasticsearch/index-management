@@ -1,15 +1,14 @@
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.runner
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.runner
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementHistory
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.ManagedIndexRunner
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.SkipExecution
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.SkipExecution
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope
 import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.doAnswer
-import com.nhaarman.mockitokotlin2.mock
 import com.nhaarman.mockitokotlin2.whenever
 import kotlinx.coroutines.runBlocking
 import org.elasticsearch.Version
@@ -126,23 +125,6 @@ class ManagedIndexRunnerTests : ESTestCase() {
             assertEquals(true, runner.metadataDeleted)
             runner.handleClusterStateMetadata(metadata, metadata2)
             assertEquals(false, runner.metadataDeleted)
-        }
-    }
-
-    private fun getClient(acknowledgedResponse: AcknowledgedResponse?, exception: Exception?): Client {
-        assertTrue("Must provide one and only one response or exception", (acknowledgedResponse != null).xor(exception != null))
-        return mock {
-            doAnswer { invocationOnMock ->
-                val listener = invocationOnMock.getArgument<ActionListener<AcknowledgedResponse>>(2)
-                if (acknowledgedResponse != null) listener.onResponse(acknowledgedResponse)
-                else listener.onFailure(exception)
-            }.whenever(this.mock).execute(any(), any<UpdateManagedIndexMetaDataRequest>(), any<ActionListener<AcknowledgedResponse>>())
-
-            // doAnswer { invocationOnMock ->
-            //     val listener = invocationOnMock.getArgument<ActionListener<IndexResponse>>(1)
-            //     if (indexResponse != null) listener.onResponse(indexResponse)
-            //     else listener.onFailure(exception)
-            // }.whenever(this.mock).index(any(), any())
         }
     }
 }

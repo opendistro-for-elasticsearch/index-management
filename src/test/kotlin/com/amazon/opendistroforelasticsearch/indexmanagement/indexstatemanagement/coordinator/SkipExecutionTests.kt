@@ -1,6 +1,6 @@
-package com.amazon.opendistroforelasticsearch.indexstatemanagement.coordinator
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.coordinator
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.SkipExecution
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.SkipExecution
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent

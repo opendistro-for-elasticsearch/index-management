@@ -17,6 +17,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
@@ -264,7 +265,7 @@ fun DefaultShardOperationFailedException.getUsefulCauseString(): String {
 @Suppress("ReturnCount")
 suspend fun IndexMetadata.getManagedIndexMetaData(client: Client): ManagedIndexMetaData? {
     try {
-        val getRequest = GetRequest(IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX, indexUUID + "metadata")
+        val getRequest = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, indexUUID + "metadata")
         val getResponse: GetResponse = client.suspendUntil { get(getRequest, it) }
         if (!getResponse.isExists || getResponse.isSourceEmpty) {
             return null
@@ -297,7 +298,7 @@ suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<ManagedI
 
     val mgetRequest = MultiGetRequest()
     indices.forEach {
-        mgetRequest.add(MultiGetRequest.Item(IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX, it.uuid + "metadata"))
+        mgetRequest.add(MultiGetRequest.Item(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, it.uuid + "metadata"))
     }
     var mgetMetadataList = mutableListOf<ManagedIndexMetaData?>()
     try {
@@ -328,7 +329,7 @@ fun mgetResponseToList(mgetResponse: MultiGetResponse): MutableList<ManagedIndex
 fun buildMgetMetadataRequest(clusterState: ClusterState): MultiGetRequest {
     val mgetMetadataRequest = MultiGetRequest()
     clusterState.metadata.indices.map { it.value.index }.forEach {
-        mgetMetadataRequest.add(MultiGetRequest.Item(IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX, it.uuid + "metadata"))
+        mgetMetadataRequest.add(MultiGetRequest.Item(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, it.uuid + "metadata"))
     }
     return mgetMetadataRequest
 }

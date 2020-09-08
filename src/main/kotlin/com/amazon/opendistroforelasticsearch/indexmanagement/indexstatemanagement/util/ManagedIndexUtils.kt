@@ -93,7 +93,7 @@ fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): Inde
 fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData): IndexRequest {
     // routing set using managed index's uuid
     // so that metadata doc and managed-index doc are in the same place
-    return IndexRequest(INDEX_STATE_MANAGEMENT_INDEX)
+    return IndexRequest(INDEX_MANAGEMENT_INDEX)
             .id(managedIndexMetadata.indexUuid + "metadata")
             .setIfPrimaryTerm(managedIndexMetadata.primaryTerm)
             .setIfSeqNo(managedIndexMetadata.seqNo)
@@ -126,7 +126,7 @@ fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
 }
 
 fun deleteManagedIndexMetadataRequest(uuid: String): DeleteRequest {
-    return DeleteRequest(INDEX_STATE_MANAGEMENT_INDEX, uuid + "metadata")
+    return DeleteRequest(INDEX_MANAGEMENT_INDEX, uuid + "metadata")
 }
 
 fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig): UpdateRequest {

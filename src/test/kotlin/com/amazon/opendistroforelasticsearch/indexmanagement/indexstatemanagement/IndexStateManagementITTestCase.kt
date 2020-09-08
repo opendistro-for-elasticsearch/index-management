@@ -1,12 +1,13 @@
-package com.amazon.opendistroforelasticsearch.indexstatemanagement
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedindexmetadata.StateMetaData
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestExplainAction
-import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
@@ -57,11 +58,11 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
     )
 
     override fun nodePlugins(): Collection<Class<out Plugin>> {
-        return listOf(IndexStateManagementPlugin::class.java)
+        return listOf(IndexManagementPlugin::class.java)
     }
 
     override fun transportClientPlugins(): Collection<Class<out Plugin>> {
-        return listOf(IndexStateManagementPlugin::class.java)
+        return listOf(IndexManagementPlugin::class.java)
     }
 
     protected fun getIndexMetadata(indexName: String): IndexMetadata {
@@ -102,7 +103,7 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
         val response = getRestClient()
                 .makeRequest(
                         "PUT",
-                        "${IndexStateManagementPlugin.POLICY_BASE_URI}/$policyId?refresh=$refresh",
+                        "${IndexManagementPlugin.POLICY_BASE_URI}/$policyId?refresh=$refresh",
                         emptyMap(),
                         StringEntity(policyString, ContentType.APPLICATION_JSON)
                 )
@@ -141,7 +142,7 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
                 }
             }
         """.trimIndent()
-        val response = getRestClient().makeRequest("POST", "${IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX}/_search", emptyMap(),
+        val response = getRestClient().makeRequest("POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_search", emptyMap(),
                 StringEntity(request, ContentType.APPLICATION_JSON))
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
         val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.entity.content))
@@ -154,7 +155,7 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
     }
 
     protected fun seeConfigIndex() {
-        val response = getRestClient().makeRequest("GET", "${IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX}/_search")
+        val response = getRestClient().makeRequest("GET", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_search")
         val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.entity.content))
         val hits = searchResponse.hits.hits
         hits.forEach { logger.info("what is inside config index? $it") }
@@ -164,7 +165,7 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
-        val response = getRestClient().makeRequest("POST", "${IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX}/_update/${update.id}",
+        val response = getRestClient().makeRequest("POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
                 StringEntity(
                         "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
                                 "\"$startTimeMillis\"}}}}}",
@@ -177,7 +178,7 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
     protected fun updateManagedIndexConfigPolicy(update: ManagedIndexConfig, policy: Policy) {
         val policyJsonString = policy.toJsonString()
         logger.info("policy string: $policyJsonString")
-        var response = getRestClient().makeRequest("POST", "${IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX}/_update/${update.id}",
+        var response = getRestClient().makeRequest("POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
                 StringEntity(
                         "{\"doc\":{\"managed_index\": $policyJsonString }}",
                         ContentType.APPLICATION_JSON
@@ -185,7 +186,7 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
 
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
 
-        response = getRestClient().makeRequest("POST", "${IndexStateManagementPlugin.INDEX_STATE_MANAGEMENT_INDEX}/_update/${update.id}",
+        response = getRestClient().makeRequest("POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
                 StringEntity(
                         "{\"doc\":{\"managed_index\": {\"policy_seq_no\": \"0\", \"policy_primary_term\": \"1\"} }}",
                         ContentType.APPLICATION_JSON

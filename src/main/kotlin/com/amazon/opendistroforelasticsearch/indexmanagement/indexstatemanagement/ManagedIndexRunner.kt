@@ -53,9 +53,11 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isSuccessfulDelete
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.shouldBackoff
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.shouldChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateDisableManagedIndexRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -607,7 +609,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             }
 
             GlobalScope.launch(Dispatchers.IO + CoroutineName("ManagedIndexMetaData-AddHistory")) {
-                ismHistory.addHistory(listOf(metadata))
+                ismHistory.addManagedIndexMetaDataHistory(listOf(metadata))
             }
         } catch (e: VersionConflictEngineException) {
             logger.error("There was VersionConflictEngineException trying to update the metadata for " +

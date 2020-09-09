@@ -39,7 +39,7 @@ class TransportRefreshSearchAnalyzerAction :
         TransportBroadcastByNodeAction<
                 RefreshSearchAnalyzerRequest,
                 RefreshSearchAnalyzerResponse,
-                ShardRefreshSearchAnalyzerResponse> {
+                RefreshSearchAnalyzerShardResponse> {
 
     @Inject
     constructor(
@@ -66,8 +66,8 @@ class TransportRefreshSearchAnalyzerAction :
     private val analysisRegistry: AnalysisRegistry
 
     @Throws(IOException::class)
-    override fun readShardResult(`in`: StreamInput): ShardRefreshSearchAnalyzerResponse? {
-        return ShardRefreshSearchAnalyzerResponse(`in`)
+    override fun readShardResult(`in`: StreamInput): RefreshSearchAnalyzerShardResponse? {
+        return RefreshSearchAnalyzerShardResponse(`in`)
     }
 
     override fun newResponse(
@@ -75,7 +75,7 @@ class TransportRefreshSearchAnalyzerAction :
             totalShards: Int,
             successfulShards: Int,
             failedShards: Int,
-            results: List<ShardRefreshSearchAnalyzerResponse>,
+            results: List<RefreshSearchAnalyzerShardResponse>,
             shardFailures: List<DefaultShardOperationFailedException>,
             clusterState: ClusterState?
     ): RefreshSearchAnalyzerResponse {
@@ -92,12 +92,11 @@ class TransportRefreshSearchAnalyzerAction :
     }
 
     @Throws(IOException::class)
-    override fun shardOperation(request: RefreshSearchAnalyzerRequest?, shardRouting: ShardRouting): ShardRefreshSearchAnalyzerResponse {
+    override fun shardOperation(request: RefreshSearchAnalyzerRequest?, shardRouting: ShardRouting): RefreshSearchAnalyzerShardResponse {
         val indexShard: IndexShard = indicesService.indexServiceSafe(shardRouting.shardId().index).getShard(shardRouting.shardId().id())
-        logger.info("Reloading search analyzers for ${shardRouting.shardId().index.name}")
         val reloadedAnalyzers: List<String> = indexShard.mapperService().reloadSearchAnalyzers(analysisRegistry)
-        logger.info("Reload successful for ${shardRouting.shardId().index.name}")
-        return ShardRefreshSearchAnalyzerResponse(shardRouting.shardId(), shardRouting.indexName, reloadedAnalyzers)
+        logger.debug("Reload successful, index: ${shardRouting.shardId().index.name}, shard: ${shardRouting.shardId().id}")
+        return RefreshSearchAnalyzerShardResponse(shardRouting.shardId(), shardRouting.indexName, reloadedAnalyzers)
     }
 
     /**

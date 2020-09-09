@@ -26,7 +26,7 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-class RefreshSynonymAnalyzerActionIT : IndexManagementRestTestCase() {
+class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
     fun `test index time analyzer`() {
         val buildDir = System.getProperty("buildDir")
         val numNodes = System.getProperty("cluster.number_of_nodes", "1").toInt()
@@ -204,7 +204,7 @@ class RefreshSynonymAnalyzerActionIT : IndexManagementRestTestCase() {
 
         fun refreshAnalyzer(indexName: String) {
             val request = Request("POST",
-                    "${IndexManagementPlugin.ANALYZER_BASE_URI}/refresh_synonym_analyzer/$indexName")
+                    "${IndexManagementPlugin.ANALYZER_BASE_URI}/refresh_search_analyzer/$indexName")
             client().performRequest(request)
         }
 

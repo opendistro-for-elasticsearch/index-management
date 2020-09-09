@@ -25,9 +25,9 @@ import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.action.RestToXContentListener
 import java.io.IOException
 
-class RestRefreshSynonymAnalyzerAction : BaseRestHandler() {
+class RestRefreshSearchAnalyzerAction : BaseRestHandler() {
 
-    override fun getName(): String = "refresh_synonym_analyzer_action"
+    override fun getName(): String = "refresh_search_analyzer_action"
 
     override fun routes(): List<Route> {
         return listOf(
@@ -46,15 +46,15 @@ class RestRefreshSynonymAnalyzerAction : BaseRestHandler() {
             throw IllegalArgumentException("Missing indices")
         }
 
-        val refreshSynonymAnalyzerRequest: RefreshSynonymAnalyzerRequest = RefreshSynonymAnalyzerRequest()
+        val refreshSearchAnalyzerRequest: RefreshSearchAnalyzerRequest = RefreshSearchAnalyzerRequest()
                 .indices(*indices)
 
         return RestChannelConsumer { channel ->
-            client.execute(RefreshSynonymAnalyzerAction.INSTANCE, refreshSynonymAnalyzerRequest, RestToXContentListener(channel))
+            client.execute(RefreshSearchAnalyzerAction.INSTANCE, refreshSearchAnalyzerRequest, RestToXContentListener(channel))
         }
     }
 
     companion object {
-        const val REFRESH_SYNONYM_ANALYZER_URI = "$ANALYZER_BASE_URI/refresh_synonym_analyzer/{index}"
+        const val REFRESH_SYNONYM_ANALYZER_URI = "$ANALYZER_BASE_URI/refresh_search_analyzer/{index}"
     }
 }

@@ -27,7 +27,7 @@ import org.elasticsearch.rest.action.RestActions
 import java.io.IOException
 import java.util.function.Function
 
-class RefreshSynonymAnalyzerResponse : BroadcastResponse {
+class RefreshSearchAnalyzerResponse : BroadcastResponse {
 
     private var results: MutableMap<String, List<String>> = HashMap()
     private var shardFailures: MutableList<FailedShardDetails> = mutableListOf()
@@ -98,10 +98,10 @@ class RefreshSynonymAnalyzerResponse : BroadcastResponse {
     }
 
     companion object {
-        private val PARSER = ConstructingObjectParser<RefreshSynonymAnalyzerResponse, Void>("refresh_synonym_analyzer", true,
+        private val PARSER = ConstructingObjectParser<RefreshSearchAnalyzerResponse, Void>("refresh_search_analyzer", true,
                 Function { arg: Array<Any> ->
-                    val response = arg[0] as RefreshSynonymAnalyzerResponse
-                    RefreshSynonymAnalyzerResponse(response.totalShards, response.successfulShards, response.failedShards,
+                    val response = arg[0] as RefreshSearchAnalyzerResponse
+                    RefreshSearchAnalyzerResponse(response.totalShards, response.successfulShards, response.failedShards,
                             response.temp, response.results)
                 })
 

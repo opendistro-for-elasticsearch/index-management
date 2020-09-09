@@ -21,7 +21,7 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.index.shard.ShardId
 import java.io.IOException
 
-class ShardRefreshSynonymAnalyzerResponse : BroadcastShardResponse {
+class ShardRefreshSearchAnalyzerResponse : BroadcastShardResponse {
     var indexName: String
     var reloadedAnalyzers: List<String>
 

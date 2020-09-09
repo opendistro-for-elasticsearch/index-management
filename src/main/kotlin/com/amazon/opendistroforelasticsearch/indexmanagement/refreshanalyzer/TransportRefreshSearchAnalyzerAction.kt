@@ -35,11 +35,11 @@ import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportService
 import java.io.IOException
 
-class TransportRefreshSynonymAnalyzerAction :
+class TransportRefreshSearchAnalyzerAction :
         TransportBroadcastByNodeAction<
-                RefreshSynonymAnalyzerRequest,
-                RefreshSynonymAnalyzerResponse,
-                ShardRefreshSynonymAnalyzerResponse> {
+                RefreshSearchAnalyzerRequest,
+                RefreshSearchAnalyzerResponse,
+                ShardRefreshSearchAnalyzerResponse> {
 
     @Inject
     constructor(
@@ -50,12 +50,12 @@ class TransportRefreshSynonymAnalyzerAction :
         analysisRegistry: AnalysisRegistry,
         indexNameExpressionResolver: IndexNameExpressionResolver?
     ) : super(
-            RefreshSynonymAnalyzerAction.NAME,
+            RefreshSearchAnalyzerAction.NAME,
             clusterService,
             transportService,
             actionFilters,
             indexNameExpressionResolver,
-            Writeable.Reader { RefreshSynonymAnalyzerRequest() },
+            Writeable.Reader { RefreshSearchAnalyzerRequest() },
             ThreadPool.Names.MANAGEMENT
     ) {
         this.analysisRegistry = analysisRegistry
@@ -66,51 +66,51 @@ class TransportRefreshSynonymAnalyzerAction :
     private val analysisRegistry: AnalysisRegistry
 
     @Throws(IOException::class)
-    override fun readShardResult(`in`: StreamInput): ShardRefreshSynonymAnalyzerResponse? {
-        return ShardRefreshSynonymAnalyzerResponse(`in`)
+    override fun readShardResult(`in`: StreamInput): ShardRefreshSearchAnalyzerResponse? {
+        return ShardRefreshSearchAnalyzerResponse(`in`)
     }
 
     override fun newResponse(
-        request: RefreshSynonymAnalyzerRequest?,
-        totalShards: Int,
-        successfulShards: Int,
-        failedShards: Int,
-        results: List<ShardRefreshSynonymAnalyzerResponse>,
-        shardFailures: List<DefaultShardOperationFailedException>,
-        clusterState: ClusterState?
-    ): RefreshSynonymAnalyzerResponse {
+            request: RefreshSearchAnalyzerRequest?,
+            totalShards: Int,
+            successfulShards: Int,
+            failedShards: Int,
+            results: List<ShardRefreshSearchAnalyzerResponse>,
+            shardFailures: List<DefaultShardOperationFailedException>,
+            clusterState: ClusterState?
+    ): RefreshSearchAnalyzerResponse {
         val shardResponses: MutableMap<String, List<String>> = HashMap()
         for (response in results) {
             shardResponses.put(response.indexName, response.reloadedAnalyzers)
         }
-        return RefreshSynonymAnalyzerResponse(totalShards, successfulShards, failedShards, shardFailures, shardResponses)
+        return RefreshSearchAnalyzerResponse(totalShards, successfulShards, failedShards, shardFailures, shardResponses)
     }
 
     @Throws(IOException::class)
-    override fun readRequestFrom(`in`: StreamInput): RefreshSynonymAnalyzerRequest? {
-        return RefreshSynonymAnalyzerRequest(`in`)
+    override fun readRequestFrom(`in`: StreamInput): RefreshSearchAnalyzerRequest? {
+        return RefreshSearchAnalyzerRequest(`in`)
     }
 
     @Throws(IOException::class)
-    override fun shardOperation(request: RefreshSynonymAnalyzerRequest?, shardRouting: ShardRouting): ShardRefreshSynonymAnalyzerResponse {
+    override fun shardOperation(request: RefreshSearchAnalyzerRequest?, shardRouting: ShardRouting): ShardRefreshSearchAnalyzerResponse {
         val indexShard: IndexShard = indicesService.indexServiceSafe(shardRouting.shardId().index).getShard(shardRouting.shardId().id())
         logger.info("Reloading search analyzers for ${shardRouting.shardId().index.name}")
         val reloadedAnalyzers: List<String> = indexShard.mapperService().reloadSearchAnalyzers(analysisRegistry)
-        return ShardRefreshSynonymAnalyzerResponse(shardRouting.shardId(), shardRouting.indexName, reloadedAnalyzers)
+        return ShardRefreshSearchAnalyzerResponse(shardRouting.shardId(), shardRouting.indexName, reloadedAnalyzers)
     }
 
     /**
      * The refresh request works against *all* shards.
      */
-    override fun shards(clusterState: ClusterState, request: RefreshSynonymAnalyzerRequest?, concreteIndices: Array<String?>?): ShardsIterator? {
+    override fun shards(clusterState: ClusterState, request: RefreshSearchAnalyzerRequest?, concreteIndices: Array<String?>?): ShardsIterator? {
         return clusterState.routingTable().allShards(concreteIndices)
     }
 
-    override fun checkGlobalBlock(state: ClusterState, request: RefreshSynonymAnalyzerRequest?): ClusterBlockException? {
+    override fun checkGlobalBlock(state: ClusterState, request: RefreshSearchAnalyzerRequest?): ClusterBlockException? {
         return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_WRITE)
     }
 
-    override fun checkRequestBlock(state: ClusterState, request: RefreshSynonymAnalyzerRequest?, concreteIndices: Array<String?>?):
+    override fun checkRequestBlock(state: ClusterState, request: RefreshSearchAnalyzerRequest?, concreteIndices: Array<String?>?):
             ClusterBlockException? {
         return state.blocks().indicesBlockedException(ClusterBlockLevel.METADATA_WRITE, concreteIndices)
     }

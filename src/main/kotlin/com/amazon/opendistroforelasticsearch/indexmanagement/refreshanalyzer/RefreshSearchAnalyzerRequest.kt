@@ -15,15 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
-import org.elasticsearch.action.ActionType
-import org.elasticsearch.common.io.stream.Writeable
+import org.elasticsearch.action.support.broadcast.BroadcastRequest
+import org.elasticsearch.common.io.stream.StreamInput
+import java.io.IOException
 
-class RefreshSynonymAnalyzerAction : ActionType<RefreshSynonymAnalyzerResponse>(NAME, reader) {
-    companion object {
-        const val NAME = "indices:admin/refresh_synonym_analyzer"
-        val INSTANCE = RefreshSynonymAnalyzerAction()
-        val reader = Writeable.Reader { inp -> RefreshSynonymAnalyzerResponse(inp) }
-    }
+class RefreshSearchAnalyzerRequest : BroadcastRequest<RefreshSearchAnalyzerRequest> {
+    constructor(vararg indices: String) : super(*indices)
 
-    override fun getResponseReader(): Writeable.Reader<RefreshSynonymAnalyzerResponse> = reader
+    @Throws(IOException::class)
+    constructor(inp: StreamInput) : super(inp)
 }

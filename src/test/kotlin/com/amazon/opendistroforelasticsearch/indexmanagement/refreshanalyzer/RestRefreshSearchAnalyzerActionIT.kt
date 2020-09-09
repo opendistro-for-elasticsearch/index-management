@@ -23,11 +23,11 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestStatus
 
-class RestRefreshSynonymAnalyzerActionIT : IndexManagementRestTestCase() {
+class RestRefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
 
     fun `test missing indices`() {
         try {
-            client().makeRequest(POST.toString(), "$ANALYZER_BASE_URI/refresh_synonym_analyzer")
+            client().makeRequest(POST.toString(), "$ANALYZER_BASE_URI/refresh_search_analyzer")
             fail("Expected a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -53,7 +53,7 @@ class RestRefreshSynonymAnalyzerActionIT : IndexManagementRestTestCase() {
         closeIndex(indexName)
 
         try {
-            client().makeRequest(POST.toString(), "$ANALYZER_BASE_URI/refresh_synonym_analyzer/$indexName")
+            client().makeRequest(POST.toString(), "$ANALYZER_BASE_URI/refresh_search_analyzer/$indexName")
             fail("Expected a failure")
         } catch (e: ResponseException) {
             val response = e.response.asMap()

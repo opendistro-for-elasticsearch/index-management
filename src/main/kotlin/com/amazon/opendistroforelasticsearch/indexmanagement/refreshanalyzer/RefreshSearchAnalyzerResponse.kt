@@ -86,9 +86,12 @@ class RefreshSearchAnalyzerResponse : BroadcastResponse {
         builder.startArray("_failed")
         for (failure in shardFailures) {
             builder.startObject()
-            builder.value(failure.index)
-            builder.value(failure.shardId)
-            builder.value(failure.failureReason)
+            builder.field("index", failure.index)
+            //builder.value(failure.index)
+            builder.field("shardId", failure.shardId)
+            // builder.value(failure.shardId)
+            builder.field("failureReason", failure.failureReason)
+            // builder.value(failure.failureReason)
             builder.endObject()
         }
         builder.endArray()

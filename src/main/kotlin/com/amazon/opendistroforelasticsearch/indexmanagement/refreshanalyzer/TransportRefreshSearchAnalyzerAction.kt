@@ -71,13 +71,13 @@ class TransportRefreshSearchAnalyzerAction :
     }
 
     override fun newResponse(
-            request: RefreshSearchAnalyzerRequest?,
-            totalShards: Int,
-            successfulShards: Int,
-            failedShards: Int,
-            results: List<RefreshSearchAnalyzerShardResponse>,
-            shardFailures: List<DefaultShardOperationFailedException>,
-            clusterState: ClusterState?
+        request: RefreshSearchAnalyzerRequest?,
+        totalShards: Int,
+        successfulShards: Int,
+        failedShards: Int,
+        results: List<RefreshSearchAnalyzerShardResponse>,
+        shardFailures: List<DefaultShardOperationFailedException>,
+        clusterState: ClusterState?
     ): RefreshSearchAnalyzerResponse {
         val shardResponses: MutableMap<String, List<String>> = HashMap()
         for (response in results) {

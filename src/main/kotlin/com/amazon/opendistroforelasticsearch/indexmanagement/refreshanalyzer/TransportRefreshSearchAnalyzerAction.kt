@@ -96,6 +96,7 @@ class TransportRefreshSearchAnalyzerAction :
         val indexShard: IndexShard = indicesService.indexServiceSafe(shardRouting.shardId().index).getShard(shardRouting.shardId().id())
         logger.info("Reloading search analyzers for ${shardRouting.shardId().index.name}")
         val reloadedAnalyzers: List<String> = indexShard.mapperService().reloadSearchAnalyzers(analysisRegistry)
+        logger.info("Reload successful for ${shardRouting.shardId().index.name}")
         return ShardRefreshSearchAnalyzerResponse(shardRouting.shardId(), shardRouting.indexName, reloadedAnalyzers)
     }
 

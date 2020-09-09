@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.logger
 import org.elasticsearch.action.support.broadcast.BroadcastShardResponse
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -27,7 +28,7 @@ class ShardRefreshSearchAnalyzerResponse : BroadcastShardResponse {
 
     constructor(`in`: StreamInput) : super(`in`) {
         indexName = `in`.readString()
-        reloadedAnalyzers = `in`.readStringList()
+        reloadedAnalyzers = `in`.readStringArray().toList()
     }
 
     constructor(shardId: ShardId?, indexName: String, reloadedAnalyzers: List<String>) : super(shardId) {
@@ -38,7 +39,7 @@ class ShardRefreshSearchAnalyzerResponse : BroadcastShardResponse {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeOptionalString(indexName)
+        out.writeString(indexName)
         out.writeStringArray(reloadedAnalyzers.toTypedArray())
     }
 }

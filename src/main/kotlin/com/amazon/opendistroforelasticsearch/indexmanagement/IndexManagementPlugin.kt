@@ -31,6 +31,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestRemovePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestRetryFailedManagedIndexAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RefreshSynonymAnalyzerAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSynonymAnalyzerAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.TransportRefreshSynonymAnalyzerAction
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
@@ -72,6 +75,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
         const val PLUGIN_NAME = "opendistro-im"
         const val OPEN_DISTRO_BASE_URI = "/_opendistro"
         const val ISM_BASE_URI = "$OPEN_DISTRO_BASE_URI/_ism"
+        const val ANALYZER_BASE_URI = "$OPEN_DISTRO_BASE_URI/_analyzer"
         const val POLICY_BASE_URI = "$ISM_BASE_URI/policies"
         const val INDEX_MANAGEMENT_INDEX = ".opendistro-ism-config"
         const val INDEX_MANAGEMENT_JOB_TYPE = "opendistro-index-management"
@@ -117,6 +121,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
         nodesInCluster: Supplier<DiscoveryNodes>
     ): List<RestHandler> {
         return listOf(
+            RestRefreshSynonymAnalyzerAction(),
             RestIndexPolicyAction(settings, clusterService, indexManagementIndices),
             RestGetPolicyAction(),
             RestDeletePolicyAction(),
@@ -190,6 +195,10 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
             ActionPlugin.ActionHandler(
                 UpdateManagedIndexMetaDataAction.INSTANCE,
                 TransportUpdateManagedIndexMetaDataAction::class.java
+            ),
+            ActionPlugin.ActionHandler(
+                RefreshSynonymAnalyzerAction.INSTANCE,
+                TransportRefreshSynonymAnalyzerAction::class.java
             )
         )
     }

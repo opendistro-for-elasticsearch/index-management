@@ -7,4 +7,4 @@ Compatible with Elasticsearch 7.9.1.
 
 ### Maintenance
 * Adds support for Elasticsearch 7.9.1 ([#288](https://github.com/opendistro-for-elasticsearch/index-management/pull/288))
-* Refactors internal architecture/files to prepare for support of transforms/rollups ([285](https://github.com/opendistro-for-elasticsearch/index-management/pull/285))
+* Refactors internal architecture/files to prepare for support of transforms/rollups ([#285](https://github.com/opendistro-for-elasticsearch/index-management/pull/285))

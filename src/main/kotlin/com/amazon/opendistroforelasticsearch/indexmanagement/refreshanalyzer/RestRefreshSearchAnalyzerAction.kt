@@ -56,6 +56,6 @@ class RestRefreshSearchAnalyzerAction : BaseRestHandler() {
     }
 
     companion object {
-        const val REFRESH_SEARCH_ANALYZER_BASE_URI = "$OPEN_DISTRO_BASE_URI/_analyzer/_refresh_search_analyzers"
+        const val REFRESH_SEARCH_ANALYZER_BASE_URI = "$OPEN_DISTRO_BASE_URI/_refresh_search_analyzers"
     }
 }

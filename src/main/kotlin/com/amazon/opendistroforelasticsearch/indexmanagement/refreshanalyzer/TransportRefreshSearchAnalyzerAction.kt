@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.DefaultShardOperationFailedException
 import org.elasticsearch.action.support.broadcast.node.TransportBroadcastByNodeAction
@@ -40,6 +41,8 @@ class TransportRefreshSearchAnalyzerAction :
                 RefreshSearchAnalyzerRequest,
                 RefreshSearchAnalyzerResponse,
                 RefreshSearchAnalyzerShardResponse> {
+
+    private val log = LogManager.getLogger(javaClass)
 
     @Inject
     constructor(
@@ -91,7 +94,7 @@ class TransportRefreshSearchAnalyzerAction :
     override fun shardOperation(request: RefreshSearchAnalyzerRequest, shardRouting: ShardRouting): RefreshSearchAnalyzerShardResponse {
         val indexShard: IndexShard = indicesService.indexServiceSafe(shardRouting.shardId().index).getShard(shardRouting.shardId().id())
         val reloadedAnalyzers: List<String> = indexShard.mapperService().reloadSearchAnalyzers(analysisRegistry)
-        logger.info("Reload successful, index: ${shardRouting.shardId().index.name}, shard: ${shardRouting.shardId().id}, " +
+        log.info("Reload successful, index: ${shardRouting.shardId().index.name}, shard: ${shardRouting.shardId().id}, " +
                 "is_primary: ${shardRouting.primary()}")
         return RefreshSearchAnalyzerShardResponse(shardRouting.shardId(), reloadedAnalyzers)
     }
@@ -103,12 +106,12 @@ class TransportRefreshSearchAnalyzerAction :
         return clusterState.routingTable().allShards(concreteIndices)
     }
 
-    override fun checkGlobalBlock(state: ClusterState, request: RefreshSearchAnalyzerRequest?): ClusterBlockException? {
+    override fun checkGlobalBlock(state: ClusterState, request: RefreshSearchAnalyzerRequest?): ClusterBlockException {
         return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_WRITE)
     }
 
     override fun checkRequestBlock(state: ClusterState, request: RefreshSearchAnalyzerRequest?, concreteIndices: Array<String?>?):
-            ClusterBlockException? {
+            ClusterBlockException {
         return state.blocks().indicesBlockedException(ClusterBlockLevel.METADATA_WRITE, concreteIndices)
     }
 }

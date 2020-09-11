@@ -15,9 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
-import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.DefaultShardOperationFailedException
-import org.elasticsearch.action.support.DefaultShardOperationFailedException.readShardOperationFailed
 import org.elasticsearch.action.support.broadcast.BroadcastResponse
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -29,8 +27,6 @@ import java.io.IOException
 import java.util.function.Function
 
 class RefreshSearchAnalyzerResponse : BroadcastResponse {
-
-    protected var logger = LogManager.getLogger(javaClass)
 
     private lateinit var shardResponses: MutableList<RefreshSearchAnalyzerShardResponse>
     private lateinit var shardFailures: MutableList<DefaultShardOperationFailedException>

@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSearchAnalyzerAction.Companion.REFRESH_SEARCH_ANALYZER_BASE_URI
 import org.elasticsearch.client.Request
 import org.elasticsearch.common.io.Streams
@@ -43,9 +42,8 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         createIndex(indexName, settings, getAnalyzerMapping())
         ingestData(indexName)
 
-        waitFor {
-            assertTrue(queryData(indexName, "hello").contains("hello world"))
-        }
+//        Thread.sleep(1000) // wait for refresh interval
+        assertTrue(queryData(indexName, "hello").contains("hello world"))
 
         // check synonym
         val result2 = queryData(indexName, "hola")
@@ -91,9 +89,8 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         createIndex(indexName, settings, getAnalyzerMapping())
         ingestData(indexName)
 
-        waitFor {
-            assertTrue(queryData(indexName, "hello").contains("hello world"))
-        }
+//        Thread.sleep(1000) // wait for refresh interval
+        assertTrue(queryData(indexName, "hello").contains("hello world"))
 
         // check synonym
         val result2 = queryData(indexName, "hola")
@@ -141,9 +138,8 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         createIndex(indexName, settings, getAnalyzerMapping(), aliasSettings)
         ingestData(indexName)
 
-        waitFor {
-            assertTrue(queryData(indexName, "hello").contains("hello world"))
-        }
+//        Thread.sleep(1000) // wait for refresh interval
+        assertTrue(queryData(indexName, "hello").contains("hello world"))
 
         // check synonym
         val result2 = queryData(aliasName, "hola")
@@ -185,7 +181,7 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         }
 
         fun ingestData(indexName: String) {
-            val request = Request("POST", "/$indexName/_doc")
+            val request = Request("POST", "/$indexName/_doc?refresh=true")
             val data: String = """
                 {
                   "title": "hello world..."

@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_HISTORY_TYPE
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.INDEX_STATE_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.POLICY_BASE_URI
@@ -61,7 +62,6 @@ import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.io.IOException
@@ -75,12 +75,10 @@ import javax.management.ObjectName
 import javax.management.remote.JMXConnectorFactory
 import javax.management.remote.JMXServiceURL
 
-abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
+abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() {
 
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
-
-    fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
     protected fun createPolicy(
         policy: Policy,
@@ -312,8 +310,6 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
-    protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)
-
     protected fun Policy.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
 
     protected fun ManagedIndexConfig.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
@@ -444,18 +440,6 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
                 StringEntity("{\"type\":\"fs\", \"settings\": {\"location\": \"$path\"}}", APPLICATION_JSON)
             )
         assertEquals("Unable to create a new repository", RestStatus.OK, response.restStatus())
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun getRepoPath(): String {
-        val response = client()
-            .makeRequest(
-                "GET",
-                "_nodes",
-                emptyMap()
-            )
-        assertEquals("Unable to get a nodes settings", RestStatus.OK, response.restStatus())
-        return ((response.asMap()["nodes"] as HashMap<String, HashMap<String, HashMap<String, HashMap<String, Any>>>>).values.first()["settings"]!!["path"]!!["repo"] as List<String>)[0]
     }
 
     private fun getSnapshotsList(repository: String): List<Any> {

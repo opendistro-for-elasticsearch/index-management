@@ -23,8 +23,8 @@ import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
 class TransportRemovePolicyAction @Inject constructor(
-    transportService: TransportService,
     val client: NodeClient,
+    transportService: TransportService,
     actionFilters: ActionFilters
 ) : HandledTransportAction<RemovePolicyRequest, RemovePolicyResponse>(
         RemovePolicyAction.NAME, transportService, actionFilters, ::RemovePolicyRequest
@@ -55,11 +55,16 @@ class TransportRemovePolicyAction @Inject constructor(
 
             client.admin()
                     .cluster()
-                    .state(clusterStateRequest, ActionListener.wrap(::processResponse, ::onFailure))
-        }
+                    .state(clusterStateRequest, object : ActionListener<ClusterStateResponse> {
+                        override fun onResponse(response: ClusterStateResponse) {
+                            processResponse(response)
+                        }
 
-        fun onFailure(t: Exception) {
-            actionListener.onFailure(t)
+                        override fun onFailure(t: Exception) {
+                            actionListener.onFailure(t)
+                        }
+                    })
+
         }
 
         @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.

@@ -1,4 +1,4 @@
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util
+package com.amazon.opendistroforelasticsearch.indexmanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import org.elasticsearch.cluster.metadata.IndexMetadata

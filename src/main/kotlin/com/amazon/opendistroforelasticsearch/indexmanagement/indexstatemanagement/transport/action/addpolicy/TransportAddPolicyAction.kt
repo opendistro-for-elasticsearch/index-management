@@ -1,3 +1,5 @@
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
+
 /*
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
@@ -13,12 +15,10 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
-
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
-import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ElasticsearchTimeoutException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -34,31 +34,33 @@ import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.Index
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import java.lang.Exception
+import java.time.Duration
+import java.time.Instant
 
-private val log = LogManager.getLogger(TransportRemovePolicyAction::class.java)
-
-class TransportRemovePolicyAction @Inject constructor(
+class TransportAddPolicyAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
     actionFilters: ActionFilters
-) : HandledTransportAction<RemovePolicyRequest, RemovePolicyResponse>(
-        RemovePolicyAction.NAME, transportService, actionFilters, ::RemovePolicyRequest
+) : HandledTransportAction<AddPolicyRequest, AddPolicyResponse>(
+        AddPolicyAction.NAME, transportService, actionFilters, ::AddPolicyRequest
 ) {
-    override fun doExecute(task: Task, request: RemovePolicyRequest, listener: ActionListener<RemovePolicyResponse>) {
-        RemovePolicyHandler(client, listener, request).start()
+    override fun doExecute(task: Task, request: AddPolicyRequest, listener: ActionListener<AddPolicyResponse>) {
+        AddPolicyHandler(client, listener, request).start()
     }
 
-    inner class RemovePolicyHandler(
+    inner class AddPolicyHandler(
         private val client: NodeClient,
-        private val actionListener: ActionListener<RemovePolicyResponse>,
-        private val request: RemovePolicyRequest
+        private val actionListener: ActionListener<AddPolicyResponse>,
+        private val request: AddPolicyRequest
     ) {
-
+        private lateinit var startTime: Instant
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
-        private val indicesToRemovePolicyFrom: MutableList<Index> = mutableListOf()
+        private val indicesToAddPolicyTo: MutableList<Index> = mutableListOf()
         private var updated: Int = 0
 
         @Suppress("SpreadOperator")
@@ -70,7 +72,10 @@ class TransportRemovePolicyAction @Inject constructor(
                 .indices(*request.indices.toTypedArray())
                 .metadata(true)
                 .local(false)
+                .waitForTimeout(TimeValue.timeValueMillis(ADD_POLICY_TIMEOUT_IN_MILLIS))
                 .indicesOptions(strictExpandOptions)
+
+            startTime = Instant.now()
 
             client.admin()
                 .cluster()
@@ -85,30 +90,42 @@ class TransportRemovePolicyAction @Inject constructor(
                 })
         }
 
-        @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
+        @Suppress("SpreadOperator")
         fun processResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
             populateLists(state)
 
-            if (indicesToRemovePolicyFrom.isNotEmpty()) {
+            if (indicesToAddPolicyTo.isNotEmpty()) {
+                val timeSinceClusterStateRequest: Duration = Duration.between(startTime, Instant.now())
+
+                // Timeout for UpdateSettingsRequest in milliseconds
+                val updateSettingsTimeout = ADD_POLICY_TIMEOUT_IN_MILLIS - timeSinceClusterStateRequest.toMillis()
+
+                // If after the ClusterStateResponse we go over the timeout for Add Policy (30 seconds), throw an
+                // exception since UpdateSettingsRequest cannot have a negative timeout
+                if (updateSettingsTimeout < 0) {
+                    throw ElasticsearchTimeoutException("Add policy API timed out after ClusterStateResponse")
+                }
+
                 val updateSettingsRequest = UpdateSettingsRequest()
-                    .indices(*indicesToRemovePolicyFrom.map { it.name }.toTypedArray())
-                    .settings(Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key))
+                        .indices(*indicesToAddPolicyTo.map { it.name }.toTypedArray())
+                        .settings(Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, request.policyID))
+                        .timeout(TimeValue.timeValueMillis(updateSettingsTimeout))
 
                 try {
                     client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest,
                         object : ActionListener<AcknowledgedResponse> {
                             override fun onResponse(response: AcknowledgedResponse) {
                                 if (response.isAcknowledged) {
-                                    updated = indicesToRemovePolicyFrom.size
+                                    updated = indicesToAddPolicyTo.size
                                 } else {
                                     updated = 0
-                                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
-                                        FailedIndex(it.name, it.uuid, "Failed to remove policy")
+                                    failedIndices.addAll(indicesToAddPolicyTo.map {
+                                        FailedIndex(it.name, it.uuid, "Failed to add policy")
                                     })
                                 }
 
-                                actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+                                actionListener.onResponse(AddPolicyResponse(updated, failedIndices))
                             }
 
                             override fun onFailure(t: Exception) {
@@ -117,15 +134,16 @@ class TransportRemovePolicyAction @Inject constructor(
                         }
                     )
                 } catch (e: ClusterBlockException) {
-                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
-                        FailedIndex(it.name, it.uuid, "Failed to remove policy due to ClusterBlockException: ${e.message}")
+                    failedIndices.addAll(indicesToAddPolicyTo.map {
+                        FailedIndex(it.name, it.uuid, "Failed to add policy due to ClusterBlockingException: ${e.message}"
+                        )
                     })
                     updated = 0
-                    actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+                    actionListener.onResponse(AddPolicyResponse(updated, failedIndices))
                 }
             } else {
                 updated = 0
-                actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+                actionListener.onResponse(AddPolicyResponse(updated, failedIndices))
             }
         }
 
@@ -133,15 +151,23 @@ class TransportRemovePolicyAction @Inject constructor(
             for (indexMetaDataEntry in state.metadata.indices) {
                 val indexMetaData = indexMetaDataEntry.value
                 when {
-                    indexMetaData.getPolicyID() == null ->
+                    indexMetaData.getPolicyID() != null ->
                         failedIndices.add(
-                            FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index does not have a policy to remove")
+                                FailedIndex(
+                                        indexMetaData.index.name,
+                                        indexMetaData.index.uuid,
+                                        "This index already has a policy, use the update policy API to update index policies"
+                                )
                         )
                     indexMetaData.state == IndexMetadata.State.CLOSE ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
-                    else -> indicesToRemovePolicyFrom.add(indexMetaData.index)
+                    else -> indicesToAddPolicyTo.add(indexMetaData.index)
                 }
             }
         }
+    }
+
+    companion object {
+        const val ADD_POLICY_TIMEOUT_IN_MILLIS = 30000L
     }
 }

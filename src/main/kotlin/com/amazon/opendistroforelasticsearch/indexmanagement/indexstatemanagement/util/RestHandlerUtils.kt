@@ -19,6 +19,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -46,7 +49,7 @@ fun buildInvalidIndexResponse(builder: XContentBuilder, failedIndices: MutableLi
     }
 }
 
-data class FailedIndex(val name: String, val uuid: String, val reason: String) : ToXContentFragment {
+data class FailedIndex(val name: String, val uuid: String, val reason: String) : Writeable, ToXContentFragment {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
@@ -60,6 +63,18 @@ data class FailedIndex(val name: String, val uuid: String, val reason: String) :
         const val INDEX_NAME_FIELD = "index_name"
         const val INDEX_UUID_FIELD = "index_uuid"
         const val REASON_FIELD = "reason"
+    }
+
+    constructor(sin: StreamInput) : this(
+        sin.readString(),
+        sin.readString(),
+        sin.readString()
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(name)
+        out.writeString(uuid)
+        out.writeString(reason)
     }
 }
 

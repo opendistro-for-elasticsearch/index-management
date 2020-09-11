@@ -1,0 +1,124 @@
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
+
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
+import org.elasticsearch.action.ActionListener
+import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
+import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
+import org.elasticsearch.action.support.ActionFilters
+import org.elasticsearch.action.support.HandledTransportAction
+import org.elasticsearch.action.support.IndicesOptions
+import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.cluster.ClusterState
+import org.elasticsearch.cluster.block.ClusterBlockException
+import org.elasticsearch.cluster.metadata.IndexMetadata
+import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.index.Index
+import org.elasticsearch.tasks.Task
+import org.elasticsearch.transport.TransportService
+
+class TransportRemovePolicyAction @Inject constructor(
+    transportService: TransportService,
+    val client: NodeClient,
+    actionFilters: ActionFilters
+) : HandledTransportAction<RemovePolicyRequest, RemovePolicyResponse>(
+        RemovePolicyAction.NAME, transportService, actionFilters, ::RemovePolicyRequest
+) {
+    override fun doExecute(task: Task, request: RemovePolicyRequest, listener: ActionListener<RemovePolicyResponse>) {
+        RemovePolicyHandler(client, listener, request).start()
+    }
+
+    inner class RemovePolicyHandler(
+        private val client: NodeClient,
+        private val actionListener: ActionListener<RemovePolicyResponse>,
+        private val request: RemovePolicyRequest
+    ) {
+
+        private val failedIndices: MutableList<FailedIndex> = mutableListOf()
+        private val indicesToRemovePolicyFrom: MutableList<Index> = mutableListOf()
+        private var updated: Int = 0
+
+        fun start() {
+            val strictExpandOptions = IndicesOptions.strictExpand()
+
+            val clusterStateRequest = ClusterStateRequest()
+                    .clear()
+                    .indices(*request.indices.toTypedArray())
+                    .metadata(true)
+                    .local(false)
+                    .indicesOptions(strictExpandOptions)
+
+            client.admin()
+                    .cluster()
+                    .state(clusterStateRequest, ActionListener.wrap(::processResponse, ::onFailure))
+        }
+
+        fun onFailure(t: Exception) {
+            actionListener.onFailure(t)
+        }
+
+        @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
+        fun processResponse(clusterStateResponse: ClusterStateResponse) {
+            val state = clusterStateResponse.state
+            populateLists(state)
+
+            if (indicesToRemovePolicyFrom.isNotEmpty()) {
+                val updateSettingsRequest = UpdateSettingsRequest()
+                        .indices(*indicesToRemovePolicyFrom.map { it.name }.toTypedArray())
+                        .settings(Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key))
+
+                try {
+                    client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest,
+                            object : ActionListener<AcknowledgedResponse> {
+                                override fun onResponse(response: AcknowledgedResponse) {
+                                    if (response.isAcknowledged) {
+                                        updated = indicesToRemovePolicyFrom.size
+                                    } else {
+                                        updated = 0
+                                        failedIndices.addAll(indicesToRemovePolicyFrom.map {
+                                            FailedIndex(it.name, it.uuid, "Failed to remove policy")
+                                        })
+                                    }
+
+                                    actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+                                }
+
+                                override fun onFailure(t: Exception) {
+                                    actionListener.onFailure(t)
+                                }
+                            }
+                    )
+                } catch (e: ClusterBlockException) {
+                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
+                        FailedIndex(it.name, it.uuid, "Failed to remove policy due to ClusterBlockException: ${e.message}")
+                    })
+                    updated = 0
+                    actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+                }
+            } else {
+                updated = 0
+                actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+            }
+        }
+
+        private fun populateLists(state: ClusterState) {
+            for (indexMetaDataEntry in state.metadata.indices) {
+                val indexMetaData = indexMetaDataEntry.value
+                when {
+                    indexMetaData.getPolicyID() == null ->
+                        failedIndices.add(
+                                FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index does not have a policy to remove")
+                        )
+                    indexMetaData.state == IndexMetadata.State.CLOSE ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
+                    else -> indicesToRemovePolicyFrom.add(indexMetaData.index)
+                }
+            }
+        }
+    }
+}

@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ANALYZER_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.makeRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSearchAnalyzerAction.Companion.REFRESH_SEARCH_ANALYZER_BASE_URI
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestRequest.Method.POST
@@ -27,7 +27,7 @@ class RestRefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
 
     fun `test missing indices`() {
         try {
-            client().makeRequest(POST.toString(), "$ANALYZER_BASE_URI/refresh_search_analyzer")
+            client().makeRequest(POST.toString(), REFRESH_SEARCH_ANALYZER_BASE_URI)
             fail("Expected a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -35,10 +35,10 @@ class RestRefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
             val expectedErrorMessage = mapOf(
                     "error" to mapOf(
                             "root_cause" to listOf<Map<String, Any>>(
-                                    mapOf("type" to "parse_exception", "reason" to "request body is required")
+                                    mapOf("type" to "illegal_argument_exception", "reason" to "Missing indices")
                             ),
-                            "type" to "parse_exception",
-                            "reason" to "request body is required"
+                            "type" to "illegal_argument_exception",
+                            "reason" to "Missing indices"
                     ),
                     "status" to 400
             )
@@ -53,7 +53,7 @@ class RestRefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         closeIndex(indexName)
 
         try {
-            client().makeRequest(POST.toString(), "$ANALYZER_BASE_URI/refresh_search_analyzer/$indexName")
+            client().makeRequest(POST.toString(), "$REFRESH_SEARCH_ANALYZER_BASE_URI/$indexName")
             fail("Expected a failure")
         } catch (e: ResponseException) {
             val response = e.response.asMap()

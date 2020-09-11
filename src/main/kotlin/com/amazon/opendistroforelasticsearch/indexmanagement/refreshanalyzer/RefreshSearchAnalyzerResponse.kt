@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.DefaultShardOperationFailedException
+import org.elasticsearch.action.support.DefaultShardOperationFailedException.readShardOperationFailed
 import org.elasticsearch.action.support.broadcast.BroadcastResponse
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -29,22 +30,21 @@ import java.util.function.Function
 
 class RefreshSearchAnalyzerResponse : BroadcastResponse {
 
-    private var results: MutableMap<String, List<String>> = HashMap()
-    private var shardFailures: MutableList<FailedShardDetails> = mutableListOf()
-    private var temp: List<DefaultShardOperationFailedException> = mutableListOf()
-
     protected var logger = LogManager.getLogger(javaClass)
+
+    private lateinit var shardResponses: MutableList<RefreshSearchAnalyzerShardResponse>
+    private lateinit var shardFailures: MutableList<DefaultShardOperationFailedException>
 
     @Throws(IOException::class)
     constructor(inp: StreamInput) : super(inp) {
         val resultSize: Int = inp.readVInt()
         for (i in 0..resultSize) {
-            results.put(inp.readString(), inp.readStringArray().toList())
+            shardResponses.add(RefreshSearchAnalyzerShardResponse(inp))
         }
 
         val failureSize: Int = inp.readVInt()
         for (i in 0..failureSize) {
-            shardFailures.add(FailedShardDetails(inp.readString(), inp.readInt(), inp.readString()))
+            shardFailures.add(readShardOperationFailed(inp))
         }
     }
 
@@ -53,58 +53,54 @@ class RefreshSearchAnalyzerResponse : BroadcastResponse {
         successfulShards: Int,
         failedShards: Int,
         shardFailures: List<DefaultShardOperationFailedException>,
-        results: MutableMap<String, List<String>>
+        shardResponses: List<RefreshSearchAnalyzerShardResponse>
     ) : super(
             totalShards, successfulShards, failedShards, shardFailures
     ) {
-        this.results = results
-        this.temp = shardFailures
-        for (failure in shardFailures) {
-            this.shardFailures.add(FailedShardDetails(failure.index()!!, failure.shardId(), failure.reason()))
-        }
+        this.shardResponses = shardResponses.toMutableList()
+        this.shardFailures = shardFailures.toMutableList()
     }
 
     @Throws(IOException::class)
     override fun toXContent(builder: XContentBuilder, params: Params?): XContentBuilder? {
         builder.startObject()
-        RestActions.buildBroadcastShardsHeader(builder, params, totalShards, successfulShards, -1, failedShards, null)
-
-        builder.startArray("_successful")
-        for (index in results.keys) {
-            builder.startObject()
-            val reloadedAnalyzers: List<String> = results.get(index)!!
-            builder.field("index", index)
-            builder.startArray("refreshed_analyzers")
+        RestActions.buildBroadcastShardsHeader(builder, params, totalShards, successfulShards, -1, failedShards, shardFailures.toTypedArray())
+        builder.startArray("successful_refreshes")
+        val successfulIndices = getSuccessfulRefreshDetails()
+        for (index in successfulIndices.keys) {
+            val reloadedAnalyzers = successfulIndices.get(index)!!
+            builder.startObject().field("index", index).startArray("refreshed_analyzers")
             for (analyzer in reloadedAnalyzers) {
                 builder.value(analyzer)
             }
-            builder.endArray()
-            builder.endObject()
+            builder.endArray().endObject()
         }
-        builder.endArray()
-
-        builder.startArray("_failed")
-        for (failure in shardFailures) {
-            builder.startObject()
-            builder.field("index", failure.index)
-            builder.field("shardId", failure.shardId)
-            builder.field("failureReason", failure.failureReason)
-            builder.endObject()
-        }
-        builder.endArray()
-
-        builder.endObject()
+        builder.endArray().endObject()
         return builder
     }
 
+    // TODO: restrict it for testing
+    fun getSuccessfulRefreshDetails(): MutableMap<String, List<String>> {
+        var successfulRefreshDetails: MutableMap<String, List<String>> = HashMap()
+        var failedIndices = mutableSetOf<String>()
+        for (failure in shardFailures) {
+            failedIndices.add(failure.index()!!)
+        }
+        for (response in shardResponses) {
+            if (!failedIndices.contains(response.index)) {
+                successfulRefreshDetails.putIfAbsent(response.index, response.reloadedAnalyzers)
+            }
+        }
+        return successfulRefreshDetails
+    }
+
     companion object {
-        private val PARSER = ConstructingObjectParser<RefreshSearchAnalyzerResponse, Void>("refresh_search_analyzer", true,
+        private val PARSER = ConstructingObjectParser<RefreshSearchAnalyzerResponse, Void>("_refresh_search_analyzers", true,
                 Function { arg: Array<Any> ->
                     val response = arg[0] as RefreshSearchAnalyzerResponse
                     RefreshSearchAnalyzerResponse(response.totalShards, response.successfulShards, response.failedShards,
-                            response.temp, response.results)
+                            response.shardFailures, response.shardResponses)
                 })
-
         init {
             declareBroadcastFields(PARSER)
         }
@@ -114,23 +110,14 @@ class RefreshSearchAnalyzerResponse : BroadcastResponse {
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
 
-        out.writeVInt(results.size)
-        for ((key, value) in results.entries) {
-            out.writeString(key)
-            out.writeStringArray(value.toTypedArray())
+        out.writeVInt(shardResponses.size)
+        for (response in shardResponses) {
+            response.writeTo(out)
         }
 
         out.writeVInt(shardFailures.size)
         for (failure in shardFailures) {
-            out.writeString(failure.index)
-            out.writeInt(failure.shardId)
-            out.writeString(failure.failureReason)
+            failure.writeTo(out)
         }
-    }
-
-    class FailedShardDetails(index: String, shardId: Int, failureReason: String) {
-        val index = index
-        val shardId = shardId
-        val failureReason = failureReason
     }
 }

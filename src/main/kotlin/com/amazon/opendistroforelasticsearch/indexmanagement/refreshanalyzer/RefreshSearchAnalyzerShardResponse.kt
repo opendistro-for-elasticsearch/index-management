@@ -22,23 +22,19 @@ import org.elasticsearch.index.shard.ShardId
 import java.io.IOException
 
 class RefreshSearchAnalyzerShardResponse : BroadcastShardResponse {
-    var indexName: String
     var reloadedAnalyzers: List<String>
 
-    constructor(`in`: StreamInput) : super(`in`) {
-        indexName = `in`.readString()
-        reloadedAnalyzers = `in`.readStringArray().toList()
+    constructor(si: StreamInput) : super(si) {
+        reloadedAnalyzers = si.readStringArray().toList()
     }
 
-    constructor(shardId: ShardId?, indexName: String, reloadedAnalyzers: List<String>) : super(shardId) {
-        this.indexName = indexName
+    constructor(shardId: ShardId, reloadedAnalyzers: List<String>) : super(shardId) {
         this.reloadedAnalyzers = reloadedAnalyzers
     }
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeString(indexName)
         out.writeStringArray(reloadedAnalyzers.toTypedArray())
     }
 }

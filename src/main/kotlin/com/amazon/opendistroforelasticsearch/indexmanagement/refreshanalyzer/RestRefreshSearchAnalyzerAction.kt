@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ANALYZER_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.OPEN_DISTRO_BASE_URI
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
 import org.elasticsearch.rest.BaseRestHandler
@@ -31,7 +31,8 @@ class RestRefreshSearchAnalyzerAction : BaseRestHandler() {
 
     override fun routes(): List<Route> {
         return listOf(
-                Route(POST, REFRESH_SYNONYM_ANALYZER_URI)
+                Route(POST, REFRESH_SEARCH_ANALYZER_BASE_URI),
+                Route(POST, "$REFRESH_SEARCH_ANALYZER_BASE_URI/{index}")
         )
     }
 
@@ -55,6 +56,6 @@ class RestRefreshSearchAnalyzerAction : BaseRestHandler() {
     }
 
     companion object {
-        const val REFRESH_SYNONYM_ANALYZER_URI = "$ANALYZER_BASE_URI/refresh_search_analyzer/{index}"
+        const val REFRESH_SEARCH_ANALYZER_BASE_URI = "$OPEN_DISTRO_BASE_URI/_analyzer/_refresh_search_analyzers"
     }
 }

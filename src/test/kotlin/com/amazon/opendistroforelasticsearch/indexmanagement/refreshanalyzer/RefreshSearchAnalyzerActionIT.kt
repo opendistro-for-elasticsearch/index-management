@@ -15,8 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSearchAnalyzerAction.Companion.REFRESH_SEARCH_ANALYZER_BASE_URI
 import org.elasticsearch.client.Request
 import org.elasticsearch.common.io.Streams
 import org.elasticsearch.common.settings.Settings
@@ -41,10 +42,10 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
                 .build()
         createIndex(indexName, settings, getAnalyzerMapping())
         ingestData(indexName)
-        Thread.sleep(1000) // wait for refresh_interval
 
-        val result1 = queryData(indexName, "hello")
-        assertTrue(result1.contains("hello world"))
+        waitFor {
+            assertTrue(queryData(indexName, "hello").contains("hello world"))
+        }
 
         // check synonym
         val result2 = queryData(indexName, "hola")
@@ -87,13 +88,12 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         val settings: Settings = Settings.builder()
                 .loadFromSource(getSearchAnalyzerSettings(), XContentType.JSON)
                 .build()
-        // val mappings: String = "\"properties\":{\"title\":{\"type\": \"text\",\"analyzer\" : \"standard\",\"search_analyzer\": \"my_synonyms\"}}"
         createIndex(indexName, settings, getAnalyzerMapping())
         ingestData(indexName)
-        Thread.sleep(1000) // wait for refresh_interval
 
-        val result1 = queryData(indexName, "hello")
-        assertTrue(result1.contains("hello world"))
+        waitFor {
+            assertTrue(queryData(indexName, "hello").contains("hello world"))
+        }
 
         // check synonym
         val result2 = queryData(indexName, "hola")
@@ -140,10 +140,10 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
                 .build()
         createIndex(indexName, settings, getAnalyzerMapping(), aliasSettings)
         ingestData(indexName)
-        Thread.sleep(1000)
 
-        val result1 = queryData(aliasName, "hello")
-        assertTrue(result1.contains("hello world"))
+        waitFor {
+            assertTrue(queryData(indexName, "hello").contains("hello world"))
+        }
 
         // check synonym
         val result2 = queryData(aliasName, "hola")
@@ -181,7 +181,6 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         }
 
         fun deleteFile(filePath: String) {
-            // org.elasticsearch.common.io.PathUtils.get(filePath)
             Files.deleteIfExists(org.elasticsearch.common.io.PathUtils.get(filePath))
         }
 
@@ -204,7 +203,7 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
 
         fun refreshAnalyzer(indexName: String) {
             val request = Request("POST",
-                    "${IndexManagementPlugin.ANALYZER_BASE_URI}/refresh_search_analyzer/$indexName")
+                    "$REFRESH_SEARCH_ANALYZER_BASE_URI/$indexName")
             client().performRequest(request)
         }
 

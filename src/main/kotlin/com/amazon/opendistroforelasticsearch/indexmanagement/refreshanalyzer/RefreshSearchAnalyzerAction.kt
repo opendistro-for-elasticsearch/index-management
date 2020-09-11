@@ -20,7 +20,7 @@ import org.elasticsearch.common.io.stream.Writeable
 
 class RefreshSearchAnalyzerAction : ActionType<RefreshSearchAnalyzerResponse>(NAME, reader) {
     companion object {
-        const val NAME = "indices:admin/refresh_search_analyzer"
+        const val NAME = "indices:admin/_refresh_search_analyzers"
         val INSTANCE = RefreshSearchAnalyzerAction()
         val reader = Writeable.Reader { inp -> RefreshSearchAnalyzerResponse(inp) }
     }

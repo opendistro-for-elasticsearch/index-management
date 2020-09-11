@@ -64,7 +64,6 @@ class TransportRemovePolicyAction @Inject constructor(
                             actionListener.onFailure(t)
                         }
                     })
-
         }
 
         @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.

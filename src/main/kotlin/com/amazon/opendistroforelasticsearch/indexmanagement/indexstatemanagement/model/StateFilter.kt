@@ -15,12 +15,20 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-data class StateFilter(val state: String) {
+data class StateFilter(val state: String) : Writeable {
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(state)
+    }
+
     companion object {
         const val STATE_FIELD = "state"
 
@@ -38,6 +46,12 @@ data class StateFilter(val state: String) {
                     STATE_FIELD -> state = xcp.text()
                 }
             }
+
+            return StateFilter(requireNotNull(state) { "Must include a state when using include filter" })
+        }
+
+        fun fromStreamInput(sin: StreamInput): StateFilter {
+            val state: String? = sin.readString()
 
             return StateFilter(requireNotNull(state) { "Must include a state when using include filter" })
         }

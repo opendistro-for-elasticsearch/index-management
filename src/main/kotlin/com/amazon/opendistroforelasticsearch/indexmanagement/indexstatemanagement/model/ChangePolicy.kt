@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -39,7 +42,7 @@ data class ChangePolicy(
     val state: String?,
     val include: List<StateFilter>,
     val isSafe: Boolean
-) : ToXContentObject {
+) : Writeable, ToXContentObject {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
@@ -51,11 +54,32 @@ data class ChangePolicy(
         return builder
     }
 
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(policyID)
+        out.writeOptionalString(state)
+        out.writeBoolean(isSafe)
+        out.writeCollection(include)
+    }
+
     companion object {
         const val POLICY_ID_FIELD = "policy_id"
         const val STATE_FIELD = "state"
         const val INCLUDE_FIELD = "include"
         const val IS_SAFE_FIELD = "is_safe"
+
+        fun fromStreamInput(sin: StreamInput): ChangePolicy {
+            val policyID: String? = sin.readString()
+            val state: String? = sin.readOptionalString()
+            val isSafe: Boolean = sin.readBoolean()
+            val include: MutableList<StateFilter> = sin.readList { StateFilter.fromStreamInput(it) }
+
+            return ChangePolicy(
+                requireNotNull(policyID) { "ChangePolicy policy id is null" },
+                state,
+                include.toList(),
+                isSafe
+            )
+        }
 
         @JvmStatic
         @Throws(IOException::class)

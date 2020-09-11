@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-@file:Suppress("TopLevelPropertyNaming", "MatchingDeclarationName")
+@file:Suppress("TopLevelPropertyNaming", "MatchingDeclarationName", "NewLineAtEndOfFile")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.optionalTimeField

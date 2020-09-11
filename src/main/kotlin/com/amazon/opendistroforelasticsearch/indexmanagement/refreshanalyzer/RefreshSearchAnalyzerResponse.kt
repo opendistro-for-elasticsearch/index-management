@@ -37,15 +37,8 @@ class RefreshSearchAnalyzerResponse : BroadcastResponse {
 
     @Throws(IOException::class)
     constructor(inp: StreamInput) : super(inp) {
-        val resultSize: Int = inp.readVInt()
-        for (i in 0..resultSize) {
-            shardResponses.add(RefreshSearchAnalyzerShardResponse(inp))
-        }
-
-        val failureSize: Int = inp.readVInt()
-        for (i in 0..failureSize) {
-            shardFailures.add(readShardOperationFailed(inp))
-        }
+        inp.readList(::RefreshSearchAnalyzerShardResponse)
+        inp.readList(DefaultShardOperationFailedException::readShardOperationFailed)
     }
 
     constructor(
@@ -109,15 +102,7 @@ class RefreshSearchAnalyzerResponse : BroadcastResponse {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-
-        out.writeVInt(shardResponses.size)
-        for (response in shardResponses) {
-            response.writeTo(out)
-        }
-
-        out.writeVInt(shardFailures.size)
-        for (failure in shardFailures) {
-            failure.writeTo(out)
-        }
+        out.writeCollection(shardResponses)
+        out.writeCollection(shardFailures)
     }
 }

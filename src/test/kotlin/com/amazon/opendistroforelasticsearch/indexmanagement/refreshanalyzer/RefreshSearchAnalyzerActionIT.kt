@@ -42,7 +42,6 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         createIndex(indexName, settings, getAnalyzerMapping())
         ingestData(indexName)
 
-//        Thread.sleep(1000) // wait for refresh interval
         assertTrue(queryData(indexName, "hello").contains("hello world"))
 
         // check synonym
@@ -89,7 +88,6 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         createIndex(indexName, settings, getAnalyzerMapping())
         ingestData(indexName)
 
-//        Thread.sleep(1000) // wait for refresh interval
         assertTrue(queryData(indexName, "hello").contains("hello world"))
 
         // check synonym
@@ -138,7 +136,6 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
         createIndex(indexName, settings, getAnalyzerMapping(), aliasSettings)
         ingestData(indexName)
 
-//        Thread.sleep(1000) // wait for refresh interval
         assertTrue(queryData(indexName, "hello").contains("hello world"))
 
         // check synonym

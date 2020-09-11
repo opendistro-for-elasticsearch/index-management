@@ -106,12 +106,12 @@ class TransportRefreshSearchAnalyzerAction :
         return clusterState.routingTable().allShards(concreteIndices)
     }
 
-    override fun checkGlobalBlock(state: ClusterState, request: RefreshSearchAnalyzerRequest?): ClusterBlockException {
+    override fun checkGlobalBlock(state: ClusterState, request: RefreshSearchAnalyzerRequest?): ClusterBlockException? {
         return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_WRITE)
     }
 
     override fun checkRequestBlock(state: ClusterState, request: RefreshSearchAnalyzerRequest?, concreteIndices: Array<String?>?):
-            ClusterBlockException {
+            ClusterBlockException? {
         return state.blocks().indicesBlockedException(ClusterBlockLevel.METADATA_WRITE, concreteIndices)
     }
 }

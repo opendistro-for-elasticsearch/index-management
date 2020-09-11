@@ -54,7 +54,7 @@ class RefreshSearchAnalyzerResponse : BroadcastResponse {
     override fun toXContent(builder: XContentBuilder, params: Params?): XContentBuilder? {
         builder.startObject()
         RestActions.buildBroadcastShardsHeader(builder, params, totalShards, successfulShards, -1, failedShards, shardFailures.toTypedArray())
-        builder.startArray("successful_refreshes")
+        builder.startArray("successful_refresh_details")
         val successfulIndices = getSuccessfulRefreshDetails()
         for (index in successfulIndices.keys) {
             val reloadedAnalyzers = successfulIndices.get(index)!!

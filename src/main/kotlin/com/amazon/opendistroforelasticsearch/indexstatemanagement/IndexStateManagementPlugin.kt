@@ -70,7 +70,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
 
     companion object {
         const val PLUGIN_NAME = "opendistro-ism"
-        const val ISM_BASE_URI = "/_opendistro/_ism"
+        const val OPEN_DISTRO_BASE_URI = "/_opendistro"
+        const val ISM_BASE_URI = "$OPEN_DISTRO_BASE_URI/_ism"
         const val POLICY_BASE_URI = "$ISM_BASE_URI/policies"
         const val INDEX_STATE_MANAGEMENT_INDEX = ".opendistro-ism-config"
         const val INDEX_STATE_MANAGEMENT_JOB_TYPE = "opendistro-managed-index"

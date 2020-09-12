@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer
 
+import com.amazon.opendistroforelasticsearch.indexstatemanagement.IndexStateManagementPlugin.Companion.OPEN_DISTRO_BASE_URI
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
 import org.elasticsearch.rest.BaseRestHandler
@@ -55,7 +56,6 @@ class RestRefreshSearchAnalyzerAction : BaseRestHandler() {
     }
 
     companion object {
-        const val OPEN_DISTRO_BASE_URI = "/_opendistro"
         const val REFRESH_SEARCH_ANALYZER_BASE_URI = "$OPEN_DISTRO_BASE_URI/_refresh_search_analyzers"
     }
 }

@@ -28,6 +28,9 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.Re
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRemovePolicyAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.resthandler.RestRetryFailedManagedIndexAction
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RefreshSearchAnalyzerAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSearchAnalyzerAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.TransportRefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
@@ -67,7 +70,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
 
     companion object {
         const val PLUGIN_NAME = "opendistro-ism"
-        const val ISM_BASE_URI = "/_opendistro/_ism"
+        const val OPEN_DISTRO_BASE_URI = "/_opendistro"
+        const val ISM_BASE_URI = "$OPEN_DISTRO_BASE_URI/_ism"
         const val POLICY_BASE_URI = "$ISM_BASE_URI/policies"
         const val INDEX_STATE_MANAGEMENT_INDEX = ".opendistro-ism-config"
         const val INDEX_STATE_MANAGEMENT_JOB_TYPE = "opendistro-managed-index"
@@ -119,6 +123,7 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
         nodesInCluster: Supplier<DiscoveryNodes>
     ): List<RestHandler> {
         return listOf(
+            RestRefreshSearchAnalyzerAction(),
             RestIndexPolicyAction(settings, clusterService, indexStateManagementIndices),
             RestGetPolicyAction(),
             RestDeletePolicyAction(),
@@ -186,6 +191,10 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             ActionPlugin.ActionHandler(
                 UpdateManagedIndexMetaDataAction.INSTANCE,
                 TransportUpdateManagedIndexMetaDataAction::class.java
+            ),
+            ActionPlugin.ActionHandler(
+                RefreshSearchAnalyzerAction.INSTANCE,
+                TransportRefreshSearchAnalyzerAction::class.java
             )
         )
     }

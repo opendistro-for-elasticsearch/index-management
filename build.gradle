@@ -120,7 +120,7 @@ ext {
 }
 
 group = "com.amazon.opendistroforelasticsearch"
-version = "${opendistroVersion}.0"
+version = "${opendistroVersion}.1"
 
 if (isSnapshot) {
     version += "-SNAPSHOT"
@@ -180,6 +180,7 @@ integTest.runner {
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
     systemProperty 'tests.path.repo', repo.absolutePath
+    systemProperty 'buildDir', buildDir
     // Tell the test JVM if the cluster JVM is running under a debugger so that tests can use longer timeouts for
     // requests. The 'doFirst' delays reading the debug setting on the cluster till execution time.
     doFirst {

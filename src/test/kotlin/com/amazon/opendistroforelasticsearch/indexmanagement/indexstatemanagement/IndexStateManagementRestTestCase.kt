@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -63,7 +64,6 @@ import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
-import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.io.IOException
@@ -77,13 +77,11 @@ import javax.management.ObjectName
 import javax.management.remote.JMXConnectorFactory
 import javax.management.remote.JMXServiceURL
 
-abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
+abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() {
 
     private val isDebuggingTest = DisableOnDebug(null).isDebugging
     private val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
     protected val isMultiNode = System.getProperty("cluster.number_of_nodes", "1").toInt() > 1
-
-    fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
     protected fun createPolicy(
         policy: Policy,
@@ -346,8 +344,6 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
-    protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)
-
     protected fun Policy.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
 
     protected fun ManagedIndexConfig.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
@@ -513,8 +509,6 @@ abstract class IndexStateManagementRestTestCase : ESRestTestCase() {
             )
         assertEquals("Unable to create a new repository", RestStatus.OK, response.restStatus())
     }
-
-    private fun getRepoPath(): String = System.getProperty("tests.path.repo")
 
     private fun getShardsList(): List<Any> {
         val response = client()

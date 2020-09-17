@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
@@ -30,13 +33,23 @@ import java.io.IOException
 data class Transition(
     val stateName: String,
     val conditions: Conditions?
-) : ToXContentObject {
+) : ToXContentObject, Writeable {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
             .field(STATE_NAME_FIELD, stateName)
         if (conditions != null) builder.field(CONDITIONS_FIELD, conditions)
         return builder.endObject()
+    }
+
+    constructor(sin: StreamInput) : this(
+        sin.readString(),
+        sin.readOptionalWriteable(::Conditions)
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(stateName)
+        out.writeOptionalWriteable(conditions)
     }
 
     companion object {
@@ -74,7 +87,7 @@ data class Conditions(
     val docCount: Long? = null,
     val size: ByteSizeValue? = null,
     val cron: CronSchedule? = null
-) : ToXContentObject {
+) : ToXContentObject, Writeable {
 
     init {
         val conditionsList = listOf(indexAge, docCount, size, cron)
@@ -94,6 +107,18 @@ data class Conditions(
         if (size != null) builder.field(MIN_SIZE_FIELD, size.stringRep)
         if (cron != null) builder.field(CRON_FIELD, cron)
         return builder.endObject()
+    }
+
+    constructor(sin: StreamInput) : this(
+        sin.readOptionalTimeValue(),
+        sin.readOptionalLong(),
+        sin.readOptionalWriteable(::ByteSizeValue)
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeOptionalTimeValue(indexAge)
+        out.writeOptionalLong(docCount)
+        out.writeOptionalWriteable(size)
     }
 
     companion object {

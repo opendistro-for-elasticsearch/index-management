@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination.Destination
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -28,7 +31,7 @@ import java.io.IOException
 data class ErrorNotification(
     val destination: Destination,
     val messageTemplate: Script
-) : ToXContentObject {
+) : ToXContentObject, Writeable {
 
     init {
         require(messageTemplate.lang == MUSTACHE) { "ErrorNotification message template must be a mustache script" }
@@ -39,6 +42,16 @@ data class ErrorNotification(
                 .field(DESTINATION_FIELD, destination)
                 .field(MESSAGE_TEMPLATE_FIELD, messageTemplate)
                 .endObject()
+    }
+
+    constructor(sin: StreamInput) : this(
+        sin.readOptionalWriteable(::Destination) as Destination,
+        sin.readOptionalWriteable(::Script) as Script
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeOptionalWriteable(destination)
+        out.writeOptionalWriteable(messageTemplate)
     }
 
     companion object {

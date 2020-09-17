@@ -15,15 +15,23 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionTimeout
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomAllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomForceMergeActionConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomIndexPriorityActionConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomNotificationActionConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomRolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomSnapshotActionConfig
+import org.elasticsearch.common.io.stream.InputStreamStreamInput
+import org.elasticsearch.common.io.stream.OutputStreamStreamOutput
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.test.ESTestCase
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import kotlin.test.assertFailsWith
 
 class ActionConfigTests : ESTestCase() {
@@ -74,5 +82,43 @@ class ActionConfigTests : ESTestCase() {
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for empty parameters") {
             randomAllocationActionConfig()
         }
+    }
+
+    fun `test rollover action round trip`() {
+        roundTripActionConfig(randomRolloverActionConfig())
+    }
+
+    fun `test replica count action round trip`() {
+        roundTripActionConfig(randomReplicaCountActionConfig())
+    }
+
+    fun `test force merge action round trip`() {
+        roundTripActionConfig(randomForceMergeActionConfig())
+    }
+
+    fun `test notification action round trip`() {
+        roundTripActionConfig(randomNotificationActionConfig())
+    }
+
+    fun `test snapshot action round trip`() {
+        roundTripActionConfig(randomSnapshotActionConfig(snapshot = "snapshot", repository = "repository"))
+    }
+
+    fun `test index priority action round trip`() {
+        roundTripActionConfig(randomIndexPriorityActionConfig())
+    }
+
+    fun `test allocation action round trip`() {
+        roundTripActionConfig(randomAllocationActionConfig(require = mapOf("box_type" to "hot")))
+    }
+
+    private fun roundTripActionConfig(expectedActionConfig: ActionConfig) {
+        val baos = ByteArrayOutputStream()
+        val osso = OutputStreamStreamOutput(baos)
+        expectedActionConfig.writeTo(osso)
+        val input = InputStreamStreamInput(ByteArrayInputStream(baos.toByteArray()))
+
+        val actualActionConfig = ActionConfig.fromStreamInput(input)
+        assertEquals(expectedActionConfig, actualActionConfig)
     }
 }

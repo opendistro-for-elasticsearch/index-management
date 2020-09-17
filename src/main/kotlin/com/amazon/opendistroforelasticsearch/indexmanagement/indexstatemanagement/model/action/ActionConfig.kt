@@ -19,6 +19,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -31,7 +34,7 @@ import java.io.IOException
 abstract class ActionConfig(
     val type: ActionType,
     val actionIndex: Int
-) : ToXContentFragment {
+) : ToXContentFragment, Writeable {
 
     var configTimeout: ActionTimeout? = null
         private set
@@ -71,7 +74,45 @@ abstract class ActionConfig(
         }
     }
 
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeEnum(type)
+        out.writeInt(actionIndex)
+        out.writeOptionalWriteable(configTimeout)
+        out.writeOptionalWriteable(configRetry)
+    }
+
     companion object {
+        @JvmStatic
+        @Throws(IOException::class)
+        fun fromStreamInput(sin: StreamInput): ActionConfig {
+            val type = sin.readEnum(ActionType::class.java)
+            val actionIndex = sin.readInt()
+            val configTimeout = sin.readOptionalWriteable(::ActionTimeout)
+            val configRetry = sin.readOptionalWriteable(::ActionRetry)
+
+            val actionConfig: ActionConfig = when (type.type) {
+                ActionType.DELETE.type -> DeleteActionConfig(actionIndex)
+                ActionType.OPEN.type -> OpenActionConfig(actionIndex)
+                ActionType.CLOSE.type -> CloseActionConfig(actionIndex)
+                ActionType.READ_ONLY.type -> ReadOnlyActionConfig(actionIndex)
+                ActionType.READ_WRITE.type -> ReadWriteActionConfig(actionIndex)
+                ActionType.ROLLOVER.type -> RolloverActionConfig(sin)
+                ActionType.REPLICA_COUNT.type -> ReplicaCountActionConfig(sin)
+                ActionType.FORCE_MERGE.type -> ForceMergeActionConfig(sin)
+                ActionType.NOTIFICATION.type -> NotificationActionConfig(sin)
+                ActionType.SNAPSHOT.type -> SnapshotActionConfig(sin)
+                ActionType.INDEX_PRIORITY.type -> IndexPriorityActionConfig(sin)
+                ActionType.ALLOCATION.type -> AllocationActionConfig(sin)
+                else -> throw IllegalArgumentException("Invalid field: [${type.type}] found in Action.")
+            }
+
+            actionConfig.configTimeout = configTimeout
+            actionConfig.configRetry = configRetry
+
+            return actionConfig
+        }
+
         @Suppress("ComplexMethod")
         @JvmStatic
         @Throws(IOException::class)

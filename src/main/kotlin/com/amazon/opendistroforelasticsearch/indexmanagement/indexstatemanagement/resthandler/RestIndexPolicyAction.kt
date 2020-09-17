@@ -15,38 +15,27 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.ALLOW_LIST
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy.IndexPolicyAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy.IndexPolicyRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy.IndexPolicyResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDisallowedActions
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IF_SEQ_NO
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.REFRESH
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._VERSION
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDisallowedActions
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.action.ActionListener
-import org.elasticsearch.action.DocWriteRequest
-import org.elasticsearch.action.index.IndexRequest
-import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.WriteRequest
-import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.BaseRestHandler
-import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.BytesRestResponse
-import org.elasticsearch.rest.RestChannel
+import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.PUT
 import org.elasticsearch.rest.RestResponse
@@ -55,14 +44,13 @@ import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 import java.time.Instant
 
+private val log = LogManager.getLogger(RestIndexPolicyAction::class.java)
+
 class RestIndexPolicyAction(
     settings: Settings,
-    val clusterService: ClusterService,
-    indexManagementIndices: IndexManagementIndices
+    val clusterService: ClusterService
 ) : BaseRestHandler() {
 
-    private val log = LogManager.getLogger(javaClass)
-    private var ismIndices = indexManagementIndices
     @Volatile private var allowList = ALLOW_LIST.get(settings)
 
     init {
@@ -91,11 +79,13 @@ class RestIndexPolicyAction(
         val policy = Policy.parseWithType(xcp = xcp, id = id).copy(lastUpdatedTime = Instant.now())
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
+
         val refreshPolicy = if (request.hasParam(REFRESH)) {
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
+
         val disallowedActions = policy.getDisallowedActions(allowList)
         if (disallowedActions.isNotEmpty()) {
             return RestChannelConsumer { channel ->
@@ -107,82 +97,20 @@ class RestIndexPolicyAction(
                 )
             }
         }
+
+        val indexPolicyRequest = IndexPolicyRequest(id, policy, seqNo, primaryTerm, refreshPolicy)
+
         return RestChannelConsumer { channel ->
-            IndexPolicyHandler(client, channel, id, seqNo, primaryTerm, refreshPolicy, policy).start()
-        }
-    }
-
-    inner class IndexPolicyHandler(
-        client: NodeClient,
-        channel: RestChannel,
-        private val policyId: String,
-        private val seqNo: Long,
-        private val primaryTerm: Long,
-        private val refreshPolicy: WriteRequest.RefreshPolicy,
-        private var newPolicy: Policy
-    ) : AsyncActionHandler(client, channel) {
-
-        fun start() {
-            ismIndices.checkAndUpdateIMConfigIndex(ActionListener.wrap(::onCreateMappingsResponse, ::onFailure))
-        }
-
-        private fun onCreateMappingsResponse(response: AcknowledgedResponse) {
-            if (response.isAcknowledged) {
-                log.info("Successfully created or updated $INDEX_MANAGEMENT_INDEX with newest mappings.")
-                putPolicy()
-            } else {
-                log.error("Unable to create or update $INDEX_MANAGEMENT_INDEX with newest mapping.")
-                channel.sendResponse(
-                        BytesRestResponse(
-                                RestStatus.INTERNAL_SERVER_ERROR,
-                                response.toXContent(channel.newErrorBuilder(), ToXContent.EMPTY_PARAMS))
-                )
-            }
-        }
-
-        private fun putPolicy() {
-            newPolicy.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
-
-            val indexRequest = IndexRequest(INDEX_MANAGEMENT_INDEX)
-                    .setRefreshPolicy(refreshPolicy)
-                    .source(newPolicy.toXContent(channel.newBuilder()))
-                    .id(policyId)
-                    .timeout(IndexRequest.DEFAULT_TIMEOUT)
-            if (seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO || primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
-                indexRequest.opType(DocWriteRequest.OpType.CREATE)
-            } else {
-                indexRequest.setIfSeqNo(seqNo)
-                        .setIfPrimaryTerm(primaryTerm)
-            }
-            client.index(indexRequest, indexPolicyResponse())
-        }
-
-        private fun indexPolicyResponse(): RestResponseListener<IndexResponse> {
-            return object : RestResponseListener<IndexResponse>(channel) {
-                @Throws(Exception::class)
-                override fun buildResponse(response: IndexResponse): RestResponse {
-                    if (response.shardInfo.successful < 1) {
-                        return BytesRestResponse(response.status(), response.toXContent(channel.newErrorBuilder(),
-                                ToXContent.EMPTY_PARAMS))
-                    }
-
-                    val builder = channel.newBuilder()
-                            .startObject()
-                            .field(_ID, response.id)
-                            .field(_VERSION, response.version)
-                            .field(_PRIMARY_TERM, response.primaryTerm)
-                            .field(_SEQ_NO, response.seqNo)
-                            .field(POLICY_TYPE, newPolicy)
-                            .endObject()
-
-                    val restResponse = BytesRestResponse(response.status(), builder)
-                    if (response.status() == RestStatus.CREATED) {
+            client.execute(IndexPolicyAction.INSTANCE, indexPolicyRequest, object : RestResponseListener<IndexPolicyResponse>(channel) {
+                override fun buildResponse(response: IndexPolicyResponse): RestResponse {
+                    val restResponse = BytesRestResponse(response.status, response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
+                    if (response.status == RestStatus.CREATED) {
                         val location = "$POLICY_BASE_URI/${response.id}"
                         restResponse.addHeader("Location", location)
                     }
                     return restResponse
                 }
-            }
+            })
         }
     }
 }

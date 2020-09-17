@@ -15,6 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action
 
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
@@ -23,10 +26,20 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import java.io.IOException
 
-data class ActionTimeout(val timeout: TimeValue) : ToXContentFragment {
+data class ActionTimeout(val timeout: TimeValue) : ToXContentFragment, Writeable {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.field(TIMEOUT_FIELD, timeout.stringRep)
+    }
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        timeout = sin.readTimeValue()
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeTimeValue(timeout)
     }
 
     companion object {

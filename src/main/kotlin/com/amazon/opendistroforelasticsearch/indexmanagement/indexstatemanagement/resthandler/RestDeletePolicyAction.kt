@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.deletepolicy.DeletePolicyAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.deletepolicy.DeletePolicyRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.REFRESH
-import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
@@ -42,11 +42,10 @@ class RestDeletePolicyAction : BaseRestHandler() {
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val policyID = request.param("policyID")
         val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
+        val deletePolicyRequest = DeletePolicyRequest(policyID, refreshPolicy)
 
         return RestChannelConsumer { channel ->
-            val deleteRequest = DeleteRequest(INDEX_MANAGEMENT_INDEX, policyID)
-                    .setRefreshPolicy(refreshPolicy)
-            client.delete(deleteRequest, RestStatusToXContentListener(channel))
+            client.execute(DeletePolicyAction.INSTANCE, deletePolicyRequest, RestStatusToXContentListener(channel))
         }
     }
 }

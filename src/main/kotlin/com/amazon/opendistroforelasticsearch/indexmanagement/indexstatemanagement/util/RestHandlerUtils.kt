@@ -35,7 +35,7 @@ const val FAILURES = "failures"
 const val FAILED_INDICES = "failed_indices"
 const val UPDATED_INDICES = "updated_indices"
 
-fun buildInvalidIndexResponse(builder: XContentBuilder, failedIndices: MutableList<FailedIndex>) {
+fun buildInvalidIndexResponse(builder: XContentBuilder, failedIndices: List<FailedIndex>) {
     if (failedIndices.isNotEmpty()) {
         builder.field(FAILURES, true)
         builder.startArray(FAILED_INDICES)
@@ -66,9 +66,9 @@ data class FailedIndex(val name: String, val uuid: String, val reason: String) :
     }
 
     constructor(sin: StreamInput) : this(
-        sin.readString(),
-        sin.readString(),
-        sin.readString()
+        name = sin.readString(),
+        uuid = sin.readString(),
+        reason = sin.readString()
     )
 
     override fun writeTo(out: StreamOutput) {

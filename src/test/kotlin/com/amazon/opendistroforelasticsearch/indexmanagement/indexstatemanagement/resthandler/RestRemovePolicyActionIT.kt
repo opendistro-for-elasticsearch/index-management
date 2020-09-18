@@ -35,11 +35,12 @@ class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
             val actualMessage = e.response.asMap()
             val expectedErrorMessage = mapOf(
                 "error" to mapOf(
+                    "reason" to "Validation Failed: 1: Missing indices;",
+                    "type" to "action_request_validation_exception",
                     "root_cause" to listOf<Map<String, Any>>(
-                        mapOf("type" to "illegal_argument_exception", "reason" to "Missing indices")
-                    ),
-                    "type" to "illegal_argument_exception",
-                    "reason" to "Missing indices"
+                        mapOf("reason" to "Validation Failed: 1: Missing indices;",
+                            "type" to "action_request_validation_exception")
+                    )
                 ),
                 "status" to 400
             )

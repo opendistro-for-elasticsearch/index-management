@@ -15,11 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy
 
-import org.elasticsearch.action.ActionType
+import org.elasticsearch.test.ESTestCase
+import org.junit.Assert
 
-class GetPolicyAction private constructor() : ActionType<GetPolicyResponse>(NAME, ::GetPolicyResponse) {
-    companion object {
-        val INSTANCE = GetPolicyAction()
-        val NAME = "cluster:admin/opendistro/ism/policies/read"
+class GetPolicyActionTests : ESTestCase() {
+
+    fun `test get policy action name`() {
+        Assert.assertNotNull(GetPolicyAction.NAME)
+        Assert.assertEquals(GetPolicyAction.INSTANCE.name(), GetPolicyAction.NAME)
     }
 }

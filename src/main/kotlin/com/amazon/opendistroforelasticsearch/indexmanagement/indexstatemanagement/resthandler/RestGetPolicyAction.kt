@@ -15,34 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._VERSION
-import org.elasticsearch.action.get.GetRequest
-import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestHandler.Route
-import org.elasticsearch.rest.BytesRestResponse
-import org.elasticsearch.rest.RestChannel
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestRequest.Method.HEAD
-import org.elasticsearch.rest.RestResponse
-import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActions
-import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.rest.action.RestToXContentListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 

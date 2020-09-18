@@ -13,13 +13,15 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy
 
-import org.elasticsearch.action.ActionType
+import org.elasticsearch.test.ESTestCase
+import org.junit.Assert
 
-class GetPolicyAction private constructor() : ActionType<GetPolicyResponse>(NAME, ::GetPolicyResponse) {
-    companion object {
-        val INSTANCE = GetPolicyAction()
-        val NAME = "cluster:admin/opendistro/ism/policies/read"
+class IndexPolicyActionTests : ESTestCase() {
+
+    fun `test index policy action name`() {
+        Assert.assertNotNull(IndexPolicyAction.NAME)
+        Assert.assertEquals(IndexPolicyAction.INSTANCE.name(), IndexPolicyAction.NAME)
     }
 }

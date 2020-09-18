@@ -19,6 +19,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
@@ -41,6 +43,7 @@ import org.elasticsearch.rest.RestResponse
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestResponseListener
+import org.elasticsearch.rest.action.RestToXContentListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 
 class RestGetPolicyAction : BaseRestHandler() {
@@ -57,47 +60,15 @@ class RestGetPolicyAction : BaseRestHandler() {
     }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val policyId = request.param("policyID")
-        if (policyId == null || policyId.isEmpty()) {
-            throw IllegalArgumentException("Missing policy ID")
-        }
-        val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, policyId)
-                .version(RestActions.parseVersion(request))
-
+        val policyID = request.param("policyID")
+        var fetchSrcContext: FetchSourceContext? = null
         if (request.method() == HEAD) {
-            getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE)
+            fetchSrcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         }
-        return RestChannelConsumer { channel -> client.get(getRequest, getPolicyResponse(channel)) }
-    }
+        val getPolicyRequest = GetPolicyRequest(policyID, RestActions.parseVersion(request), fetchSrcContext)
 
-    private fun getPolicyResponse(channel: RestChannel): RestResponseListener<GetResponse> {
-        return object : RestResponseListener<GetResponse>(channel) {
-            @Throws(Exception::class)
-            override fun buildResponse(response: GetResponse): RestResponse {
-                if (!response.isExists) {
-                    return BytesRestResponse(RestStatus.NOT_FOUND, channel.newBuilder())
-                }
-
-                val builder = channel.newBuilder()
-                        .startObject()
-                        .field(_ID, response.id)
-                        .field(_VERSION, response.version)
-                        .field(_SEQ_NO, response.seqNo)
-                        .field(_PRIMARY_TERM, response.primaryTerm)
-                if (!response.isSourceEmpty) {
-                    XContentHelper.createParser(
-                        channel.request().xContentRegistry,
-                        LoggingDeprecationHandler.INSTANCE,
-                        response.sourceAsBytesRef,
-                        XContentType.JSON
-                    ).use { xcp ->
-                        val policy = Policy.parseWithType(xcp, response.id, response.seqNo, response.primaryTerm)
-                        builder.field(POLICY_TYPE, policy, XCONTENT_WITHOUT_TYPE)
-                    }
-                }
-                builder.endObject()
-                return BytesRestResponse(RestStatus.OK, builder)
-            }
+        return RestChannelConsumer { channel ->
+            client.execute(GetPolicyAction.INSTANCE, getPolicyRequest, RestToXContentListener(channel))
         }
     }
 }

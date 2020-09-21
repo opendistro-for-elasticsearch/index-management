@@ -43,6 +43,10 @@ class RestRemovePolicyAction : BaseRestHandler() {
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
 
+        if (indices.isNullOrEmpty()) {
+            throw IllegalArgumentException("Missing indices")
+        }
+
         val removePolicyRequest = RemovePolicyRequest(indices.toList())
 
         return RestChannelConsumer { channel ->

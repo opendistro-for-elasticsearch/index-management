@@ -15,11 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ManagedIndexResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import org.elasticsearch.common.io.stream.StreamInput
 
-class RemovePolicyResponse : ManagedIndexResponse {
+class RemovePolicyResponse : ISMStatusResponse {
     constructor(updated: Int, failedIndices: List<FailedIndex>) : super(updated, failedIndices)
     constructor(sin: StreamInput) : super(sin)
 }

@@ -36,7 +36,7 @@ class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
             val expectedErrorMessage = mapOf(
                 "error" to mapOf(
                     "root_cause" to listOf<Map<String, Any>>(
-                        mapOf("type" to "illegal_argument_exception", "reason" to "Missing indices")
+                            mapOf("type" to "illegal_argument_exception", "reason" to "Missing indices")
                     ),
                     "type" to "illegal_argument_exception",
                     "reason" to "Missing indices"

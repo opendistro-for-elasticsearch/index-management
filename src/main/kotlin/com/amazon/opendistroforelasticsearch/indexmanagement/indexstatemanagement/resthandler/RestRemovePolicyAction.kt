@@ -16,34 +16,15 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.buildInvalidIndexResponse
-import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
-import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
-import org.elasticsearch.action.support.IndicesOptions
-import org.elasticsearch.action.support.master.AcknowledgedResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy.RemovePolicyAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy.RemovePolicyRequest
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.cluster.ClusterState
-import org.elasticsearch.cluster.block.ClusterBlockException
-import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.index.Index
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestHandler.Route
-import org.elasticsearch.rest.BytesRestResponse
-import org.elasticsearch.rest.RestChannel
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.POST
-import org.elasticsearch.rest.RestResponse
-import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.rest.action.RestActionListener
-import org.elasticsearch.rest.action.RestResponseListener
+import org.elasticsearch.rest.action.RestToXContentListener
 import java.io.IOException
 
 class RestRemovePolicyAction : BaseRestHandler() {
@@ -60,94 +41,16 @@ class RestRemovePolicyAction : BaseRestHandler() {
     @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
+        val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
 
         if (indices.isNullOrEmpty()) {
             throw IllegalArgumentException("Missing indices")
         }
 
-        val strictExpandOptions = IndicesOptions.strictExpand()
+        val removePolicyRequest = RemovePolicyRequest(indices.toList())
 
-        val clusterStateRequest = ClusterStateRequest()
-            .clear()
-            .indices(*indices)
-            .metadata(true)
-            .local(false)
-            .indicesOptions(strictExpandOptions)
-
-        return RestChannelConsumer {
-            client.admin()
-                .cluster()
-                .state(clusterStateRequest, RemovePolicyHandler(client, it))
-        }
-    }
-
-    inner class RemovePolicyHandler(
-        private val client: NodeClient,
-        channel: RestChannel
-    ) : RestActionListener<ClusterStateResponse>(channel) {
-
-        private val failedIndices: MutableList<FailedIndex> = mutableListOf()
-        private val indicesToRemovePolicyFrom: MutableList<Index> = mutableListOf()
-
-        @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
-        override fun processResponse(clusterStateResponse: ClusterStateResponse) {
-            val state = clusterStateResponse.state
-            populateLists(state)
-
-            val builder = channel.newBuilder().startObject()
-            if (indicesToRemovePolicyFrom.isNotEmpty()) {
-                val updateSettingsRequest = UpdateSettingsRequest()
-                    .indices(*indicesToRemovePolicyFrom.map { it.name }.toTypedArray())
-                    .settings(Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key))
-
-                try {
-                    client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest,
-                        object : RestResponseListener<AcknowledgedResponse>(channel) {
-                            override fun buildResponse(response: AcknowledgedResponse): RestResponse {
-                                if (response.isAcknowledged) {
-                                    builder.field(UPDATED_INDICES, indicesToRemovePolicyFrom.size)
-                                } else {
-                                    builder.field(UPDATED_INDICES, 0)
-                                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
-                                        FailedIndex(it.name, it.uuid, "Failed to remove policy")
-                                    })
-                                }
-
-                                buildInvalidIndexResponse(builder, failedIndices)
-                                return BytesRestResponse(RestStatus.OK, builder.endObject())
-                            }
-                        }
-                    )
-                } catch (e: ClusterBlockException) {
-                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
-                        FailedIndex(it.name, it.uuid, "Failed to remove policy due to ClusterBlockException: ${e.message}")
-                    })
-
-                    builder.field(UPDATED_INDICES, 0)
-                    buildInvalidIndexResponse(builder, failedIndices)
-                    channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
-                }
-            } else {
-                builder.field(UPDATED_INDICES, 0)
-                buildInvalidIndexResponse(builder, failedIndices)
-                channel.sendResponse(BytesRestResponse(RestStatus.OK, builder.endObject()))
-            }
-        }
-
-        private fun populateLists(state: ClusterState) {
-            for (indexMetaDataEntry in state.metadata.indices) {
-                val indexMetaData = indexMetaDataEntry.value
-                when {
-                    indexMetaData.getPolicyID() == null ->
-                        failedIndices.add(
-                            FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index does not have a policy to remove")
-                        )
-                    indexMetaData.state == IndexMetadata.State.CLOSE ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
-                    else -> indicesToRemovePolicyFrom.add(indexMetaData.index)
-                }
-            }
+        return RestChannelConsumer { channel ->
+            client.execute(RemovePolicyAction.INSTANCE, removePolicyRequest, RestToXContentListener(channel))
         }
     }
 

@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHi
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMax
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMin
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomSum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomTerms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomValueCount
@@ -100,6 +101,13 @@ class XContentTests : ESTestCase() {
         val valueCountString = valueCount.toJsonString()
         val parsedValueCount = Metric.parse(parser(valueCountString))
         assertEquals("Round tripping ValueCount doesn't work", valueCount, parsedValueCount)
+    }
+
+    fun `test rollup metrics parsing`() {
+        val rollupMetrics = randomRollupMetrics()
+        val rollupMetricsString = rollupMetrics.toJsonString()
+        val parsedRollupMetrics = RollupMetrics.parse(parser(rollupMetricsString))
+        assertEquals("Round tripping RollupMetrics doesn't work", rollupMetrics, parsedRollupMetrics)
     }
 
     private fun parser(xc: String): XContentParser {

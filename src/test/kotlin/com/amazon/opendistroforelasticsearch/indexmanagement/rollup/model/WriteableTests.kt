@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHi
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMax
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMin
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomSum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomTerms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomValueCount
@@ -99,5 +100,13 @@ class WriteableTests : ESTestCase() {
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val streamedValueCount = ValueCount(sin)
         assertEquals("Round tripping ValueCount stream doesn't work", valueCount, streamedValueCount)
+    }
+
+    fun `test rollup metrics as stream`() {
+        val rollupMetrics = randomRollupMetrics()
+        val out = BytesStreamOutput().also { rollupMetrics.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedRollupMetrics = RollupMetrics(sin)
+        assertEquals("Round tripping RollupMetrics stream doesn't work", rollupMetrics, streamedRollupMetrics)
     }
 }

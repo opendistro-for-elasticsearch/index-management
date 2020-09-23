@@ -16,11 +16,13 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Average
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Max
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Min
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Sum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.ValueCount
@@ -66,6 +68,18 @@ fun randomSum(): Sum = Sum()
 
 fun randomValueCount(): ValueCount = ValueCount()
 
+val metrics = listOf(randomAverage(), randomMax(), randomMin(), randomSum(), randomValueCount())
+
+fun randomMetric(): Metric =
+    ESRestTestCase.randomSubsetOf(1, metrics).first()
+
+fun randomMetrics(): List<Metric> =
+    ESRestTestCase.randomList(1, metrics.size, ::randomMetric).distinctBy { it.type }
+
+fun randomRollupMetrics(): RollupMetrics = ESRestTestCase.randomAlphaOfLength(10).let {
+    RollupMetrics(sourceField = it, targetField = it, metrics = randomMetrics())
+}
+
 fun DateHistogram.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
 
 fun Histogram.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
@@ -81,3 +95,5 @@ fun Min.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), 
 fun Sum.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
 
 fun ValueCount.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
+
+fun RollupMetrics.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()

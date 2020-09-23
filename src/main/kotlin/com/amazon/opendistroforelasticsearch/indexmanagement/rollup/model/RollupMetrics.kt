@@ -37,7 +37,7 @@ data class RollupMetrics(
     val sourceField: String,
     val targetField: String,
     val metrics: List<Metric>
-): ToXContentObject, Writeable {
+) : ToXContentObject, Writeable {
 
     private val logger = LogManager.getLogger(javaClass)
 

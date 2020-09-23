@@ -55,12 +55,11 @@ abstract class Dimension(
                     Type.DATE_HISTOGRAM.type -> DateHistogram.parse(xcp)
                     Type.TERMS.type -> Terms.parse(xcp)
                     Type.HISTOGRAM.type -> Histogram.parse(xcp)
-                    else -> throw IllegalArgumentException("Invalid dimension type [$fieldName] found in dimensions.")
+                    else -> throw IllegalArgumentException("Invalid dimension type [$fieldName] found in dimensions")
                 }
             }
 
-            requireNotNull(dimension) { "Dimension cannot be null" }
-            return dimension
+            return requireNotNull(dimension) { "Dimension cannot be null" }
         }
     }
 }

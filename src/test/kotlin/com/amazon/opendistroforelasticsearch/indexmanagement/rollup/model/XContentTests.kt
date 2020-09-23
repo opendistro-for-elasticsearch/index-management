@@ -15,11 +15,15 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomAverage
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMax
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMin
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomSum
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomTerms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomValueCount
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.toJsonString
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -29,6 +33,33 @@ import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 
 class XContentTests : ESTestCase() {
+
+    fun `test invalid dimension parsing`() {
+        assertFailsWith(IllegalArgumentException::class, "Invalid dimension type [invalid_dimension] found in dimensions") {
+            Dimension.parse(parser("{\"invalid_dimension\":{}}"))
+        }
+    }
+
+    fun `test date histogram dimension parsing`() {
+        val dateHistogram = randomDateHistogram()
+        val dateHistogramString = dateHistogram.toJsonString()
+        val parsedDateHistogram = Dimension.parse(parser(dateHistogramString))
+        assertEquals("Round tripping Date Histogram doesn't work", dateHistogram, parsedDateHistogram)
+    }
+
+    fun `test histogram dimension parsing`() {
+        val histogram = randomHistogram()
+        val histogramString = histogram.toJsonString()
+        val parsedHistogram = Dimension.parse(parser(histogramString))
+        assertEquals("Round tripping Histogram doesn't work", histogram, parsedHistogram)
+    }
+
+    fun `test terms dimension parsing`() {
+        val terms = randomTerms()
+        val termsString = terms.toJsonString()
+        val parsedTerms = Dimension.parse(parser(termsString))
+        assertEquals("Round tripping Terms doesn't work", terms, parsedTerms)
+    }
 
     fun `test invalid metric parsing`() {
         assertFailsWith(IllegalArgumentException::class, "Invalid metric type: [invalid_metric] found in rollup metrics") {

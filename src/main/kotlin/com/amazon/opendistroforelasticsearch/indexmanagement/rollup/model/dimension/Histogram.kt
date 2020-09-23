@@ -33,7 +33,7 @@ data class Histogram(
 
     init {
         require(sourceField.isNotEmpty() && targetField.isNotEmpty()) { "Source and target field must not be empty" }
-        require(interval > 0) { "Interval must be a positive decimal" }
+        require(interval > 0.0) { "Interval must be a positive decimal" }
     }
 
     @Throws(IOException::class)

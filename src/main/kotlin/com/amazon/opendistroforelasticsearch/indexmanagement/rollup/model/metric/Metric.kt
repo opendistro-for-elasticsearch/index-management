@@ -53,7 +53,7 @@ abstract class Metric(val type: Type) : ToXContentObject, Writeable {
                     Type.MIN.type -> Min.parse(xcp)
                     Type.SUM.type -> Sum.parse(xcp)
                     Type.VALUE_COUNT.type -> ValueCount.parse(xcp)
-                    else -> throw IllegalArgumentException("Invalid metric type: [$fieldName] found in rollup metrics")
+                    else -> throw IllegalArgumentException("Invalid metric type [$fieldName] found in metrics")
                 }
             }
 

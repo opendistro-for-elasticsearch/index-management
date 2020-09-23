@@ -15,21 +15,51 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Average
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Max
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Min
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Sum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.ValueCount
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomAverage
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMax
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMin
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomSum
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomTerms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomValueCount
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
 
 class WriteableTests : ESTestCase() {
+
+    fun `test date histogram dimension as stream`() {
+        val dateHistogram = randomDateHistogram()
+        val out = BytesStreamOutput().also { dateHistogram.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedDateHistogram = DateHistogram(sin)
+        assertEquals("Round tripping Date Histogram stream doesn't work", dateHistogram, streamedDateHistogram)
+    }
+
+    fun `test histogram dimension as stream`() {
+        val histogram = randomHistogram()
+        val out = BytesStreamOutput().also { histogram.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedHistogram = Histogram(sin)
+        assertEquals("Round tripping Histogram stream doesn't work", histogram, streamedHistogram)
+    }
+
+    fun `test terms dimension as stream`() {
+        val terms = randomTerms()
+        val out = BytesStreamOutput().also { terms.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedTerms = Terms(sin)
+        assertEquals("Round tripping Terms stream doesn't work", terms, streamedTerms)
+    }
 
     fun `test average metric as stream`() {
         val avg = randomAverage()

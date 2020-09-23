@@ -5,10 +5,12 @@ on:
     branches:
       - master
       - opendistro-*
+      - rollup-dev
   push:
     branches:
       - master
       - opendistro-*
+      - rollup-dev
 
 jobs:
   build:

@@ -24,7 +24,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 class Average() : Metric(Type.AVERAGE) {
-    constructor(sin: StreamInput): this()
+    constructor(sin: StreamInput) : this()
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject().startObject(Type.AVERAGE.type).endObject().endObject()
@@ -43,7 +43,7 @@ class Average() : Metric(Type.AVERAGE) {
     override fun toString(): String = "Average()"
 
     companion object {
-        fun parse(xcp: XContentParser) : Average {
+        fun parse(xcp: XContentParser): Average {
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return Average()

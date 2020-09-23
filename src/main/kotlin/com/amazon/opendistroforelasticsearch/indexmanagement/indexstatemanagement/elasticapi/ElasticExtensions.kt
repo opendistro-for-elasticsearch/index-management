@@ -98,4 +98,3 @@ fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
     }
     return null
 }
-

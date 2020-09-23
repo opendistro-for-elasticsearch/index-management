@@ -24,7 +24,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 class Max() : Metric(Type.MAX) {
-    constructor(sin: StreamInput): this()
+    constructor(sin: StreamInput) : this()
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject().startObject(Type.MAX.type).endObject().endObject()
@@ -43,7 +43,7 @@ class Max() : Metric(Type.MAX) {
     override fun toString(): String = "Max()"
 
     companion object {
-        fun parse(xcp: XContentParser) : Max {
+        fun parse(xcp: XContentParser): Max {
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return Max()

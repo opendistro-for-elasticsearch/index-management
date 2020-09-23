@@ -24,7 +24,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 class Min() : Metric(Type.MIN) {
-    constructor(sin: StreamInput): this()
+    constructor(sin: StreamInput) : this()
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject().startObject(Type.MIN.type).endObject().endObject()
@@ -43,7 +43,7 @@ class Min() : Metric(Type.MIN) {
     override fun toString(): String = "Min()"
 
     companion object {
-        fun parse(xcp: XContentParser) : Min {
+        fun parse(xcp: XContentParser): Min {
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return Min()

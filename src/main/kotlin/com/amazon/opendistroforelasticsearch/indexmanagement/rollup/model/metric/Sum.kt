@@ -24,7 +24,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 class Sum() : Metric(Type.SUM) {
-    constructor(sin: StreamInput): this()
+    constructor(sin: StreamInput) : this()
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject().startObject(Type.SUM.type).endObject().endObject()
@@ -43,7 +43,7 @@ class Sum() : Metric(Type.SUM) {
     override fun toString(): String = "Sum()"
 
     companion object {
-        fun parse(xcp: XContentParser) : Sum {
+        fun parse(xcp: XContentParser): Sum {
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return Sum()

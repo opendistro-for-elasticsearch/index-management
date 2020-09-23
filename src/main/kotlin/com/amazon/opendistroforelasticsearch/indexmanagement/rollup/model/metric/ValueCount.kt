@@ -24,7 +24,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 class ValueCount() : Metric(Type.VALUE_COUNT) {
-    constructor(sin: StreamInput): this()
+    constructor(sin: StreamInput) : this()
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject().startObject(Type.VALUE_COUNT.type).endObject().endObject()
@@ -43,7 +43,7 @@ class ValueCount() : Metric(Type.VALUE_COUNT) {
     override fun toString(): String = "ValueCount()"
 
     companion object {
-        fun parse(xcp: XContentParser) : ValueCount {
+        fun parse(xcp: XContentParser): ValueCount {
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
             return ValueCount()

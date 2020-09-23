@@ -45,7 +45,7 @@ data class DateHistogram(
         targetField = sin.readString(),
         fixedInterval = sin.readOptionalString(),
         calendarInterval = sin.readOptionalString(),
-        timezone = ZoneId.of(sin.readString())
+        timezone = sin.readZoneId()
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -65,7 +65,7 @@ data class DateHistogram(
         out.writeString(targetField)
         out.writeOptionalString(fixedInterval)
         out.writeOptionalString(calendarInterval)
-        out.writeString(timezone.id)
+        out.writeZoneId(timezone)
     }
 
     companion object {

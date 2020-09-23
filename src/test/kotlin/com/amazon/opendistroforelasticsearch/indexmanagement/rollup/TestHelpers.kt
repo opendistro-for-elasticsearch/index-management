@@ -16,8 +16,12 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
+import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
+import com.amazon.opendistroforelasticsearch.indexmanagement.randomSchedule
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Average
@@ -29,21 +33,18 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.test.rest.ESRestTestCase
-import java.time.ZoneId
 
 fun randomInterval(): String = if (ESRestTestCase.randomBoolean()) randomFixedInterval() else randomCalendarInterval()
 
-fun randomCalendarInterval(): String = "1d" // random all choices?
+fun randomCalendarInterval(): String = "1d" // TODO: random all choices?
 
-fun randomFixedInterval(): String = "30m" // random all choices?
-
-fun randomZoneId(): ZoneId = ESRestTestCase.randomZone()
+fun randomFixedInterval(): String = "30m" // TODO: random all choices?
 
 fun randomFixedDateHistogram(): DateHistogram = ESRestTestCase.randomAlphaOfLength(10).let {
-    DateHistogram(sourceField = it, targetField = it, fixedInterval = randomFixedInterval(), calendarInterval = null, timezone = randomZoneId())
+    DateHistogram(sourceField = it, targetField = it, fixedInterval = randomFixedInterval(), calendarInterval = null, timezone = ESRestTestCase.randomZone())
 }
 fun randomCalendarDateHistogram(): DateHistogram = ESRestTestCase.randomAlphaOfLength(10).let {
-    DateHistogram(sourceField = it, targetField = it, fixedInterval = null, calendarInterval = randomCalendarInterval(), timezone = randomZoneId())
+    DateHistogram(sourceField = it, targetField = it, fixedInterval = null, calendarInterval = randomCalendarInterval(), timezone = ESRestTestCase.randomZone())
 }
 
 fun randomDateHistogram(): DateHistogram = if (ESRestTestCase.randomBoolean()) randomFixedDateHistogram() else randomCalendarDateHistogram()
@@ -80,6 +81,41 @@ fun randomRollupMetrics(): RollupMetrics = ESRestTestCase.randomAlphaOfLength(10
     RollupMetrics(sourceField = it, targetField = it, metrics = randomMetrics())
 }
 
+fun randomRollupDimensions(): List<Dimension> {
+    val dimensions = mutableListOf<Dimension>(randomDateHistogram())
+    for (i in 0..ESRestTestCase.randomInt(10)) {
+        dimensions.add(if (ESRestTestCase.randomBoolean()) randomTerms() else randomHistogram())
+    }
+    return dimensions.toList()
+}
+
+fun randomRollup(): Rollup {
+    ESRestTestCase.randomAlphaOfLength(10).let {
+        RollupMetrics(sourceField = it, targetField = it, metrics = randomMetrics())
+    }
+    val enabled = ESRestTestCase.randomBoolean()
+    return Rollup(
+        id = ESRestTestCase.randomAlphaOfLength(10),
+        seqNo = ESRestTestCase.randomNonNegativeLong(),
+        primaryTerm = ESRestTestCase.randomNonNegativeLong(),
+        enabled = enabled,
+        schemaVersion = ESRestTestCase.randomLongBetween(1, 1000),
+        jobSchedule = randomSchedule(),
+        jobLastUpdatedTime = randomInstant(),
+        jobEnabledTime = if (enabled) randomInstant() else null,
+        description = ESRestTestCase.randomAlphaOfLength(10),
+        sourceIndex = ESRestTestCase.randomAlphaOfLength(10),
+        targetIndex = ESRestTestCase.randomAlphaOfLength(10),
+        metadataID = if (ESRestTestCase.randomBoolean()) null else ESRestTestCase.randomAlphaOfLength(10),
+        roles = ESRestTestCase.randomList(10) { ESRestTestCase.randomAlphaOfLength(10) },
+        pageSize = ESRestTestCase.randomLongBetween(1, 10000),
+        delay = ESRestTestCase.randomNonNegativeLong(),
+        continuous = ESRestTestCase.randomBoolean(),
+        dimensions = randomRollupDimensions(),
+        metrics = ESRestTestCase.randomList(20, ::randomRollupMetrics).distinctBy { it.targetField }
+    )
+}
+
 fun DateHistogram.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
 
 fun Histogram.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
@@ -97,3 +133,5 @@ fun Sum.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), 
 fun ValueCount.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
 
 fun RollupMetrics.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
+
+fun Rollup.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()

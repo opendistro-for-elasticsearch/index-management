@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomAverage
@@ -22,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHi
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMax
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMin
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomSum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomTerms
@@ -108,6 +110,20 @@ class XContentTests : ESTestCase() {
         val rollupMetricsString = rollupMetrics.toJsonString()
         val parsedRollupMetrics = RollupMetrics.parse(parser(rollupMetricsString))
         assertEquals("Round tripping RollupMetrics doesn't work", rollupMetrics, parsedRollupMetrics)
+    }
+
+    fun `test rollup parsing with type`() {
+        val rollup = randomRollup()
+        val rollupString = rollup.toJsonString()
+        val parsedRollup = Rollup.parseWithType(parserWithType(rollupString), rollup.id, rollup.seqNo, rollup.primaryTerm)
+        assertEquals("Round tripping Rollup with type doesn't work", rollup, parsedRollup)
+    }
+
+    fun `test rollup parsing without type`() {
+        val rollup = randomRollup()
+        val rollupString = rollup.toJsonString(XCONTENT_WITHOUT_TYPE)
+        val parsedRollup = Rollup.parse(parser(rollupString), rollup.id, rollup.seqNo, rollup.primaryTerm)
+        assertEquals("Round tripping Rollup without type doesn't work", rollup, parsedRollup)
     }
 
     private fun parser(xc: String): XContentParser {

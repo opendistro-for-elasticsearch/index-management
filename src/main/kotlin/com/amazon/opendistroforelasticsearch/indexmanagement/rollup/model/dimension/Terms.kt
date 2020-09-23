@@ -27,7 +27,7 @@ import java.io.IOException
 data class Terms(
     override val sourceField: String,
     override val targetField: String
-): Dimension(Type.TERMS, sourceField, targetField) {
+) : Dimension(Type.TERMS, sourceField, targetField) {
 
     init {
         require(sourceField.isNotEmpty() && targetField.isNotEmpty()) { "Source and target field must not be empty" }
@@ -50,6 +50,7 @@ data class Terms(
 
     override fun writeTo(out: StreamOutput) {
         out.writeString(sourceField)
+        out.writeString(targetField)
     }
 
     companion object {

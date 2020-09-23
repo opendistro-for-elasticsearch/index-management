@@ -29,7 +29,7 @@ data class Histogram(
     override val sourceField: String,
     override val targetField: String,
     val interval: Double
-): Dimension(Type.HISTOGRAM, sourceField, targetField) {
+) : Dimension(Type.HISTOGRAM, sourceField, targetField) {
 
     init {
         require(sourceField.isNotEmpty() && targetField.isNotEmpty()) { "Source and target field must not be empty" }

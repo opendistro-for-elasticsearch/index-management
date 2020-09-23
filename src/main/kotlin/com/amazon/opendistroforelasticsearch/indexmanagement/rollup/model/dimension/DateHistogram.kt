@@ -31,7 +31,7 @@ data class DateHistogram(
     val fixedInterval: String?,
     val calendarInterval: String?,
     val timezone: ZoneId
-): Dimension(Type.DATE_HISTOGRAM, sourceField, targetField) {
+) : Dimension(Type.DATE_HISTOGRAM, sourceField, targetField) {
 
     init {
         require(sourceField.isNotEmpty() && targetField.isNotEmpty()) { "Source and target field must not be empty" }

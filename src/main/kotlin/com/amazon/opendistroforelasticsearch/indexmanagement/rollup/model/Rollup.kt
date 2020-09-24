@@ -132,7 +132,7 @@ data class Rollup(
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(ROLLUP_TYPE)
         builder.field(ENABLED_FIELD, enabled)
             .field(SCHEDULE_FIELD, jobSchedule)
-            .timeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
+            .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
             .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
             .field(DESCRIPTION_FIELD, description)
             .field(SCHEMA_VERSION_FIELD, schemaVersion)

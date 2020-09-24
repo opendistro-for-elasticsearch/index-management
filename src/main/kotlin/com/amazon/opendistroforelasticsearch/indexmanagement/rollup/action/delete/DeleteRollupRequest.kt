@@ -24,31 +24,24 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
 
 class DeleteRollupRequest : DeleteRequest {
-    val id: String
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput) : super(sin) {
-        id = sin.readString()
-    }
+    constructor(sin: StreamInput) : super(sin)
 
-    constructor(rollupID: String) {
-        this.id = rollupID
-        super.index(INDEX_MANAGEMENT_INDEX)
+    constructor(id: String) {
+        super.id(id)
     }
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (id.isBlank()) {
+        if (super.id().isBlank()) {
             validationException = addValidationError("id is missing", validationException)
         }
         return validationException
     }
 
-    fun rollupID(): String = id
-
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeString(id)
     }
 }

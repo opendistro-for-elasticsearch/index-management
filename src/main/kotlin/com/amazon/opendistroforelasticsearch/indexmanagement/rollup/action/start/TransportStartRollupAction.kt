@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteResponse
@@ -26,6 +28,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import java.time.Instant
 
 class TransportStartRollupAction @Inject constructor(
     transportService: TransportService,
@@ -38,6 +41,12 @@ class TransportStartRollupAction @Inject constructor(
     private val logger = LogManager.getLogger(javaClass)
 
     override fun doExecute(task: Task, request: StartRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
+        // TODO: If we allow updated this even when it's already true it means it'll keep getting rescheduled further out
+        //  might make more sense to just get first, compare if its already started or not and handle that
+        val now = Instant.now().toEpochMilli()
+        request.index(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
+            .doc(mapOf(Rollup.ROLLUP_TYPE to mapOf(Rollup.ENABLED_FIELD to true,
+                Rollup.ENABLED_TIME_FIELD to now, Rollup.LAST_UPDATED_TIME_FIELD to now)))
         client.update(request, object : ActionListener<UpdateResponse> {
             override fun onResponse(response: UpdateResponse) {
                 actionListener.onResponse(AcknowledgedResponse(response.result == DocWriteResponse.Result.UPDATED))

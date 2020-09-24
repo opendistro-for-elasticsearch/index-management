@@ -24,7 +24,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.rest.RestRequest.Method.PUT
+import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.action.RestToXContentListener
 import java.io.IOException
 
@@ -32,7 +32,7 @@ class RestStartRollupAction() : BaseRestHandler() {
 
     override fun routes(): List<Route> {
         return listOf(
-            Route(PUT, "$ROLLUP_JOBS_BASE_URI/{rollupID}/_start")
+            Route(POST, "$ROLLUP_JOBS_BASE_URI/{rollupID}/_start")
         )
     }
 
@@ -43,10 +43,6 @@ class RestStartRollupAction() : BaseRestHandler() {
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val id = request.param("rollupID", Rollup.NO_ID)
-        if (Rollup.NO_ID == id) {
-            throw IllegalArgumentException("Missing rollup ID")
-        }
-
         val startRequest = StartRollupRequest(id)
         return RestChannelConsumer { channel ->
             client.execute(StartRollupAction.INSTANCE, startRequest, RestToXContentListener(channel))

@@ -15,46 +15,32 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.ValidateActions.addValidationError
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
-import java.time.Instant
 
 class StartRollupRequest : UpdateRequest {
-    val id: String
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput) : super(sin) {
-        id = sin.readString()
-    }
+    constructor(sin: StreamInput) : super(sin)
 
-    constructor(rollupID: String) {
-        this.id = rollupID
-        val now = Instant.now().toEpochMilli()
-        super.index(INDEX_MANAGEMENT_INDEX)
-            .id(rollupID)
-            .doc(mapOf(Rollup.ROLLUP_TYPE to mapOf(Rollup.ENABLED_FIELD to true,
-                Rollup.ENABLED_TIME_FIELD to now, Rollup.LAST_UPDATED_TIME_FIELD to now)))
+    constructor(id: String) {
+        super.id(id)
     }
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (id.isBlank()) {
+        if (super.id().isEmpty()) {
             validationException = addValidationError("id is missing", validationException)
         }
         return validationException
     }
 
-    fun rollupID(): String = id
-
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeString(id)
     }
 }

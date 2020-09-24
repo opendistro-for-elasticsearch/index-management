@@ -23,30 +23,24 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
 
 class StopRollupRequest : UpdateRequest {
-    val rollupID: String
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput) : super(sin) {
-        rollupID = sin.readString()
-    }
+    constructor(sin: StreamInput) : super(sin)
 
-    constructor(rollupID: String) {
-        this.rollupID = rollupID
+    constructor(id: String) {
+        super.id(id)
     }
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (rollupID.isBlank()) {
-            validationException = addValidationError("rollupID is missing", validationException)
+        if (super.id().isEmpty()) {
+            validationException = addValidationError("id is missing", validationException)
         }
         return validationException
     }
 
-    fun rollupID(): String = rollupID
-
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeString(rollupID)
     }
 }

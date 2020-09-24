@@ -43,9 +43,7 @@ class TransportStopRollupAction @Inject constructor(
     override fun doExecute(task: Task, request: StopRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
         val now = Instant.now().toEpochMilli()
         request.index(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
-            .id(request.rollupID)
-            .doc(mapOf(
-                Rollup.ROLLUP_TYPE to mapOf(Rollup.ENABLED_FIELD to false,
+            .doc(mapOf(Rollup.ROLLUP_TYPE to mapOf(Rollup.ENABLED_FIELD to false,
                 Rollup.ENABLED_TIME_FIELD to null, Rollup.LAST_UPDATED_TIME_FIELD to now)))
         client.update(request, object : ActionListener<UpdateResponse> {
             override fun onResponse(response: UpdateResponse) {

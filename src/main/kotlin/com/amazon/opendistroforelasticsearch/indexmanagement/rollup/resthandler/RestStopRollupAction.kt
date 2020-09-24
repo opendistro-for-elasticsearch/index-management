@@ -24,7 +24,7 @@ import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.rest.RestRequest.Method.PUT
+import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.action.RestToXContentListener
 import java.io.IOException
 
@@ -32,7 +32,7 @@ class RestStopRollupAction() : BaseRestHandler() {
 
     override fun routes(): List<Route> {
         return listOf(
-            Route(PUT, "$ROLLUP_JOBS_BASE_URI/{rollupID}/_stop")
+            Route(POST, "$ROLLUP_JOBS_BASE_URI/{rollupID}/_stop")
         )
     }
 

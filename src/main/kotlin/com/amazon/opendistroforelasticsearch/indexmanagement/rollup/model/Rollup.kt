@@ -205,6 +205,7 @@ data class Rollup(
         const val DELAY_FIELD = "delay"
         const val CONTINUOUS_FIELD = "continuous"
         const val DIMENSIONS_FIELD = "dimensions"
+        const val METRICS_FIELD = "metrics"
 
         @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic
@@ -263,7 +264,7 @@ data class Rollup(
                             dimensions.add(Dimension.parse(xcp))
                         }
                     }
-                    RollupMetrics.METRICS_FIELD -> {
+                    METRICS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             metrics.add(RollupMetrics.parse(xcp))

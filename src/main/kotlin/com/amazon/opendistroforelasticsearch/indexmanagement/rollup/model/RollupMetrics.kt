@@ -72,8 +72,8 @@ data class RollupMetrics(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
-            .field(METRICS_SOURCE_FIELD_FIELD, sourceField)
-            .field(METRICS_METRICS_FIELD, metrics.toTypedArray())
+            .field(SOURCE_FIELD_FIELD, sourceField)
+            .field(METRICS_FIELD, metrics.toTypedArray())
             .endObject()
     }
 
@@ -94,10 +94,9 @@ data class RollupMetrics(
     }
 
     companion object {
+        const val SOURCE_FIELD_FIELD = "source_field"
+        const val TARGET_FIELD_FIELD = "target_field"
         const val METRICS_FIELD = "metrics"
-        const val METRICS_SOURCE_FIELD_FIELD = "source_field"
-        const val METRICS_TARGET_FIELD_FIELD = "target_field"
-        const val METRICS_METRICS_FIELD = "metrics"
 
         @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic
@@ -113,9 +112,9 @@ data class RollupMetrics(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    METRICS_SOURCE_FIELD_FIELD -> sourceField = xcp.text()
-                    METRICS_TARGET_FIELD_FIELD -> targetField = xcp.text()
-                    METRICS_METRICS_FIELD -> {
+                    SOURCE_FIELD_FIELD -> sourceField = xcp.text()
+                    TARGET_FIELD_FIELD -> targetField = xcp.text()
+                    METRICS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             metrics.add(Metric.parse(xcp))

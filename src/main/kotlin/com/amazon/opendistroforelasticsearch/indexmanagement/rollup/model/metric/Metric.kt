@@ -22,6 +22,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
+// TODO: Allow each metric subclass to allow scripting?
 abstract class Metric(val type: Type) : ToXContentObject, Writeable {
 
     enum class Type(val type: String) {

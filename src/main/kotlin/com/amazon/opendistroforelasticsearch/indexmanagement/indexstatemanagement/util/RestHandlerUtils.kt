@@ -28,8 +28,10 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
 import java.time.Instant
 
+const val WITH_START_OBJECT = "with_start_object"
 const val WITH_TYPE = "with_type"
 val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
+val XCONTENT_WITHOUT_START_OBJET = ToXContent.MapParams(mapOf(WITH_START_OBJECT to "false"))
 
 const val FAILURES = "failures"
 const val FAILED_INDICES = "failed_indices"

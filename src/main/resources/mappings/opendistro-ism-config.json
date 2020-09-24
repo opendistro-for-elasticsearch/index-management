@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 4
+    "schema_version": 5
   },
   "dynamic": "strict",
   "properties": {
@@ -425,6 +425,216 @@
               }
             }
           }
+        }
+      }
+    },
+    "rollup": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "enabled_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "last_updated_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "schema_version": {
+          "type": "long"
+        },
+        "schedule": {
+          "properties": {
+            "interval": {
+              "properties": {
+                "period": {
+                  "type": "integer"
+                },
+                "unit": {
+                  "type": "keyword"
+                },
+                "start_time": {
+                  "type": "date",
+                  "format": "strict_date_time||epoch_millis"
+                }
+              }
+            },
+            "cron": {
+              "properties": {
+                "expression": {
+                  "type": "keyword"
+                },
+                "timezone": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        },
+        "description": {
+          "type": "text"
+        },
+        "source_index": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "target_index": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "page_size": {
+          "type": "long"
+        },
+        "metadata_id": {
+          "type": "keyword"
+        },
+        "delay": {
+          "type": "long"
+        },
+        "continuous": {
+          "type": "boolean"
+        },
+        "roles": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "dimensions": {
+          "properties": {
+            "date_histogram": {
+              "properties": {
+                "source_field": {
+                  "type": "keyword"
+                },
+                "target_field": {
+                  "type": "keyword"
+                },
+                "fixed_interval": {
+                  "type": "keyword"
+                },
+                "calendar_interval": {
+                  "type": "keyword"
+                },
+                "timezone": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "terms": {
+              "properties": {
+                "source_field": {
+                  "type": "keyword"
+                },
+                "target_field": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "histogram": {
+              "properties": {
+                "source_field": {
+                  "type": "keyword"
+                },
+                "target_field": {
+                  "type": "keyword"
+                },
+                "interval": {
+                  "type": "double"
+                }
+              }
+            }
+          }
+        },
+        "metrics": {
+          "type": "nested",
+          "properties": {
+            "source_field": {
+              "type": "keyword"
+            },
+            "target_field": {
+              "type": "keyword"
+            },
+            "metrics": {
+              "type": "nested",
+              "properties": {
+                "avg": {
+                  "type": "object"
+                },
+                "max": {
+                  "type": "object"
+                },
+                "min": {
+                  "type": "object"
+                },
+                "sum": {
+                  "type": "object"
+                },
+                "value_count": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "rollup_metadata": {
+      "properties": {
+        "rollup_id": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "after_key": {
+          "type": "object",
+          "enabled": false
+        },
+        "last_updated_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "window_start_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "window_end_time": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "started": {
+          "type": "boolean"
+        },
+        "finished": {
+          "type": "boolean"
+        },
+        "failed": {
+          "type": "boolean"
+        },
+        "failure_reason": {
+          "type": "text"
+        },
+        "stats": {
+          "type": "object",
+          "enabled": false
         }
       }
     }

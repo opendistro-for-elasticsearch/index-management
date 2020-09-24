@@ -66,6 +66,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestIndexRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestStartRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestStopRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
@@ -227,7 +228,12 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
             ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS,
-            ManagedIndexSettings.ALLOW_LIST
+            ManagedIndexSettings.ALLOW_LIST,
+            RollupSettings.ROLLUP_INGEST_BACKOFF_COUNT,
+            RollupSettings.ROLLUP_INGEST_BACKOFF_MILLIS,
+            RollupSettings.ROLLUP_INDEX,
+            RollupSettings.ROLLUP_ENABLED,
+            RollupSettings.ROLLUP_SEARCH_ENABLED
         )
     }
 

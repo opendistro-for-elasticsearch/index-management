@@ -89,6 +89,7 @@ class TransportIndexRollupAction @Inject constructor(
             client.execute(GetRollupAction.INSTANCE, getReq, ActionListener.wrap(::onGetRollup, actionListener::onFailure))
         }
 
+        @Suppress("ReturnCount")
         private fun onGetRollup(response: GetRollupResponse) {
             if (response.status != RestStatus.OK) {
                 return actionListener.onFailure(ElasticsearchStatusException("Unable to get existing rollup", response.status))

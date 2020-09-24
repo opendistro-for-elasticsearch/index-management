@@ -23,8 +23,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.xcontent.ToXContent
@@ -42,7 +40,7 @@ import org.elasticsearch.rest.action.RestResponseListener
 import java.io.IOException
 import java.time.Instant
 
-class RestIndexRollupAction() : BaseRestHandler() {
+class RestIndexRollupAction : BaseRestHandler() {
 
     override fun routes(): List<Route> {
         return listOf(

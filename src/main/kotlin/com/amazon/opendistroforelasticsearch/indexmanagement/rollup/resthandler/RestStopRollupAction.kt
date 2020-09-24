@@ -28,7 +28,7 @@ import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.action.RestToXContentListener
 import java.io.IOException
 
-class RestStopRollupAction() : BaseRestHandler() {
+class RestStopRollupAction : BaseRestHandler() {
 
     override fun routes(): List<Route> {
         return listOf(

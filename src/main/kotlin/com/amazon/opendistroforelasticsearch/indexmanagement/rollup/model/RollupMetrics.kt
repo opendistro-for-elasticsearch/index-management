@@ -42,7 +42,9 @@ data class RollupMetrics(
     private val logger = LogManager.getLogger(javaClass)
 
     init {
-        require(metrics.size == metrics.distinctBy { it.type }.size) { "Cannot have multiple metrics of the same type in a single rollup metric [$metrics]" }
+        require(metrics.size == metrics.distinctBy { it.type }.size) {
+            "Cannot have multiple metrics of the same type in a single rollup metric [$metrics]"
+        }
         require(sourceField.isNotEmpty() && targetField.isNotEmpty()) { "Source and target field must not be empty" }
         require(metrics.isNotEmpty()) { "Must specify at least one metric to aggregate on for $sourceField" }
     }

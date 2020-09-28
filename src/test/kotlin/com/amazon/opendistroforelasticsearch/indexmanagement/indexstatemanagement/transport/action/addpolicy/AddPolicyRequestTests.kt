@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class AddPolicyRequestTests : ESTestCase() {
 
@@ -26,13 +25,12 @@ class AddPolicyRequestTests : ESTestCase() {
         val indices = listOf("index1", "index2")
         val policyID = "policyID"
         val req = AddPolicyRequest(indices, policyID)
-        Assert.assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = AddPolicyRequest(sin)
-        Assert.assertEquals(indices, newReq.indices)
-        Assert.assertEquals(policyID, newReq.policyID)
+        assertEquals(indices, newReq.indices)
+        assertEquals(policyID, newReq.policyID)
     }
 }

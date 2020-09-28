@@ -13,15 +13,21 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy.AddPolicyAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy.RemovePolicyAction
 import org.elasticsearch.test.ESTestCase
 import org.junit.Assert
 
-class AddPolicyActionTests : ESTestCase() {
-
+class ActionTests : ESTestCase() {
     fun `test add policy action name`() {
         Assert.assertNotNull(AddPolicyAction.INSTANCE.name())
         Assert.assertEquals(AddPolicyAction.INSTANCE.name(), AddPolicyAction.NAME)
+    }
+
+    fun `test remove policy action name`() {
+        Assert.assertNotNull(RemovePolicyAction.INSTANCE.name())
+        Assert.assertEquals(RemovePolicyAction.INSTANCE.name(), RemovePolicyAction.NAME)
     }
 }

@@ -63,7 +63,7 @@ import org.elasticsearch.search.aggregations.support.MultiValuesSourceFieldConfi
 import org.elasticsearch.search.builder.SearchSourceBuilder
 
 fun Rollup.getRollupSearchRequest(metadata: RollupMetadata): SearchRequest {
-    val query = if (metadata.nextWindowEndTime != null && metadata.nextWindowStartTime != null) { // TODO: Clean this up, what about adding a continous: { start, end } to metadata that is nullable?
+    val query = if (metadata.nextWindowEndTime != null && metadata.nextWindowStartTime != null) { // TODO: Clean this up, what about adding a continuous: { start, end } to metadata that is nullable?
         RangeQueryBuilder(this.dimensions.find { dim -> dim is DateHistogram }!!.sourceField)
             .from(metadata.nextWindowStartTime, true)
             .to(metadata.nextWindowEndTime, false)

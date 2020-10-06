@@ -91,7 +91,6 @@ data class DateHistogram(
             .timeZone(timezone)
             .subAggregations(subAggregations)
 
-
     companion object {
         const val UTC = "UTC"
         const val FIXED_INTERVAL_FIELD = "fixed_interval"

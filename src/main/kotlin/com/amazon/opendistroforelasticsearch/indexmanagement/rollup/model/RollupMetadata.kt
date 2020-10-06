@@ -42,7 +42,7 @@ data class RollupMetadata(
     val nextWindowEndTime: Instant? = null,
     val status: Status,
     val failureReason: String? = null
-): ToXContentObject, Writeable {
+) : ToXContentObject, Writeable {
 
     enum class Status(val type: String) {
         INIT("init"),
@@ -57,7 +57,7 @@ data class RollupMetadata(
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         id = sin.readString(),
         seqNo = sin.readLong(),
         primaryTerm = sin.readLong(),
@@ -113,7 +113,6 @@ data class RollupMetadata(
         const val FAILURE_REASON = "failure_reason"
         const val STATS_FIELD = "stats" // TODO
 
-
         @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic
         @Throws(IOException::class)
@@ -148,8 +147,8 @@ data class RollupMetadata(
             }
 
             // TODO: These should not be null if job is continous but should be if noncontinous
-            //nextWindowStartTime = requireNotNull(windowStartTime) { "Window start time must not be null" },
-            //nextWindowEndTime = requireNotNull(windowEndTime) { "Window end time must not be null" },
+            // nextWindowStartTime = requireNotNull(windowStartTime) { "Window start time must not be null" },
+            // nextWindowEndTime = requireNotNull(windowEndTime) { "Window end time must not be null" },
 
             return RollupMetadata(
                 id,

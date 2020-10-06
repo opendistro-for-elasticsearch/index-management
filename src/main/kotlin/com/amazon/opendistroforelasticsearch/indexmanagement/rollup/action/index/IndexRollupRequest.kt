@@ -40,8 +40,7 @@ class IndexRollupRequest : IndexRequest {
         refreshPolicy: WriteRequest.RefreshPolicy
     ) {
         this.rollup = rollup
-        if (rollup.seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO
-            || rollup.primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
+        if (rollup.seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO || rollup.primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
             this.opType(DocWriteRequest.OpType.CREATE)
         } else {
             this.setIfSeqNo(rollup.seqNo)

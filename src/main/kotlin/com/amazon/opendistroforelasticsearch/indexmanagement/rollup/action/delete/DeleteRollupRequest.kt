@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.ValidateActions.addValidationError
 import org.elasticsearch.action.delete.DeleteRequest

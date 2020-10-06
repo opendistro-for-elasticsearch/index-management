@@ -166,8 +166,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     suspend fun init(rollup: Rollup): RollupMetadata {
         if (rollup.metadataID != null) {
             // TODO: How does the user recover from the not found error?
-            return getExistingMetadata(rollup.metadataID) ?:
-                update(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
+            return getExistingMetadata(rollup.metadataID)
+                ?: update(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
                     failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]"), false)
         }
         val metadata = if (rollup.continuous) createContinuousMetadata(rollup) else createNonContinuousMetadata(rollup)

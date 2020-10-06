@@ -60,16 +60,16 @@ class RestIndexRollupAction : BaseRestHandler() {
             throw IllegalArgumentException("Missing rollup ID")
         }
 
-        val xcp = request.contentParser()
-        val rollup = Rollup.parseWithType(xcp = xcp, id = id).copy(jobLastUpdatedTime = Instant.now())
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
+        val xcp = request.contentParser()
+        val rollup = Rollup.parseWithType(xcp = xcp, id = id, seqNo = seqNo, primaryTerm = primaryTerm).copy(jobLastUpdatedTime = Instant.now())
         val refreshPolicy = if (request.hasParam(REFRESH)) {
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
-        val indexRollupRequest = IndexRollupRequest(id, rollup, seqNo, primaryTerm, refreshPolicy)
+        val indexRollupRequest = IndexRollupRequest(rollup, refreshPolicy)
         return RestChannelConsumer { channel ->
             client.execute(IndexRollupAction.INSTANCE, indexRollupRequest, indexRollupResponse(channel))
         }

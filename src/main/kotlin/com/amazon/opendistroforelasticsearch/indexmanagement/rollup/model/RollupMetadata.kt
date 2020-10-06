@@ -29,18 +29,19 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.index.seqno.SequenceNumbers
 import java.io.IOException
 import java.time.Instant
+import java.util.Locale
 
 data class RollupMetadata(
     val id: String = NO_ID,
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     val rollupID: String,
-    val afterKey: Map<String, Any>?,
+    val afterKey: Map<String, Any>? = null,
     val lastUpdatedTime: Instant,
-    val nextWindowStartTime: Instant,
-    val nextWindowEndTime: Instant,
+    val nextWindowStartTime: Instant? = null,
+    val nextWindowEndTime: Instant? = null,
     val status: Status,
-    val failureReason: String?
+    val failureReason: String? = null
 ): ToXContentObject, Writeable {
 
     enum class Status(val type: String) {
@@ -63,8 +64,8 @@ data class RollupMetadata(
         rollupID = sin.readString(),
         afterKey = if (sin.readBoolean()) sin.readMap() else null,
         lastUpdatedTime = sin.readInstant(),
-        nextWindowStartTime = sin.readInstant(),
-        nextWindowEndTime = sin.readInstant(),
+        nextWindowStartTime = sin.readOptionalInstant(),
+        nextWindowEndTime = sin.readOptionalInstant(),
         status = sin.readEnum(Status::class.java),
         failureReason = sin.readOptionalString()
     )
@@ -74,7 +75,7 @@ data class RollupMetadata(
             .field(ROLLUP_ID_FIELD, rollupID)
         if (afterKey != null) builder.field(AFTER_KEY_FIELD, afterKey)
         builder
-            .timeField(LAST_UPDATED_FIELD, lastUpdatedTime)
+            .optionalTimeField(LAST_UPDATED_FIELD, lastUpdatedTime)
             .optionalTimeField(WINDOW_START_TIME_FIELD, nextWindowStartTime)
             .optionalTimeField(WINDOW_END_TIME_FIELD, nextWindowEndTime)
             .field(STATUS_FIELD, status.type)
@@ -141,10 +142,14 @@ data class RollupMetadata(
                     LAST_UPDATED_FIELD -> lastUpdatedTime = xcp.instant()
                     WINDOW_START_TIME_FIELD -> windowStartTime = xcp.instant()
                     WINDOW_END_TIME_FIELD -> windowEndTime = xcp.instant()
-                    STATUS_FIELD -> status = Status.valueOf(xcp.text())
+                    STATUS_FIELD -> status = Status.valueOf(xcp.text().toUpperCase(Locale.ROOT))
                     FAILURE_REASON -> failureReason = xcp.text()
                 }
             }
+
+            // TODO: These should not be null if job is continous but should be if noncontinous
+            //nextWindowStartTime = requireNotNull(windowStartTime) { "Window start time must not be null" },
+            //nextWindowEndTime = requireNotNull(windowEndTime) { "Window end time must not be null" },
 
             return RollupMetadata(
                 id,
@@ -153,8 +158,8 @@ data class RollupMetadata(
                 rollupID = requireNotNull(rollupID) { "RollupID must not be null" },
                 afterKey = afterKey,
                 lastUpdatedTime = requireNotNull(lastUpdatedTime) { "Last updated time must not be null" },
-                nextWindowStartTime = requireNotNull(windowStartTime) { "Window start time must not be null" },
-                nextWindowEndTime = requireNotNull(windowEndTime) { "Window end time must not be null" },
+                nextWindowStartTime = windowStartTime,
+                nextWindowEndTime = windowEndTime,
                 status = requireNotNull(status) { "Status must not be null" },
                 failureReason = failureReason
             )

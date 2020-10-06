@@ -22,6 +22,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimens
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Metric
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Sum
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
@@ -54,7 +56,7 @@ data class Rollup(
     val targetIndex: String,
     val metadataID: String?,
     val roles: List<String>,
-    val pageSize: Long,
+    val pageSize: Int,
     val delay: Long,
     val continuous: Boolean,
     val dimensions: List<Dimension>,
@@ -106,7 +108,7 @@ data class Rollup(
         targetIndex = sin.readString(),
         metadataID = sin.readOptionalString(),
         roles = sin.readStringArray().toList(),
-        pageSize = sin.readLong(),
+        pageSize = sin.readInt(),
         delay = sin.readLong(),
         continuous = sin.readBoolean(),
         dimensions = sin.let {
@@ -169,7 +171,7 @@ data class Rollup(
         out.writeString(targetIndex)
         out.writeOptionalString(metadataID)
         out.writeStringArray(roles.toTypedArray())
-        out.writeLong(pageSize)
+        out.writeInt(pageSize)
         out.writeLong(delay)
         out.writeBoolean(continuous)
         out.writeVInt(dimensions.size)
@@ -227,7 +229,7 @@ data class Rollup(
             var targetIndex: String? = null
             var metadataID: String? = null
             val roles = mutableListOf<String>()
-            var pageSize: Long? = null
+            var pageSize: Int? = null
             var delay: Long? = null
             var continuous = false
             val dimensions = mutableListOf<Dimension>()
@@ -255,7 +257,7 @@ data class Rollup(
                             roles.add(xcp.text())
                         }
                     }
-                    PAGE_SIZE_FIELD -> pageSize = xcp.longValue()
+                    PAGE_SIZE_FIELD -> pageSize = xcp.intValue()
                     DELAY_FIELD -> delay = xcp.longValue()
                     CONTINUOUS_FIELD -> continuous = xcp.booleanValue()
                     DIMENSIONS_FIELD -> {

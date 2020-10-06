@@ -22,6 +22,8 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.search.aggregations.AggregatorFactories
+import org.elasticsearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder
 import java.io.IOException
 
 // TODO: Verify if offset, missing value, min_doc_count, extended_bounds are usable in Composite histogram source
@@ -58,6 +60,21 @@ data class Histogram(
         out.writeString(targetField)
         out.writeDouble(interval)
     }
+
+    fun getRewrittenAggregation(aggregationBuilder: HistogramAggregationBuilder, subAggregations: AggregatorFactories.Builder): HistogramAggregationBuilder =
+        HistogramAggregationBuilder(aggregationBuilder.name)
+            .interval(aggregationBuilder.interval())
+            .extendedBounds(aggregationBuilder.minBound(), aggregationBuilder.maxBound())
+            .keyed(aggregationBuilder.keyed())
+            .also {
+                if (aggregationBuilder.minDocCount() >= 0) {
+                    it.minDocCount(aggregationBuilder.minDocCount())
+                }
+            }
+            .offset(aggregationBuilder.offset())
+            .also { aggregationBuilder.order()?.apply { it.order(this) } }
+            .field(this.targetField + ".histogram")
+            .subAggregations(subAggregations)
 
     companion object {
         const val HISTOGRAM_INTERVAL_FIELD = "interval"

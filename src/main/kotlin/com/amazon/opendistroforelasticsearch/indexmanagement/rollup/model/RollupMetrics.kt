@@ -95,6 +95,17 @@ data class RollupMetrics(
         }
     }
 
+    fun aggregationName(metric: Metric): String {
+        return when (metric) {
+            is Average -> "$targetField.avg"
+            is Sum -> "$targetField.sum"
+            is Max -> "$targetField.max"
+            is Min -> "$targetField.min"
+            is ValueCount -> "$targetField.value_count"
+            else -> throw IllegalArgumentException("Found unsupported metric aggregation ${metric.type.type}")
+        }
+    }
+
     companion object {
         const val SOURCE_FIELD_FIELD = "source_field"
         const val TARGET_FIELD_FIELD = "target_field"

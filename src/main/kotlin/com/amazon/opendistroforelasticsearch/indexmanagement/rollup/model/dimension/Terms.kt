@@ -22,6 +22,8 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.search.aggregations.AggregatorFactories
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder
 import java.io.IOException
 
 data class Terms(
@@ -52,6 +54,40 @@ data class Terms(
         out.writeString(sourceField)
         out.writeString(targetField)
     }
+
+    // TODO missing terms field
+    fun getRewrittenAggregation(
+        aggregationBuilder: TermsAggregationBuilder,
+        subAggregations: AggregatorFactories.Builder
+    ): TermsAggregationBuilder =
+        TermsAggregationBuilder(aggregationBuilder.name)
+            .also { aggregationBuilder.collectMode()?.apply { it.collectMode(this) } }
+            .executionHint(aggregationBuilder.executionHint())
+            .includeExclude(aggregationBuilder.includeExclude())
+            .also {
+                if (aggregationBuilder.minDocCount() >= 0) {
+                    it.minDocCount(aggregationBuilder.minDocCount())
+                }
+            }
+            .also { aggregationBuilder.order()?.apply { it.order(this) } }
+            .also {
+                if (aggregationBuilder.shardMinDocCount() >= 0) {
+                    it.shardMinDocCount(aggregationBuilder.shardMinDocCount())
+                }
+            }
+            .also {
+                if (aggregationBuilder.shardSize() > 0) {
+                    it.shardSize(aggregationBuilder.shardSize())
+                }
+            }
+            .showTermDocCountError(aggregationBuilder.showTermDocCountError())
+            .also {
+                if (aggregationBuilder.size() > 0) {
+                    it.size(aggregationBuilder.size())
+                }
+            }
+            .field(this.targetField + ".terms")
+            .subAggregations(subAggregations)
 
     companion object {
         @Suppress("ComplexMethod", "LongMethod")

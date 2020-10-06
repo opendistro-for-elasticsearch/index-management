@@ -27,7 +27,6 @@ import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.action.support.master.TransportMasterNodeAction
-import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.ClusterStateTaskConfig
 import org.elasticsearch.cluster.ClusterStateTaskExecutor
@@ -48,33 +47,24 @@ import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportService
 import java.lang.Exception
 
-class TransportUpdateManagedIndexMetaDataAction : TransportMasterNodeAction<UpdateManagedIndexMetaDataRequest, AcknowledgedResponse> {
-
-    @Inject
-    constructor(
-        client: Client,
-        threadPool: ThreadPool,
-        clusterService: ClusterService,
-        transportService: TransportService,
-        actionFilters: ActionFilters,
-        indexNameExpressionResolver: IndexNameExpressionResolver,
-        indexStateManagementHistory: IndexStateManagementHistory
-    ) : super(
-        UpdateManagedIndexMetaDataAction.INSTANCE.name(),
-        transportService,
-        clusterService,
-        threadPool,
-        actionFilters,
-        Writeable.Reader { UpdateManagedIndexMetaDataRequest(it) },
-        indexNameExpressionResolver
-    ) {
-        this.client = client
-        this.indexStateManagementHistory = indexStateManagementHistory
-    }
+class TransportUpdateManagedIndexMetaDataAction @Inject constructor(
+    threadPool: ThreadPool,
+    clusterService: ClusterService,
+    transportService: TransportService,
+    actionFilters: ActionFilters,
+    indexNameExpressionResolver: IndexNameExpressionResolver,
+    private val indexStateManagementHistory: IndexStateManagementHistory
+) : TransportMasterNodeAction<UpdateManagedIndexMetaDataRequest, AcknowledgedResponse>(
+    UpdateManagedIndexMetaDataAction.INSTANCE.name(),
+    transportService,
+    clusterService,
+    threadPool,
+    actionFilters,
+    Writeable.Reader { UpdateManagedIndexMetaDataRequest(it) },
+    indexNameExpressionResolver
+) {
 
     private val log = LogManager.getLogger(javaClass)
-    private val client: Client
-    private val indexStateManagementHistory: IndexStateManagementHistory
     private val executor = ManagedIndexMetaDataExecutor()
 
     override fun checkBlock(request: UpdateManagedIndexMetaDataRequest, state: ClusterState): ClusterBlockException? {

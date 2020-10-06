@@ -28,7 +28,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.readonly.SetReadOnlyStep
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.action.search.SearchResponse
 import java.time.Instant
 import java.time.temporal.ChronoUnit

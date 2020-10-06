@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.common.settings.Settings
 import java.time.Instant
 import java.time.temporal.ChronoUnit

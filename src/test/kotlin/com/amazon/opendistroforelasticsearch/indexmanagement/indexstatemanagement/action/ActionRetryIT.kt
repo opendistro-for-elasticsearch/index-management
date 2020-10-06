@@ -22,7 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollover.AttemptRolloverStep
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import java.time.Instant
 import java.util.Locale
 

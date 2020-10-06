@@ -23,7 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.AttemptCallForceMergeStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.AttemptSetReadOnlyStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import java.time.Instant
@@ -88,7 +88,9 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         // Fourth execution: Waits for force merge to complete, which will happen in this execution since index is small
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertTrue("Segment count for [$indexName] after force merge is incorrect", validateSegmentCount(indexName, min = 1, max = 1)) }
+        waitFor {
+            assertTrue("Segment count for [$indexName] after force merge is incorrect", validateSegmentCount(indexName, min = 1, max = 1))
+        }
         // verify we reset actionproperties at end of forcemerge
         waitFor { assertNull("maxNumSegments was not reset", getExplainManagedIndexMetaData(indexName).actionMetaData?.actionProperties) }
         // index should still be readonly after force merge finishes
@@ -135,19 +137,34 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
         // Second execution: Index was already read-only and should remain so for force_merge
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertEquals(AttemptSetReadOnlyStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(
+                AttemptSetReadOnlyStep.getSuccessMessage(indexName),
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
 
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
 
         // Third execution: Force merge operation is kicked off
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertEquals(AttemptCallForceMergeStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(
+                AttemptCallForceMergeStep.getSuccessMessage(indexName),
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
 
         // Fourth execution: Waits for force merge to complete, which will happen in this execution since index is small
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertEquals(WaitForForceMergeStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(
+                WaitForForceMergeStep.getSuccessMessage(indexName),
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
         assertTrue("Segment count for [$indexName] after force merge is incorrect", validateSegmentCount(indexName, min = 1, max = 1))
         assertEquals("true", getIndexBlocksWriteSetting(indexName))
     }

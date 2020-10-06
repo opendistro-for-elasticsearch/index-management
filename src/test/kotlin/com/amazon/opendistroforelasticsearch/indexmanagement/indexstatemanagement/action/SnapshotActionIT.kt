@@ -22,7 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.AttemptSnapshotStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.WaitForSnapshotStep
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -101,11 +101,15 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
 
         // Change the start time so attempt snapshot step with execute
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals(AttemptSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(AttemptSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message"))
+        }
 
         // Change the start time so wait for snapshot step will execute
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals(WaitForSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(WaitForSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message"))
+        }
 
         // verify we set snapshotName in action properties
         waitFor {
@@ -150,7 +154,9 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
 
         // Change the start time so attempt snapshot step with execute
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals(AttemptSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(AttemptSnapshotStep.getSuccessMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message"))
+        }
 
         // Confirm successful snapshot creation
         waitFor { assertSnapshotExists(repository, snapshot) }

@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.IndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -58,6 +58,12 @@ class IndexPriorityActionIT : IndexStateManagementRestTestCase() {
         // change the runJob start time to change index priority
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertEquals("Index did not set index_priority to ${actionConfig.indexPriority}", actionConfig.indexPriority, getIndexPrioritySetting(indexName)) }
+        waitFor {
+            assertEquals(
+                "Index did not set index_priority to ${actionConfig.indexPriority}",
+                actionConfig.indexPriority,
+                getIndexPrioritySetting(indexName)
+            )
+        }
     }
 }

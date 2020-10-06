@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -61,6 +61,12 @@ class ReplicaCountActionIT : IndexStateManagementRestTestCase() {
         // should set the replica count to the desired number
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertEquals("Index did not set number_of_replicas to ${actionConfig.numOfReplicas}", actionConfig.numOfReplicas, getNumberOfReplicasSetting(indexName)) }
+        waitFor {
+            assertEquals(
+                "Index did not set number_of_replicas to ${actionConfig.numOfReplicas}",
+                actionConfig.numOfReplicas,
+                getNumberOfReplicasSetting(indexName)
+            )
+        }
     }
 }

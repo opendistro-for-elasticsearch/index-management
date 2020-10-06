@@ -23,7 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination.DestinationType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import java.time.Instant

@@ -46,12 +46,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
-import org.apache.http.Header
-import org.apache.http.HttpEntity
-import org.elasticsearch.client.Request
-import org.elasticsearch.client.RequestOptions
-import org.elasticsearch.client.Response
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
@@ -399,66 +393,3 @@ fun SnapshotActionConfig.toJsonString(): String {
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
 
-/**
-* Wrapper for [RestClient.performRequest] which was deprecated in ES 6.5 and is used in tests. This provides
-* a single place to suppress deprecation warnings. This will probably need further work when the API is removed entirely
-* but that's an exercise for another day.
-*/
-
-fun RestClient.makeRequest(
-    method: String,
-    endpoint: String,
-    params: Map<String, String> = emptyMap(),
-    entity: HttpEntity? = null,
-    vararg headers: Header
-): Response {
-    val request = Request(method, endpoint)
-    val options = RequestOptions.DEFAULT.toBuilder()
-    headers.forEach { options.addHeader(it.name, it.value) }
-    request.options = options.build()
-    params.forEach { request.addParameter(it.key, it.value) }
-    if (entity != null) {
-        request.entity = entity
-    }
-    return performRequest(request)
-}
-
-/**
- * Wrapper for [RestClient.performRequest] which was deprecated in ES 6.5 and is used in tests. This provides
- * a single place to suppress deprecation warnings. This will probably need further work when the API is removed entirely
- * but that's an exercise for another day.
- */
-
-fun RestClient.makeRequest(
-    method: String,
-    endpoint: String,
-    entity: HttpEntity? = null,
-    vararg headers: Header
-): Response {
-    val request = Request(method, endpoint)
-    val options = RequestOptions.DEFAULT.toBuilder()
-    headers.forEach { options.addHeader(it.name, it.value) }
-    request.options = options.build()
-    if (entity != null) {
-        request.entity = entity
-    }
-    return performRequest(request)
-}
-
-fun <T> waitFor(
-    timeout: Instant = Instant.ofEpochSecond(10),
-    block: () -> T
-): T {
-    val startTime = Instant.now().toEpochMilli()
-    do {
-        try {
-            return block()
-        } catch (e: Throwable) {
-            if ((Instant.now().toEpochMilli() - startTime) > timeout.toEpochMilli()) {
-                throw e
-            } else {
-                Thread.sleep(100L)
-            }
-        }
-    } while (true)
-}

@@ -27,29 +27,25 @@ import org.elasticsearch.index.seqno.SequenceNumbers
 import java.io.IOException
 
 class IndexRollupRequest : IndexRequest {
-    val rollupID: String
     val rollup: Rollup
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : super(sin) {
-        rollupID = sin.readString()
         rollup = Rollup(sin)
+        super.setRefreshPolicy(WriteRequest.RefreshPolicy.readFrom(sin))
     }
 
     constructor(
-        rollupID: String,
         rollup: Rollup,
-        seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
-        primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
-        refreshPolicy: WriteRequest.RefreshPolicy = WriteRequest.RefreshPolicy.NONE
+        refreshPolicy: WriteRequest.RefreshPolicy
     ) {
-        this.rollupID = rollupID
         this.rollup = rollup
-        if (seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO || primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
+        if (rollup.seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO
+            || rollup.primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
             this.opType(DocWriteRequest.OpType.CREATE)
         } else {
-            this.setIfSeqNo(seqNo)
-                .setIfPrimaryTerm(primaryTerm)
+            this.setIfSeqNo(rollup.seqNo)
+            .setIfPrimaryTerm(rollup.primaryTerm)
         }
         super.setRefreshPolicy(refreshPolicy)
     }
@@ -57,18 +53,16 @@ class IndexRollupRequest : IndexRequest {
     // TODO
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (rollupID.isBlank()) {
+        if (rollup.id.isBlank()) {
             validationException = addValidationError("rollupID is missing", validationException)
         }
         return validationException
     }
 
-    fun rollupID(): String = rollupID
-
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeString(rollupID)
         rollup.writeTo(out)
+        refreshPolicy.writeTo(out)
     }
 }

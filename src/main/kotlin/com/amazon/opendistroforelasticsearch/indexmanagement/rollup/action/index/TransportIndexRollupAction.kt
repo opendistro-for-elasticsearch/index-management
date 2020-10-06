@@ -85,7 +85,7 @@ class TransportIndexRollupAction @Inject constructor(
         }
 
         private fun getRollup() {
-            val getReq = GetRollupRequest(request.rollupID, Versions.MATCH_ANY, RestRequest.Method.GET, null)
+            val getReq = GetRollupRequest(request.rollup.id, Versions.MATCH_ANY, RestRequest.Method.GET, null)
             client.execute(GetRollupAction.INSTANCE, getReq, ActionListener.wrap(::onGetRollup, actionListener::onFailure))
         }
 
@@ -116,7 +116,7 @@ class TransportIndexRollupAction @Inject constructor(
         private fun putRollup() {
             val rollup = request.rollup.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
             request.index(INDEX_MANAGEMENT_INDEX)
-                .id(request.rollupID)
+                .id(request.rollup.id)
                 .source(rollup.toXContent(jsonBuilder(), ToXContent.EMPTY_PARAMS))
                 .timeout(IndexRequest.DEFAULT_TIMEOUT)
             client.index(request, object : ActionListener<IndexResponse> {

@@ -53,7 +53,7 @@ class RollupSearchService(val client: Client) {
     }
 
     private fun hasNextFullWindow(metadata: RollupMetadata): Boolean {
-        return Instant.now().isAfter(metadata.nextWindowEndTime)
+        return Instant.now().isAfter(metadata.continuous!!.nextWindowEndTime) // TODO: !!
     }
 
     // TODO: error handling

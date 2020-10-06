@@ -19,6 +19,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ContinuousMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
@@ -81,8 +82,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             rollupID = rollup.id,
             afterKey = null,
             lastUpdatedTime = Instant.now(),
-            nextWindowStartTime = nextWindowStartTime,
-            nextWindowEndTime = nextWindowEndTime,
+            continuous = ContinuousMetadata(nextWindowStartTime, nextWindowEndTime),
             status = RollupMetadata.Status.INIT,
             failureReason = null
         )
@@ -93,7 +93,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     //  Could perhaps solve that by allowing the user to specify their own filter query that is applied to the composite agg search
     // TODO: handle exception
     @Throws(Exception::class)
-    private suspend fun getStartTime(rollup: Rollup): Instant? {
+    private suspend fun getStartTime(rollup: Rollup): Instant {
         val dateHistogram = rollup.dimensions.first() as DateHistogram // rollup requires the first dimension to be the date histogram
         val searchSourceBuilder = SearchSourceBuilder()
             .trackTotalHits(false)
@@ -108,7 +108,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         val response: SearchResponse = client.suspendUntil { search(searchRequest, it) }
         // TODO: Timezone?
         val firstSourceOrNull = response.hits.hits.firstOrNull()?.sourceAsMap?.get(dateHistogram.sourceField) as String?
-        return firstSourceOrNull?.let { Instant.parse(it) }
+        return requireNotNull(firstSourceOrNull?.let { Instant.parse(it) }) { "Could not find the start time for ${dateHistogram.sourceField} on the document" }
     }
 
     // This updates the metadata for a continuous rollup after an execution of the composite search and ingestion of rollup data
@@ -126,15 +126,12 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         val afterKey = internalComposite.afterKey()
         val millis = interval.estimateMillis()
         // TODO: get rid of !!
-        //   For continus jobs the windows cannot be null, so the moment they are set they are set for good..
-        //   maybe instead make it a continuous: { windowStart: time, windowEnd: time }
-        val nextStart = if (afterKey == null) Instant.ofEpochMilli(metadata.nextWindowStartTime!!.toEpochMilli()).plusMillis(millis) else metadata.nextWindowStartTime
-        val nextEnd = if (afterKey == null) Instant.ofEpochMilli(metadata.nextWindowEndTime!!.toEpochMilli()).plusMillis(millis) else metadata.nextWindowEndTime
+        val nextStart = if (afterKey == null) Instant.ofEpochMilli(metadata.continuous!!.nextWindowStartTime.toEpochMilli()).plusMillis(millis) else metadata.continuous!!.nextWindowStartTime
+        val nextEnd = if (afterKey == null) Instant.ofEpochMilli(metadata.continuous.nextWindowEndTime.toEpochMilli()).plusMillis(millis) else metadata.continuous.nextWindowEndTime
         return metadata.copy(
             afterKey = internalComposite.afterKey(),
             lastUpdatedTime = Instant.now(),
-            nextWindowStartTime = nextStart,
-            nextWindowEndTime = nextEnd,
+            continuous = ContinuousMetadata(nextStart, nextEnd),
             status = RollupMetadata.Status.STARTED
         )
     }

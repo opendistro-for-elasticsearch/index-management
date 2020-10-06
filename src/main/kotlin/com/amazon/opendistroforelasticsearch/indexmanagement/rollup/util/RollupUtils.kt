@@ -62,11 +62,10 @@ import org.elasticsearch.search.aggregations.support.MultiValuesSourceFieldConfi
 import org.elasticsearch.search.builder.SearchSourceBuilder
 
 fun Rollup.getRollupSearchRequest(metadata: RollupMetadata): SearchRequest {
-    // TODO: Clean this up, what about adding a continuous: { start, end } to metadata that is nullable?
-    val query = if (metadata.nextWindowEndTime != null && metadata.nextWindowStartTime != null) {
-        RangeQueryBuilder(this.dimensions.find { dim -> dim is DateHistogram }!!.sourceField)
-            .from(metadata.nextWindowStartTime, true)
-            .to(metadata.nextWindowEndTime, false)
+    val query = if (metadata.continuous != null) {
+        RangeQueryBuilder(this.getDateHistogram().sourceField)
+            .from(metadata.continuous.nextWindowStartTime, true)
+            .to(metadata.continuous.nextWindowEndTime, false)
     } else {
         MatchAllQueryBuilder()
     }
@@ -128,6 +127,14 @@ fun Rollup.getCompositeAggregationBuilder(afterKey: Map<String, Any>?): Composit
             }
         }
     }
+}
+
+// There can only be one date histogram in Rollup and it should always be in the first position of dimensions
+// This is validated in the rollup init itself, but need to redo it here to correctly return date histogram
+fun Rollup.getDateHistogram(): DateHistogram {
+    val dimension = this.dimensions.first()
+    require(dimension is DateHistogram) { "The first dimension in rollup must be a date histogram" }
+    return dimension
 }
 
 fun Rollup.findMatchingDimension(field: String, type: Dimension.Type): Dimension? =

@@ -31,6 +31,58 @@ import java.io.IOException
 import java.time.Instant
 import java.util.Locale
 
+data class ContinuousMetadata(
+    val nextWindowStartTime: Instant,
+    val nextWindowEndTime: Instant
+) : ToXContentObject, Writeable {
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        nextWindowStartTime = sin.readInstant(),
+        nextWindowEndTime = sin.readInstant()
+    )
+
+    override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
+        return builder.startObject()
+            .timeField(NEXT_WINDOW_START_TIME_FIELD, NEXT_WINDOW_START_TIME_FIELD, nextWindowStartTime.toEpochMilli())
+            .timeField(NEXT_WINDOW_END_TIME_FIELD, NEXT_WINDOW_END_TIME_FIELD, nextWindowEndTime.toEpochMilli())
+    }
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeInstant(nextWindowStartTime)
+        out.writeInstant(nextWindowEndTime)
+    }
+
+    companion object {
+        private const val NEXT_WINDOW_START_TIME_FIELD = "next_window_start_time"
+        private const val NEXT_WINDOW_END_TIME_FIELD = "next_window_end_time"
+
+        @Suppress("ComplexMethod", "LongMethod")
+        @JvmStatic
+        @Throws(IOException::class)
+        fun parse(xcp: XContentParser): ContinuousMetadata {
+            var windowStartTime: Instant? = null
+            var windowEndTime: Instant? = null
+
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            while (xcp.nextToken() != Token.END_OBJECT) {
+                val fieldName = xcp.currentName()
+                xcp.nextToken()
+
+                when (fieldName) {
+                    NEXT_WINDOW_START_TIME_FIELD -> windowStartTime = xcp.instant()
+                    NEXT_WINDOW_END_TIME_FIELD -> windowEndTime = xcp.instant()
+                }
+            }
+
+            return ContinuousMetadata(
+                nextWindowStartTime = requireNotNull(windowStartTime) { "Next window start time must not be null for a continuous job" },
+                nextWindowEndTime = requireNotNull(windowEndTime) { "Next window end time must not be null for a continuous job" }
+            )
+        }
+    }
+}
+
 data class RollupMetadata(
     val id: String = NO_ID,
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
@@ -38,8 +90,7 @@ data class RollupMetadata(
     val rollupID: String,
     val afterKey: Map<String, Any>? = null,
     val lastUpdatedTime: Instant,
-    val nextWindowStartTime: Instant? = null,
-    val nextWindowEndTime: Instant? = null,
+    val continuous: ContinuousMetadata? = null,
     val status: Status,
     val failureReason: String? = null
 ) : ToXContentObject, Writeable {
@@ -64,8 +115,7 @@ data class RollupMetadata(
         rollupID = sin.readString(),
         afterKey = if (sin.readBoolean()) sin.readMap() else null,
         lastUpdatedTime = sin.readInstant(),
-        nextWindowStartTime = sin.readOptionalInstant(),
-        nextWindowEndTime = sin.readOptionalInstant(),
+        continuous = if (sin.readBoolean()) ContinuousMetadata(sin) else null,
         status = sin.readEnum(Status::class.java),
         failureReason = sin.readOptionalString()
     )
@@ -74,11 +124,9 @@ data class RollupMetadata(
         builder.startObject()
             .field(ROLLUP_ID_FIELD, rollupID)
         if (afterKey != null) builder.field(AFTER_KEY_FIELD, afterKey)
-        builder
-            .optionalTimeField(LAST_UPDATED_FIELD, lastUpdatedTime)
-            .optionalTimeField(WINDOW_START_TIME_FIELD, nextWindowStartTime)
-            .optionalTimeField(WINDOW_END_TIME_FIELD, nextWindowEndTime)
-            .field(STATUS_FIELD, status.type)
+        builder.optionalTimeField(LAST_UPDATED_FIELD, lastUpdatedTime)
+        if (continuous != null) builder.field(CONTINUOUS_FIELD, continuous)
+        builder.field(STATUS_FIELD, status.type)
         if (failureReason != null) builder.field(FAILURE_REASON, failureReason)
         return builder.endObject()
     }
@@ -88,15 +136,11 @@ data class RollupMetadata(
         out.writeLong(seqNo)
         out.writeLong(primaryTerm)
         out.writeString(rollupID)
-        if (afterKey == null) {
-            out.writeBoolean(false)
-        } else {
-            out.writeBoolean(true)
-            out.writeMap(afterKey)
-        }
+        out.writeBoolean(afterKey != null)
+        afterKey?.let { out.writeMap(it) }
         out.writeInstant(lastUpdatedTime)
-        out.writeInstant(nextWindowStartTime)
-        out.writeInstant(nextWindowEndTime)
+        out.writeBoolean(continuous != null)
+        continuous?.writeTo(out)
         out.writeEnum(status)
         out.writeOptionalString(failureReason)
     }
@@ -107,8 +151,7 @@ data class RollupMetadata(
         const val ROLLUP_ID_FIELD = "rollup_id"
         const val AFTER_KEY_FIELD = "after_key"
         const val LAST_UPDATED_FIELD = "last_updated_time"
-        const val WINDOW_START_TIME_FIELD = "window_start_time"
-        const val WINDOW_END_TIME_FIELD = "window_end_time"
+        const val CONTINUOUS_FIELD = "continuous"
         const val STATUS_FIELD = "status"
         const val FAILURE_REASON = "failure_reason"
         const val STATS_FIELD = "stats" // TODO
@@ -125,8 +168,7 @@ data class RollupMetadata(
             var rollupID: String? = null
             var afterKey: Map<String, Any>? = null
             var lastUpdatedTime: Instant? = null
-            var windowStartTime: Instant? = null
-            var windowEndTime: Instant? = null
+            var continuous: ContinuousMetadata? = null
             var status: Status? = null
             var failureReason: String? = null
 
@@ -139,16 +181,11 @@ data class RollupMetadata(
                     ROLLUP_ID_FIELD -> rollupID = xcp.text()
                     AFTER_KEY_FIELD -> afterKey = xcp.map()
                     LAST_UPDATED_FIELD -> lastUpdatedTime = xcp.instant()
-                    WINDOW_START_TIME_FIELD -> windowStartTime = xcp.instant()
-                    WINDOW_END_TIME_FIELD -> windowEndTime = xcp.instant()
+                    CONTINUOUS_FIELD -> continuous = ContinuousMetadata.parse(xcp)
                     STATUS_FIELD -> status = Status.valueOf(xcp.text().toUpperCase(Locale.ROOT))
                     FAILURE_REASON -> failureReason = xcp.text()
                 }
             }
-
-            // TODO: These should not be null if job is continous but should be if noncontinous
-            // nextWindowStartTime = requireNotNull(windowStartTime) { "Window start time must not be null" },
-            // nextWindowEndTime = requireNotNull(windowEndTime) { "Window end time must not be null" },
 
             return RollupMetadata(
                 id,
@@ -157,8 +194,7 @@ data class RollupMetadata(
                 rollupID = requireNotNull(rollupID) { "RollupID must not be null" },
                 afterKey = afterKey,
                 lastUpdatedTime = requireNotNull(lastUpdatedTime) { "Last updated time must not be null" },
-                nextWindowStartTime = windowStartTime,
-                nextWindowEndTime = windowEndTime,
+                continuous = continuous,
                 status = requireNotNull(status) { "Status must not be null" },
                 failureReason = failureReason
             )

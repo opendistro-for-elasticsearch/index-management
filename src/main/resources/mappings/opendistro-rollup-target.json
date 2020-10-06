@@ -1,0 +1,23 @@
+{
+  "_meta" : {
+    "schema_version": 1
+  },
+  "dynamic_templates" : [
+    {
+      "strings" : {
+        "match_mapping_type" : "string",
+        "mapping" : {
+          "type" : "keyword"
+        }
+      }
+    },
+    {
+      "date_histograms" : {
+        "path_match" : "*.date_histogram",
+        "mapping" : {
+          "type" : "date"
+        }
+      }
+    }
+  ]
+}

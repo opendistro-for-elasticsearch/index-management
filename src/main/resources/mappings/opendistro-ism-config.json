@@ -620,14 +620,8 @@
           "type": "date",
           "format": "strict_date_time||epoch_millis"
         },
-        "started": {
-          "type": "boolean"
-        },
-        "finished": {
-          "type": "boolean"
-        },
-        "failed": {
-          "type": "boolean"
+        "status": {
+          "type": "keyword"
         },
         "failure_reason": {
           "type": "text"

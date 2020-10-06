@@ -62,7 +62,8 @@ import org.elasticsearch.search.aggregations.support.MultiValuesSourceFieldConfi
 import org.elasticsearch.search.builder.SearchSourceBuilder
 
 fun Rollup.getRollupSearchRequest(metadata: RollupMetadata): SearchRequest {
-    val query = if (metadata.nextWindowEndTime != null && metadata.nextWindowStartTime != null) { // TODO: Clean this up, what about adding a continuous: { start, end } to metadata that is nullable?
+    // TODO: Clean this up, what about adding a continuous: { start, end } to metadata that is nullable?
+    val query = if (metadata.nextWindowEndTime != null && metadata.nextWindowStartTime != null) {
         RangeQueryBuilder(this.dimensions.find { dim -> dim is DateHistogram }!!.sourceField)
             .from(metadata.nextWindowStartTime, true)
             .to(metadata.nextWindowEndTime, false)
@@ -79,6 +80,7 @@ fun Rollup.getRollupSearchRequest(metadata: RollupMetadata): SearchRequest {
         .allowPartialSearchResults(false) // TODO check the behavior one this
 }
 
+@Suppress("ComplexMethod", "NestedBlockDepth")
 fun Rollup.getCompositeAggregationBuilder(afterKey: Map<String, Any>?): CompositeAggregationBuilder {
     val sources = mutableListOf<CompositeValuesSourceBuilder<*>>()
     this.dimensions.forEach { dimension ->
@@ -119,7 +121,8 @@ fun Rollup.getCompositeAggregationBuilder(afterKey: Map<String, Any>?): Composit
                         is Max -> MaxAggregationBuilder(metric.aggregationName(agg)).field(metric.sourceField)
                         is Min -> MinAggregationBuilder(metric.aggregationName(agg)).field(metric.sourceField)
                         is ValueCount -> ValueCountAggregationBuilder(metric.aggregationName(agg)).field(metric.sourceField)
-                        else -> throw IllegalArgumentException("Found unsupported metric aggregation ${agg.type.type}") // TODO: This needs to cancel the rollup
+                        // TODO: This needs to cancel the rollup
+                        else -> throw IllegalArgumentException("Found unsupported metric aggregation ${agg.type.type}")
                     }
                 )
             }
@@ -133,10 +136,12 @@ fun Rollup.findMatchingDimension(field: String, type: Dimension.Type): Dimension
 inline fun <reified T> Rollup.findMatchingMetric(field: String): RollupMetrics? =
     this.metrics.find { metric -> metric.sourceField == field && metric.metrics.any { m -> m is T } }
 
+@Suppress("NestedBlockDepth")
 fun IndexMetadata.getRollupJobs(): List<Rollup>? {
     val rollupJobs = mutableListOf<Rollup>()
     val source = this.mapping()?.source() ?: return null
-    val xcp = XContentHelper.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, source.compressedReference(), XContentType.JSON)
+    val xcp = XContentHelper
+        .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, source.compressedReference(), XContentType.JSON)
     ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation) // start of block
     ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation) // _doc
     ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation) // start of _doc block
@@ -171,6 +176,7 @@ fun IndexMetadata.getRollupJobs(): List<Rollup>? {
 }
 
 // TODO: If we have to set this manually for each aggregation builder then it means we could miss new ones settings in the future
+@Suppress("ComplexMethod")
 fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): AggregationBuilder {
     val aggFactory = AggregatorFactories.builder().also { factories ->
         aggregationBuilder.subAggregations.forEach {
@@ -220,13 +226,15 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
             ValueCountAggregationBuilder(aggregationBuilder.name)
                 .field(metric.targetField + ".value_count")
         }
-        // TODO: this won't really throw an exception and stop the query.. just silently logs, we need to rewrite the parsed query to a failed with specific message
+        // TODO: this won't really throw an exception and stop the query..
+        //  just silently logs, we need to rewrite the parsed query to a failed with specific message
         else -> throw UnsupportedOperationException("The ${aggregationBuilder.type} aggregation is not currently supported in rollups")
     }
 }
 
 // TODO: Not a fan of this.. but I can't find a way to overwrite the aggregations on the shallow copy or original
 //  so we need to instantiate a new one so we can add the rewritten aggregation builders
+@Suppress("ComplexMethod")
 fun SearchSourceBuilder.rewriteSearchSourceBuilder(job: Rollup): SearchSourceBuilder {
     val ssb = SearchSourceBuilder()
     this.aggregations()?.aggregatorFactories?.forEach { ssb.aggregation(job.rewriteAggregationBuilder(it)) }

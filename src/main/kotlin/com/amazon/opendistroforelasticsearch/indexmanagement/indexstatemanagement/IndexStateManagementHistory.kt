@@ -131,7 +131,7 @@ class IndexStateManagementHistory(
         return response.isRolledOver
     }
 
-    @Suppress("SpreadOperator", "NestedBlockDepth")
+    @Suppress("SpreadOperator", "NestedBlockDepth", "ComplexMethod")
     private fun deleteOldHistoryIndex() {
         val indexToDelete = mutableListOf<String>()
 

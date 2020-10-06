@@ -76,11 +76,13 @@ class RollupSearchListener(
     // TODO: Reject all queries that do not have size = 0 as we do not return rollup documents
     //   they can still use queries, but only for filtering the result set
     // TODO: Reject script in searches because we don't parse and rewrite scripts?
+    @Suppress("ComplexMethod", "SpreadOperator", "ReturnCount")
     override fun onPreQueryPhase(searchContext: SearchContext) {
         if (!searchEnabled) return
 
         val indices = searchContext.request().indices().map { it.toString() }.toTypedArray()
-        val concreteIndices = indexNameExpressionResolver.concreteIndexNames(clusterService.state(), searchContext.request().indicesOptions(), *indices)
+        val concreteIndices = indexNameExpressionResolver
+            .concreteIndexNames(clusterService.state(), searchContext.request().indicesOptions(), *indices)
 
         val hasNonRollupIndex = concreteIndices.any {
             val isRollupIndex = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(it).settings)
@@ -99,56 +101,57 @@ class RollupSearchListener(
             return
         }
 
-        val (dimensionTypesToFields, metricFieldsToTypes) = getAggregationMetadata(searchContext.request().source().aggregations()?.aggregatorFactories)
+        val aggregatorFactories = searchContext.request().source().aggregations()?.aggregatorFactories
+        if (aggregatorFactories != null) {
+            val (dimensionTypesToFields, metricFieldsToTypes) = getAggregationMetadata(aggregatorFactories)
 
-        // TODO: How does this job matching work with roles/security?
-        // TODO: Move to helper class or ext fn - this is veeeeery inefficient, but it works for development/testing
-        // The goal here is to find all the matching rollup jobs from the ones that exist on this rollup index
-        // A matching rollup job is one that has all the fields used in the aggregations in its own dimensions/metrics
-        val matchingRollupJobs = rollupJobs.filter { job ->
-            // We take the provided dimensionsTypesToFields and confirm for each entry that the given type (dimension type) and set (source fields)
-            // exists in the rollup job itself to verify that the query can be answered with the data from this rollup job
-            val hasAllDimensions = dimensionTypesToFields.entries.all { (type, set) ->
-                // The filteredDimensionsFields are all the source fields of a specific dimension type on this job
-                val filteredDimensionsFields = job.dimensions.filter { it.type.type == type }.map {
-                    when (it) {
-                        is DateHistogram -> it.sourceField
-                        is Histogram -> it.sourceField
-                        is Terms -> it.sourceField
-                        // TODO: can't throw - have to return early after overwriting parsedquery
-                        else -> throw IllegalArgumentException("Found unsupported Dimension during search transformation [${it.type.type}]")
+            // TODO: How does this job matching work with roles/security?
+            // TODO: Move to helper class or ext fn - this is veeeeery inefficient, but it works for development/testing
+            // The goal here is to find all the matching rollup jobs from the ones that exist on this rollup index
+            // A matching rollup job is one that has all the fields used in the aggregations in its own dimensions/metrics
+            val matchingRollupJobs = rollupJobs.filter { job ->
+                // We take the provided dimensionsTypesToFields and confirm for each entry that
+                // the given type (dimension type) and set (source fields) exists in the rollup job itself
+                // to verify that the query can be answered with the data from this rollup job
+                val hasAllDimensions = dimensionTypesToFields.entries.all { (type, set) ->
+                    // The filteredDimensionsFields are all the source fields of a specific dimension type on this job
+                    val filteredDimensionsFields = job.dimensions.filter { it.type.type == type }.map {
+                        when (it) {
+                            is DateHistogram -> it.sourceField
+                            is Histogram -> it.sourceField
+                            is Terms -> it.sourceField
+                            // TODO: can't throw - have to return early after overwriting parsedquery
+                            else -> throw IllegalArgumentException("Found unsupported Dimension during search transformation [${it.type.type}]")
+                        }
                     }
+                    // Confirm that the list of source fields on the rollup job's dimensions contains all of the fields in the user's aggregation
+                    filteredDimensionsFields.containsAll(set)
                 }
-                // Confirm that the list of source fields on the rollup job's dimensions contains all of the fields in the user's aggregation
-                filteredDimensionsFields.containsAll(set)
+                // We take the provided metricFieldsToTypes and confirm for each entry that the given field (source field) and set (metric types)
+                // exists in the rollup job itself to verify that the query can be answered with the data from this rollup job
+                val hasAllMetrics = metricFieldsToTypes.entries.all { (field, set) ->
+                    // The filteredMetrics are all the metric types that were computed for the given source field on this job
+                    val filteredMetrics = job.metrics.find { it.sourceField == field }?.metrics?.map { it.type.type } ?: emptyList()
+                    // Confirm that the list of metric aggregation types in the rollup job's metrics contains all of the metric types
+                    // in the user's aggregation for this given source field
+                    filteredMetrics.containsAll(set)
+                }
+
+                hasAllDimensions && hasAllMetrics
             }
-            // We take the provided metricFieldsToTypes and confirm for each entry that the given field (source field) and set (metric types)
-            // exists in the rollup job itself to verify that the query can be answered with the data from this rollup job
-            val hasAllMetrics = metricFieldsToTypes.entries.all { (field, set) ->
-                // The filteredMetrics are all the metric types that were computed for the given source field on this job
-                val filteredMetrics = job.metrics.find { it.sourceField == field }?.metrics?.map { it.type.type } ?: emptyList()
-                // Confirm that the list of metric aggregation types in the rollup job's metrics contains all of the metric types
-                // in the user's aggregation for this given source field
-                filteredMetrics.containsAll(set)
+
+            if (matchingRollupJobs.isEmpty()) {
+                // TODO: This needs to be more helpful and say what fields were missing
+                searchContext.parsedQuery(ParsedQuery(RollupExceptionQuery("Could not find a rollup job that can answer this query")))
+                return
             }
 
-            hasAllDimensions && hasAllMetrics
-        }
+            // Very simple resolution to start: just take all the matching jobs that can answer the query and use the newest one
+            val matchedRollup = matchingRollupJobs.reduce { matched, new ->
+                if (matched.lastUpdateTime.isAfter(new.lastUpdateTime)) matched
+                else new
+            }
 
-        if (matchingRollupJobs.isEmpty()) {
-            // TODO: This needs to be more helpful and say what fields were missing
-            searchContext.parsedQuery(ParsedQuery(RollupExceptionQuery("Could not find a rollup job that can answer this query")))
-            return
-        }
-
-        // Very simple resolution to start: just take all the matching jobs that can answer the query and use the newest one
-        val matchedRollup = matchingRollupJobs.reduce { matched, new ->
-            if (matched.lastUpdateTime.isAfter(new.lastUpdateTime)) matched
-            else new
-        }
-
-        val aggregationBuilders = searchContext.request().source().aggregations()?.aggregatorFactories
-        if (aggregationBuilders != null) {
             val newSourceBuilder = searchContext.request().source().rewriteSearchSourceBuilder(matchedRollup)
             searchContext.request().source(newSourceBuilder)
             val factories = searchContext.request().source().aggregations().build(searchContext.queryShardContext, null)
@@ -156,6 +159,7 @@ class RollupSearchListener(
         }
     }
 
+    @Suppress("ComplexMethod")
     @Throws(UnsupportedOperationException::class)
     private fun getAggregationMetadata(
         aggregationBuilders: Collection<AggregationBuilder>?,

@@ -34,7 +34,9 @@ class RollupSearchService(val client: Client) {
 
     private val logger = LogManager.getLogger(javaClass)
 
-    fun shouldProcessWindow(rollup: Rollup, metadata: RollupMetadata): Boolean { // TODO: Failed shouldn't process? How to recover from failed -> how does a user retry a failed rollup
+    // TODO: Failed shouldn't process? How to recover from failed -> how does a user retry a failed rollup
+    @Suppress("ReturnCount")
+    fun shouldProcessWindow(rollup: Rollup, metadata: RollupMetadata): Boolean {
         // For both continuous and non-continuous rollups if there is an afterKey it means we are still
         // processing data from the current window and should continue to process, the only way we ended up here with an
         // afterKey is if we were still processing data is if the job somehow stopped and was rescheduled (i.e. node crashed etc.)

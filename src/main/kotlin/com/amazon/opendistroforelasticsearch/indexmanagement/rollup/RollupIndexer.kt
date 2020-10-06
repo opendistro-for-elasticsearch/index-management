@@ -48,7 +48,8 @@ class RollupIndexer(
 ) {
     private val logger = LogManager.getLogger(javaClass)
 
-    @Volatile private var retryIngestPolicy = BackoffPolicy.constantBackoff(ROLLUP_INGEST_BACKOFF_MILLIS.get(settings), ROLLUP_INGEST_BACKOFF_COUNT.get(settings))
+    @Volatile private var retryIngestPolicy =
+        BackoffPolicy.constantBackoff(ROLLUP_INGEST_BACKOFF_MILLIS.get(settings), ROLLUP_INGEST_BACKOFF_COUNT.get(settings))
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ROLLUP_INGEST_BACKOFF_MILLIS, ROLLUP_INGEST_BACKOFF_COUNT) {
@@ -86,6 +87,7 @@ class RollupIndexer(
     //  Perhaps try to save it in what will most likely be the correct way for that PR so we can reuse in the future?
 
     // TODO: Clean this up
+    @Suppress("ComplexMethod")
     fun convertResponseToRequests(job: Rollup, internalComposite: InternalComposite): List<DocWriteRequest<*>> {
         val requests = mutableListOf<DocWriteRequest<*>>()
         internalComposite.buckets.forEach {

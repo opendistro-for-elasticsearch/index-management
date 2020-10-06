@@ -60,6 +60,7 @@ class RollupMapperService(val client: Client, val clusterService: ClusterService
 
     // If the index already exists we need to verify it's a rollup index,
     // confirm it does not conflict with existing jobs and is a valid job
+    @Suppress("ReturnCount")
     private suspend fun initExistingRollupIndex(rollup: Rollup): Boolean {
         if (isRollupIndex(rollup.targetIndex)) {
             // TODO: Should this only be by ID? What happens if a user wants to delete a job and reuse?
@@ -80,6 +81,7 @@ class RollupMapperService(val client: Client, val clusterService: ClusterService
     // TODO: Already existing rollup target index
     // TODO: error handling
     // TODO: Race condition here, need to move it into master operation
+    @Suppress("ReturnCount")
     suspend fun createRollupTargetIndex(job: Rollup): Boolean {
         if (indexExists(job.targetIndex)) return isRollupIndex(job.targetIndex)
         try {
@@ -102,14 +104,16 @@ class RollupMapperService(val client: Client, val clusterService: ClusterService
         } catch (e: ResourceAlreadyExistsException) {
             logger.warn("Failed to create ${job.targetIndex} as it already exists - checking if we can add ${job.id}")
         } catch (e: Exception) {
-            logger.error(e) // TODO
+            logger.error("Failed to create ${job.targetIndex}", e) // TODO
         }
         return false
     }
 
     // TODO: error handling
-    // TODO: Create custom master operation to ensure we are working with the current mappings and can't have a race condition where two jobs overwrite each other
-    // TODO: PutMappings needs to ensure we don't overwrite an existing rollup job meta - list current ones and ignore if it's already there
+    // TODO: Create custom master operation to ensure we are working with the current mappings
+    //  and can't have a race condition where two jobs overwrite each other
+    // TODO: PutMappings needs to ensure we don't overwrite an existing rollup job meta
+    //  - list current ones and ignore if it's already there
     // TODO: PUT mappings seems to overwrite all _meta data? which means we need to get and then append and then put
     @Suppress("BlockingMethodInNonBlockingContext")
     private suspend fun updateRollupIndexMappings(rollup: Rollup): Boolean {
@@ -136,11 +140,12 @@ class RollupMapperService(val client: Client, val clusterService: ClusterService
 
     @Throws(IOException::class)
     private fun partialRollupMappingBuilder(rollup: Rollup): XContentBuilder {
+        // TODO: This is dumping *everything* of rollup into the meta and we only want a slimmed down version of it
         return XContentFactory.jsonBuilder()
             .startObject()
                 .startObject(_META)
                     .startObject(ROLLUPS)
-                        .field(rollup.id, rollup, XCONTENT_WITHOUT_TYPE) // TODO: This is dumping *everything* of rollup into the meta and we only want a slimmed down version of it
+                        .field(rollup.id, rollup, XCONTENT_WITHOUT_TYPE)
                     .endObject()
                 .endObject()
             .endObject()

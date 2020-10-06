@@ -39,6 +39,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.script.ScriptService
 import java.time.Instant
 
+@Suppress("TooManyFunctions")
 object RollupRunner : ScheduledJobRunner,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("RollupRunner")) {
 
@@ -130,15 +131,19 @@ object RollupRunner : ScheduledJobRunner,
 
     // TODO: Clean up runner
     // TODO: Scenario: The rollup job is finished, but I (the user) want to redo it all again
+    // TODO: need to get local version of job to see if page size has been changed
+    /*
+    * TODO situations:
+    *  There is a rollup.metadataID and no metadata doc -> create new metadata doc with FAILED status?
+    *  There is a rollup.metadataID and doc but theres no target index?
+    *        -> index was deleted -> just recreate (but we would have to start over)? Or move to FAILED?
+    *  There is a rollup.metadataID and doc but target index is not rollup index?
+    *        -> index was deleted and recreated as non rollup -> move to FAILED
+    *  There is a rollup.metadataID and doc but theres no job in target index?
+    *        -> index was deleted and recreated as rollup -> just recreate (but we would have to start over)? Or move to FAILED?
+    * */
+    @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext) {
-        // TODO: need to get local version of job to see if page size has been changed
-        /*
-        * TODO situations:
-        *  There is a rollup.metadataID and no metadata doc -> create new metadata doc with FAILED status?
-        *  There is a rollup.metadataID and doc but theres no target index? -> index was deleted -> just recreate (but we would have to start over)? Or move to FAILED?
-        *  There is a rollup.metadataID and doc but target index is not rollup index? -> index was deleted and recreated as non rollup -> move to FAILED
-        *  There is a rollup.metadataID and doc but theres no job in target index? -> index was deleted and recreated as rollup -> just recreate (but we would have to start over)? Or move to FAILED?
-        * */
         var updatableJob = job
         var metadata = rollupMetadataService.init(updatableJob)
         if (metadata.status == RollupMetadata.Status.FAILED) {
@@ -151,7 +156,8 @@ object RollupRunner : ScheduledJobRunner,
             return
         }
 
-        // TODO: before creating target index we also validate the source index exists? and anything else that would cause this to get delayed right away like invalid fields
+        // TODO: before creating target index we also validate the source index exists?
+        //  and anything else that would cause this to get delayed right away like invalid fields
         val successful = rollupMapperService.init(job)
         if (!successful) {
             // TODO: More helpful error messaging

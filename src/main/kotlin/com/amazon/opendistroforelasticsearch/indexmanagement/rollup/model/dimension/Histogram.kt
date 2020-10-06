@@ -61,7 +61,10 @@ data class Histogram(
         out.writeDouble(interval)
     }
 
-    fun getRewrittenAggregation(aggregationBuilder: HistogramAggregationBuilder, subAggregations: AggregatorFactories.Builder): HistogramAggregationBuilder =
+    fun getRewrittenAggregation(
+        aggregationBuilder: HistogramAggregationBuilder,
+        subAggregations: AggregatorFactories.Builder
+    ): HistogramAggregationBuilder =
         HistogramAggregationBuilder(aggregationBuilder.name)
             .interval(aggregationBuilder.interval())
             .extendedBounds(aggregationBuilder.minBound(), aggregationBuilder.maxBound())

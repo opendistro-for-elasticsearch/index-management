@@ -33,6 +33,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.test.rest.ESRestTestCase
+import java.util.*
 
 fun randomInterval(): String = if (ESRestTestCase.randomBoolean()) randomFixedInterval() else randomCalendarInterval()
 
@@ -101,8 +102,8 @@ fun randomRollup(): Rollup {
         jobLastUpdatedTime = randomInstant(),
         jobEnabledTime = if (enabled) randomInstant() else null,
         description = ESRestTestCase.randomAlphaOfLength(10),
-        sourceIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(),
-        targetIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(),
+        sourceIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
+        targetIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
         metadataID = if (ESRestTestCase.randomBoolean()) null else ESRestTestCase.randomAlphaOfLength(10),
         roles = ESRestTestCase.randomList(10) { ESRestTestCase.randomAlphaOfLength(10) },
         pageSize = ESRestTestCase.randomIntBetween(1, 10000),

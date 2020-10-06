@@ -17,13 +17,15 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.makeRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
@@ -39,6 +41,8 @@ import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
+import java.time.Duration
+import java.time.Instant
 
 abstract class RollupRestTestCase : IndexManagementRestTestCase() {
 
@@ -116,4 +120,19 @@ abstract class RollupRestTestCase : IndexManagementRestTestCase() {
     }
 
     protected fun Rollup.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
+
+    protected fun updateRollupStartTime(update: Rollup, desiredStartTimeMillis: Long? = null) {
+        val intervalSchedule = (update.jobSchedule as IntervalSchedule)
+        val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
+        val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
+        val waitForActiveShards = if (isMultiNode) "all" else "1"
+        val response = client().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
+            StringEntity(
+                "{\"doc\":{\"rollup\":{\"schedule\":{\"interval\":{\"start_time\":" +
+                    "\"$startTimeMillis\"}}}}}",
+                APPLICATION_JSON
+            ))
+
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
 }

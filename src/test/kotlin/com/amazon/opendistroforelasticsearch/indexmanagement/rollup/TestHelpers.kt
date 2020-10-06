@@ -90,9 +90,6 @@ fun randomRollupDimensions(): List<Dimension> {
 }
 
 fun randomRollup(): Rollup {
-    ESRestTestCase.randomAlphaOfLength(10).let {
-        RollupMetrics(sourceField = it, targetField = it, metrics = randomMetrics())
-    }
     val enabled = ESRestTestCase.randomBoolean()
     return Rollup(
         id = ESRestTestCase.randomAlphaOfLength(10),
@@ -104,11 +101,11 @@ fun randomRollup(): Rollup {
         jobLastUpdatedTime = randomInstant(),
         jobEnabledTime = if (enabled) randomInstant() else null,
         description = ESRestTestCase.randomAlphaOfLength(10),
-        sourceIndex = ESRestTestCase.randomAlphaOfLength(10),
-        targetIndex = ESRestTestCase.randomAlphaOfLength(10),
+        sourceIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(),
+        targetIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(),
         metadataID = if (ESRestTestCase.randomBoolean()) null else ESRestTestCase.randomAlphaOfLength(10),
         roles = ESRestTestCase.randomList(10) { ESRestTestCase.randomAlphaOfLength(10) },
-        pageSize = ESRestTestCase.randomLongBetween(1, 10000),
+        pageSize = ESRestTestCase.randomIntBetween(1, 10000),
         delay = ESRestTestCase.randomNonNegativeLong(),
         continuous = ESRestTestCase.randomBoolean(),
         dimensions = randomRollupDimensions(),

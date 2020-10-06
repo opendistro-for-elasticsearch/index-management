@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.makeRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import org.elasticsearch.client.ResponseException

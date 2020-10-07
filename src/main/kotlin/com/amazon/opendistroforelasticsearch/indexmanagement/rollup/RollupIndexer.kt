@@ -103,7 +103,7 @@ class RollupIndexer(
             val aggResults = mutableMapOf<String, MutableMap<String, Any>>()
             // TODO: Should we store more information about date_histogram and histogram on the rollup document or rely on it being on the rollup job?
             it.key.entries.forEach {
-                val type = (job.dimensions.find { dim -> dim.targetField == it.key } as Dimension).type.type
+                val type = (job.dimensions.find { dim -> "${dim.targetField}.${dim.type.type}" == it.key } as Dimension).type.type
                 aggResults.computeIfAbsent(it.key) { mutableMapOf() }[type] = it.value
             }
             it.aggregations.forEach {

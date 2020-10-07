@@ -13,22 +13,24 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
 
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
 
-class RemovePolicyRequestTests : ESTestCase() {
+class AddPolicyRequestTests : ESTestCase() {
 
-    fun `test remove policy request`() {
+    fun `test add policy request`() {
         val indices = listOf("index1", "index2")
-        val req = RemovePolicyRequest(indices)
+        val policyID = "policyID"
+        val req = AddPolicyRequest(indices, policyID)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newReq = RemovePolicyRequest(sin)
+        val newReq = AddPolicyRequest(sin)
         assertEquals(indices, newReq.indices)
+        assertEquals(policyID, newReq.policyID)
     }
 }

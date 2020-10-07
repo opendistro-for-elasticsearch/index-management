@@ -13,15 +13,13 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
 
-import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
+import org.elasticsearch.common.io.stream.StreamInput
 
-class RemovePolicyActionTests : ESTestCase() {
-
-    fun `test remove policy action name`() {
-        Assert.assertNotNull(RemovePolicyAction.INSTANCE.name())
-        Assert.assertEquals(RemovePolicyAction.INSTANCE.name(), RemovePolicyAction.NAME)
-    }
+class AddPolicyResponse : ISMStatusResponse {
+    constructor(updated: Int, failedIndices: List<FailedIndex>) : super(updated, failedIndices)
+    constructor(sin: StreamInput) : super(sin)
 }

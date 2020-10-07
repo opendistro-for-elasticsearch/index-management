@@ -13,14 +13,13 @@
  * permissions and limitations under the License.
  */
 
-@file:Suppress("TopLevelPropertyNaming", "MatchingDeclarationName")
-package com.amazon.opendistroforelasticsearch.indexmanagement.util
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
 
-const val _DOC = "_doc"
-const val _ID = "_id"
-const val _VERSION = "_version"
-const val _SEQ_NO = "_seq_no"
-const val IF_SEQ_NO = "if_seq_no"
-const val _PRIMARY_TERM = "_primary_term"
-const val IF_PRIMARY_TERM = "if_primary_term"
-const val REFRESH = "refresh"
+import org.elasticsearch.action.ActionType
+
+class AddPolicyAction private constructor() : ActionType<AddPolicyResponse>(NAME, ::AddPolicyResponse) {
+    companion object {
+        val INSTANCE = AddPolicyAction()
+        val NAME = "cluster:admin/opendistro/ism/managedindex/add"
+    }
+}

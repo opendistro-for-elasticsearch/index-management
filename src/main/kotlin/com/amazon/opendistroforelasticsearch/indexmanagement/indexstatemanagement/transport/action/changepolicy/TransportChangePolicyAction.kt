@@ -1,3 +1,18 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.changepolicy
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
@@ -7,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestChangePolicyAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateManagedIndexRequest
@@ -48,16 +64,16 @@ class TransportChangePolicyAction @Inject constructor(
     actionFilters: ActionFilters,
     val clusterService: ClusterService,
     val xContentRegistry: NamedXContentRegistry
-) : HandledTransportAction<ChangePolicyRequest, ChangePolicyResponse>(
+) : HandledTransportAction<ChangePolicyRequest, ISMStatusResponse>(
     ChangePolicyAction.NAME, transportService, actionFilters, ::ChangePolicyRequest
 ) {
-    override fun doExecute(task: Task, request: ChangePolicyRequest, listener: ActionListener<ChangePolicyResponse>) {
+    override fun doExecute(task: Task, request: ChangePolicyRequest, listener: ActionListener<ISMStatusResponse>) {
         ChangePolicyHandler(client, listener, request).start()
     }
 
     inner class ChangePolicyHandler(
         private val client: NodeClient,
-        private val actionListener: ActionListener<ChangePolicyResponse>,
+        private val actionListener: ActionListener<ISMStatusResponse>,
         private val request: ChangePolicyRequest
     ) {
         private val failedIndices = mutableListOf<FailedIndex>()
@@ -170,7 +186,7 @@ class TransportChangePolicyAction @Inject constructor(
 
             if (managedIndexUuids.isEmpty()) {
                 updated = 0
-                actionListener.onResponse(ChangePolicyResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                 return
             } else {
                 client.multiGet(
@@ -214,7 +230,7 @@ class TransportChangePolicyAction @Inject constructor(
 
             if (sweptConfigs.isEmpty()) {
                 updated = 0
-                actionListener.onResponse(ChangePolicyResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                 return
             } else {
                 updateManagedIndexConfig(sweptConfigs)
@@ -237,8 +253,8 @@ class TransportChangePolicyAction @Inject constructor(
                     onBulkResponse(response, mapOfItemIdToIndex)
                 }
 
-                override fun onFailure(e: Exception?) {
-                    TODO("Not yet implemented")
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
                 }
             })
         }
@@ -253,7 +269,7 @@ class TransportChangePolicyAction @Inject constructor(
             }
 
             updated = (bulkResponse.items ?: arrayOf()).size - failedResponses.size
-            actionListener.onResponse(ChangePolicyResponse(updated, failedIndices))
+            actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
         }
 
         private fun contentParser(bytesReference: BytesReference): XContentParser {

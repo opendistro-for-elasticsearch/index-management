@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*
  * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
@@ -14,8 +13,6 @@
  * permissions and limitations under the License.
  */
 
-=======
->>>>>>> actionify change policy API
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
 
 import org.elasticsearch.common.io.stream.BytesStreamOutput

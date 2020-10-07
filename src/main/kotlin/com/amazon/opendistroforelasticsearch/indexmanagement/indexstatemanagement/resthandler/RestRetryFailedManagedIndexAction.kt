@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex.RetryFailedManagedIndexAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex.RetryFailedManagedIndexRequest
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.support.master.MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -56,7 +57,8 @@ class RestRetryFailedManagedIndexAction : BaseRestHandler() {
             mapOf()
         }
 
-        val retryFailedRequest = RetryFailedManagedIndexRequest(indices.toList(), body["state"] as String?)
+        val retryFailedRequest = RetryFailedManagedIndexRequest(indices.toList(), body["state"] as String?,
+                request.paramAsTime("master_timeout", DEFAULT_MASTER_NODE_TIMEOUT))
 
         return RestChannelConsumer { channel ->
             client.execute(RetryFailedManagedIndexAction.INSTANCE, retryFailedRequest, RestToXContentListener(channel))

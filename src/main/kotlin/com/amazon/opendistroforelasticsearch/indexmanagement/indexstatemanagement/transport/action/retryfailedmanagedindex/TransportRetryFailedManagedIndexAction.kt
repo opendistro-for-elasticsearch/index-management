@@ -76,6 +76,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                     .indices(*request.indices.toTypedArray())
                     .metadata(true)
                     .local(false)
+                    .masterNodeTimeout(request.masterTimeout)
                     .indicesOptions(strictExpandIndicesOptions)
 
             client.admin()

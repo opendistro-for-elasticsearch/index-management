@@ -20,25 +20,30 @@ import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.ValidateActions
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.unit.TimeValue
 import java.io.IOException
 
 class RetryFailedManagedIndexRequest : ActionRequest {
 
     val indices: List<String>
     val startState: String?
+    val masterTimeout: TimeValue
 
     constructor(
         indices: List<String>,
-        startState: String?
+        startState: String?,
+        masterTimeout: TimeValue
     ) : super() {
         this.indices = indices
         this.startState = startState
+        this.masterTimeout = masterTimeout
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         indices = sin.readStringList(),
-        startState = sin.readOptionalString()
+        startState = sin.readOptionalString(),
+        masterTimeout = sin.readTimeValue()
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -53,5 +58,6 @@ class RetryFailedManagedIndexRequest : ActionRequest {
     override fun writeTo(out: StreamOutput) {
         out.writeStringCollection(indices)
         out.writeOptionalString(startState)
+        out.writeTimeValue(masterTimeout)
     }
 }

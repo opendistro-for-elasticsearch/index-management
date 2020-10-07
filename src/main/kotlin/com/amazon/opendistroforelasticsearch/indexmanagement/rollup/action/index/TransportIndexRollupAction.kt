@@ -127,8 +127,8 @@ class TransportIndexRollupAction @Inject constructor(
                     } else {
                         val status = if (request.opType() == DocWriteRequest.OpType.CREATE) RestStatus.CREATED else RestStatus.OK
                         actionListener.onResponse(
-                            IndexRollupResponse(response.id, response.version,
-                                response.seqNo, response.primaryTerm, status, rollup)
+                            IndexRollupResponse(response.id, response.version, response.seqNo, response.primaryTerm, status,
+                                rollup.copy(seqNo = response.seqNo, primaryTerm = response.primaryTerm))
                         )
                     }
                 }

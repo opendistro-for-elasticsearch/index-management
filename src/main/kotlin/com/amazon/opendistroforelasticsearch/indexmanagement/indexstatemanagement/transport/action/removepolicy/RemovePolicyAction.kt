@@ -15,9 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import org.elasticsearch.action.ActionType
 
-class RemovePolicyAction private constructor() : ActionType<RemovePolicyResponse>(NAME, ::RemovePolicyResponse) {
+class RemovePolicyAction private constructor() : ActionType<ISMStatusResponse>(NAME, ::ISMStatusResponse) {
     companion object {
         val INSTANCE = RemovePolicyAction()
         val NAME = "cluster:admin/opendistro/ism/managedindex/remove"

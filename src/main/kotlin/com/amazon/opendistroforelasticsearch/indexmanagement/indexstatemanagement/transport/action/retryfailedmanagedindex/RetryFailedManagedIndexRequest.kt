@@ -13,38 +13,43 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex
 
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.ValidateActions
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.unit.TimeValue
 import java.io.IOException
 
-class AddPolicyRequest : ActionRequest {
+class RetryFailedManagedIndexRequest : ActionRequest {
 
     val indices: List<String>
-    val policyID: String?
+    val startState: String?
+    val masterTimeout: TimeValue
 
     constructor(
         indices: List<String>,
-        policyID: String?
+        startState: String?,
+        masterTimeout: TimeValue
     ) : super() {
         this.indices = indices
-        this.policyID = policyID
+        this.startState = startState
+        this.masterTimeout = masterTimeout
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         indices = sin.readStringList(),
-        policyID = sin.readString()
+        startState = sin.readOptionalString(),
+        masterTimeout = sin.readTimeValue()
     )
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (indices.isEmpty() || policyID.isNullOrBlank()) {
-            validationException = ValidateActions.addValidationError("Missing indices or policyID", validationException)
+        if (indices.isEmpty()) {
+            validationException = ValidateActions.addValidationError("Missing indices", validationException)
         }
         return validationException
     }
@@ -52,6 +57,7 @@ class AddPolicyRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeStringCollection(indices)
-        out.writeString(policyID)
+        out.writeOptionalString(startState)
+        out.writeTimeValue(masterTimeout)
     }
 }

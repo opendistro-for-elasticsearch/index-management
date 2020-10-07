@@ -13,29 +13,27 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
-class AddPolicyResponseTests : ESTestCase() {
+class ISMStatusResponseTests : ESTestCase() {
 
-    fun `test add policy response`() {
+    fun `test ISM status response`() {
         val updated = 1
         val failedIndex = FailedIndex("index", "uuid", "reason")
         val failedIndices = mutableListOf(failedIndex)
 
-        val res = AddPolicyResponse(updated, failedIndices)
-        Assert.assertNotNull(res)
+        val res = ISMStatusResponse(updated, failedIndices)
 
         val out = BytesStreamOutput()
         res.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newRes = AddPolicyResponse(sin)
-        Assert.assertEquals(updated, newRes.updated)
-        Assert.assertEquals(failedIndices, newRes.failedIndices)
+        val newRes = ISMStatusResponse(sin)
+        assertEquals(updated, newRes.updated)
+        assertEquals(failedIndices, newRes.failedIndices)
     }
 }

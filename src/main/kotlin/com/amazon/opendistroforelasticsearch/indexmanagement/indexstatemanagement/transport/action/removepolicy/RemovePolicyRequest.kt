@@ -21,7 +21,6 @@ import org.elasticsearch.action.ValidateActions
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
-import java.util.Collections
 
 class RemovePolicyRequest : ActionRequest {
 
@@ -35,7 +34,7 @@ class RemovePolicyRequest : ActionRequest {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        indices = Collections.unmodifiableList(sin.readStringList())
+        indices = sin.readStringList()
     )
 
     override fun validate(): ActionRequestValidationException? {

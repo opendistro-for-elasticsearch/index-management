@@ -13,29 +13,26 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
-class RemovePolicyResponseTests : ESTestCase() {
+class RetryFailedManagedIndexRequestTests : ESTestCase() {
 
-    fun `test remove policy response`() {
-        val updated = 1
-        val failedIndex = FailedIndex("index", "uuid", "reason")
-        val failedIndices = mutableListOf(failedIndex)
-
-        val res = RemovePolicyResponse(updated, failedIndices)
-        Assert.assertNotNull(res)
+    fun `test retry managed index request`() {
+        val indices = listOf("index1", "index2")
+        val startState = "state1"
+        val masterTimeout = TimeValue.timeValueSeconds(30)
+        val req = RetryFailedManagedIndexRequest(indices, startState, masterTimeout)
 
         val out = BytesStreamOutput()
-        res.writeTo(out)
+        req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-        val newRes = RemovePolicyResponse(sin)
-        Assert.assertEquals(updated, newRes.updated)
-        Assert.assertEquals(failedIndices, newRes.failedIndices)
+        val newReq = RetryFailedManagedIndexRequest(sin)
+        assertEquals(indices, newReq.indices)
+        assertEquals(startState, newReq.startState)
     }
 }

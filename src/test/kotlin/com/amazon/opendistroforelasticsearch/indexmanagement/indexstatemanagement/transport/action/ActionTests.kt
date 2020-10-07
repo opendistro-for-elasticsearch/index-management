@@ -17,17 +17,22 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy.AddPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy.RemovePolicyAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex.RetryFailedManagedIndexAction
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class ActionTests : ESTestCase() {
     fun `test add policy action name`() {
-        Assert.assertNotNull(AddPolicyAction.INSTANCE.name())
-        Assert.assertEquals(AddPolicyAction.INSTANCE.name(), AddPolicyAction.NAME)
+        assertNotNull(AddPolicyAction.INSTANCE.name())
+        assertEquals(AddPolicyAction.INSTANCE.name(), AddPolicyAction.NAME)
     }
 
     fun `test remove policy action name`() {
-        Assert.assertNotNull(RemovePolicyAction.INSTANCE.name())
-        Assert.assertEquals(RemovePolicyAction.INSTANCE.name(), RemovePolicyAction.NAME)
+        assertNotNull(RemovePolicyAction.INSTANCE.name())
+        assertEquals(RemovePolicyAction.INSTANCE.name(), RemovePolicyAction.NAME)
+    }
+
+    fun `test retry failed managed index action name`() {
+        assertNotNull(RetryFailedManagedIndexAction.INSTANCE.name())
+        assertEquals(RetryFailedManagedIndexAction.INSTANCE.name(), RetryFailedManagedIndexAction.NAME)
     }
 }

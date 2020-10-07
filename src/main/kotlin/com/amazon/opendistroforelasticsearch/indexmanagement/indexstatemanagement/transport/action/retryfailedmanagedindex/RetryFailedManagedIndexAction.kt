@@ -13,13 +13,14 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
-import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.action.ActionType
 
-class AddPolicyResponse : ISMStatusResponse {
-    constructor(updated: Int, failedIndices: List<FailedIndex>) : super(updated, failedIndices)
-    constructor(sin: StreamInput) : super(sin)
+class RetryFailedManagedIndexAction private constructor() : ActionType<ISMStatusResponse>(NAME, ::ISMStatusResponse) {
+    companion object {
+        val INSTANCE = RetryFailedManagedIndexAction()
+        val NAME = "cluster:admin/opendistro/ism/managedindex/retry"
+    }
 }

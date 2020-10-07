@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import org.elasticsearch.ElasticsearchTimeoutException
 import org.elasticsearch.action.ActionListener
@@ -46,16 +47,16 @@ class TransportAddPolicyAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
     actionFilters: ActionFilters
-) : HandledTransportAction<AddPolicyRequest, AddPolicyResponse>(
+) : HandledTransportAction<AddPolicyRequest, ISMStatusResponse>(
         AddPolicyAction.NAME, transportService, actionFilters, ::AddPolicyRequest
 ) {
-    override fun doExecute(task: Task, request: AddPolicyRequest, listener: ActionListener<AddPolicyResponse>) {
+    override fun doExecute(task: Task, request: AddPolicyRequest, listener: ActionListener<ISMStatusResponse>) {
         AddPolicyHandler(client, listener, request).start()
     }
 
     inner class AddPolicyHandler(
         private val client: NodeClient,
-        private val actionListener: ActionListener<AddPolicyResponse>,
+        private val actionListener: ActionListener<ISMStatusResponse>,
         private val request: AddPolicyRequest
     ) {
         private lateinit var startTime: Instant
@@ -125,7 +126,7 @@ class TransportAddPolicyAction @Inject constructor(
                                     })
                                 }
 
-                                actionListener.onResponse(AddPolicyResponse(updated, failedIndices))
+                                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                             }
 
                             override fun onFailure(t: Exception) {
@@ -139,11 +140,11 @@ class TransportAddPolicyAction @Inject constructor(
                         )
                     })
                     updated = 0
-                    actionListener.onResponse(AddPolicyResponse(updated, failedIndices))
+                    actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                 }
             } else {
                 updated = 0
-                actionListener.onResponse(AddPolicyResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
             }
         }
 

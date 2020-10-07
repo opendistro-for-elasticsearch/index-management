@@ -38,8 +38,8 @@ class AddPolicyRequest : ActionRequest {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        Collections.unmodifiableList(sin.readStringList()),
-        sin.readString()
+        indices = Collections.unmodifiableList(sin.readStringList()),
+        policyID = sin.readString()
     )
 
     override fun validate(): ActionRequestValidationException? {

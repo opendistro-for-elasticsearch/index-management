@@ -93,7 +93,7 @@ class RollupIndexer(
         internalComposite.buckets.forEach {
             // TODO: Come up with way to handle documentID - needs to be deterministic and unique for all rollup documents per rollup job
             //  For now just use the sorted keys for development
-            val documentId = it.key.entries.sortedBy { it.key }.joinToString { it.value.toString() }
+            val documentId = it.key.entries.sortedBy { it.key }.joinToString("-") { it.value.toString() }
             // TODO: Move these somewhere else to be reused
             val mapOfKeyValues = mutableMapOf(
                 "${Rollup.ROLLUP_TYPE}.$_ID" to job.id,
@@ -104,7 +104,7 @@ class RollupIndexer(
             // TODO: Should we store more information about date_histogram and histogram on the rollup document or rely on it being on the rollup job?
             it.key.entries.forEach {
                 val type = (job.dimensions.find { dim -> "${dim.targetField}.${dim.type.type}" == it.key } as Dimension).type.type
-                aggResults.computeIfAbsent(it.key) { mutableMapOf() }[type] = it.value
+                aggResults.computeIfAbsent(it.key.removeSuffix(".$type")) { mutableMapOf() }[type] = it.value
             }
             it.aggregations.forEach {
                 when (it) {

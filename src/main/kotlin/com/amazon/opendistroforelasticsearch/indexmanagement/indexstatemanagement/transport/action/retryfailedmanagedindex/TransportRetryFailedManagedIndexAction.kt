@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
@@ -49,16 +50,16 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
     actionFilters: ActionFilters
-) : HandledTransportAction<RetryFailedManagedIndexRequest, RetryFailedManagedIndexResponse>(
+) : HandledTransportAction<RetryFailedManagedIndexRequest, ISMStatusResponse>(
         RetryFailedManagedIndexAction.NAME, transportService, actionFilters, ::RetryFailedManagedIndexRequest
 ) {
-    override fun doExecute(task: Task, request: RetryFailedManagedIndexRequest, listener: ActionListener<RetryFailedManagedIndexResponse>) {
+    override fun doExecute(task: Task, request: RetryFailedManagedIndexRequest, listener: ActionListener<ISMStatusResponse>) {
         RetryFailedManagedIndexHandler(client, listener, request).start()
     }
 
     inner class RetryFailedManagedIndexHandler(
         private val client: NodeClient,
-        private val actionListener: ActionListener<RetryFailedManagedIndexResponse>,
+        private val actionListener: ActionListener<ISMStatusResponse>,
         private val request: RetryFailedManagedIndexRequest
     ) {
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
@@ -71,7 +72,6 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
             val strictExpandIndicesOptions = IndicesOptions.strictExpand()
 
             val clusterStateRequest = ClusterStateRequest()
-            clusterStateRequest.masterNodeTimeout()
             clusterStateRequest.clear()
                     .indices(*request.indices.toTypedArray())
                     .metadata(true)
@@ -99,7 +99,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                 updateBulkRequest(listOfIndexMetaDataBulk.map { it.indexUuid })
             } else {
                 updated = 0
-                actionListener.onResponse(RetryFailedManagedIndexResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                 return
             }
         }
@@ -161,7 +161,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                 )
             } else {
                 updated = 0
-                actionListener.onResponse(RetryFailedManagedIndexResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                 return
             }
         }
@@ -179,7 +179,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                     FailedIndex(it.first.name, it.first.uuid, "failed to update IndexMetaData")
                 })
             }
-            actionListener.onResponse(RetryFailedManagedIndexResponse(updated, failedIndices))
+            actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
             return
         }
 
@@ -192,7 +192,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                 }
 
                 updated = 0
-                actionListener.onResponse(RetryFailedManagedIndexResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                 return
             } catch (inner: Exception) {
                 inner.addSuppressed(e)

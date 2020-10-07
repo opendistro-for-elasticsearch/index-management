@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
@@ -44,16 +45,16 @@ class TransportRemovePolicyAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
     actionFilters: ActionFilters
-) : HandledTransportAction<RemovePolicyRequest, RemovePolicyResponse>(
+) : HandledTransportAction<RemovePolicyRequest, ISMStatusResponse>(
         RemovePolicyAction.NAME, transportService, actionFilters, ::RemovePolicyRequest
 ) {
-    override fun doExecute(task: Task, request: RemovePolicyRequest, listener: ActionListener<RemovePolicyResponse>) {
+    override fun doExecute(task: Task, request: RemovePolicyRequest, listener: ActionListener<ISMStatusResponse>) {
         RemovePolicyHandler(client, listener, request).start()
     }
 
     inner class RemovePolicyHandler(
         private val client: NodeClient,
-        private val actionListener: ActionListener<RemovePolicyResponse>,
+        private val actionListener: ActionListener<ISMStatusResponse>,
         private val request: RemovePolicyRequest
     ) {
 
@@ -108,7 +109,7 @@ class TransportRemovePolicyAction @Inject constructor(
                                     })
                                 }
 
-                                actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+                                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                             }
 
                             override fun onFailure(t: Exception) {
@@ -121,11 +122,11 @@ class TransportRemovePolicyAction @Inject constructor(
                         FailedIndex(it.name, it.uuid, "Failed to remove policy due to ClusterBlockException: ${e.message}")
                     })
                     updated = 0
-                    actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+                    actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
                 }
             } else {
                 updated = 0
-                actionListener.onResponse(RemovePolicyResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
             }
         }
 

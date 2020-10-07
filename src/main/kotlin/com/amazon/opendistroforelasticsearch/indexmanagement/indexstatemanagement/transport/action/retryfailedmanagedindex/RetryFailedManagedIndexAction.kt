@@ -15,9 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import org.elasticsearch.action.ActionType
 
-class RetryFailedManagedIndexAction private constructor() : ActionType<RetryFailedManagedIndexResponse>(NAME, ::RetryFailedManagedIndexResponse) {
+class RetryFailedManagedIndexAction private constructor() : ActionType<ISMStatusResponse>(NAME, ::ISMStatusResponse) {
     companion object {
         val INSTANCE = RetryFailedManagedIndexAction()
         val NAME = "cluster:admin/opendistro/ism/managedindex/retry"

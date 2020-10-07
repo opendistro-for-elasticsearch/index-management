@@ -15,9 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.addpolicy
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import org.elasticsearch.action.ActionType
 
-class AddPolicyAction private constructor() : ActionType<AddPolicyResponse>(NAME, ::AddPolicyResponse) {
+class AddPolicyAction private constructor() : ActionType<ISMStatusResponse>(NAME, ::ISMStatusResponse) {
     companion object {
         val INSTANCE = AddPolicyAction()
         val NAME = "cluster:admin/opendistro/ism/managedindex/add"

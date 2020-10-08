@@ -15,18 +15,39 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
+import org.elasticsearch.action.search.SearchRequest
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.common.Strings
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.Operator
+import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext.FETCH_SOURCE
+import org.elasticsearch.search.sort.SortBuilders
+import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+
+private val log = LogManager.getLogger(TransportExplainAction::class.java)
 
 class TransportExplainAction @Inject constructor(
     val client: NodeClient,
@@ -46,11 +67,60 @@ class TransportExplainAction @Inject constructor(
     ) {
         @Suppress("SpreadOperator")
         fun start() {
+            if (request.indices.isNotEmpty()) {
+                getMetadata(request.indices)
+                return
+            }
+
+            val params = request.params
+
+            val sortBuilder = SortBuilders
+                .fieldSort(params.sortField)
+                .order(SortOrder.fromString(params.sortOrder))
+
+            val queryStringQuery = QueryBuilders.queryStringQuery(params.queryString).defaultField("managed_index.name").defaultOperator(Operator.AND)
+            val queryBuilder = QueryBuilders.boolQuery()
+                .filter(QueryBuilders.existsQuery("managed_index"))
+                .must(queryStringQuery)
+
+            val searchSourceBuilder = SearchSourceBuilder()
+                .sort(sortBuilder)
+                .from(params.from)
+                .size(params.size)
+                .fetchSource(FETCH_SOURCE)
+                .seqNoAndPrimaryTerm(true)
+                .version(true)
+                .query(queryBuilder)
+
+            val searchRequest = SearchRequest()
+                .indices(INDEX_MANAGEMENT_INDEX)
+                .source(searchSourceBuilder)
+
+            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                override fun onResponse(response: SearchResponse) {
+                    val managedIndices = mutableListOf<String>()
+                    log.info("check response size: ${response.hits.hits.size}")
+                    response.hits.hits.map {
+                        val hitMap = it.sourceAsMap["managed_index"] as Map<String, Any>
+                        log.info("see hits content: $hitMap")
+                        managedIndices.add(hitMap["index"] as String)
+                    }
+                    log.info("explain indices: $managedIndices")
+                    getMetadata(managedIndices)
+                }
+
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
+
+        fun getMetadata(indices: List<String>) {
             val clusterStateRequest = ClusterStateRequest()
             val strictExpandIndicesOptions = IndicesOptions.strictExpand()
 
             clusterStateRequest.clear()
-                .indices(*request.indices.toTypedArray())
+                .indices(*indices.toTypedArray())
                 .metadata(true)
                 .local(request.local)
                 .masterNodeTimeout(request.masterTimeout)

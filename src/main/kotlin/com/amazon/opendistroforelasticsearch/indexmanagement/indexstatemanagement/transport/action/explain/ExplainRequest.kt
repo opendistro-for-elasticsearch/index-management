@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Params
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.ValidateActions
@@ -28,30 +29,35 @@ class ExplainRequest : ActionRequest {
     val indices: List<String>
     val local: Boolean
     val masterTimeout: TimeValue
+    val params: Params
 
     constructor(
         indices: List<String>,
         local: Boolean,
-        masterTimeout: TimeValue
+        masterTimeout: TimeValue,
+        params: Params
     ) : super() {
         this.indices = indices
         this.local = local
         this.masterTimeout = masterTimeout
+        this.params = params
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         indices = sin.readStringList(),
         local = sin.readBoolean(),
-        masterTimeout = sin.readTimeValue()
+        masterTimeout = sin.readTimeValue(),
+        params = Params.fromStreamInput(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
-        var validationException: ActionRequestValidationException? = null
-        if (indices.isEmpty()) {
-            validationException = ValidateActions.addValidationError("Missing indices", validationException)
-        }
-        return validationException
+        // var validationException: ActionRequestValidationException? = null
+        // if (indices.isEmpty()) {
+        //     validationException = ValidateActions.addValidationError("Missing indices", validationException)
+        // }
+        // return validationException
+        return null
     }
 
     @Throws(IOException::class)
@@ -59,5 +65,6 @@ class ExplainRequest : ActionRequest {
         out.writeStringCollection(indices)
         out.writeBoolean(local)
         out.writeTimeValue(masterTimeout)
+        params.writeTo(out)
     }
 }

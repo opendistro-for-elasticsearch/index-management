@@ -16,8 +16,10 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Params
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainRequest
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.master.MasterNodeRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
@@ -27,6 +29,8 @@ import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.action.RestToXContentListener
+
+private val log = LogManager.getLogger(RestExplainAction::class.java)
 
 class RestExplainAction : BaseRestHandler() {
 
@@ -47,13 +51,24 @@ class RestExplainAction : BaseRestHandler() {
 
     @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
-        if (indices == null || indices.isEmpty()) {
-            throw IllegalArgumentException("Missing indices")
-        }
+        log.info("${request.method()} ${request.path()}")
 
+        val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
+        // if (indices == null || indices.isEmpty()) {
+        //     throw IllegalArgumentException("Missing indices")
+        // }
+
+        val size = request.paramAsInt("size", 20)
+        val from = request.paramAsInt("from", 0)
+        val sortField = request.param("sortField", "managed_index.index")
+        val sortOrder = request.param("sortOrder", "desc")
+        val queryString = request.param("queryString", "*")
+
+        log.info("request params: $size, $from, $sortField, $sortOrder, $queryString")
+
+        val params = Params(size, from, sortField, sortOrder, queryString)
         val explainRequest = ExplainRequest(indices.toList(), request.paramAsBoolean("local", false),
-                request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT))
+                request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT), params)
 
         return RestChannelConsumer { channel ->
             client.execute(ExplainAction.INSTANCE, explainRequest, RestToXContentListener(channel))

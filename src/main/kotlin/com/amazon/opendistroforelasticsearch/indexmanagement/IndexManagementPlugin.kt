@@ -51,6 +51,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.Ref
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.TransportRefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupIndexer
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupInterceptor
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupMapperService
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRunner
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupSearchListener
@@ -90,6 +91,7 @@ import org.elasticsearch.common.settings.IndexScopedSettings
 import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
+import org.elasticsearch.common.util.concurrent.ThreadContext
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -97,22 +99,25 @@ import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
 import org.elasticsearch.index.IndexModule
 import org.elasticsearch.plugins.ActionPlugin
+import org.elasticsearch.plugins.NetworkPlugin
 import org.elasticsearch.plugins.Plugin
 import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.threadpool.ThreadPool
+import org.elasticsearch.transport.TransportInterceptor
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
 
-internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plugin() {
+internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, ActionPlugin, Plugin() {
 
     private val logger = LogManager.getLogger(javaClass)
     lateinit var indexManagementIndices: IndexManagementIndices
     lateinit var clusterService: ClusterService
     lateinit var rollupSearchListener: RollupSearchListener
     lateinit var indexNameExpressionResolver: IndexNameExpressionResolver
+    lateinit var rollupInterceptor: RollupInterceptor
 
     companion object {
         const val PLUGIN_NAME = "opendistro-im"
@@ -220,13 +225,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
             .registerMapperService(RollupMapperService(client, clusterService))
             .registerIndexer(RollupIndexer(settings, clusterService, client))
             .registerSearcher(RollupSearchService(client))
-            .registerMetadataServices(
-                RollupMetadataService(
-                    client,
-                    xContentRegistry
-                )
-            )
+            .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
+        rollupInterceptor = RollupInterceptor(clusterService, indexNameExpressionResolver)
         rollupSearchListener = RollupSearchListener(clusterService, settings, indexNameExpressionResolver)
         this.indexNameExpressionResolver = indexNameExpressionResolver
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
@@ -289,9 +290,13 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
     }
 
     override fun onIndexModule(indexModule: IndexModule) {
-        val rollupIndex = RollupSettings.ROLLUP_INDEX.get(indexModule.settings)
-        if (rollupIndex) {
-            indexModule.addSearchOperationListener(rollupSearchListener)
-        }
+//        val rollupIndex = RollupSettings.ROLLUP_INDEX.get(indexModule.settings)
+//        if (rollupIndex) {
+//            indexModule.addSearchOperationListener(rollupSearchListener)
+//        }
+    }
+
+    override fun getTransportInterceptors(namedWriteableRegistry: NamedWriteableRegistry, threadContext: ThreadContext): List<TransportInterceptor> {
+        return listOf(rollupInterceptor)
     }
 }

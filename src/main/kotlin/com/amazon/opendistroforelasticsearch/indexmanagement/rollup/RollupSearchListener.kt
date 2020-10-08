@@ -71,6 +71,7 @@ class RollupSearchListener(
         }
     }
 
+    // TODO: Query must filter the rollup documents by the matched rollup job
     // TODO: What is the expected behavior when you are searching an incomplete non-continuous rollup job?
     //  And how does it affect the rollup job matching process? i.e. you have two jobs 100% but one isn't done yet.
     // TODO: Reject all queries that do not have size = 0 as we do not return rollup documents
@@ -79,7 +80,6 @@ class RollupSearchListener(
     @Suppress("ComplexMethod", "SpreadOperator", "ReturnCount")
     override fun onPreQueryPhase(searchContext: SearchContext) {
         if (!searchEnabled) return
-
         val indices = searchContext.request().indices().map { it.toString() }.toTypedArray()
         val concreteIndices = indexNameExpressionResolver
             .concreteIndexNames(clusterService.state(), searchContext.request().indicesOptions(), *indices)

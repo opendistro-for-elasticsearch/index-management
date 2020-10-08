@@ -25,6 +25,12 @@ import java.io.IOException
 
 data class StateFilter(val state: String) : Writeable {
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        state = sin.readString()
+    )
+
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(state)
     }
@@ -46,12 +52,6 @@ data class StateFilter(val state: String) : Writeable {
                     STATE_FIELD -> state = xcp.text()
                 }
             }
-
-            return StateFilter(requireNotNull(state) { "Must include a state when using include filter" })
-        }
-
-        fun fromStreamInput(sin: StreamInput): StateFilter {
-            val state: String? = sin.readString()
 
             return StateFilter(requireNotNull(state) { "Must include a state when using include filter" })
         }

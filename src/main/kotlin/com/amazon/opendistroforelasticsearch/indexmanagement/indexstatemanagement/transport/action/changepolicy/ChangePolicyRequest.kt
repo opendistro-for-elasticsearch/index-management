@@ -39,7 +39,7 @@ class ChangePolicyRequest : ActionRequest {
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         indices = sin.readStringList(),
-        changePolicy = sin.readOptionalWriteable { ChangePolicy.fromStreamInput(it) } as ChangePolicy
+        changePolicy = ChangePolicy(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -53,6 +53,6 @@ class ChangePolicyRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeStringCollection(indices)
-        out.writeOptionalWriteable(changePolicy)
+        changePolicy.writeTo(out)
     }
 }

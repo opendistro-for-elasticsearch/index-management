@@ -44,6 +44,14 @@ data class ChangePolicy(
     val isSafe: Boolean
 ) : Writeable, ToXContentObject {
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        policyID = sin.readString(),
+        state = sin.readOptionalString(),
+        include = sin.readList(::StateFilter),
+        isSafe = sin.readBoolean()
+    )
+
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
             .startObject()
@@ -54,11 +62,12 @@ data class ChangePolicy(
         return builder
     }
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(policyID)
         out.writeOptionalString(state)
+        out.writeList(include)
         out.writeBoolean(isSafe)
-        out.writeCollection(include)
     }
 
     companion object {
@@ -66,20 +75,6 @@ data class ChangePolicy(
         const val STATE_FIELD = "state"
         const val INCLUDE_FIELD = "include"
         const val IS_SAFE_FIELD = "is_safe"
-
-        fun fromStreamInput(sin: StreamInput): ChangePolicy {
-            val policyID: String? = sin.readString()
-            val state: String? = sin.readOptionalString()
-            val isSafe: Boolean = sin.readBoolean()
-            val include: MutableList<StateFilter> = sin.readList { StateFilter.fromStreamInput(it) }
-
-            return ChangePolicy(
-                requireNotNull(policyID) { "ChangePolicy policy id is null" },
-                state,
-                include.toList(),
-                isSafe
-            )
-        }
 
         @JvmStatic
         @Throws(IOException::class)

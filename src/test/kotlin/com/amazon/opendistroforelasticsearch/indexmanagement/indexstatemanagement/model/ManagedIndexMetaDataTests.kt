@@ -43,7 +43,8 @@ class ManagedIndexMetaDataTests : ESTestCase() {
             actionMetaData = null,
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Successfully initialized policy: close_policy")
+            info = mapOf("message" to "Successfully initialized policy: close_policy"),
+            enabled = true
         )
 
         roundTripManagedIndexMetaData(expectedManagedIndexMetaData)
@@ -63,7 +64,8 @@ class ManagedIndexMetaDataTests : ESTestCase() {
             actionMetaData = ActionMetaData("close", 4321, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Successfully closed index")
+            info = mapOf("message" to "Successfully closed index"),
+            enabled = true
         )
 
         roundTripManagedIndexMetaData(expectedManagedIndexMetaData)
@@ -83,7 +85,8 @@ class ManagedIndexMetaDataTests : ESTestCase() {
             actionMetaData = ActionMetaData("close", 4321, 0, false, 0, 0, ActionProperties(3)),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Successfully closed index")
+            info = mapOf("message" to "Successfully closed index"),
+            enabled = true
         )
 
         roundTripManagedIndexMetaData(expectedManagedIndexMetaData)
@@ -103,7 +106,8 @@ class ManagedIndexMetaDataTests : ESTestCase() {
             actionMetaData = ActionMetaData("rollover", 4321, 0, false, 0, 0, null),
             stepMetaData = StepMetaData("attempt_rollover", 6789, Step.StepStatus.FAILED),
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "There is no valid rollover_alias=null set on movies")
+            info = mapOf("message" to "There is no valid rollover_alias=null set on movies"),
+            enabled = true
         )
 
         roundTripManagedIndexMetaData(expectedManagedIndexMetaData)

@@ -92,7 +92,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -158,7 +159,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -224,7 +226,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -284,7 +287,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = null,
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Successfully initialized policy: $policyID")
+            info = mapOf("message" to "Successfully initialized policy: $policyID"),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -314,7 +318,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory1.actionMetaData!!.startTime, 0, false, 0, 0, null),
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName))
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
+            enabled = true
         )
 
         assertEquals(expectedHistory1, actualHistory1)
@@ -382,7 +387,8 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
             actionMetaData = null,
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-            info = mapOf("message" to "Successfully initialized policy: $policyID")
+            info = mapOf("message" to "Successfully initialized policy: $policyID"),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)

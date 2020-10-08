@@ -32,57 +32,103 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    fun `test missing indices`() {
-        try {
-            client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
-            fail("Expected a failure")
-        } catch (e: ResponseException) {
-            assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
-            val actualMessage = e.response.asMap()
-            val expectedErrorMessage = mapOf(
-                "error" to mapOf(
-                    "root_cause" to listOf<Map<String, Any>>(
-                        mapOf("type" to "illegal_argument_exception", "reason" to "Missing indices")
-                    ),
-                    "type" to "illegal_argument_exception",
-                    "reason" to "Missing indices"
-                ),
-                "status" to 400
-            )
-            assertEquals(expectedErrorMessage, actualMessage)
-        }
-    }
-
     fun `test single index`() {
         val indexName = "${testIndexName}_movies"
         createIndex(indexName, null)
         val expected = mapOf(
             indexName to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
-            )
+            ),
+            "totalManagedIndices" to 0
         )
         assertResponseMap(expected, getExplainMap(indexName))
     }
 
+    fun `test explain all`() {
+        // explain all returns only managed indices
+        val indexName1 = "${testIndexName}_managed"
+        val indexName2 = "${testIndexName}_not_managed"
+        val policy = createRandomPolicy()
+        createIndex(indexName1, policy.id)
+        createIndex(indexName2, null)
+
+        val expected = mapOf(
+            indexName1 to mapOf<String, Any>(
+                ManagedIndexSettings.POLICY_ID.key to policy.id,
+                "index" to indexName1,
+                "index_uuid" to getUuid(indexName1),
+                "policy_id" to policy.id,
+                "enabled" to true
+            ),
+            "totalManagedIndices" to 1
+        )
+        waitFor {
+            assertResponseMap(expected, getExplainMap(null))
+        }
+    }
+
+    fun `test two indices, one managed one not managed`() {
+        // explicitly asks for un-managed index, will return policy_id as null
+        val indexName1 = "${testIndexName}_managed"
+        val indexName2 = "${testIndexName}_not_managed"
+        val policy = createRandomPolicy()
+        createIndex(indexName1, policy.id)
+        createIndex(indexName2, null)
+
+        val expected = mapOf(
+            indexName1 to mapOf<String, Any>(
+                ManagedIndexSettings.POLICY_ID.key to policy.id,
+                "index" to indexName1,
+                "index_uuid" to getUuid(indexName1),
+                "policy_id" to policy.id,
+                "enabled" to true
+            ),
+            indexName2 to mapOf<String, Any?>(
+                ManagedIndexSettings.POLICY_ID.key to null
+            ),
+            "totalManagedIndices" to 1
+        )
+        waitFor {
+            assertResponseMap(expected, getExplainMap("$indexName1,$indexName2"))
+        }
+    }
+
     fun `test index pattern`() {
-        val indexName1 = "${testIndexName}_video"
+        // only return managed indices
+        val indexName1 = "${testIndexName}_pattern"
         val indexName2 = "${indexName1}_2"
         val indexName3 = "${indexName1}_3"
-        createIndex(indexName1, null)
-        createIndex(indexName2, null)
-        createIndex(indexName3, null)
+        val policy = createRandomPolicy()
+        createIndex(indexName1, policyID = policy.id)
+        createIndex(indexName2, policyID = policy.id)
+        createIndex(indexName3, policyID = policy.id)
         val expected = mapOf(
-            indexName1 to mapOf<String, String?>(
-                ManagedIndexSettings.POLICY_ID.key to null
+            indexName1 to mapOf<String, Any>(
+                ManagedIndexSettings.POLICY_ID.key to policy.id,
+                "index" to indexName1,
+                "index_uuid" to getUuid(indexName1),
+                "policy_id" to policy.id,
+                "enabled" to true
             ),
-            indexName2 to mapOf<String, String?>(
-                ManagedIndexSettings.POLICY_ID.key to null
+            indexName2 to mapOf<String, Any>(
+                ManagedIndexSettings.POLICY_ID.key to policy.id,
+                "index" to indexName2,
+                "index_uuid" to getUuid(indexName2),
+                "policy_id" to policy.id,
+                "enabled" to true
             ),
-            indexName3 to mapOf<String, String?>(
-                ManagedIndexSettings.POLICY_ID.key to null
-            )
+            indexName3 to mapOf<String, Any>(
+                ManagedIndexSettings.POLICY_ID.key to policy.id,
+                "index" to indexName3,
+                "index_uuid" to getUuid(indexName3),
+                "policy_id" to policy.id,
+                "enabled" to true
+            ),
+            "totalManagedIndices" to 3
         )
-        assertResponseMap(expected, getExplainMap("$indexName1*"))
+        waitFor {
+            assertResponseMap(expected, getExplainMap("$indexName1*"))
+        }
     }
 
     fun `test attached policy`() {
@@ -110,7 +156,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                                 assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                                 assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
-                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString(),
+                        ManagedIndexMetaData.ENABLED to true::equals
                     )
                 ), getExplainMap(indexName))
         }
@@ -136,22 +183,28 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                         ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                                 assertRetryInfoEquals(PolicyRetryInfoMetaData(true, 0), retryInfoMetaDataMap),
-                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString(),
+                        ManagedIndexMetaData.ENABLED to true::equals
                     )
                 ), getExplainMap(indexName))
         }
     }
 
     @Suppress("UNCHECKED_CAST") // Do assertion of the response map here so we don't have many places to do suppression.
-    private fun assertResponseMap(expected: Map<String, Map<String, Any?>>, actual: Map<String, Any>) {
-        actual as Map<String, Map<String, String?>>
+    private fun assertResponseMap(expected: Map<String, Any>, actual: Map<String, Any>) {
         assertEquals("Explain Map does not match", expected.size, actual.size)
         for (metaDataEntry in expected) {
-            assertMetaDataEntries(metaDataEntry.value, actual[metaDataEntry.key]!!)
+            if (metaDataEntry.key == "totalManagedIndices") {
+                assertEquals(metaDataEntry.value, actual[metaDataEntry.key])
+                continue
+            }
+            val value = metaDataEntry.value as Map<String, Any?>
+            actual as Map<String, Map<String, String?>>
+            assertMetaDataEntries(value, actual[metaDataEntry.key]!!)
         }
     }
 
-    private fun assertMetaDataEntries(expected: Map<String, Any?>, actual: Map<String, String?>) {
+    private fun assertMetaDataEntries(expected: Map<String, Any?>, actual: Map<String, Any?>) {
         assertEquals("MetaDataSize are not the same", expected.size, actual.size)
         for (entry in expected) {
             assertEquals("Expected and actual values does not match", entry.value, actual[entry.key])

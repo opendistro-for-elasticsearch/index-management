@@ -62,7 +62,7 @@ class AttemptTransitionStepTests : ESTestCase() {
 
         runBlocking {
             val config = TransitionsActionConfig(listOf(Transition("some_state", Conditions(docCount = 5L))))
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
             val step = AttemptTransitionStep(clusterService, client, config, managedIndexMetaData)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -78,7 +78,7 @@ class AttemptTransitionStepTests : ESTestCase() {
 
         runBlocking {
             val config = TransitionsActionConfig(listOf(Transition("some_state", Conditions(docCount = 5L))))
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
             val step = AttemptTransitionStep(clusterService, client, config, managedIndexMetaData)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -94,7 +94,7 @@ class AttemptTransitionStepTests : ESTestCase() {
 
         runBlocking {
             val config = TransitionsActionConfig(listOf(Transition("some_state", Conditions(docCount = 5L))))
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
             val step = AttemptTransitionStep(clusterService, client, config, managedIndexMetaData)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(managedIndexMetaData)

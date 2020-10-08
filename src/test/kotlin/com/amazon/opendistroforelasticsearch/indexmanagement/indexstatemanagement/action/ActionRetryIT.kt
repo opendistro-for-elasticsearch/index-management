@@ -156,7 +156,8 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
                             ),
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                             assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
-                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString(),
+                        ManagedIndexMetaData.ENABLED to true::equals
                     )
                 ), getExplainMap(indexName))
         }

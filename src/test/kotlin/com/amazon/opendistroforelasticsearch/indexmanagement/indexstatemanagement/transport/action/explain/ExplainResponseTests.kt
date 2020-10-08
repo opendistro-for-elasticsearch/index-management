@@ -38,10 +38,12 @@ class ExplainResponseTests : ESTestCase() {
             actionMetaData = null,
             stepMetaData = null,
             policyRetryInfo = null,
-            info = null
+            info = null,
+            enabled = true
         )
         val indexMetadatas = listOf(metadata)
-        val res = ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas)
+        val totalManagedIndices = 1
+        val res = ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices)
 
         val out = BytesStreamOutput()
         res.writeTo(out)
@@ -50,5 +52,6 @@ class ExplainResponseTests : ESTestCase() {
         assertEquals(indexNames, newRes.indexNames)
         assertEquals(indexPolicyIDs, newRes.indexPolicyIDs)
         assertEquals(indexMetadatas, newRes.indexMetadatas)
+        assertEquals(totalManagedIndices, newRes.totalManagedIndices)
     }
 }

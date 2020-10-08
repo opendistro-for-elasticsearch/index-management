@@ -44,7 +44,7 @@ class AttemptDeleteStepTests : ESTestCase() {
 
         runBlocking {
             val deleteActionConfig = DeleteActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
             val attemptDeleteStep = AttemptDeleteStep(clusterService, client, deleteActionConfig, managedIndexMetaData)
             attemptDeleteStep.execute()
             val updatedManagedIndexMetaData = attemptDeleteStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -58,7 +58,7 @@ class AttemptDeleteStepTests : ESTestCase() {
 
         runBlocking {
             val deleteActionConfig = DeleteActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
             val attemptDeleteStep = AttemptDeleteStep(clusterService, client, deleteActionConfig, managedIndexMetaData)
             attemptDeleteStep.execute()
             val updatedManagedIndexMetaData = attemptDeleteStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -72,7 +72,7 @@ class AttemptDeleteStepTests : ESTestCase() {
 
         runBlocking {
             val deleteActionConfig = DeleteActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
             val attemptDeleteStep = AttemptDeleteStep(clusterService, client, deleteActionConfig, managedIndexMetaData)
             attemptDeleteStep.execute()
             val updatedManagedIndexMetaData = attemptDeleteStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -87,7 +87,7 @@ class AttemptDeleteStepTests : ESTestCase() {
 
         runBlocking {
             val deleteActionConfig = DeleteActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
             val attemptDeleteStep = AttemptDeleteStep(clusterService, client, deleteActionConfig, managedIndexMetaData)
             attemptDeleteStep.execute()
             val updatedManagedIndexMetaData = attemptDeleteStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)

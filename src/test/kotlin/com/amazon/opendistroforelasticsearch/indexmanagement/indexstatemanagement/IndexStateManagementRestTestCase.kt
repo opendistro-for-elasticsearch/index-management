@@ -416,8 +416,10 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     protected fun getFlatSettings(indexName: String) =
             (getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>)[indexName]!!["settings"] as Map<String, String>
 
-    protected fun getExplainMap(indexName: String): Map<String, Any> {
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
+    protected fun getExplainMap(indexName: String?): Map<String, Any> {
+        var endpoint = RestExplainAction.EXPLAIN_BASE_URI
+        if (indexName != null) endpoint += "/$indexName"
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), endpoint)
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         return response.asMap()
     }
@@ -459,16 +461,19 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-
         lateinit var metadata: ManagedIndexMetaData
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
         while (xcp.nextToken() != Token.END_OBJECT) {
-            xcp.currentName()
+            val cn = xcp.currentName()
             xcp.nextToken()
+            if (cn == "totalManagedIndices") continue
 
             metadata = ManagedIndexMetaData.parse(xcp)
         }
+
+        // make sure metadata is initialised
+        assertTrue(metadata.transitionTo != null || metadata.stateMetaData != null || metadata.info != null || metadata.policyCompleted != null)
         return metadata
     }
 

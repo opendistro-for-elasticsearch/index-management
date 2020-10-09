@@ -46,5 +46,4 @@ class RestExplainRollupAction : BaseRestHandler() {
             client.execute(ExplainRollupAction.INSTANCE, explainRequest, RestToXContentListener(channel))
         }
     }
-
 }

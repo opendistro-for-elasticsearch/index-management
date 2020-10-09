@@ -48,7 +48,7 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeVInt(idsToMetadata.size)
-        idsToMetadata.entries.forEach {(id, metadata) ->
+        idsToMetadata.entries.forEach { (id, metadata) ->
             out.writeString(id)
             out.writeBoolean(metadata != null)
             metadata?.writeTo(out)
@@ -58,7 +58,7 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
     @Throws(IOException::class)
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-        idsToMetadata.entries.forEach {(id, metadata) ->
+        idsToMetadata.entries.forEach { (id, metadata) ->
             builder.field(id, metadata)
         }
         return builder.endObject()

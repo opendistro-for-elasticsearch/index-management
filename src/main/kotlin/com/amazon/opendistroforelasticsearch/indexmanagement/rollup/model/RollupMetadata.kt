@@ -46,6 +46,7 @@ data class ContinuousMetadata(
         return builder.startObject()
             .timeField(NEXT_WINDOW_START_TIME_FIELD, NEXT_WINDOW_START_TIME_FIELD, nextWindowStartTime.toEpochMilli())
             .timeField(NEXT_WINDOW_END_TIME_FIELD, NEXT_WINDOW_END_TIME_FIELD, nextWindowEndTime.toEpochMilli())
+            .endObject()
     }
 
     override fun writeTo(out: StreamOutput) {

@@ -86,15 +86,11 @@ class TransportChangePolicyAction @Inject constructor(
         fun start() {
             val getRequest = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, request.changePolicy.policyID)
 
-            client.get(getRequest, object : ActionListener<GetResponse> {
-                override fun onResponse(response: GetResponse) {
-                    onGetPolicyResponse(response)
-                }
+            client.get(getRequest, ActionListener.wrap(::onGetPolicyResponse, ::onFailure))
+        }
 
-                override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
-                }
-            })
+        private fun onFailure(t: Exception) {
+            actionListener.onFailure(t)
         }
 
         private fun onGetPolicyResponse(response: GetResponse) {
@@ -106,15 +102,7 @@ class TransportChangePolicyAction @Inject constructor(
             IndexUtils.checkAndUpdateConfigIndexMapping(
                 clusterService.state(),
                 client.admin().indices(),
-                object : ActionListener<AcknowledgedResponse> {
-                    override fun onResponse(response: AcknowledgedResponse) {
-                        onUpdateMapping(response)
-                    }
-
-                    override fun onFailure(t: Exception) {
-                        actionListener.onFailure(t)
-                    }
-                })
+                ActionListener.wrap(::onUpdateMapping, ::onFailure))
         }
 
         private fun onUpdateMapping(acknowledgedResponse: AcknowledgedResponse) {
@@ -143,15 +131,7 @@ class TransportChangePolicyAction @Inject constructor(
                 .local(false)
                 .indicesOptions(IndicesOptions.strictExpand())
 
-            client.admin().cluster().state(clusterStateRequest, object : ActionListener<ClusterStateResponse> {
-                override fun onResponse(response: ClusterStateResponse) {
-                    processResponse(response)
-                }
-
-                override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
-                }
-            })
+            client.admin().cluster().state(clusterStateRequest, ActionListener.wrap(::processResponse, ::onFailure))
         }
 
         @Suppress("ComplexMethod")
@@ -191,16 +171,7 @@ class TransportChangePolicyAction @Inject constructor(
             } else {
                 client.multiGet(
                     getManagedIndexConfigMultiGetRequest(managedIndexUuids.map { (_, indexUuid) -> indexUuid }.toTypedArray()),
-                    object : ActionListener<MultiGetResponse> {
-                        override fun onResponse(response: MultiGetResponse) {
-                            onMultiGetResponse(response)
-                        }
-
-                        override fun onFailure(t: Exception) {
-                            actionListener.onFailure(t)
-                        }
-                    }
-                )
+                        ActionListener.wrap(::onMultiGetResponse, ::onFailure))
             }
         }
 
@@ -248,6 +219,7 @@ class TransportChangePolicyAction @Inject constructor(
                 bulkRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy)))
                 mapOfItemIdToIndex[index] = sweptConfig.index to sweptConfig.uuid
             }
+
             client.bulk(bulkRequest, object : ActionListener<BulkResponse> {
                 override fun onResponse(response: BulkResponse) {
                     onBulkResponse(response, mapOfItemIdToIndex)

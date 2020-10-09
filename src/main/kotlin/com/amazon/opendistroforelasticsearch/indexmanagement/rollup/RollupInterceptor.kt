@@ -56,7 +56,7 @@ class RollupInterceptor(
         forceExecution: Boolean,
         actualHandler: TransportRequestHandler<T>
     ): TransportRequestHandler<T> {
-        return object: TransportRequestHandler<T> {
+        return object : TransportRequestHandler<T> {
             override fun messageReceived(request: T, channel: TransportChannel, task: Task) {
                 if (request is ShardSearchRequest) {
                     val index = request.shardId().indexName

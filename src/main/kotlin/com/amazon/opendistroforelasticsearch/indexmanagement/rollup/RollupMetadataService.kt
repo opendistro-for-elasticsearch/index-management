@@ -45,7 +45,6 @@ import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortOrder
-import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
 
 // Service that handles CRUD operations for rollup metadata

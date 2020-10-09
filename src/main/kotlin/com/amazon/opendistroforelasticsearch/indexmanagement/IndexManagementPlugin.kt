@@ -97,7 +97,6 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
-import org.elasticsearch.index.IndexModule
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.NetworkPlugin
 import org.elasticsearch.plugins.Plugin

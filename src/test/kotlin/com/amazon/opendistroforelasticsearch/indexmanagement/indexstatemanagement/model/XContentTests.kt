@@ -198,19 +198,20 @@ class XContentTests : ESTestCase() {
 
     fun `test managed index metadata parsing`() {
         val metadata = ManagedIndexMetaData(
-            index = randomAlphaOfLength(10),
-            indexUuid = randomAlphaOfLength(10),
-            policyID = randomAlphaOfLength(10),
-            policySeqNo = randomNonNegativeLong(),
-            policyPrimaryTerm = randomNonNegativeLong(),
-            policyCompleted = null,
-            rolledOver = null,
-            transitionTo = randomAlphaOfLength(10),
-            stateMetaData = null,
-            actionMetaData = null,
-            stepMetaData = null,
-            policyRetryInfo = null,
-            info = null
+                index = randomAlphaOfLength(10),
+                indexUuid = randomAlphaOfLength(10),
+                policyID = randomAlphaOfLength(10),
+                policySeqNo = randomNonNegativeLong(),
+                policyPrimaryTerm = randomNonNegativeLong(),
+                policyCompleted = null,
+                rolledOver = null,
+                transitionTo = randomAlphaOfLength(10),
+                stateMetaData = null,
+                actionMetaData = null,
+                stepMetaData = null,
+                policyRetryInfo = null,
+                info = null,
+                enabled = true
         )
         val metadataString = metadata.toJsonString()
         val parsedMetaData = ManagedIndexMetaData.parse(parser(metadataString))

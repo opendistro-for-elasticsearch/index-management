@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
@@ -29,18 +28,10 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.Strings
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
-import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
-import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext.FETCH_SOURCE
 import org.elasticsearch.search.sort.SortBuilders
 import org.elasticsearch.search.sort.SortOrder
@@ -65,6 +56,8 @@ class TransportExplainAction @Inject constructor(
         private val actionListener: ActionListener<ExplainResponse>,
         private val request: ExplainRequest
     ) {
+        private var managedIndexMetaDataMap = mutableMapOf<String, String?>()
+
         @Suppress("SpreadOperator")
         fun start() {
             if (request.indices.isNotEmpty()) {
@@ -104,8 +97,13 @@ class TransportExplainAction @Inject constructor(
                         val hitMap = it.sourceAsMap["managed_index"] as Map<String, Any>
                         log.info("see hits content: $hitMap")
                         managedIndices.add(hitMap["index"] as String)
+                        managedIndexMetaDataMap["index"] = hitMap["index"] as String?
+                        managedIndexMetaDataMap["index_uuid"] = hitMap["index_uuid"] as String?
+                        managedIndexMetaDataMap["policy_id"] = hitMap["policy_id"] as String?
+                        managedIndexMetaDataMap["enabled"] = hitMap["enabled"]?.toString()
                     }
                     log.info("explain indices: $managedIndices")
+                    log.info("managed index metadata map: $managedIndexMetaDataMap")
                     getMetadata(managedIndices)
                 }
 
@@ -149,11 +147,11 @@ class TransportExplainAction @Inject constructor(
                 val indexMetadata = indexMetadataEntry.value
                 indexPolicyIDs.add(indexMetadata.getPolicyID())
 
-                val managedIndexMetaDataMap = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
-                var managedIndexMetadata: ManagedIndexMetaData? = null
-                if (managedIndexMetaDataMap != null) {
-                    managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetaDataMap)
+                val savedMetadata = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+                if (savedMetadata != null) {
+                    managedIndexMetaDataMap = savedMetadata
                 }
+                val managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetaDataMap)
                 indexMetadatas.add(managedIndexMetadata)
             }
 

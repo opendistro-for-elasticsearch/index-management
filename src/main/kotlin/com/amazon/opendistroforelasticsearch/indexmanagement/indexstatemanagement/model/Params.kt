@@ -29,7 +29,7 @@ data class Params(
 ) : Writeable {
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         size = sin.readInt(),
         from = sin.readInt(),
         sortField = sin.readString(),

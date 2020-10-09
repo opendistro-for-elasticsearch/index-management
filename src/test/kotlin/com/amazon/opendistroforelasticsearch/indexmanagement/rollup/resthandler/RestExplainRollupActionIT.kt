@@ -25,7 +25,7 @@ import org.elasticsearch.test.junit.annotations.TestLogging
 
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
-class RestStartRollupActionIT : RollupRestTestCase() {
+class RestExplainRollupActionIT : RollupRestTestCase() {
 
     @Throws(Exception::class)
     fun `test starting a stopped rollup`() {

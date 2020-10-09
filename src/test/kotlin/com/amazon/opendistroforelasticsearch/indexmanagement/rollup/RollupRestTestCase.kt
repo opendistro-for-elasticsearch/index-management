@@ -22,6 +22,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
@@ -32,6 +34,7 @@ import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.client.Response
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser
@@ -87,6 +90,41 @@ abstract class RollupRestTestCase : IndexManagementRestTestCase() {
         return getRollup(rollupId = rollupId)
     }
 
+    // TODO: Maybe clean-up and use XContentFactory.jsonBuilder() to create mappings json
+    protected fun createRollupSourceIndex(rollup: Rollup, settings: Settings = Settings.EMPTY) {
+        var mappingString = ""
+        var addCommaPrefix = false
+        rollup.dimensions.forEach {
+            val fieldType = when (it.type) {
+                Dimension.Type.DATE_HISTOGRAM -> "date"
+                Dimension.Type.HISTOGRAM -> "long"
+                Dimension.Type.TERMS -> "keyword"
+            }
+            val string = "${if (addCommaPrefix) "," else ""}\"${it.sourceField}\":{\"type\": \"$fieldType\"}"
+            addCommaPrefix = true
+            mappingString += string
+        }
+        rollup.metrics.forEach {
+            val string = "${if (addCommaPrefix) "," else ""}\"${it.sourceField}\":{\"type\": \"long\"}"
+            addCommaPrefix = true
+            mappingString += string
+        }
+        mappingString = "\"properties\":{$mappingString}"
+        createIndex(rollup.sourceIndex, settings, mappingString)
+    }
+
+    protected fun putDateDocumentInSourceIndex(rollup: Rollup) {
+        val dateHistogram = rollup.dimensions.first()
+        val request = """
+            {
+              "${dateHistogram.sourceField}" : "${Instant.now()}"
+            }
+        """.trimIndent()
+        val response = client().makeRequest("POST", "${rollup.sourceIndex}/_doc?refresh=true",
+            emptyMap(), StringEntity(request, APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.CREATED, response.restStatus())
+    }
+
     protected fun getRollup(
         rollupId: String,
         header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
@@ -117,6 +155,39 @@ abstract class RollupRestTestCase : IndexManagementRestTestCase() {
             }
         }
         return rollup.copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
+    }
+
+    protected fun getRollupMetadata(
+        metadataId: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): RollupMetadata {
+        val response = client().makeRequest("GET", "$INDEX_MANAGEMENT_INDEX/_doc/$metadataId", null, header)
+        assertEquals("Unable to get rollup metadata $metadataId", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        XContentParserUtils.ensureExpectedToken(
+            XContentParser.Token.START_OBJECT,
+            parser.nextToken(),
+            parser::getTokenLocation
+        )
+
+        lateinit var id: String
+        var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
+        lateinit var metadata: RollupMetadata
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                _ID -> id = parser.text()
+                _SEQ_NO -> seqNo = parser.longValue()
+                _PRIMARY_TERM -> primaryTerm = parser.longValue()
+                RollupMetadata.ROLLUP_METADATA_TYPE -> metadata = RollupMetadata.parse(parser)
+            }
+        }
+
+        return metadata.copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
     }
 
     protected fun Rollup.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)

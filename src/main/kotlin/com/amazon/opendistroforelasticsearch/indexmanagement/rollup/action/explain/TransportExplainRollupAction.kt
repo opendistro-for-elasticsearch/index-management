@@ -65,7 +65,7 @@ class TransportExplainRollupAction @Inject constructor(
                     }
                     actionListener.onResponse(ExplainRollupResponse(idsToRollup.toMap()))
                 } catch (e: Exception) {
-                    log.error(e)
+                    log.error("Failed to parse explain response", e)
                     actionListener.onFailure(e)
                 }
             }
@@ -77,11 +77,11 @@ class TransportExplainRollupAction @Inject constructor(
                         actionListener.onResponse(ExplainRollupResponse(nonWildcardIds))
                     }
                     is RemoteTransportException -> {
-                        log.error(e)
+                        log.error("Failed to search config index for rollup metadata", e)
                         actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
                     }
                     else -> {
-                        log.error(e)
+                        log.error("Failed to search config index for rollup metadata", e)
                         actionListener.onFailure(e)
                     }
                 }

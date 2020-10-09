@@ -67,9 +67,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.stop.StopRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.stop.TransportStopRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupMetadataService
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain.ExplainRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain.TransportExplainRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestDeleteRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestExplainRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestGetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestIndexRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestStartRollupAction
@@ -189,7 +192,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             RestGetRollupAction(),
             RestIndexRollupAction(),
             RestStartRollupAction(),
-            RestStopRollupAction()
+            RestStopRollupAction(),
+            RestExplainRollupAction()
         )
     }
 
@@ -284,7 +288,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ActionPlugin.ActionHandler(GetRollupAction.INSTANCE, TransportGetRollupAction::class.java),
             ActionPlugin.ActionHandler(IndexRollupAction.INSTANCE, TransportIndexRollupAction::class.java),
             ActionPlugin.ActionHandler(StartRollupAction.INSTANCE, TransportStartRollupAction::class.java),
-            ActionPlugin.ActionHandler(StopRollupAction.INSTANCE, TransportStopRollupAction::class.java)
+            ActionPlugin.ActionHandler(StopRollupAction.INSTANCE, TransportStopRollupAction::class.java),
+            ActionPlugin.ActionHandler(ExplainRollupAction.INSTANCE, TransportExplainRollupAction::class.java)
         )
     }
 

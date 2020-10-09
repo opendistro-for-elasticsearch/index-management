@@ -109,7 +109,7 @@ class RollupIndexer(
             it.aggregations.forEach {
                 when (it) {
                     // TODO: Clean up suffixes
-                    is InternalSum -> aggResults.computeIfAbsent(it.name.removeSuffix((".sum"))) { mutableMapOf() }[it.type] = it.value
+                    is InternalSum -> aggResults.computeIfAbsent(it.name.removeSuffix(".sum")) { mutableMapOf() }[it.type] = it.value
                     is InternalMax -> aggResults.computeIfAbsent(it.name.removeSuffix(".max")) { mutableMapOf() }[it.type] = it.value
                     is InternalMin -> aggResults.computeIfAbsent(it.name.removeSuffix(".min")) { mutableMapOf() }[it.type] = it.value
                     is InternalValueCount -> aggResults.computeIfAbsent(it.name.removeSuffix(".value_count")) { mutableMapOf() }[it.type] = it.value

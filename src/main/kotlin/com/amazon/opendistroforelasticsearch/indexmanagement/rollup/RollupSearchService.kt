@@ -27,7 +27,7 @@ import java.time.Instant
 
 // TODO: Backoff/Throttling when cluster is overloaded - CircuitBreakingException?
 //  A cluster level setting to control how many rollups can run at once? Or should we be skipping when cpu/memory/jvm is high?
-// Deals with know when and how to search the source index
+// Deals with knowing when and how to search the source index
 // Knowing when means dealing with time windows and whether or not enough time has passed
 // Knowing how means converting the rollup configuration into a composite aggregation
 class RollupSearchService(val client: Client) {
@@ -36,11 +36,21 @@ class RollupSearchService(val client: Client) {
 
     // TODO: Failed shouldn't process? How to recover from failed -> how does a user retry a failed rollup
     @Suppress("ReturnCount")
-    fun shouldProcessWindow(rollup: Rollup, metadata: RollupMetadata): Boolean {
+    fun shouldProcessRollup(rollup: Rollup, metadata: RollupMetadata?): Boolean {
         // For both continuous and non-continuous rollups if there is an afterKey it means we are still
         // processing data from the current window and should continue to process, the only way we ended up here with an
         // afterKey is if we were still processing data is if the job somehow stopped and was rescheduled (i.e. node crashed etc.)
-        if (metadata.afterKey != null) return true // TODO: What if there is afterKey and we are in failed/stopped? What takes priority?
+
+        // Assuming if this has been called with null metadata, that metadata needs to be initialized
+        if (metadata == null) return true
+
+        // Being in a STOPPED/FAILED status will take priority over an afterKey being available, user will need to retry
+        if (listOf(RollupMetadata.Status.STOPPED, RollupMetadata.Status.FAILED).contains(metadata.status)) {
+            return false
+        }
+
+        if (metadata.afterKey != null) return true
+
         if (!rollup.continuous) {
             if (metadata.status == RollupMetadata.Status.INIT) return true
             // If a non-continuous rollup job does not have an afterKey and is not in INIT then

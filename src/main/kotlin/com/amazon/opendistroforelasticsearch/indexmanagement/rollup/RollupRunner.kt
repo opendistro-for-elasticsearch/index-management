@@ -111,19 +111,32 @@ object RollupRunner : ScheduledJobRunner,
             throw IllegalArgumentException("Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}")
         }
 
-        // TODO: Should move the check for shouldProcessWindow to here so we can skip locking when not needed
-
         launch {
-            // Attempt to acquire lock
-            val lock: LockModel? = context.lockService.suspendUntil { acquireLock(job, context, it) }
-            if (lock == null) {
-                logger.debug("Could not acquire lock for ${job.id}")
-            } else {
-                runRollupJob(job, context)
-                // Release lock
-                val released: Boolean = context.lockService.suspendUntil { release(lock, it) }
-                if (!released) {
-                    logger.debug("Could not release lock for ${job.id}")
+            val metadata: RollupMetadata?
+            try {
+                metadata = if (job.metadataID != null) {
+                    rollupMetadataService.getExistingMetadata(job.metadataID)
+                } else null
+            } catch (e: Exception) {
+                // If the metadata was not able to be retrieved, the exception will be logged and the job run will be a no-op
+                logger.error("Failed to get existing rollup metadata [${job.metadataID}]", e)
+                return@launch
+            }
+
+            // Check if rollup should be processed before acquiring the lock
+            // If metadata does not exist, it will either be initialized for the first time or it will be recreated to communicate the failed state
+            if (rollupSearchService.shouldProcessRollup(job, metadata)) {
+                // Attempt to acquire lock
+                val lock: LockModel? = context.lockService.suspendUntil { acquireLock(job, context, it) }
+                if (lock == null) {
+                    logger.debug("Could not acquire lock for ${job.id}")
+                } else {
+                    runRollupJob(job, context)
+                    // Release lock
+                    val released: Boolean = context.lockService.suspendUntil { release(lock, it) }
+                    if (!released) {
+                        logger.debug("Could not release lock for ${job.id}")
+                    }
                 }
             }
         }
@@ -144,21 +157,26 @@ object RollupRunner : ScheduledJobRunner,
     * */
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext) {
-        var updatableJob = job
-        var metadata = rollupMetadataService.init(updatableJob)
+        var metadata = rollupMetadataService.init(job)
         if (metadata.status == RollupMetadata.Status.FAILED) {
             val updatedRollupJob = if (metadata.id != job.metadataID) {
-                updatableJob.copy(metadataID = metadata.id, enabled = false, jobEnabledTime = null)
+                job.copy(metadataID = metadata.id, enabled = false, jobEnabledTime = null)
             } else {
-                updatableJob.copy(enabled = false, jobEnabledTime = null)
+                job.copy(enabled = false, jobEnabledTime = null)
             }
             updateRollupJob(updatedRollupJob)
             return
         }
 
+        // If metadata was created for the first time, update job with the id
+        var updatableJob = job
+        if (updatableJob.metadataID == null && metadata.status == RollupMetadata.Status.INIT) {
+            updatableJob = updateRollupJob(updatableJob.copy(metadataID = metadata.id))
+        }
+
         // TODO: before creating target index we also validate the source index exists?
         //  and anything else that would cause this to get delayed right away like invalid fields
-        val successful = rollupMapperService.init(job)
+        val successful = rollupMapperService.init(updatableJob)
         if (!successful) {
             // TODO: More helpful error messaging
             // TODO: Update to metadata fails
@@ -174,12 +192,14 @@ object RollupRunner : ScheduledJobRunner,
             return
         }
 
-        while (rollupSearchService.shouldProcessWindow(updatableJob, metadata)) {
+        while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
             do {
                 try {
                     val internalComposite = rollupSearchService.executeCompositeSearch(updatableJob, metadata)
                     rollupIndexer.indexRollups(updatableJob, internalComposite)
                     metadata = rollupMetadataService.updateMetadata(updatableJob, metadata, internalComposite)
+                    // TODO: Is this still needed now that job is updated earlier in runRollupJob()?
+                    //  Job is not being retrieved during the middle of a rollup loop so removing job.metadataID won't be reflected here
                     if (updatableJob.metadataID == null) updatableJob = updateRollupJob(updatableJob.copy(metadataID = metadata.id))
                 } catch (e: Exception) {
                     logger.error("Failed to rollup ", e)

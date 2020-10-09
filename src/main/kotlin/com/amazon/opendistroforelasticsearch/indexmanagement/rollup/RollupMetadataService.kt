@@ -139,22 +139,19 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     @Suppress("BlockingMethodInNonBlockingContext")
     suspend fun getExistingMetadata(id: String): RollupMetadata? {
         var rollupMetadata: RollupMetadata? = null
-        try {
-            val getRequest = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, id)
-            val response: GetResponse = client.suspendUntil { get(getRequest, it) }
-            val metadataSource = response.sourceAsBytesRef
-            metadataSource?.let {
-                withContext(Dispatchers.IO) {
-                    val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, metadataSource, XContentType.JSON)
-                    rollupMetadata = RollupMetadata.parseWithType(xcp, response.id, response.seqNo, response.primaryTerm)
-                }
+        val getRequest = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, id)
+        val response: GetResponse = client.suspendUntil { get(getRequest, it) }
+
+        if (!response.isExists) return rollupMetadata
+
+        val metadataSource = response.sourceAsBytesRef
+        metadataSource?.let {
+            withContext(Dispatchers.IO) {
+                val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, metadataSource, XContentType.JSON)
+                rollupMetadata = RollupMetadata.parseWithType(xcp, response.id, response.seqNo, response.primaryTerm)
             }
-        } catch (e: RemoteTransportException) {
-            logger.error("Failed to get existing rollup metadata [$id]", e)
-        } catch (e: Exception) {
-            logger.error("Failed to get existing rollup metadata [$id]", e)
         }
-        // TODO: It's possible the above fails for reasons other than the doc not existing
+
         return rollupMetadata
     }
 

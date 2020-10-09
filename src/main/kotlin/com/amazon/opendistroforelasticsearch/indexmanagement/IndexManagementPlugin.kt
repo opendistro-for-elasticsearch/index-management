@@ -289,13 +289,6 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         )
     }
 
-    override fun onIndexModule(indexModule: IndexModule) {
-//        val rollupIndex = RollupSettings.ROLLUP_INDEX.get(indexModule.settings)
-//        if (rollupIndex) {
-//            indexModule.addSearchOperationListener(rollupSearchListener)
-//        }
-    }
-
     override fun getTransportInterceptors(namedWriteableRegistry: NamedWriteableRegistry, threadContext: ThreadContext): List<TransportInterceptor> {
         return listOf(rollupInterceptor)
     }

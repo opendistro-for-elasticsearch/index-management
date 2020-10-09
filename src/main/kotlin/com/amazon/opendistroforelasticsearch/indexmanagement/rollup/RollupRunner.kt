@@ -106,6 +106,7 @@ object RollupRunner : ScheduledJobRunner,
         return this
     }
 
+    @Suppress("ComplexMethod")
     override fun runJob(job: ScheduledJobParameter, context: JobExecutionContext) {
         if (job !is Rollup) {
             throw IllegalArgumentException("Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}")

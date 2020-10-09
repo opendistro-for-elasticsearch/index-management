@@ -49,6 +49,7 @@ class RollupInterceptor(
 
     private val log = LogManager.getLogger(javaClass)
 
+    @Suppress("ComplexMethod", "SpreadOperator", "NestedBlockDepth")
     override fun <T : TransportRequest> interceptHandler(
         action: String,
         executor: String,
@@ -67,7 +68,9 @@ class RollupInterceptor(
 
                         val hasNonRollupIndex = concreteIndices.any {
                             val isNonRollupIndex = !RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(it).settings)
-                            if (isNonRollupIndex) log.warn("A non-rollup index cannot be searched with a rollup index [non-rollup-index=$it] [rollup-index=$index]")
+                            if (isNonRollupIndex) {
+                                log.warn("A non-rollup index cannot be searched with a rollup index [non-rollup-index=$it] [rollup-index=$index]")
+                            }
                             isNonRollupIndex
                         }
 
@@ -98,7 +101,8 @@ class RollupInterceptor(
                                                 is Histogram -> it.sourceField
                                                 is Terms -> it.sourceField
                                                 // TODO: can't throw - have to return early after overwriting parsedquery
-                                                else -> throw IllegalArgumentException("Found unsupported Dimension during search transformation [${it.type.type}]")
+                                                else -> throw IllegalArgumentException("Found unsupported Dimension" +
+                                                    " during search transformation [${it.type.type}]")
                                             }
                                         }
                                     // Confirm that the list of source fields on the rollup job's dimensions contains all of the fields in the user's aggregation

@@ -108,7 +108,9 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         val response: SearchResponse = client.suspendUntil { search(searchRequest, it) }
         // TODO: Timezone?
         val firstSourceOrNull = response.hits.hits.firstOrNull()?.sourceAsMap?.get(dateHistogram.sourceField) as String?
-        return requireNotNull(firstSourceOrNull?.let { Instant.parse(it) }) { "Could not find the start time for ${dateHistogram.sourceField} on the document" }
+        return requireNotNull(firstSourceOrNull?.let { Instant.parse(it) }) {
+            "Could not find the start time for ${dateHistogram.sourceField} on the document"
+        }
     }
 
     // This updates the metadata for a continuous rollup after an execution of the composite search and ingestion of rollup data
@@ -126,8 +128,16 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         val afterKey = internalComposite.afterKey()
         val millis = interval.estimateMillis()
         // TODO: get rid of !!
-        val nextStart = if (afterKey == null) Instant.ofEpochMilli(metadata.continuous!!.nextWindowStartTime.toEpochMilli()).plusMillis(millis) else metadata.continuous!!.nextWindowStartTime
-        val nextEnd = if (afterKey == null) Instant.ofEpochMilli(metadata.continuous.nextWindowEndTime.toEpochMilli()).plusMillis(millis) else metadata.continuous.nextWindowEndTime
+        val nextStart = if (afterKey == null) {
+            Instant.ofEpochMilli(metadata.continuous!!.nextWindowStartTime.toEpochMilli()).plusMillis(millis)
+        } else {
+            metadata.continuous!!.nextWindowStartTime
+        }
+        val nextEnd = if (afterKey == null) {
+            Instant.ofEpochMilli(metadata.continuous.nextWindowEndTime.toEpochMilli()).plusMillis(millis)
+        } else {
+            metadata.continuous.nextWindowEndTime
+        }
         return metadata.copy(
             afterKey = internalComposite.afterKey(),
             lastUpdatedTime = Instant.now(),

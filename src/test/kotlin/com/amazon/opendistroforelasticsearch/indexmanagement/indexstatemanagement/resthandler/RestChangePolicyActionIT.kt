@@ -90,7 +90,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
             fail("Expected a failure.")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus.", RestStatus.NOT_FOUND, e.response.restStatus())
-            assertEquals("Could not find policy=${changePolicy.policyID}", e.response.entity.content.bufferedReader().use { it.readText() })
+            assertEquals("{\"error\":{\"root_cause\":[{\"type\":\"status_exception\",\"reason\":\"Could not find policy=${changePolicy.policyID}\"}],\"type\":\"status_exception\",\"reason\":\"Could not find policy=${changePolicy.policyID}\"},\"status\":404}", e.response.entity.content.bufferedReader().use { it.readText() })
         }
     }
 

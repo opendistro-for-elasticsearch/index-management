@@ -15,12 +15,26 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
-data class StateFilter(val state: String) {
+data class StateFilter(val state: String) : Writeable {
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        state = sin.readString()
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(state)
+    }
+
     companion object {
         const val STATE_FIELD = "state"
 

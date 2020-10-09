@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -39,7 +42,15 @@ data class ChangePolicy(
     val state: String?,
     val include: List<StateFilter>,
     val isSafe: Boolean
-) : ToXContentObject {
+) : Writeable, ToXContentObject {
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        policyID = sin.readString(),
+        state = sin.readOptionalString(),
+        include = sin.readList(::StateFilter),
+        isSafe = sin.readBoolean()
+    )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
@@ -49,6 +60,14 @@ data class ChangePolicy(
                 .field(IS_SAFE_FIELD, isSafe)
             .endObject()
         return builder
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(policyID)
+        out.writeOptionalString(state)
+        out.writeList(include)
+        out.writeBoolean(isSafe)
     }
 
     companion object {

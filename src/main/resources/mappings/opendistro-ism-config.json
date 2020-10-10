@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 4
+    "schema_version": 5
   },
   "dynamic": "strict",
   "properties": {
@@ -14,6 +14,12 @@
               "ignore_above": 256
             }
           }
+        },
+        "seq_no": {
+          "type" : "long"
+        },
+        "primary_term": {
+          "type" : "long"
         },
         "description": {
           "type": "text",

@@ -23,6 +23,9 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackM
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.convertToMap
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -41,13 +44,27 @@ data class Destination(
     val chime: Chime?,
     val slack: Slack?,
     val customWebhook: CustomWebhook?
-) : ToXContentObject {
+) : ToXContentObject, Writeable {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-            .field(type.value, constructResponseForDestinationType(type))
-            .endObject()
+                .field(type.value, constructResponseForDestinationType(type))
+                .endObject()
         return builder
+    }
+
+    constructor(sin: StreamInput) : this(
+            sin.readEnum(DestinationType::class.java),
+            sin.readOptionalWriteable(::Chime),
+            sin.readOptionalWriteable(::Slack),
+            sin.readOptionalWriteable(::CustomWebhook)
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeEnum(type)
+        out.writeOptionalWriteable(chime)
+        out.writeOptionalWriteable(slack)
+        out.writeOptionalWriteable(customWebhook)
     }
 
     companion object {
@@ -86,10 +103,10 @@ data class Destination(
             }
 
             return Destination(
-                type,
-                chime,
-                slack,
-                customWebhook
+                    type,
+                    chime,
+                    slack,
+                    customWebhook
             )
         }
     }

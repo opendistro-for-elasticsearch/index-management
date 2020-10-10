@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -54,8 +56,24 @@ data class IndexPriorityActionConfig(
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = IndexPriorityAction(clusterService, client, managedIndexMetaData, this)
 
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeInt(indexPriority)
+        out.writeInt(index)
+    }
+
     companion object {
         const val INDEX_PRIORITY_FIELD = "priority"
+
+        fun fromStreamInput(sin: StreamInput): IndexPriorityActionConfig {
+            val indexPriority = sin.readInt()
+            val index = sin.readInt()
+
+            return IndexPriorityActionConfig(
+                    indexPriority = indexPriority,
+                    index = index
+            )
+        }
 
         @JvmStatic
         @Throws(IOException::class)
@@ -74,8 +92,8 @@ data class IndexPriorityActionConfig(
             }
 
             return IndexPriorityActionConfig(
-                indexPriority = requireNotNull(indexPriority) { "$INDEX_PRIORITY_FIELD is null" },
-                index = index
+                    indexPriority = requireNotNull(indexPriority) { "$INDEX_PRIORITY_FIELD is null" },
+                    index = index
             )
         }
     }

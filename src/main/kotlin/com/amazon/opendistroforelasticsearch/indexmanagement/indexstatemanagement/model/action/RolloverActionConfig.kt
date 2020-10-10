@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
@@ -47,7 +49,7 @@ data class RolloverActionConfig(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         super.toXContent(builder, params)
-            .startObject(ActionType.ROLLOVER.type)
+                .startObject(ActionType.ROLLOVER.type)
         if (minSize != null) builder.field(MIN_SIZE_FIELD, minSize.stringRep)
         if (minDocs != null) builder.field(MIN_DOC_COUNT_FIELD, minDocs)
         if (minAge != null) builder.field(MIN_INDEX_AGE_FIELD, minAge.stringRep)
@@ -63,10 +65,31 @@ data class RolloverActionConfig(
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = RolloverAction(clusterService, client, managedIndexMetaData, this)
 
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeOptionalWriteable(minSize)
+        out.writeOptionalLong(minDocs)
+        out.writeOptionalTimeValue(minAge)
+        out.writeInt(index)
+    }
     companion object {
         const val MIN_SIZE_FIELD = "min_size"
         const val MIN_DOC_COUNT_FIELD = "min_doc_count"
         const val MIN_INDEX_AGE_FIELD = "min_index_age"
+
+        fun fromStreamInput(sin: StreamInput): RolloverActionConfig {
+            val minSize = sin.readOptionalWriteable(::ByteSizeValue)
+            val minDocs = sin.readOptionalLong()
+            val minAge = sin.readOptionalTimeValue()
+            val index = sin.readInt()
+
+            return RolloverActionConfig(
+                    minSize = minSize,
+                    minDocs = minDocs,
+                    minAge = minAge,
+                    index = index
+            )
+        }
 
         @JvmStatic
         @Throws(IOException::class)
@@ -89,10 +112,10 @@ data class RolloverActionConfig(
             }
 
             return RolloverActionConfig(
-                minSize = minSize,
-                minDocs = minDocs,
-                minAge = minAge,
-                index = index
+                    minSize = minSize,
+                    minDocs = minDocs,
+                    minAge = minAge,
+                    index = index
             )
         }
     }

@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
@@ -33,18 +36,30 @@ data class ActionRetry(
     val count: Long,
     val backoff: Backoff = Backoff.EXPONENTIAL,
     val delay: TimeValue = TimeValue.timeValueMinutes(1)
-) : ToXContentFragment {
+) : ToXContentFragment, Writeable {
 
     init { require(count > 0) { "Count for ActionRetry must be greater than 0" } }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
-            .startObject(RETRY_FIELD)
+                .startObject(RETRY_FIELD)
                 .field(COUNT_FIELD, count)
                 .field(BACKOFF_FIELD, backoff)
                 .field(DELAY_FIELD, delay.stringRep)
-            .endObject()
+                .endObject()
         return builder
+    }
+
+    constructor(sin: StreamInput) : this(
+            count = sin.readLong(),
+            backoff = sin.readEnum(Backoff::class.java),
+            delay = sin.readTimeValue()
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeLong(count)
+        out.writeEnum(backoff)
+        out.writeTimeValue(delay)
     }
 
     companion object {
@@ -73,9 +88,9 @@ data class ActionRetry(
             }
 
             return ActionRetry(
-                count = requireNotNull(count) { "ActionRetry count is null" },
-                backoff = backoff,
-                delay = delay
+                    count = requireNotNull(count) { "ActionRetry count is null" },
+                    backoff = backoff,
+                    delay = delay
             )
         }
     }
@@ -107,7 +122,7 @@ data class ActionRetry(
             if (actionMetaData.consumedRetries > 0) {
                 if (actionMetaData.lastRetryTime != null) {
                     val remainingTime = getNextRetryTime(actionMetaData.consumedRetries, actionRetry.delay) -
-                        (Instant.now().toEpochMilli() - actionMetaData.lastRetryTime)
+                            (Instant.now().toEpochMilli() - actionMetaData.lastRetryTime)
 
                     return Pair(remainingTime > 0, remainingTime)
                 }

@@ -19,6 +19,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -39,7 +42,7 @@ data class Policy(
     val errorNotification: ErrorNotification?,
     val defaultState: String,
     val states: List<State>
-) : ToXContentObject {
+) : ToXContentObject, Writeable {
 
     init {
         val distinctStateNames = states.map { it.name }.distinct()
@@ -63,19 +66,47 @@ data class Policy(
         builder.startObject()
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(POLICY_TYPE)
         builder.field(POLICY_ID_FIELD, id)
-            .field(DESCRIPTION_FIELD, description)
-            .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
-            .field(SCHEMA_VERSION_FIELD, schemaVersion)
-            .field(ERROR_NOTIFICATION_FIELD, errorNotification)
-            .field(DEFAULT_STATE_FIELD, defaultState)
-            .field(STATES_FIELD, states.toTypedArray())
+                .field(SEQ_NO_FIELD, seqNo)
+                .field(PRIMARY_TERM_FIELD, primaryTerm)
+                .field(DESCRIPTION_FIELD, description)
+                .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
+                .field(SCHEMA_VERSION_FIELD, schemaVersion)
+                .field(ERROR_NOTIFICATION_FIELD, errorNotification)
+                .field(DEFAULT_STATE_FIELD, defaultState)
+                .field(STATES_FIELD, states.toTypedArray())
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
         return builder.endObject()
+    }
+
+    constructor(sin: StreamInput) : this(
+            id = sin.readString(),
+            seqNo = sin.readLong(),
+            primaryTerm = sin.readLong(),
+            description = sin.readString(),
+            schemaVersion = sin.readLong(),
+            lastUpdatedTime = sin.readInstant(),
+            errorNotification = sin.readOptionalWriteable(::ErrorNotification),
+            defaultState = sin.readString(),
+            states = sin.readList(::State)
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(id)
+        out.writeLong(seqNo)
+        out.writeLong(primaryTerm)
+        out.writeString(description)
+        out.writeLong(schemaVersion)
+        out.writeInstant(lastUpdatedTime)
+        out.writeOptionalWriteable(errorNotification)
+        out.writeString(defaultState)
+        out.writeList(states)
     }
 
     companion object {
         const val POLICY_TYPE = "policy"
         const val POLICY_ID_FIELD = "policy_id"
+        const val SEQ_NO_FIELD = "seq_no"
+        const val PRIMARY_TERM_FIELD = "primary_term"
         const val DESCRIPTION_FIELD = "description"
         const val NO_ID = ""
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
@@ -100,6 +131,8 @@ data class Policy(
             var lastUpdatedTime: Instant? = null
             var schemaVersion: Long = IndexUtils.DEFAULT_SCHEMA_VERSION
             val states: MutableList<State> = mutableListOf()
+            var parsedSeqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO
+            var parsedPrimaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -107,6 +140,8 @@ data class Policy(
                 xcp.nextToken()
 
                 when (fieldName) {
+                    SEQ_NO_FIELD -> parsedSeqNo = xcp.longValue()
+                    PRIMARY_TERM_FIELD -> parsedPrimaryTerm = xcp.longValue()
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.longValue()
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
                     POLICY_ID_FIELD -> { /* do nothing as this is an internal field */ }
@@ -124,15 +159,15 @@ data class Policy(
             }
 
             return Policy(
-                id,
-                seqNo,
-                primaryTerm,
-                requireNotNull(description) { "$DESCRIPTION_FIELD is null" },
-                schemaVersion,
-                lastUpdatedTime ?: Instant.now(),
-                errorNotification,
-                requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
-                states.toList()
+                    id,
+                    if (seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO) parsedSeqNo else seqNo,
+                    if (primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) parsedPrimaryTerm else primaryTerm,
+                    requireNotNull(description) { "$DESCRIPTION_FIELD is null" },
+                    schemaVersion,
+                    lastUpdatedTime ?: Instant.now(),
+                    errorNotification,
+                    requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
+                    states.toList()
             )
         }
 

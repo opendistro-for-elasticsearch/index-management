@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.string
 import org.elasticsearch.common.Strings
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -33,7 +36,7 @@ import java.lang.IllegalStateException
  * Temporary import from alerting, this will be removed once we pull notifications out of
  * alerting so all plugins can consume and use.
  */
-data class Slack(val url: String?) : ToXContent {
+data class Slack(val url: String?) : ToXContent, Writeable {
 
     init {
         require(!Strings.isNullOrEmpty(url)) { "URL is null or empty" }
@@ -43,6 +46,14 @@ data class Slack(val url: String?) : ToXContent {
         return builder.startObject(TYPE)
                 .field(URL, url)
                 .endObject()
+    }
+
+    constructor(sin: StreamInput) : this(
+            sin.readOptionalString()
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeOptionalString(url)
     }
 
     companion object {

@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -52,13 +54,22 @@ data class AllocationActionConfig(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         super.toXContent(builder, params)
-            .startObject(ActionType.ALLOCATION.type)
+                .startObject(ActionType.ALLOCATION.type)
         if (require.isNotEmpty()) builder.field(REQUIRE, require)
         if (include.isNotEmpty()) builder.field(INCLUDE, include)
         if (exclude.isNotEmpty()) builder.field(EXCLUDE, exclude)
         return builder.field(WAIT_FOR, waitFor)
-            .endObject()
-            .endObject()
+                .endObject()
+                .endObject()
+    }
+
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeMap(require)
+        out.writeMap(include)
+        out.writeMap(exclude)
+        out.writeBoolean(waitFor)
+        out.writeInt(index)
     }
 
     companion object {
@@ -66,6 +77,21 @@ data class AllocationActionConfig(
         const val INCLUDE = "include"
         const val EXCLUDE = "exclude"
         const val WAIT_FOR = "wait_for"
+
+        fun fromStreamInput(sin: StreamInput): AllocationActionConfig {
+            val require = suppressWarning(sin.readMap())
+            val include = suppressWarning(sin.readMap())
+            val exclude = suppressWarning(sin.readMap())
+            val waitFor = sin.readBoolean()
+            val index = sin.readInt()
+
+            return AllocationActionConfig(require, include, exclude, waitFor, index)
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, String> {
+            return map as MutableMap<String, String>
+        }
 
         @JvmStatic
         @Throws(IOException::class)

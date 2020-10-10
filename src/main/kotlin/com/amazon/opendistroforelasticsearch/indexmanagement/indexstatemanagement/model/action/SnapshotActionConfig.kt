@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -42,7 +44,7 @@ data class SnapshotActionConfig(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         super.toXContent(builder, params)
-            .startObject(ActionType.SNAPSHOT.type)
+                .startObject(ActionType.SNAPSHOT.type)
         if (repository != null) builder.field(REPOSITORY_FIELD, repository)
         if (snapshot != null) builder.field(SNAPSHOT_FIELD, snapshot)
         return builder.endObject().endObject()
@@ -57,10 +59,29 @@ data class SnapshotActionConfig(
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = SnapshotAction(clusterService, client, managedIndexMetaData, this)
 
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeOptionalString(repository)
+        out.writeOptionalString(snapshot)
+        out.writeInt(index)
+    }
+
     companion object {
         const val REPOSITORY_FIELD = "repository"
         const val SNAPSHOT_FIELD = "snapshot"
         const val INCLUDE_GLOBAL_STATE = "include_global_state"
+
+        fun fromStreamInput(sin: StreamInput): SnapshotActionConfig {
+            val repository = sin.readOptionalString()
+            val snapshot = sin.readOptionalString()
+            val index = sin.readInt()
+
+            return SnapshotActionConfig(
+                    repository = repository,
+                    snapshot = snapshot,
+                    index = index
+            )
+        }
 
         @JvmStatic
         @Throws(IOException::class)
@@ -81,9 +102,9 @@ data class SnapshotActionConfig(
             }
 
             return SnapshotActionConfig(
-                repository = repository,
-                snapshot = snapshot,
-                index = index
+                    repository = repository,
+                    snapshot = snapshot,
+                    index = index
             )
         }
     }

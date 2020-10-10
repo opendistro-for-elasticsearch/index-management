@@ -54,6 +54,8 @@ class RestExplainAction : BaseRestHandler() {
         log.info("${request.method()} ${request.path()}")
 
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
+
+        log.info("what is indices $indices")
         // if (indices == null || indices.isEmpty()) {
         //     throw IllegalArgumentException("Missing indices")
         // }

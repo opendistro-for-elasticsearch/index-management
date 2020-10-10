@@ -32,25 +32,35 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    fun `test missing indices`() {
-        try {
-            client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
-            fail("Expected a failure")
-        } catch (e: ResponseException) {
-            assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
-            val actualMessage = e.response.asMap()
-            val expectedErrorMessage = mapOf(
-                "error" to mapOf(
-                    "root_cause" to listOf<Map<String, Any>>(
-                        mapOf("type" to "illegal_argument_exception", "reason" to "Missing indices")
-                    ),
-                    "type" to "illegal_argument_exception",
-                    "reason" to "Missing indices"
-                ),
-                "status" to 400
-            )
-            assertEquals(expectedErrorMessage, actualMessage)
-        }
+    // fun `test missing indices`() {
+    //     try {
+    //         client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
+    //         fail("Expected a failure")
+    //     } catch (e: ResponseException) {
+    //         assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
+    //         val actualMessage = e.response.asMap()
+    //         val expectedErrorMessage = mapOf(
+    //             "error" to mapOf(
+    //                 "root_cause" to listOf<Map<String, Any>>(
+    //                     mapOf("type" to "illegal_argument_exception", "reason" to "Missing indices")
+    //                 ),
+    //                 "type" to "illegal_argument_exception",
+    //                 "reason" to "Missing indices"
+    //             ),
+    //             "status" to 400
+    //         )
+    //         assertEquals(expectedErrorMessage, actualMessage)
+    //     }
+    // }
+
+    // 2 index one managed, one not managed
+    fun `test two indices, one managed one not`() {
+        val indexName1 = "${testIndexName}_managed"
+        val indexName2 = "${testIndexName}_not_managed"
+        val policy = createRandomPolicy()
+        createIndex(indexName1, policy.id)
+
+
     }
 
     fun `test single index`() {
@@ -110,7 +120,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                                 assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                                 assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
-                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString(),
+                        ManagedIndexMetaData.ENABLED to true::equals
                     )
                 ), getExplainMap(indexName))
         }
@@ -136,7 +147,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                         ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                                 assertRetryInfoEquals(PolicyRetryInfoMetaData(true, 0), retryInfoMetaDataMap),
-                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString(),
+                        ManagedIndexMetaData.ENABLED to true::equals
                     )
                 ), getExplainMap(indexName))
         }

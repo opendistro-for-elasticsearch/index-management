@@ -42,11 +42,13 @@ data class Transition(
         return builder.endObject()
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        sin.readString(),
-        sin.readOptionalWriteable(::Conditions)
+        stateName = sin.readString(),
+        conditions = sin.readOptionalWriteable(::Conditions)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(stateName)
         out.writeOptionalWriteable(conditions)
@@ -109,16 +111,20 @@ data class Conditions(
         return builder.endObject()
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        sin.readOptionalTimeValue(),
-        sin.readOptionalLong(),
-        sin.readOptionalWriteable(::ByteSizeValue)
+        indexAge = sin.readOptionalTimeValue(),
+        docCount = sin.readOptionalLong(),
+        size = sin.readOptionalWriteable(::ByteSizeValue),
+        cron = sin.readOptionalWriteable(::CronSchedule)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeOptionalTimeValue(indexAge)
         out.writeOptionalLong(docCount)
         out.writeOptionalWriteable(size)
+        out.writeOptionalWriteable(cron)
     }
 
     companion object {

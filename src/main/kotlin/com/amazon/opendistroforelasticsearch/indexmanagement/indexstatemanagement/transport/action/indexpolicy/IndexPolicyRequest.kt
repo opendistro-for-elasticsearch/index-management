@@ -49,7 +49,7 @@ class IndexPolicyRequest : ActionRequest {
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         policyID = sin.readString(),
-        policy = sin.readOptionalWriteable(::Policy) as Policy,
+        policy = Policy(sin),
         seqNo = sin.readLong(),
         primaryTerm = sin.readLong(),
         refreshPolicy = sin.readEnum(WriteRequest.RefreshPolicy::class.java)
@@ -66,7 +66,7 @@ class IndexPolicyRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(policyID)
-        out.writeOptionalWriteable(policy)
+        policy.writeTo(out)
         out.writeLong(seqNo)
         out.writeLong(primaryTerm)
         out.writeEnum(refreshPolicy)

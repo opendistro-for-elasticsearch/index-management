@@ -61,16 +61,16 @@ data class SnapshotActionConfig(
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        repository = sin.readOptionalString(),
-        snapshot = sin.readOptionalString(),
+        repository = sin.readString(),
+        snapshot = sin.readString(),
         index = sin.readInt()
     )
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeOptionalString(repository)
-        out.writeOptionalString(snapshot)
+        out.writeString(repository)
+        out.writeString(snapshot)
         out.writeInt(index)
     }
 

@@ -15,9 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionTimeout
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.IndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomAllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomIndexPriorityActionConfig
@@ -25,10 +27,14 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomRolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomSnapshotActionConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomTimeValueObject
 import org.elasticsearch.common.io.stream.InputStreamStreamInput
 import org.elasticsearch.common.io.stream.OutputStreamStreamOutput
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.test.ESTestCase
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -110,6 +116,27 @@ class ActionConfigTests : ESTestCase() {
 
     fun `test allocation action round trip`() {
         roundTripActionConfig(randomAllocationActionConfig(require = mapOf("box_type" to "hot")))
+    }
+
+    fun `test action timeout and retry round trip`() {
+        val builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(ActionTimeout.TIMEOUT_FIELD, randomTimeValueObject().stringRep)
+            .startObject(ActionRetry.RETRY_FIELD)
+                .field(ActionRetry.COUNT_FIELD, 1)
+                .field(ActionRetry.BACKOFF_FIELD, ActionRetry.Backoff.EXPONENTIAL)
+                .field(ActionRetry.DELAY_FIELD, TimeValue.timeValueMinutes(1))
+            .endObject()
+            .startObject(ActionConfig.ActionType.INDEX_PRIORITY.type)
+                .field(IndexPriorityActionConfig.INDEX_PRIORITY_FIELD, 10)
+            .endObject()
+            .endObject()
+
+        val parser = XContentType.JSON.xContent().createParser(xContentRegistry(), LoggingDeprecationHandler.INSTANCE, builder.string())
+        parser.nextToken()
+
+        val actionConfig = ActionConfig.parse(parser, 1)
+        roundTripActionConfig(actionConfig)
     }
 
     private fun roundTripActionConfig(expectedActionConfig: ActionConfig) {

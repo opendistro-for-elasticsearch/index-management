@@ -60,16 +60,17 @@ class IndexPolicyResponse : ActionResponse, ToXContentObject {
         version = sin.readLong(),
         primaryTerm = sin.readLong(),
         seqNo = sin.readLong(),
-        policy = sin.readOptionalWriteable(::Policy) as Policy,
+        policy = Policy(sin),
         status = sin.readEnum(RestStatus::class.java)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(id)
         out.writeLong(version)
         out.writeLong(primaryTerm)
         out.writeLong(seqNo)
-        out.writeOptionalWriteable(policy)
+        policy.writeTo(out)
         out.writeEnum(status)
     }
 

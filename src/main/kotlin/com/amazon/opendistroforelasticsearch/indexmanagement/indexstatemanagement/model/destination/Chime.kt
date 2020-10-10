@@ -48,12 +48,14 @@ data class Chime(val url: String?) : ToXContent, Writeable {
                 .endObject()
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        sin.readOptionalString()
+        sin.readString()
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeOptionalString(url)
+        out.writeString(url)
     }
 
     companion object {

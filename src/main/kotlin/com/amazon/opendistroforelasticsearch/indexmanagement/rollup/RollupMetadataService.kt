@@ -1,18 +1,16 @@
 /*
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
- *  * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License").
- *  * You may not use this file except in compliance with the License.
- *  * A copy of the License is located at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * or in the "license" file accompanying this file. This file is distributed
- *  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- *  * express or implied. See the License for the specific language governing
- *  * permissions and limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
  */
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
@@ -35,6 +33,8 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.common.Rounding
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -42,17 +42,36 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.MatchAllQueryBuilder
 import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortOrder
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
+import java.time.temporal.IsoFields
+import java.time.temporal.TemporalUnit
 
 // Service that handles CRUD operations for rollup metadata
 // TODO: Metadata should be stored on same shard as its owning rollup job using routing
 // TODO: This whole class needs to be cleaned up
+@Suppress("TooManyFunctions")
 class RollupMetadataService(val client: Client, val xContentRegistry: NamedXContentRegistry) {
 
     private val logger = LogManager.getLogger(javaClass)
+
+    // If the job does not have a metadataID then we need to initialize the first metadata
+    // document for this job otherwise we should get the existing metadata document
+    suspend fun init(rollup: Rollup): RollupMetadata {
+        if (rollup.metadataID != null) {
+            // TODO: How does the user recover from the not found error?
+            return getExistingMetadata(rollup.metadataID)
+                ?: submitMetadataUpdate(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
+                    failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]"), false)
+        }
+        val metadata = if (rollup.continuous) createContinuousMetadata(rollup) else createNonContinuousMetadata(rollup)
+        return submitMetadataUpdate(metadata, false)
+    }
 
     // This returns the first instantiation of a RollupMetadata for a non-continuous rollup
     private fun createNonContinuousMetadata(rollup: Rollup): RollupMetadata =
@@ -75,8 +94,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
 
     // This returns the first instantiation of a RollupMetadata for a continuous rollup
     private suspend fun createContinuousMetadata(rollup: Rollup): RollupMetadata {
-        val nextWindowStartTime = getStartTime(rollup)
-        val nextWindowEndTime = nextWindowStartTime // TODO: This needs to be calculated, but it needs to take into account calendar vs fixed
+        val nextWindowStartTime = getInitialStartTime(rollup)
+        val nextWindowEndTime = getShiftedTime(nextWindowStartTime, rollup) // The first end time is just the next window start time
         return RollupMetadata(
             rollupID = rollup.id,
             afterKey = null,
@@ -92,23 +111,89 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     //  Could perhaps solve that by allowing the user to specify their own filter query that is applied to the composite agg search
     // TODO: handle exception
     @Throws(Exception::class)
-    private suspend fun getStartTime(rollup: Rollup): Instant {
-        val dateHistogram = rollup.dimensions.first() as DateHistogram // rollup requires the first dimension to be the date histogram
+    private suspend fun getInitialStartTime(rollup: Rollup): Instant {
+        // Rollup requires the first dimension to be the date histogram
+        val dateHistogram = rollup.dimensions.first() as DateHistogram
         val searchSourceBuilder = SearchSourceBuilder()
-            .trackTotalHits(false)
             .size(1)
             .query(MatchAllQueryBuilder())
             .sort(dateHistogram.sourceField, SortOrder.ASC) // TODO: figure out where nulls are sorted
+            .trackTotalHits(false)
             .fetchSource(dateHistogram.sourceField, null)
         val searchRequest = SearchRequest(rollup.sourceIndex)
             .source(searchSourceBuilder)
             .allowPartialSearchResults(false)
-
         val response: SearchResponse = client.suspendUntil { search(searchRequest, it) }
-        // TODO: Timezone?
-        val firstSourceOrNull = response.hits.hits.firstOrNull()?.sourceAsMap?.get(dateHistogram.sourceField) as String?
-        return requireNotNull(firstSourceOrNull?.let { Instant.parse(it) }) {
-            "Could not find the start time for ${dateHistogram.sourceField} on the document"
+
+        if (response.hits.hits.isEmpty()) {
+            // TODO: Handle empty hits (should result in no-op for runner)
+        }
+
+        // TODO: Empty result case has been checked for, are there any other cases where this can fail (such as failing cast)?
+        val firstSource = response.hits.hits.first().sourceAsMap[dateHistogram.sourceField] as String
+
+        return getRoundedTime(firstSource, dateHistogram)
+    }
+
+    // Return time rounded down to the nearest unit of time the interval is based on.
+    // Ex. If the first document has a timestamp of 2:15pm for an hourly rollup, return 2:00pm as the start time (for the given time zone).
+    private fun getRoundedTime(timestamp: String, dateHistogram: DateHistogram): Instant {
+        val timezone = dateHistogram.timezone
+        val timeIntervalUnit = getTimeInterval(dateHistogram).unit
+
+        // Units of time greater than a day cannot be 'truncatedTo' so will need to be handled separately
+        val dateTime = ZonedDateTime.parse(timestamp) // Parse timestamp
+            .withZoneSameInstant(timezone) // Convert timestamp to timezone given in DateHistogram
+        return when (timeIntervalUnit) {
+            ChronoUnit.WEEKS -> {
+                // Rounding to Monday as the first day of calendar week
+                // This is synonymous with Elasticsearch's bucket aggregation behavior for week
+                dateTime.truncatedTo(ChronoUnit.DAYS).with(DayOfWeek.MONDAY).toInstant()
+            }
+            ChronoUnit.MONTHS -> {
+                dateTime.truncatedTo(ChronoUnit.DAYS).withDayOfMonth(1).toInstant()
+            }
+            IsoFields.QUARTER_YEARS -> {
+                // Round to the beginning of the quarter of the given timestamp
+                dateTime.truncatedTo(ChronoUnit.DAYS).with(IsoFields.DAY_OF_QUARTER, 1L).toInstant()
+            }
+            ChronoUnit.YEARS -> {
+                dateTime.truncatedTo(ChronoUnit.DAYS).withDayOfYear(1).toInstant()
+            }
+            else -> {
+                dateTime.truncatedTo(timeIntervalUnit).toInstant()
+            }
+        }
+    }
+
+    // Takes an existing start or end time and returns the value for the next window based on the rollup interval
+    private fun getShiftedTime(time: Instant, rollup: Rollup): Instant {
+        val dateHistogram = rollup.dimensions.first() as DateHistogram
+        val timezone = dateHistogram.timezone
+        val timeInterval = getTimeInterval(dateHistogram)
+
+        return ZonedDateTime.ofInstant(time, timezone) // Convert Instant to ZonedDateTime using timezone in DateHistogram
+            .plus(timeInterval.duration, timeInterval.unit) // Add duration of the time interval in DateHistogram
+            .toInstant()
+    }
+
+    /**
+     * Get the duration and unit of time for the interval in the DateHistogram.
+     * Duration will always be 1 for calendar interval.
+     * Used for adjusting DateTime objects to calculate time windows.
+     */
+    // TODO: Should make this an extension function of DateHistogram and add to some utility file
+    private fun getTimeInterval(dateHistogram: DateHistogram): TimeInterval {
+        val intervalString = (dateHistogram.calendarInterval ?: dateHistogram.fixedInterval) as String
+        // TODO: Make sure the interval string is validated before getting here so we don't get errors
+        return if (DateHistogramAggregationBuilder.DATE_FIELD_UNITS.containsKey(intervalString)) {
+            // Calendar intervals should be handled here
+            val intervalUnit: Rounding.DateTimeUnit = DateHistogramAggregationBuilder.DATE_FIELD_UNITS[intervalString]!!
+            TimeInterval(1L, intervalUnit.field.baseUnit)
+        } else {
+            // Fixed intervals are handled here
+            val timeValue = TimeValue.parseTimeValue(intervalString, "RollupMetadataService#getTimeInterval")
+            TimeInterval(timeValue.duration(), timeValue.timeUnit().toChronoUnit())
         }
     }
 
@@ -119,24 +204,14 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         internalComposite: InternalComposite
     ): RollupMetadata {
         // TODO: finished, failed, failure reason
-        val dateHistogram = rollup.dimensions.first() as DateHistogram
-        val intervalString = (dateHistogram.calendarInterval ?: dateHistogram.fixedInterval) as String
-        // TODO this doesn't seem to be accurate for calendar interval - how inaccurate is it and whats a diff way we can do this
-        //  as this would affect the windows of time which is a big issue.
-        val interval = DateHistogramInterval(intervalString)
         val afterKey = internalComposite.afterKey()
-        val millis = interval.estimateMillis()
         // TODO: get rid of !!
         val nextStart = if (afterKey == null) {
-            Instant.ofEpochMilli(metadata.continuous!!.nextWindowStartTime.toEpochMilli()).plusMillis(millis)
-        } else {
-            metadata.continuous!!.nextWindowStartTime
-        }
+            getShiftedTime(metadata.continuous!!.nextWindowStartTime, rollup)
+        } else metadata.continuous!!.nextWindowStartTime
         val nextEnd = if (afterKey == null) {
-            Instant.ofEpochMilli(metadata.continuous.nextWindowEndTime.toEpochMilli()).plusMillis(millis)
-        } else {
-            metadata.continuous.nextWindowEndTime
-        }
+            getShiftedTime(metadata.continuous.nextWindowEndTime, rollup)
+        } else metadata.continuous.nextWindowEndTime
         return metadata.copy(
             afterKey = internalComposite.afterKey(),
             lastUpdatedTime = Instant.now(),
@@ -164,33 +239,22 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         return rollupMetadata
     }
 
-    // If the job does not have a metadataID then we need to initialize the first metadata
-    // document for this job otherwise we should get the existing metadata document
-    suspend fun init(rollup: Rollup): RollupMetadata {
-        if (rollup.metadataID != null) {
-            // TODO: How does the user recover from the not found error?
-            return getExistingMetadata(rollup.metadataID)
-                ?: update(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
-                    failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]"), false)
-        }
-        val metadata = if (rollup.continuous) createContinuousMetadata(rollup) else createNonContinuousMetadata(rollup)
-        return update(metadata, false)
-    }
-
     suspend fun updateMetadata(rollup: Rollup, metadata: RollupMetadata, internalComposite: InternalComposite): RollupMetadata {
         val updatedMetadata = if (rollup.continuous) {
             getUpdatedContinuousMetadata(rollup, metadata, internalComposite)
         } else {
             getUpdatedNonContinuousMetadata(rollup, metadata, internalComposite)
         }
-        return update(updatedMetadata, metadata.id != RollupMetadata.NO_ID)
+        return submitMetadataUpdate(updatedMetadata, metadata.id != RollupMetadata.NO_ID)
     }
 
     // TODO: error handling, make sure to handle RTE for pretty much everything..
     // TODO: Clean this up
-    suspend fun update(metadata: RollupMetadata, updating: Boolean): RollupMetadata {
+    suspend fun submitMetadataUpdate(metadata: RollupMetadata, updating: Boolean): RollupMetadata {
         @Suppress("BlockingMethodInNonBlockingContext")
-        val builder = XContentFactory.jsonBuilder().startObject().field(RollupMetadata.ROLLUP_METADATA_TYPE, metadata).endObject()
+        val builder = XContentFactory.jsonBuilder().startObject()
+            .field(RollupMetadata.ROLLUP_METADATA_TYPE, metadata)
+            .endObject()
         val indexRequest = IndexRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX).source(builder)
         if (updating) {
             indexRequest.id(metadata.id).setIfSeqNo(metadata.seqNo).setIfPrimaryTerm(metadata.primaryTerm)
@@ -219,4 +283,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             failureReason = failureReason
         )
     }
+
+    data class TimeInterval(val duration: Long, val unit: TemporalUnit)
 }

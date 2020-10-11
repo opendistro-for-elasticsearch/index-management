@@ -181,7 +181,7 @@ object RollupRunner : ScheduledJobRunner,
         if (!successful) {
             // TODO: More helpful error messaging
             // TODO: Update to metadata fails
-            rollupMetadataService.update(
+            rollupMetadataService.submitMetadataUpdate(
                 metadata = metadata.copy(
                     status = RollupMetadata.Status.FAILED,
                     failureReason = "Failed to initialize the target index",

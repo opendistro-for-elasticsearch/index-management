@@ -55,7 +55,6 @@ class RestExplainAction : BaseRestHandler() {
 
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
 
-        log.info("what is indices $indices")
         // if (indices == null || indices.isEmpty()) {
         //     throw IllegalArgumentException("Missing indices")
         // }
@@ -63,7 +62,7 @@ class RestExplainAction : BaseRestHandler() {
         val size = request.paramAsInt("size", 20)
         val from = request.paramAsInt("from", 0)
         val sortField = request.param("sortField", "managed_index.index")
-        val sortOrder = request.param("sortOrder", "desc")
+        val sortOrder = request.param("sortOrder", "asc")
         val queryString = request.param("queryString", "*")
 
         log.info("request params: $size, $from, $sortField, $sortOrder, $queryString")

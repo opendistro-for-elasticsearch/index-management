@@ -30,6 +30,7 @@ import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.index.Index
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -57,11 +58,19 @@ class TransportExplainAction @Inject constructor(
         private val actionListener: ActionListener<ExplainResponse>,
         private val request: ExplainRequest
     ) {
-        private var managedIndexMetaDataMap = mutableMapOf<String, String?>()
+        private val indices = request.indices // query indices
+        private var wildcard = false // true if query like "index*"
+
+        // map of index to indexMetadataMap
+        private val managedIndicesMetaDataMap = mutableMapOf<String, Map<String, String?>>()
+        private val managedIndices = mutableListOf<String>()
+        private var totalManagedIndices = 0
+
+        private val indexNames = mutableListOf<String>()
 
         @Suppress("SpreadOperator")
         fun start() {
-            log.info("indices in the request ${request.indices}")
+            log.info("indices in the request $indices")
 
             val params = request.params
 
@@ -73,10 +82,14 @@ class TransportExplainAction @Inject constructor(
             val queryBuilder = QueryBuilders.boolQuery()
                 .must(queryStringQuery)
 
-            if (request.indices.isNotEmpty()) {
-                val filterQuery = QueryBuilders.termsQuery("managed_index.name", request.indices)
-                queryBuilder.filter(filterQuery)
-            } else {
+            if (indices.size == 1 && indices[0].contains("*")) wildcard = true
+            if (indices.isNotEmpty()) {
+                if (wildcard) { // explain/index*
+                    queryBuilder.filter(QueryBuilders.wildcardQuery("managed_index.name", indices[0]))
+                } else { // explain/{index}
+                    queryBuilder.filter(QueryBuilders.termsQuery("managed_index.name", indices))
+                }
+            } else { // explain
                 queryBuilder.filter(QueryBuilders.existsQuery("managed_index"))
             }
 
@@ -95,28 +108,47 @@ class TransportExplainAction @Inject constructor(
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
-                    val managedIndices = mutableListOf<String>()
                     log.info("check response hits number: ${response.hits.hits.size}")
+                    val totalHits = response.hits.totalHits
+                    if (totalHits != null) {
+                        totalManagedIndices = totalHits.value.toInt()
+                    }
                     response.hits.hits.map {
                         val hitMap = it.sourceAsMap["managed_index"] as Map<String, Any>
-                        log.info("see hits content: $hitMap")
-                        managedIndices.add(hitMap["index"] as String)
+                        val managedIndex = hitMap["index"] as String
+                        managedIndices.add(managedIndex)
+
+                        val managedIndexMetaDataMap = mutableMapOf<String, String?>()
                         managedIndexMetaDataMap["index"] = hitMap["index"] as String?
                         managedIndexMetaDataMap["index_uuid"] = hitMap["index_uuid"] as String?
                         managedIndexMetaDataMap["policy_id"] = hitMap["policy_id"] as String?
                         managedIndexMetaDataMap["enabled"] = hitMap["enabled"]?.toString()
+                        managedIndicesMetaDataMap[managedIndex] = mapOf(
+                            "index" to hitMap["index"] as String?,
+                            "index_uuid" to hitMap["index_uuid"] as String?,
+                            "policy_id" to hitMap["policy_id"] as String?,
+                            "enabled" to hitMap["enabled"]?.toString()
+                        )
                     }
-                    log.info("explain indices: $managedIndices")
-                    log.info("managed index metadata map: $managedIndexMetaDataMap")
-                    if (managedIndices.isEmpty()) {
-                        getMetadata(request.indices)
+                    log.info("managed indices: $managedIndices")
+                    if (managedIndices.size > 0) {
+                        if (managedIndices.size < indices.size) {
+                            // explain/{index} but has not managed index
+                            indexNames.addAll(indices)
+                            getMetadata(indices)
+                            return
+                        }
+                        indexNames.addAll(managedIndices)
+                        getMetadata(managedIndices)
+                        return
                     }
-                    getMetadata(managedIndices)
+                    // getAll, but after filtered, no managed indices match; happened when using searchBox on frontend
+                    actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList(), 0))
                 }
 
                 override fun onFailure(t: Exception) {
                     if (t is IndexNotFoundException) { // config index hasn't been initialized
-                        getMetadata(request.indices)
+                        actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList(), 0))
                         return
                     }
                     actionListener.onFailure(t)
@@ -128,7 +160,7 @@ class TransportExplainAction @Inject constructor(
             val clusterStateRequest = ClusterStateRequest()
             val strictExpandIndicesOptions = IndicesOptions.strictExpand()
 
-            log.info("result of indices to typed array: ${indices.toTypedArray()}")
+            log.info("get metadata indices list: $indices")
             clusterStateRequest.clear()
                 .indices(*indices.toTypedArray())
                 .metadata(true)
@@ -149,29 +181,33 @@ class TransportExplainAction @Inject constructor(
 
         fun processResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
-            val indexNames = mutableListOf<String>()
             val indexPolicyIDs = mutableListOf<String?>()
             val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
 
-            for (indexMetadataEntry in state.metadata.indices) {
-                indexNames.add(indexMetadataEntry.key)
-
-                val indexMetadata = indexMetadataEntry.value
+            // cluster state response don't resist sort order
+            for (indexName in indexNames) {
+                log.info("retrieve metadata for $indexName")
+                val indexMetadata = state.metadata.indices[indexName]
                 indexPolicyIDs.add(indexMetadata.getPolicyID())
 
                 var managedIndexMetadata: ManagedIndexMetaData? = null
+                var managedIndexMetadataMap = managedIndicesMetaDataMap[indexName]
                 val savedMetadata = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
-                if (savedMetadata != null) {
-                    managedIndexMetaDataMap = savedMetadata
-                }
-                if (managedIndexMetaDataMap.isNotEmpty()) {
-                    // empty could because no config index or index not managed
-                    managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetaDataMap)
+                if (managedIndexMetadataMap != null) {
+                    if (savedMetadata != null) { // if has metadata saved, use that
+                        managedIndexMetadataMap = savedMetadata
+                    }
+                    if (managedIndexMetadataMap.isNotEmpty()) {
+                        // empty because of index not managed
+                        managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetadataMap)
+                    }
                 }
                 indexMetadatas.add(managedIndexMetadata)
             }
 
-            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
+            managedIndicesMetaDataMap.clear()
+
+            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices))
         }
     }
 }

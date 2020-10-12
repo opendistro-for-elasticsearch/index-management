@@ -83,6 +83,7 @@ abstract class ActionConfig(
     }
 
     companion object {
+        // TODO clean up for actionIndex
         @JvmStatic
         @Throws(IOException::class)
         fun fromStreamInput(sin: StreamInput): ActionConfig {

@@ -430,6 +430,16 @@
     },
     "rollup": {
       "properties": {
+        "rollup_id": {
+          "type": "text",
+          "analyzer": "all_wildcard_analyzer",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
         "enabled": {
           "type": "boolean"
         },
@@ -597,6 +607,7 @@
       "properties": {
         "rollup_id": {
           "type": "text",
+          "analyzer": "all_wildcard_analyzer",
           "fields": {
             "keyword": {
               "type": "keyword",

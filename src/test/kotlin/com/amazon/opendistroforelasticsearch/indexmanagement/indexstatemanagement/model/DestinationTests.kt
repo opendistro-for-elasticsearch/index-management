@@ -31,37 +31,9 @@ class DestinationTests : ESTestCase() {
         assertEquals("Url is manipulated", chime.url, "http://abc.com")
     }
 
-    fun `test chime destination with out url`() {
-        try {
-            Chime("")
-            fail("Creating a chime destination with empty url did not fail.")
-        } catch (ignored: IllegalArgumentException) {
-        }
-
-        try {
-            Chime(null)
-            fail("Creating a chime destination with null url did not fail.")
-        } catch (ignored: IllegalArgumentException) {
-        }
-    }
-
     fun `test slack destination`() {
         val slack = Slack("http://abc.com")
         assertEquals("Url is manipulated", slack.url, "http://abc.com")
-    }
-
-    fun `test slack destination with out url`() {
-        try {
-            Slack("")
-            fail("Creating a slack destination with empty url did not fail.")
-        } catch (ignored: IllegalArgumentException) {
-        }
-
-        try {
-            Slack(null)
-            fail("Creating a slack destination with null url did not fail.")
-        } catch (ignored: IllegalArgumentException) {
-        }
     }
 
     fun `test custom webhook destination with url and no host`() {

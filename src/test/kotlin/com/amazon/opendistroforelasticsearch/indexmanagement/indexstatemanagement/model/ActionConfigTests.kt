@@ -72,18 +72,6 @@ class ActionConfigTests : ESTestCase() {
         }
     }
 
-    fun `test snapshot action empty snapshot fails`() {
-        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for snapshot equals to null") {
-            randomSnapshotActionConfig(repository = "repository")
-        }
-    }
-
-    fun `test snapshot action empty repository fails`() {
-        assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for repository equals to null") {
-            randomSnapshotActionConfig(snapshot = "snapshot")
-        }
-    }
-
     fun `test allocation action empty parameters fails`() {
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for empty parameters") {
             randomAllocationActionConfig()

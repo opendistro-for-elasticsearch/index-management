@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
@@ -33,7 +36,7 @@ data class ActionRetry(
     val count: Long,
     val backoff: Backoff = Backoff.EXPONENTIAL,
     val delay: TimeValue = TimeValue.timeValueMinutes(1)
-) : ToXContentFragment {
+) : ToXContentFragment, Writeable {
 
     init { require(count > 0) { "Count for ActionRetry must be greater than 0" } }
 
@@ -45,6 +48,20 @@ data class ActionRetry(
                 .field(DELAY_FIELD, delay.stringRep)
             .endObject()
         return builder
+    }
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        count = sin.readLong(),
+        backoff = sin.readEnum(Backoff::class.java),
+        delay = sin.readTimeValue()
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeLong(count)
+        out.writeEnum(backoff)
+        out.writeTimeValue(delay)
     }
 
     companion object {

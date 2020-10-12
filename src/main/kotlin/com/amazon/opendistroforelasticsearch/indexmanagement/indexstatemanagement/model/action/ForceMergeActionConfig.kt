@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -55,6 +57,19 @@ data class ForceMergeActionConfig(
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = ForceMergeAction(clusterService, client, managedIndexMetaData, this)
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        maxNumSegments = sin.readInt(),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeInt(maxNumSegments)
+        out.writeInt(index)
+    }
 
     companion object {
         const val MAX_NUM_SEGMENTS_FIELD = "max_num_segments"

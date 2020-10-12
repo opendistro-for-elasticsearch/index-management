@@ -17,6 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.string
 import org.elasticsearch.common.Strings
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -33,16 +36,22 @@ import java.lang.IllegalStateException
  * Temporary import from alerting, this will be removed once we pull notifications out of
  * alerting so all plugins can consume and use.
  */
-data class Slack(val url: String?) : ToXContent {
-
-    init {
-        require(!Strings.isNullOrEmpty(url)) { "URL is null or empty" }
-    }
+data class Slack(val url: String) : ToXContent, Writeable {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject(TYPE)
                 .field(URL, url)
                 .endObject()
+    }
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        sin.readString()
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(url)
     }
 
     companion object {
@@ -52,7 +61,7 @@ data class Slack(val url: String?) : ToXContent {
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Slack {
-            lateinit var url: String
+            var url: String? = null
 
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -65,7 +74,7 @@ data class Slack(val url: String?) : ToXContent {
                     }
                 }
             }
-            return Slack(url)
+            return Slack(requireNotNull(url) { "URL is null or empty" })
         }
     }
 

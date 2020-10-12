@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -29,22 +31,17 @@ import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
 data class SnapshotActionConfig(
-    val repository: String?,
-    val snapshot: String?,
+    val repository: String,
+    val snapshot: String,
     val index: Int
 ) : ToXContentObject, ActionConfig(ActionType.SNAPSHOT, index) {
-
-    init {
-        require(repository != null) { "SnapshotActionConfig repository must be specified" }
-        require(snapshot != null) { "SnapshotActionConfig snapshot must be specified" }
-    }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         super.toXContent(builder, params)
             .startObject(ActionType.SNAPSHOT.type)
-        if (repository != null) builder.field(REPOSITORY_FIELD, repository)
-        if (snapshot != null) builder.field(SNAPSHOT_FIELD, snapshot)
+            .field(REPOSITORY_FIELD, repository)
+            .field(SNAPSHOT_FIELD, snapshot)
         return builder.endObject().endObject()
     }
 
@@ -56,6 +53,21 @@ data class SnapshotActionConfig(
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = SnapshotAction(clusterService, client, managedIndexMetaData, this)
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        repository = sin.readString(),
+        snapshot = sin.readString(),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeString(repository)
+        out.writeString(snapshot)
+        out.writeInt(index)
+    }
 
     companion object {
         const val REPOSITORY_FIELD = "repository"
@@ -81,8 +93,8 @@ data class SnapshotActionConfig(
             }
 
             return SnapshotActionConfig(
-                repository = repository,
-                snapshot = snapshot,
+                repository = requireNotNull(repository) { "SnapshotActionConfig repository must be specified" },
+                snapshot = requireNotNull(snapshot) { "SnapshotActionConfig snapshot must be specified" },
                 index = index
             )
         }

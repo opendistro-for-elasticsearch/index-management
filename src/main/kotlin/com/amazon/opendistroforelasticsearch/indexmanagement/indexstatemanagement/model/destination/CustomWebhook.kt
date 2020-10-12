@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination
 
 import org.elasticsearch.common.Strings
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
@@ -40,7 +43,7 @@ data class CustomWebhook(
     val headerParams: Map<String, String>,
     val username: String?,
     val password: String?
-) : ToXContent {
+) : ToXContent, Writeable {
 
     init {
         require(!(Strings.isNullOrEmpty(url) && Strings.isNullOrEmpty(host))) {
@@ -60,6 +63,30 @@ data class CustomWebhook(
                 .field(USERNAME_FIELD, username)
                 .field(PASSWORD_FIELD, password)
                 .endObject()
+    }
+
+    constructor(sin: StreamInput) : this(
+        sin.readOptionalString(),
+        sin.readOptionalString(),
+        sin.readOptionalString(),
+        sin.readInt(),
+        sin.readOptionalString(),
+        suppressWarning(sin.readMap()),
+        suppressWarning(sin.readMap()),
+        sin.readOptionalString(),
+        sin.readOptionalString()
+    )
+
+    override fun writeTo(out: StreamOutput) {
+        out.writeOptionalString(url)
+        out.writeOptionalString(scheme)
+        out.writeOptionalString(host)
+        out.writeInt(port)
+        out.writeOptionalString(path)
+        out.writeMap(queryParams)
+        out.writeMap(headerParams)
+        out.writeOptionalString(username)
+        out.writeOptionalString(password)
     }
 
     companion object {
@@ -108,6 +135,11 @@ data class CustomWebhook(
                 }
             }
             return CustomWebhook(url, scheme, host, port, path, queryParams, headerParams, username, password)
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, String> {
+            return map as MutableMap<String, String>
         }
     }
 }

@@ -19,6 +19,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -39,7 +42,7 @@ data class Policy(
     val errorNotification: ErrorNotification?,
     val defaultState: String,
     val states: List<State>
-) : ToXContentObject {
+) : ToXContentObject, Writeable {
 
     init {
         val distinctStateNames = states.map { it.name }.distinct()
@@ -71,6 +74,32 @@ data class Policy(
             .field(STATES_FIELD, states.toTypedArray())
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
         return builder.endObject()
+    }
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        id = sin.readString(),
+        seqNo = sin.readLong(),
+        primaryTerm = sin.readLong(),
+        description = sin.readString(),
+        schemaVersion = sin.readLong(),
+        lastUpdatedTime = sin.readInstant(),
+        errorNotification = sin.readOptionalWriteable(::ErrorNotification),
+        defaultState = sin.readString(),
+        states = sin.readList(::State)
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(id)
+        out.writeLong(seqNo)
+        out.writeLong(primaryTerm)
+        out.writeString(description)
+        out.writeLong(schemaVersion)
+        out.writeInstant(lastUpdatedTime)
+        out.writeOptionalWriteable(errorNotification)
+        out.writeString(defaultState)
+        out.writeList(states)
     }
 
     companion object {

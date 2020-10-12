@@ -16,6 +16,9 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -28,7 +31,7 @@ data class State(
     val name: String,
     val actions: List<ActionConfig>,
     val transitions: List<Transition>
-) : ToXContentObject {
+) : ToXContentObject, Writeable {
 
     init {
         require(name.isNotBlank()) { "State must contain a valid name" }
@@ -51,6 +54,20 @@ data class State(
                 .field(TRANSITIONS_FIELD, transitions.toTypedArray())
             .endObject()
         return builder
+    }
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        sin.readString(),
+        sin.readList { ActionConfig.fromStreamInput(it) },
+        sin.readList(::Transition)
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(name)
+        out.writeList(actions)
+        out.writeList(transitions)
     }
 
     companion object {

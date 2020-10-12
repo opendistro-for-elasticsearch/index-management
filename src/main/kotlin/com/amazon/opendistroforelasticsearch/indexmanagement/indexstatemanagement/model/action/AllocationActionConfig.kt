@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -61,11 +63,35 @@ data class AllocationActionConfig(
             .endObject()
     }
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        require = suppressWarning(sin.readMap()),
+        include = suppressWarning(sin.readMap()),
+        exclude = suppressWarning(sin.readMap()),
+        waitFor = sin.readBoolean(),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeMap(require)
+        out.writeMap(include)
+        out.writeMap(exclude)
+        out.writeBoolean(waitFor)
+        out.writeInt(index)
+    }
+
     companion object {
         const val REQUIRE = "require"
         const val INCLUDE = "include"
         const val EXCLUDE = "exclude"
         const val WAIT_FOR = "wait_for"
+
+        @Suppress("UNCHECKED_CAST")
+        fun suppressWarning(map: MutableMap<String?, Any?>?): MutableMap<String, String> {
+            return map as MutableMap<String, String>
+        }
 
         @JvmStatic
         @Throws(IOException::class)

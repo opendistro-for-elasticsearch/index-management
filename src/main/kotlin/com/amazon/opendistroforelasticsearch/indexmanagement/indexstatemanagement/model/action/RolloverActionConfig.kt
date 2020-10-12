@@ -20,6 +20,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
@@ -62,6 +64,23 @@ data class RolloverActionConfig(
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = RolloverAction(clusterService, client, managedIndexMetaData, this)
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        minSize = sin.readOptionalWriteable(::ByteSizeValue),
+        minDocs = sin.readOptionalLong(),
+        minAge = sin.readOptionalTimeValue(),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeOptionalWriteable(minSize)
+        out.writeOptionalLong(minDocs)
+        out.writeOptionalTimeValue(minAge)
+        out.writeInt(index)
+    }
 
     companion object {
         const val MIN_SIZE_FIELD = "min_size"

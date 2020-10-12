@@ -47,15 +47,10 @@ class ExplainRequest : ActionRequest {
         indices = sin.readStringList(),
         local = sin.readBoolean(),
         masterTimeout = sin.readTimeValue(),
-        params = Params.fromStreamInput(sin)
+        params = Params(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
-        // var validationException: ActionRequestValidationException? = null
-        // if (indices.isEmpty()) {
-        //     validationException = ValidateActions.addValidationError("Missing indices", validationException)
-        // }
-        // return validationException
         return null
     }
 

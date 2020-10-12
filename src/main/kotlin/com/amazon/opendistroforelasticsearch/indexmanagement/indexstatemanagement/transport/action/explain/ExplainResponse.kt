@@ -27,7 +27,7 @@ import java.io.IOException
 
 class ExplainResponse : ActionResponse, ToXContentObject {
 
-    // TODO refactor this de-coupled lists usage to map maybe
+    // TODO refactor these lists usage to map
     val indexNames: List<String>
     val indexPolicyIDs: List<String?>
     val indexMetadatas: List<ManagedIndexMetaData?>

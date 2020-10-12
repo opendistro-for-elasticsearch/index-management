@@ -45,12 +45,4 @@ data class Params(
         out.writeString(sortOrder)
         out.writeString(queryString)
     }
-
-    companion object {
-        @JvmStatic
-        @Throws(IOException::class)
-        fun fromStreamInput(sin: StreamInput): Params {
-            return Params(sin)
-        }
-    }
 }

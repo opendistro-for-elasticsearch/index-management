@@ -80,20 +80,20 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val actualHistory = getLatestHistory(historySearchResponse)
 
         val expectedHistory = ManagedIndexMetaData(
-                indexName,
-                getUuid(indexName),
-                policyID,
-                actualHistory.policySeqNo,
-                policyPrimaryTerm = actualHistory.policyPrimaryTerm,
-                policyCompleted = null,
-                rolledOver = null,
-                transitionTo = null,
-                stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
-                actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
-                stepMetaData = null,
-                policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
-                enabled = true
+            indexName,
+            getUuid(indexName),
+            policyID,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = null,
+            stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
+            actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
+            stepMetaData = null,
+            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -147,20 +147,20 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val actualHistory = getLatestHistory(historySearchResponse)
 
         val expectedHistory = ManagedIndexMetaData(
-                indexName,
-                getUuid(indexName),
-                policyID,
-                actualHistory.policySeqNo,
-                policyPrimaryTerm = actualHistory.policyPrimaryTerm,
-                policyCompleted = null,
-                rolledOver = null,
-                transitionTo = null,
-                stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
-                actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
-                stepMetaData = null,
-                policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
-                enabled = true
+            indexName,
+            getUuid(indexName),
+            policyID,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = null,
+            stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
+            actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
+            stepMetaData = null,
+            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -214,20 +214,20 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val actualHistory = getLatestHistory(historySearchResponse)
 
         val expectedHistory = ManagedIndexMetaData(
-                indexName,
-                getUuid(indexName),
-                policyID,
-                actualHistory.policySeqNo,
-                policyPrimaryTerm = actualHistory.policyPrimaryTerm,
-                policyCompleted = null,
-                rolledOver = null,
-                transitionTo = null,
-                stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
-                actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
-                stepMetaData = null,
-                policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
-                enabled = true
+            indexName,
+            getUuid(indexName),
+            policyID,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = null,
+            stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
+            actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory.actionMetaData!!.startTime, 0, false, 0, 0, null),
+            stepMetaData = null,
+            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -275,20 +275,20 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val actualHistory = getLatestHistory(historySearchResponse)
 
         val expectedHistory = ManagedIndexMetaData(
-                indexName,
-                getUuid(indexName),
-                policyID,
-                actualHistory.policySeqNo,
-                policyPrimaryTerm = actualHistory.policyPrimaryTerm,
-                policyCompleted = null,
-                rolledOver = null,
-                transitionTo = null,
-                stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
-                actionMetaData = null,
-                stepMetaData = null,
-                policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                info = mapOf("message" to "Successfully initialized policy: $policyID"),
-                enabled = true
+            indexName,
+            getUuid(indexName),
+            policyID,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = null,
+            stateMetaData = StateMetaData("ReadOnlyState", actualHistory.stateMetaData!!.startTime),
+            actionMetaData = null,
+            stepMetaData = null,
+            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+            info = mapOf("message" to "Successfully initialized policy: $policyID"),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)
@@ -306,20 +306,20 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val actualHistory1 = getLatestHistory(historySearchResponse1)
 
         val expectedHistory1 = ManagedIndexMetaData(
-                indexName,
-                getUuid(indexName),
-                policyID,
-                actualHistory1.policySeqNo,
-                policyPrimaryTerm = actualHistory1.policyPrimaryTerm,
-                policyCompleted = null,
-                rolledOver = null,
-                transitionTo = null,
-                stateMetaData = StateMetaData(states[0].name, actualHistory1.stateMetaData!!.startTime),
-                actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory1.actionMetaData!!.startTime, 0, false, 0, 0, null),
-                stepMetaData = null,
-                policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
-                enabled = true
+            indexName,
+            getUuid(indexName),
+            policyID,
+            actualHistory1.policySeqNo,
+            policyPrimaryTerm = actualHistory1.policyPrimaryTerm,
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = null,
+            stateMetaData = StateMetaData(states[0].name, actualHistory1.stateMetaData!!.startTime),
+            actionMetaData = ActionMetaData(ActionConfig.ActionType.READ_ONLY.toString(), actualHistory1.actionMetaData!!.startTime, 0, false, 0, 0, null),
+            stepMetaData = null,
+            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+            info = mapOf("message" to SetReadOnlyStep.getSuccessMessage(indexName)),
+            enabled = true
         )
 
         assertEquals(expectedHistory1, actualHistory1)
@@ -375,20 +375,20 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         val actualHistory = getLatestHistory(historySearchResponse)
 
         val expectedHistory = ManagedIndexMetaData(
-                indexName,
-                getUuid(indexName),
-                policyID,
-                actualHistory.policySeqNo,
-                policyPrimaryTerm = actualHistory.policyPrimaryTerm,
-                policyCompleted = null,
-                rolledOver = null,
-                transitionTo = null,
-                stateMetaData = StateMetaData(name = states[0].name, startTime = actualHistory.stateMetaData!!.startTime),
-                actionMetaData = null,
-                stepMetaData = null,
-                policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
-                info = mapOf("message" to "Successfully initialized policy: $policyID"),
-                enabled = true
+            indexName,
+            getUuid(indexName),
+            policyID,
+            actualHistory.policySeqNo,
+            policyPrimaryTerm = actualHistory.policyPrimaryTerm,
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = null,
+            stateMetaData = StateMetaData(name = states[0].name, startTime = actualHistory.stateMetaData!!.startTime),
+            actionMetaData = null,
+            stepMetaData = null,
+            policyRetryInfo = PolicyRetryInfoMetaData(false, 0),
+            info = mapOf("message" to "Successfully initialized policy: $policyID"),
+            enabled = true
         )
 
         assertEquals(expectedHistory, actualHistory)

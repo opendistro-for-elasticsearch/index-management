@@ -39,8 +39,16 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.BoolQueryBuilder
+import org.elasticsearch.index.query.BoostingQueryBuilder
+import org.elasticsearch.index.query.ConstantScoreQueryBuilder
+import org.elasticsearch.index.query.DisMaxQueryBuilder
 import org.elasticsearch.index.query.MatchAllQueryBuilder
+import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.index.query.RangeQueryBuilder
+import org.elasticsearch.index.query.TermQueryBuilder
+import org.elasticsearch.index.query.TermsQueryBuilder
+import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilder
 import org.elasticsearch.search.aggregations.AggregatorFactories
 import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder
@@ -239,6 +247,82 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
     }
 }
 
+// TODO might be missing edge cases, and need to set other fields when creating new QueryBuilders
+@Suppress("ComplexMethod", "LongMethod", "ReturnCount")
+fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder): QueryBuilder {
+    when (queryBuilder) {
+        is TermQueryBuilder -> {
+            val updatedFieldName = queryBuilder.fieldName() + "." + Dimension.Type.TERMS.type
+            return TermQueryBuilder(updatedFieldName, queryBuilder.value())
+        }
+        is TermsQueryBuilder -> {
+            val updatedFieldName = queryBuilder.fieldName() + "." + Dimension.Type.TERMS.type
+            return TermsQueryBuilder(updatedFieldName, queryBuilder.values())
+        }
+        is RangeQueryBuilder -> {
+            // TODO: not sure yet on how to rebuild
+            return queryBuilder
+        }
+        is MatchAllQueryBuilder -> {
+            // Nothing to do
+            return queryBuilder
+        }
+        is BoolQueryBuilder -> {
+            val newBoolQueryBuilder = BoolQueryBuilder()
+            queryBuilder.must()?.forEach {
+                val newMustQueryBuilder = this.rewriteQueryBuilder(it)
+                newBoolQueryBuilder.must(newMustQueryBuilder)
+            }
+            queryBuilder.mustNot()?.forEach {
+                val newMustNotQueryBuilder = this.rewriteQueryBuilder(it)
+                newBoolQueryBuilder.mustNot(newMustNotQueryBuilder)
+            }
+            queryBuilder.should()?.forEach {
+                val newShouldQueryBuilder = this.rewriteQueryBuilder(it)
+                newBoolQueryBuilder.should(newShouldQueryBuilder)
+            }
+            queryBuilder.filter()?.forEach {
+                val newFilterQueryBuilder = this.rewriteQueryBuilder(it)
+                newBoolQueryBuilder.filter(newFilterQueryBuilder)
+            }
+            newBoolQueryBuilder.minimumShouldMatch(queryBuilder.minimumShouldMatch())
+            newBoolQueryBuilder.adjustPureNegative(queryBuilder.adjustPureNegative())
+            return newBoolQueryBuilder
+        }
+        is BoostingQueryBuilder -> {
+            val newPositiveQueryBuilder = queryBuilder.positiveQuery()?.also { this.rewriteQueryBuilder(it) }
+            val newNegativeQueryBuilder = queryBuilder.negativeQuery()?.also { this.rewriteQueryBuilder(it) }
+            val newBoostingQueryBuilder = BoostingQueryBuilder(newPositiveQueryBuilder, newNegativeQueryBuilder)
+            if (queryBuilder.negativeBoost() >= 0) newBoostingQueryBuilder.negativeBoost(queryBuilder.negativeBoost())
+            return newBoostingQueryBuilder
+        }
+        is ConstantScoreQueryBuilder -> {
+            if (queryBuilder.innerQuery() == null) {
+                // Nothing to do
+                return queryBuilder
+            }
+            val newInnerQueryBuilder = queryBuilder.innerQuery().also { this.rewriteQueryBuilder(it) }
+            val newConstantScoreQueryBuilder = ConstantScoreQueryBuilder(newInnerQueryBuilder)
+            newConstantScoreQueryBuilder.boost(queryBuilder.boost())
+            return newConstantScoreQueryBuilder
+        }
+        is DisMaxQueryBuilder -> {
+            val newDisMaxQueryBuilder = DisMaxQueryBuilder()
+            queryBuilder.innerQueries().forEach { newDisMaxQueryBuilder.add(this.rewriteQueryBuilder(it)) }
+            newDisMaxQueryBuilder.tieBreaker(queryBuilder.tieBreaker())
+            return newDisMaxQueryBuilder
+        }
+        is FunctionScoreQueryBuilder -> {
+            // TODO implement the logic
+            return queryBuilder
+        }
+        else -> {
+            // Should never be here since the query is prevented before coming to this part of code
+            throw UnsupportedOperationException("The ${queryBuilder.name} is not currently supported")
+        }
+    }
+}
+
 // TODO: Not a fan of this.. but I can't find a way to overwrite the aggregations on the shallow copy or original
 //  so we need to instantiate a new one so we can add the rewritten aggregation builders
 @Suppress("ComplexMethod")
@@ -256,7 +340,7 @@ fun SearchSourceBuilder.rewriteSearchSourceBuilder(job: Rollup): SearchSourceBui
     if (this.minScore() != null) ssb.minScore(this.minScore())
     if (this.postFilter() != null) ssb.postFilter(this.postFilter())
     ssb.profile(this.profile())
-    if (this.query() != null) ssb.query(this.query())
+    if (this.query() != null) ssb.query(job.rewriteQueryBuilder(this.query()))
     this.rescores()?.forEach { ssb.addRescorer(it) }
     this.scriptFields()?.forEach { ssb.scriptField(it.fieldName(), it.script(), it.ignoreFailure()) }
     if (this.searchAfter() != null) ssb.searchAfter(this.searchAfter())

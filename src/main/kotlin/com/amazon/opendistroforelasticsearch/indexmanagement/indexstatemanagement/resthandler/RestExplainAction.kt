@@ -55,10 +55,6 @@ class RestExplainAction : BaseRestHandler() {
 
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
 
-        // if (indices == null || indices.isEmpty()) {
-        //     throw IllegalArgumentException("Missing indices")
-        // }
-
         val size = request.paramAsInt("size", 20)
         val from = request.paramAsInt("from", 0)
         val sortField = request.param("sortField", "managed_index.index")
@@ -67,9 +63,12 @@ class RestExplainAction : BaseRestHandler() {
 
         log.info("request params: $size, $from, $sortField, $sortOrder, $queryString")
 
-        val params = Params(size, from, sortField, sortOrder, queryString)
-        val explainRequest = ExplainRequest(indices.toList(), request.paramAsBoolean("local", false),
-                request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT), params)
+        val explainRequest = ExplainRequest(
+            indices.toList(),
+            request.paramAsBoolean("local", false),
+            request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT),
+            Params(size, from, sortField, sortOrder, queryString)
+        )
 
         return RestChannelConsumer { channel ->
             client.execute(ExplainAction.INSTANCE, explainRequest, RestToXContentListener(channel))

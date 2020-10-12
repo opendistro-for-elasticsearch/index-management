@@ -53,6 +53,7 @@ class ExplainResponse : ActionResponse, ToXContentObject {
         totalManagedIndices = sin.readInt()
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeStringCollection(indexNames)
         out.writeStringCollection(indexPolicyIDs)

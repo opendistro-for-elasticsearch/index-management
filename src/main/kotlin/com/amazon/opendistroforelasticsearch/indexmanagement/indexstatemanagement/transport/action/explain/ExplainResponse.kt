@@ -24,10 +24,10 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import java.io.IOException
-import java.util.*
 
 class ExplainResponse : ActionResponse, ToXContentObject {
 
+    // TODO refactor this de-coupled lists usage to map maybe
     val indexNames: List<String>
     val indexPolicyIDs: List<String?>
     val indexMetadatas: List<ManagedIndexMetaData?>

@@ -16,16 +16,11 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
-import org.elasticsearch.client.ResponseException
-import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.rest.RestStatus
-import org.junit.Assert
 import java.time.Instant
 import java.util.Locale
 

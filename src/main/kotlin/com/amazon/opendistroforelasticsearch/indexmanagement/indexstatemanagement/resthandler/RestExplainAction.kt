@@ -19,6 +19,11 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Params
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_FROM
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_SIZE
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_QUERY_STRING
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_SORT_FIELD
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_SORT_ORDER
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.master.MasterNodeRequest
 import org.elasticsearch.client.node.NodeClient
@@ -55,11 +60,11 @@ class RestExplainAction : BaseRestHandler() {
 
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
 
-        val size = request.paramAsInt("size", 20)
-        val from = request.paramAsInt("from", 0)
-        val sortField = request.param("sortField", "managed_index.index")
-        val sortOrder = request.param("sortOrder", "asc")
-        val queryString = request.param("queryString", "*")
+        val size = request.paramAsInt("size", DEFAULT_PAGINATION_SIZE)
+        val from = request.paramAsInt("from", DEFAULT_PAGINATION_FROM)
+        val sortField = request.param("sortField", DEFAULT_SORT_FIELD)
+        val sortOrder = request.param("sortOrder", DEFAULT_SORT_ORDER)
+        val queryString = request.param("queryString", DEFAULT_QUERY_STRING)
 
         val explainRequest = ExplainRequest(
             indices.toList(),

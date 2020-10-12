@@ -30,7 +30,6 @@ import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.index.Index
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -153,6 +152,7 @@ class TransportExplainAction @Inject constructor(
             })
         }
 
+        @Suppress("SpreadOperator")
         fun getMetadata(indices: List<String>) {
             val clusterStateRequest = ClusterStateRequest()
             val strictExpandIndicesOptions = IndicesOptions.strictExpand()

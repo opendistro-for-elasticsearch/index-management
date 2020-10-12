@@ -47,7 +47,7 @@ class IndexManagementIndices(
         if (!indexManagementIndexExists()) {
             val indexRequest = CreateIndexRequest(INDEX_MANAGEMENT_INDEX)
                     .mapping(_DOC, indexManagementMappings, XContentType.JSON)
-                    .settings(Settings.builder().put("index.hidden", true).build())
+                    .settings(Settings.builder().loadFromSource(indexManagementSettings, XContentType.JSON).build())
             client.create(indexRequest, object : ActionListener<CreateIndexResponse> {
                 override fun onFailure(e: Exception) {
                     actionListener.onFailure(e)
@@ -148,5 +148,7 @@ class IndexManagementIndices(
             .getResource("mappings/opendistro-ism-history.json").readText()
         val rollupTargetMappings = IndexManagementIndices::class.java.classLoader
             .getResource("mappings/opendistro-rollup-target.json").readText()
+        val indexManagementSettings = IndexManagementIndices::class.java.classLoader
+            .getResource("settings/opendistro-ism-config.json").readText()
     }
 }

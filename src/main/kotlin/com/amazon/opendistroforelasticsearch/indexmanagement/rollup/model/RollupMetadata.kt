@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -125,7 +124,7 @@ data class RollupMetadata(
         builder.startObject()
             .field(ROLLUP_ID_FIELD, rollupID)
         if (afterKey != null) builder.field(AFTER_KEY_FIELD, afterKey)
-        builder.optionalTimeField(LAST_UPDATED_FIELD, lastUpdatedTime)
+        builder.timeField(LAST_UPDATED_FIELD, LAST_UPDATED_FIELD, lastUpdatedTime.toEpochMilli())
         if (continuous != null) builder.field(CONTINUOUS_FIELD, continuous)
         builder.field(STATUS_FIELD, status.type)
         if (failureReason != null) builder.field(FAILURE_REASON, failureReason)

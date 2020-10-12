@@ -49,14 +49,18 @@ class RestExplainRollupActionIT : RollupRestTestCase() {
 
         // Add it in a waitFor because the metadata is not immediately available and it starts off in INIT for a very brief time
         waitFor {
-            val response = client().makeRequest("GET", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_explain")
+            val updatedRollup = getRollup(rollupId = rollup.id)
+            assertNotNull("MetadataID on rollup was null", updatedRollup.metadataID)
+            val response = client().makeRequest("GET", "$ROLLUP_JOBS_BASE_URI/${updatedRollup.id}/_explain")
             assertEquals(RestStatus.OK, response.restStatus())
             val responseMap = response.asMap()
             assertNotNull("Response is null", responseMap)
             assertTrue("Response does not have metadata", responseMap.keys.isNotEmpty())
-            val metadata = responseMap[rollup.id] as Map<String, Any>
-            assertNotNull("Did not have key for rollup ID", metadata)
-            assertEquals("Rollup id is not correct", rollup.id, metadata["rollup_id"])
+            val explainMetadata = responseMap[updatedRollup.id] as Map<String, Any>
+            assertNotNull("Did not have key for rollup ID", explainMetadata)
+            assertEquals("Did not have metadata_id in explain response", updatedRollup.metadataID, explainMetadata["metadata_id"])
+            val metadata = explainMetadata["rollup_metadata"] as Map<String, Any>
+            assertNotNull("Did not have metadata in explain response", metadata)
             // It should be finished because we have no docs and it's not continuous so it should finish immediately upon execution
             assertEquals("Status should be finished", RollupMetadata.Status.FINISHED.type, metadata["status"])
         }
@@ -81,17 +85,34 @@ class RestExplainRollupActionIT : RollupRestTestCase() {
         assertNull("Nonexistent rollup didn't return null", response.asMap()["doesntexist"])
     }
 
-    // TODO: Check rollup_id with a dash and searching wildcard -> handle tokenizer/analyzer
-
-    // TODO
     @Throws(Exception::class)
-    fun `skip test explain rollup for wildcard id`() {
+    fun `test explain rollup for wildcard id`() {
         // Creating a rollup so the config index exists
         createRollup(rollup = randomRollup(), rollupId = "some_id")
         createRollup(rollup = randomRollup(), rollupId = "some_other_id")
         val response = client().makeRequest("GET", "$ROLLUP_JOBS_BASE_URI/some*/_explain")
-        logger.info("response ${response.asMap()}")
-        fail()
+        // We don't expect there to always be metadata as we are creating random rollups and the job isn't running
+        // but we do expect the wildcard some* to expand to the two jobs created above and have non-null values (meaning they exist)
+        val map = response.asMap()
+        assertNotNull("Non null some_id value wasn't in the response", map["some_id"])
+        assertNotNull("Non null some_other_id value wasn't in the response", map["some_other_id"])
+    }
+
+    @Throws(Exception::class)
+    fun `test explain rollup for job that hasnt started`() {
+        createRollup(rollup = randomRollup().copy(metadataID = null), rollupId = "some_id")
+        val response = client().makeRequest("GET", "$ROLLUP_JOBS_BASE_URI/some_id/_explain")
+        val expectedMap = mapOf("some_id" to mapOf("metadata_id" to null, "rollup_metadata" to null))
+        assertEquals("The explain response did not match expected", expectedMap, response.asMap())
+    }
+
+    @Throws(Exception::class)
+    fun `test explain rollup for metadata_id but no metadata`() {
+        // This is to test the case of a rollup existing with a metadataID but there being no metadata document
+        createRollup(rollup = randomRollup().copy(metadataID = "some_metadata_id"), rollupId = "some_id")
+        val response = client().makeRequest("GET", "$ROLLUP_JOBS_BASE_URI/some_id/_explain")
+        val expectedMap = mapOf("some_id" to mapOf("metadata_id" to "some_metadata_id", "rollup_metadata" to null))
+        assertEquals("The explain response did not match expected", expectedMap, response.asMap())
     }
 
     @Throws(Exception::class)

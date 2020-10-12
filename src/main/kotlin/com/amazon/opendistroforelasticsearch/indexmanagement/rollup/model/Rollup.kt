@@ -130,7 +130,8 @@ data class Rollup(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(ROLLUP_TYPE)
-        builder.field(ENABLED_FIELD, enabled)
+        builder.field(ROLLUP_ID_FIELD, id)
+            .field(ENABLED_FIELD, enabled)
             .field(SCHEDULE_FIELD, jobSchedule)
             .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
             .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
@@ -190,6 +191,7 @@ data class Rollup(
             CRON, INTERVAL;
         }
         const val ROLLUP_TYPE = "rollup"
+        const val ROLLUP_ID_FIELD = "rollup_id"
         const val NO_ID = ""
         const val ENABLED_FIELD = "enabled"
         const val SCHEMA_VERSION_FIELD = "schema_version"
@@ -240,6 +242,7 @@ data class Rollup(
                 xcp.nextToken()
 
                 when (fieldName) {
+                    ROLLUP_ID_FIELD -> { requireNotNull(xcp.text()) { "The rollup_id field is null" } /* Just used for searching */ }
                     ENABLED_FIELD -> enabled = xcp.booleanValue()
                     SCHEDULE_FIELD -> schedule = ScheduleParser.parse(xcp)
                     SCHEMA_VERSION_FIELD -> schemaVersion = xcp.longValue()
@@ -280,9 +283,9 @@ data class Rollup(
                 enabledTime = null
             }
             return Rollup(
-                id,
-                seqNo,
-                primaryTerm,
+                id = id,
+                seqNo = seqNo,
+                primaryTerm = primaryTerm,
                 enabled = enabled,
                 schemaVersion = schemaVersion,
                 jobSchedule = requireNotNull(schedule) { "Rollup schedule is null" },

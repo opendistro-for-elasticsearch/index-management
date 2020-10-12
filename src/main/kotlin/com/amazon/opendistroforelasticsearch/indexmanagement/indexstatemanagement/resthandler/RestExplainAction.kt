@@ -16,25 +16,17 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
-import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
-import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
-import org.elasticsearch.action.support.IndicesOptions
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainRequest
+import org.elasticsearch.action.support.master.MasterNodeRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
-import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestHandler.Route
-import org.elasticsearch.rest.BytesRestResponse
-import org.elasticsearch.rest.RestChannel
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
-import org.elasticsearch.rest.RestResponse
-import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.rest.action.RestBuilderListener
+import org.elasticsearch.rest.action.RestToXContentListener
 
 class RestExplainAction : BaseRestHandler() {
 
@@ -60,43 +52,11 @@ class RestExplainAction : BaseRestHandler() {
             throw IllegalArgumentException("Missing indices")
         }
 
-        val clusterStateRequest = ClusterStateRequest()
-        val strictExpandIndicesOptions = IndicesOptions.strictExpand()
-
-        clusterStateRequest.clear()
-            .indices(*indices)
-            .metadata(true)
-            .local(false)
-            .local(request.paramAsBoolean("local", clusterStateRequest.local()))
-            .masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()))
-            .indicesOptions(strictExpandIndicesOptions)
+        val explainRequest = ExplainRequest(indices.toList(), request.paramAsBoolean("local", false),
+                request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT))
 
         return RestChannelConsumer { channel ->
-            client.admin().cluster().state(clusterStateRequest, explainListener(channel))
-        }
-    }
-
-    private fun explainListener(channel: RestChannel): RestBuilderListener<ClusterStateResponse> {
-        return object : RestBuilderListener<ClusterStateResponse>(channel) {
-            override fun buildResponse(clusterStateResponse: ClusterStateResponse, builder: XContentBuilder): RestResponse {
-                val state = clusterStateResponse.state
-
-                builder.startObject()
-                for (indexMetadataEntry in state.metadata.indices) {
-                    builder.startObject(indexMetadataEntry.key)
-                    val indexMetadata = indexMetadataEntry.value
-                    val managedIndexMetaDataMap = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
-
-                    builder.field(ManagedIndexSettings.POLICY_ID.key, indexMetadata.getPolicyID())
-                    if (managedIndexMetaDataMap != null) {
-                        val managedIndexMetaData = ManagedIndexMetaData.fromMap(managedIndexMetaDataMap)
-                        managedIndexMetaData.toXContent(builder, ToXContent.EMPTY_PARAMS)
-                    }
-                    builder.endObject()
-                }
-                builder.endObject()
-                return BytesRestResponse(RestStatus.OK, builder)
-            }
+            client.execute(ExplainAction.INSTANCE, explainRequest, RestToXContentListener(channel))
         }
     }
 }

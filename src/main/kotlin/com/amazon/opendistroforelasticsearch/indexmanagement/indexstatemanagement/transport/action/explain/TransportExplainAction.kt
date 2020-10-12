@@ -54,11 +54,10 @@ class TransportExplainAction @Inject constructor(
     }
 
     /**
-     * use a search request to first find out what are the managed indices
+     * do search request first to find out the managed indices
      * then retrieve metadata of these managed indices
-     * special case is when user explicitly query an un-managed index
-     * we will return this index with it's policy id shown null to show it's not managed
-     * other situations the returned indices will all be managed
+     * special case is when user explicitly query for an un-managed index
+     * return this index with its policy id shown 'null' meaning it's not managed
      */
     inner class ExplainHandler(
         private val client: NodeClient,
@@ -77,8 +76,6 @@ class TransportExplainAction @Inject constructor(
 
         @Suppress("SpreadOperator")
         fun start() {
-            log.info("indices in the request $indices")
-
             val params = request.params
 
             val sortBuilder = SortBuilders
@@ -131,7 +128,6 @@ class TransportExplainAction @Inject constructor(
                         )
                     }
 
-                    log.info("managed indices: $managedIndices")
                     if (managedIndices.size > 0) {
                         if (managedIndices.size < indices.size) {
                             // explain/{index} but has not managed index
@@ -161,7 +157,6 @@ class TransportExplainAction @Inject constructor(
             val clusterStateRequest = ClusterStateRequest()
             val strictExpandIndicesOptions = IndicesOptions.strictExpand()
 
-            log.info("get metadata indices list: $indices")
             clusterStateRequest.clear()
                 .indices(*indices.toTypedArray())
                 .metadata(true)
@@ -187,7 +182,6 @@ class TransportExplainAction @Inject constructor(
 
             // cluster state response won't resist the sort order
             for (indexName in indexNames) {
-                log.info("retrieve metadata for $indexName")
                 val indexMetadata = state.metadata.indices[indexName]
                 indexPolicyIDs.add(indexMetadata.getPolicyID())
 

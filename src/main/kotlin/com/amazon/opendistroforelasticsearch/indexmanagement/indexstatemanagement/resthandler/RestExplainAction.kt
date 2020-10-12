@@ -51,7 +51,7 @@ class RestExplainAction : BaseRestHandler() {
 
     @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        log.info("${request.method()} ${request.path()}")
+        log.debug("${request.method()} ${request.path()}")
 
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
 
@@ -60,8 +60,6 @@ class RestExplainAction : BaseRestHandler() {
         val sortField = request.param("sortField", "managed_index.index")
         val sortOrder = request.param("sortOrder", "asc")
         val queryString = request.param("queryString", "*")
-
-        log.info("request params: $size, $from, $sortField, $sortOrder, $queryString")
 
         val explainRequest = ExplainRequest(
             indices.toList(),

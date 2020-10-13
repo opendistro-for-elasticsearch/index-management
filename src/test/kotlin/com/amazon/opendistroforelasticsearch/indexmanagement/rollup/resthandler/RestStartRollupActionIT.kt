@@ -29,16 +29,42 @@ class RestStartRollupActionIT : RollupRestTestCase() {
 
     @Throws(Exception::class)
     fun `test starting a stopped rollup`() {
-        val rollup = createRollup(randomRollup().copy(enabled = false, jobEnabledTime = null))
+        val rollup = createRollup(randomRollup().copy(enabled = false, jobEnabledTime = null, metadataID = null))
         assertTrue("Rollup was not disabled", !rollup.enabled)
 
-        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_start", emptyMap(), rollup.toHttpEntity())
+        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_start")
         assertEquals("Start rollup failed", RestStatus.OK, response.restStatus())
         val expectedResponse = mapOf("acknowledged" to true)
         assertEquals(expectedResponse, response.asMap())
 
         val updatedRollup = getRollup(rollup.id)
         assertTrue("Rollup was not enabled", updatedRollup.enabled)
+    }
+
+    @Throws(Exception::class)
+    fun `test starting a started rollup doesnt change enabled time`() {
+        // First create a non-started rollup
+        val rollup = createRollup(randomRollup().copy(enabled = false, jobEnabledTime = null, metadataID = null))
+        assertTrue("Rollup was not disabled", !rollup.enabled)
+
+        // Enable it to get the job enabled time
+        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_start")
+        assertEquals("Start rollup failed", RestStatus.OK, response.restStatus())
+        val expectedResponse = mapOf("acknowledged" to true)
+        assertEquals(expectedResponse, response.asMap())
+
+        val updatedRollup = getRollup(rollup.id)
+        assertTrue("Rollup was not enabled", updatedRollup.enabled)
+
+        val secondResponse = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_start")
+        assertEquals("Start rollup failed", RestStatus.OK, secondResponse.restStatus())
+        val expectedSecondResponse = mapOf("acknowledged" to true)
+        assertEquals(expectedSecondResponse, secondResponse.asMap())
+
+        // Confirm the job enabled time is not reset to a newer time if job was already enabled
+        val updatedSecondRollup = getRollup(rollup.id)
+        assertTrue("Rollup was not enabled", updatedSecondRollup.enabled)
+        assertEquals("Jobs had different enabled times", updatedRollup.jobEnabledTime, updatedSecondRollup.jobEnabledTime)
     }
 
     @Throws(Exception::class)

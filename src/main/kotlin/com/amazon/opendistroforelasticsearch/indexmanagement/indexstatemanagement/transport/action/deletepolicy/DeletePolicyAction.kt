@@ -13,13 +13,14 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.deletepolicy
 
 import org.elasticsearch.action.ActionType
+import org.elasticsearch.action.delete.DeleteResponse
 
-class IndexPolicyAction private constructor() : ActionType<IndexPolicyResponse>(NAME, ::IndexPolicyResponse) {
+class DeletePolicyAction private constructor() : ActionType<DeleteResponse>(NAME, ::DeleteResponse) {
     companion object {
-        val INSTANCE = IndexPolicyAction()
-        val NAME = "cluster:admin/opendistro/ism/policy/write"
+        val INSTANCE = DeletePolicyAction()
+        val NAME = "cluster:admin/opendistro/ism/policy/delete"
     }
 }

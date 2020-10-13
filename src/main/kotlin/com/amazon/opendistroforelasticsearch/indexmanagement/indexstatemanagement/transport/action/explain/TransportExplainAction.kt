@@ -75,7 +75,7 @@ class TransportExplainAction @Inject constructor(
 
         @Suppress("SpreadOperator")
         fun start() {
-            val params = request.params
+            val params = request.searchParams
 
             val sortBuilder = SortBuilders
                 .fieldSort(params.sortField)

@@ -20,7 +20,7 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
 import java.io.IOException
 
-data class Params(
+data class SearchParams(
     val size: Int,
     val from: Int,
     val sortField: String,

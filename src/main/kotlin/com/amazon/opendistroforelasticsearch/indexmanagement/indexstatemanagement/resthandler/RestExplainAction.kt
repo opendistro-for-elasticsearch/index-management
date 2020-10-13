@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Params
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_FROM
@@ -70,7 +70,7 @@ class RestExplainAction : BaseRestHandler() {
             indices.toList(),
             request.paramAsBoolean("local", false),
             request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT),
-            Params(size, from, sortField, sortOrder, queryString)
+            SearchParams(size, from, sortField, sortOrder, queryString)
         )
 
         return RestChannelConsumer { channel ->

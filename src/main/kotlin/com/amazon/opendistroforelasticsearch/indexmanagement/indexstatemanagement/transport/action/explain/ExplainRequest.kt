@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Params
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.common.io.stream.StreamInput
@@ -28,18 +28,18 @@ class ExplainRequest : ActionRequest {
     val indices: List<String>
     val local: Boolean
     val masterTimeout: TimeValue
-    val params: Params
+    val searchParams: SearchParams
 
     constructor(
         indices: List<String>,
         local: Boolean,
         masterTimeout: TimeValue,
-        params: Params
+        searchParams: SearchParams
     ) : super() {
         this.indices = indices
         this.local = local
         this.masterTimeout = masterTimeout
-        this.params = params
+        this.searchParams = searchParams
     }
 
     @Throws(IOException::class)
@@ -47,7 +47,7 @@ class ExplainRequest : ActionRequest {
         indices = sin.readStringList(),
         local = sin.readBoolean(),
         masterTimeout = sin.readTimeValue(),
-        params = Params(sin)
+        searchParams = SearchParams(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -59,6 +59,6 @@ class ExplainRequest : ActionRequest {
         out.writeStringCollection(indices)
         out.writeBoolean(local)
         out.writeTimeValue(masterTimeout)
-        params.writeTo(out)
+        searchParams.writeTo(out)
     }
 }

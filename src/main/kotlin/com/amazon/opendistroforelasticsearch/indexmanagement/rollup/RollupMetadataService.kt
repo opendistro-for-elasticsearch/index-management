@@ -45,12 +45,8 @@ import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortOrder
-import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZonedDateTime
-import java.time.temporal.ChronoUnit
-import java.time.temporal.IsoFields
-import java.time.temporal.TemporalUnit
 
 // Service that handles CRUD operations for rollup metadata
 // TODO: Metadata should be stored on same shard as its owning rollup job using routing
@@ -135,65 +131,52 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         return getRoundedTime(firstSource, dateHistogram)
     }
 
-    // Return time rounded down to the nearest unit of time the interval is based on.
-    // Ex. If the first document has a timestamp of 2:15pm for an hourly rollup, return 2:00pm as the start time (for the given time zone).
+    /**
+     * Return time rounded down to the nearest unit of time the interval is based on.
+     * This should map to the equivalent bucket a document with the given timestamp would fall into for the date histogram.
+     */
     private fun getRoundedTime(timestamp: String, dateHistogram: DateHistogram): Instant {
-        val timezone = dateHistogram.timezone
-        val timeIntervalUnit = getTimeInterval(dateHistogram).unit
+        val roundingStrategy = getRoundingStrategy(dateHistogram)
+        val timeInMillis = ZonedDateTime.parse(timestamp).toInstant().toEpochMilli()
 
-        // Units of time greater than a day cannot be 'truncatedTo' so will need to be handled separately
-        val dateTime = ZonedDateTime.parse(timestamp) // Parse timestamp
-            .withZoneSameInstant(timezone) // Convert timestamp to timezone given in DateHistogram
-        return when (timeIntervalUnit) {
-            ChronoUnit.WEEKS -> {
-                // Rounding to Monday as the first day of calendar week
-                // This is synonymous with Elasticsearch's bucket aggregation behavior for week
-                dateTime.truncatedTo(ChronoUnit.DAYS).with(DayOfWeek.MONDAY).toInstant()
-            }
-            ChronoUnit.MONTHS -> {
-                dateTime.truncatedTo(ChronoUnit.DAYS).withDayOfMonth(1).toInstant()
-            }
-            IsoFields.QUARTER_YEARS -> {
-                // Round to the beginning of the quarter of the given timestamp
-                dateTime.truncatedTo(ChronoUnit.DAYS).with(IsoFields.DAY_OF_QUARTER, 1L).toInstant()
-            }
-            ChronoUnit.YEARS -> {
-                dateTime.truncatedTo(ChronoUnit.DAYS).withDayOfYear(1).toInstant()
-            }
-            else -> {
-                dateTime.truncatedTo(timeIntervalUnit).toInstant()
-            }
-        }
+        val roundedMillis = roundingStrategy
+            .prepare(timeInMillis, timeInMillis)
+            .round(timeInMillis)
+        return Instant.ofEpochMilli(roundedMillis)
     }
 
-    // Takes an existing start or end time and returns the value for the next window based on the rollup interval
+    /** Takes an existing start or end time and returns the value for the next window based on the rollup interval */
     private fun getShiftedTime(time: Instant, rollup: Rollup): Instant {
         val dateHistogram = rollup.dimensions.first() as DateHistogram
-        val timezone = dateHistogram.timezone
-        val timeInterval = getTimeInterval(dateHistogram)
+        val roundingStrategy = getRoundingStrategy(dateHistogram)
 
-        return ZonedDateTime.ofInstant(time, timezone) // Convert Instant to ZonedDateTime using timezone in DateHistogram
-            .plus(timeInterval.duration, timeInterval.unit) // Add duration of the time interval in DateHistogram
-            .toInstant()
+        val timeInMillis = time.toEpochMilli()
+        val nextRoundedMillis = roundingStrategy
+            .prepare(timeInMillis, timeInMillis)
+            .nextRoundingValue(timeInMillis)
+        return Instant.ofEpochMilli(nextRoundedMillis)
     }
 
     /**
-     * Get the duration and unit of time for the interval in the DateHistogram.
-     * Duration will always be 1 for calendar interval.
-     * Used for adjusting DateTime objects to calculate time windows.
+     * Get the rounding strategy for the given time interval in the DateHistogram.
+     * This is used to calculate time windows by rounding the given time based on the interval.
      */
-    // TODO: Should make this an extension function of DateHistogram and add to some utility file
-    private fun getTimeInterval(dateHistogram: DateHistogram): TimeInterval {
+    // TODO: Could make this an extension function of DateHistogram and add to some utility file
+    private fun getRoundingStrategy(dateHistogram: DateHistogram): Rounding {
         val intervalString = (dateHistogram.calendarInterval ?: dateHistogram.fixedInterval) as String
         // TODO: Make sure the interval string is validated before getting here so we don't get errors
         return if (DateHistogramAggregationBuilder.DATE_FIELD_UNITS.containsKey(intervalString)) {
             // Calendar intervals should be handled here
             val intervalUnit: Rounding.DateTimeUnit = DateHistogramAggregationBuilder.DATE_FIELD_UNITS[intervalString]!!
-            TimeInterval(1L, intervalUnit.field.baseUnit)
+            Rounding.builder(intervalUnit)
+                .timeZone(dateHistogram.timezone)
+                .build()
         } else {
             // Fixed intervals are handled here
             val timeValue = TimeValue.parseTimeValue(intervalString, "RollupMetadataService#getTimeInterval")
-            TimeInterval(timeValue.duration(), timeValue.timeUnit().toChronoUnit())
+            Rounding.builder(timeValue)
+                .timeZone(dateHistogram.timezone)
+                .build()
         }
     }
 
@@ -283,6 +266,4 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             failureReason = failureReason
         )
     }
-
-    data class TimeInterval(val duration: Long, val unit: TemporalUnit)
 }

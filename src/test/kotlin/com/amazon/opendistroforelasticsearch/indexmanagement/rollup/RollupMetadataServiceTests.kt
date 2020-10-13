@@ -438,8 +438,8 @@ class RollupMetadataServiceTests : ESTestCase() {
         )
         val metadataService = RollupMetadataService(client, xContentRegistry)
 
-        val expectedWindowStartTime = getInstant("2020-04-24T22:00:00Z")
-        val expectedWindowEndTime = getInstant("2020-04-25T01:00:00Z")
+        val expectedWindowStartTime = getInstant("2020-04-24T21:00:00Z")
+        val expectedWindowEndTime = getInstant("2020-04-25T00:00:00Z")
 
         runBlocking {
             val metadata = metadataService.init(rollup)
@@ -472,7 +472,9 @@ class RollupMetadataServiceTests : ESTestCase() {
         val metadataService = RollupMetadataService(client, xContentRegistry)
 
         val expectedWindowStartTime = localDateAtTimezone("2020-03-08T00:00:00", ZoneId.of("America/Los_Angeles"))
-        val expectedWindowEndTime = localDateAtTimezone("2020-03-08T04:00:00", ZoneId.of("America/Los_Angeles"))
+        // Fixed interval does not understand daylight savings time so 3 hours (60 minutes * 3) is added to the start time
+        // Resulting in 2020-03-08T03:00:00 (PST) which is now GMT-7 -> 2020-03-08T10:00:00Z
+        val expectedWindowEndTime = localDateAtTimezone("2020-03-08T03:00:00", ZoneId.of("America/Los_Angeles"))
 
         runBlocking {
             val metadata = metadataService.init(rollup)
@@ -504,8 +506,9 @@ class RollupMetadataServiceTests : ESTestCase() {
         )
         val metadataService = RollupMetadataService(client, xContentRegistry)
 
-        val expectedWindowStartTime = getInstant("2020-02-01T00:00:00Z")
-        val expectedWindowEndTime = getInstant("2020-03-02T00:00:00Z")
+        // 30 days (24 hours * 30) increments since epoch will land us on 2020-01-09 as the nearest bucket
+        val expectedWindowStartTime = getInstant("2020-01-09T00:00:00Z")
+        val expectedWindowEndTime = getInstant("2020-02-08T00:00:00Z")
 
         runBlocking {
             val metadata = metadataService.init(rollup)

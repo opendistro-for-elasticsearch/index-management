@@ -55,7 +55,7 @@ data class Rollup(
     val metadataID: String?,
     val roles: List<String>,
     val pageSize: Int,
-    val delay: Long,
+    val delay: Long?,
     val continuous: Boolean,
     val dimensions: List<Dimension>,
     val metrics: List<RollupMetrics>
@@ -107,7 +107,7 @@ data class Rollup(
         metadataID = sin.readOptionalString(),
         roles = sin.readStringArray().toList(),
         pageSize = sin.readInt(),
-        delay = sin.readLong(),
+        delay = sin.readOptionalLong(),
         continuous = sin.readBoolean(),
         dimensions = sin.let {
             val dimensionsList = mutableListOf<Dimension>()
@@ -171,7 +171,7 @@ data class Rollup(
         out.writeOptionalString(metadataID)
         out.writeStringArray(roles.toTypedArray())
         out.writeInt(pageSize)
-        out.writeLong(delay)
+        out.writeOptionalLong(delay)
         out.writeBoolean(continuous)
         out.writeVInt(dimensions.size)
         for (dimension in dimensions) {
@@ -259,7 +259,7 @@ data class Rollup(
                         }
                     }
                     PAGE_SIZE_FIELD -> pageSize = xcp.intValue()
-                    DELAY_FIELD -> delay = xcp.longValue()
+                    DELAY_FIELD -> delay = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
                     CONTINUOUS_FIELD -> continuous = xcp.booleanValue()
                     DIMENSIONS_FIELD -> {
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
@@ -289,7 +289,7 @@ data class Rollup(
                 enabled = enabled,
                 schemaVersion = schemaVersion,
                 jobSchedule = requireNotNull(schedule) { "Rollup schedule is null" },
-                jobLastUpdatedTime = requireNotNull(lastUpdatedTime) { "Rollup last updated time is null" },
+                jobLastUpdatedTime = lastUpdatedTime ?: Instant.now(),
                 jobEnabledTime = enabledTime,
                 description = requireNotNull(description) { "Rollup description is null" },
                 sourceIndex = requireNotNull(sourceIndex) { "Rollup source index is null" },
@@ -297,7 +297,7 @@ data class Rollup(
                 metadataID = metadataID,
                 roles = roles.toList(),
                 pageSize = requireNotNull(pageSize) { "Rollup page size is null" },
-                delay = requireNotNull(delay) { "Rollup delay is null" },
+                delay = delay,
                 continuous = continuous,
                 dimensions = dimensions,
                 metrics = metrics

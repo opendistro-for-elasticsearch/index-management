@@ -25,7 +25,7 @@ import java.io.IOException
 
 class DeletePolicyRequest : ActionRequest {
 
-    val policyID: String?
+    val policyID: String
     val refreshPolicy: WriteRequest.RefreshPolicy
 
     constructor(
@@ -38,16 +38,16 @@ class DeletePolicyRequest : ActionRequest {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        sin.readString(),
-        sin.readEnum(WriteRequest.RefreshPolicy::class.java)
+        policyID = sin.readString(),
+        refreshPolicy = sin.readEnum(WriteRequest.RefreshPolicy::class.java)
     )
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (policyID == null || policyID.isEmpty()) {
+        if (policyID.isBlank()) {
             validationException = ValidateActions.addValidationError(
-                    "Missing policy ID",
-                    validationException
+                "Missing policy ID",
+                validationException
             )
         }
         return validationException

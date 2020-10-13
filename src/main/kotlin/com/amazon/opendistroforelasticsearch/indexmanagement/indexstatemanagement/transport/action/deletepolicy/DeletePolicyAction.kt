@@ -21,6 +21,6 @@ import org.elasticsearch.action.delete.DeleteResponse
 class DeletePolicyAction private constructor() : ActionType<DeleteResponse>(NAME, ::DeleteResponse) {
     companion object {
         val INSTANCE = DeletePolicyAction()
-        val NAME = "cluster:admin/opendistro/ism/policies/delete"
+        val NAME = "cluster:admin/opendistro/ism/policy/delete"
     }
 }

@@ -19,7 +19,6 @@ import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class DeletePolicyRequestTests : ESTestCase() {
 
@@ -27,13 +26,12 @@ class DeletePolicyRequestTests : ESTestCase() {
         val policyID = "policyID"
         val refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE
         val req = DeletePolicyRequest(policyID, refreshPolicy)
-        Assert.assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = DeletePolicyRequest(sin)
-        Assert.assertEquals(policyID, newReq.policyID)
-        Assert.assertEquals(refreshPolicy, newReq.refreshPolicy)
+        assertEquals(policyID, newReq.policyID)
+        assertEquals(refreshPolicy, newReq.refreshPolicy)
     }
 }

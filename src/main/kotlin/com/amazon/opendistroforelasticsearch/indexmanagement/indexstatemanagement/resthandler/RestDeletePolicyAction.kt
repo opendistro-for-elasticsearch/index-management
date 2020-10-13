@@ -40,9 +40,13 @@ class RestDeletePolicyAction : BaseRestHandler() {
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val policyID = request.param("policyID")
+        val policyId = request.param("policyID")
+        if (policyId == null || policyId.isEmpty()) {
+            throw IllegalArgumentException("Missing policy ID")
+        }
+
         val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
-        val deletePolicyRequest = DeletePolicyRequest(policyID, refreshPolicy)
+        val deletePolicyRequest = DeletePolicyRequest(policyId, refreshPolicy)
 
         return RestChannelConsumer { channel ->
             client.execute(DeletePolicyAction.INSTANCE, deletePolicyRequest, RestStatusToXContentListener(channel))

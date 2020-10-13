@@ -214,7 +214,6 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
             ActionPlugin.ActionHandler(ExplainAction.INSTANCE, TransportExplainAction::class.java),
             ActionPlugin.ActionHandler(IndexPolicyAction.INSTANCE, TransportIndexPolicyAction::class.java),
             ActionPlugin.ActionHandler(GetPolicyAction.INSTANCE, TransportGetPolicyAction::class.java)
-
         )
     }
 }

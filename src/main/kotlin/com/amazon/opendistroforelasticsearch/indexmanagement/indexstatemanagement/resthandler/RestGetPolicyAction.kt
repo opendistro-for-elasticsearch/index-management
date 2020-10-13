@@ -43,12 +43,17 @@ class RestGetPolicyAction : BaseRestHandler() {
     }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val policyID = request.param("policyID")
-        var fetchSrcContext: FetchSourceContext? = null
+        val policyId = request.param("policyID")
+
+        if (policyId == null || policyId.isEmpty()) {
+            throw IllegalArgumentException("Missing policy ID")
+        }
+
+        var fetchSrcContext: FetchSourceContext = FetchSourceContext.FETCH_SOURCE
         if (request.method() == HEAD) {
             fetchSrcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         }
-        val getPolicyRequest = GetPolicyRequest(policyID, RestActions.parseVersion(request), fetchSrcContext)
+        val getPolicyRequest = GetPolicyRequest(policyId, RestActions.parseVersion(request), fetchSrcContext)
 
         return RestChannelConsumer { channel ->
             client.execute(GetPolicyAction.INSTANCE, getPolicyRequest, RestToXContentListener(channel))

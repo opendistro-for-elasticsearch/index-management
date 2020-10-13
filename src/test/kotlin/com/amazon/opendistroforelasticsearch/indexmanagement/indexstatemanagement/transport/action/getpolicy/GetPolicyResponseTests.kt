@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -45,16 +44,15 @@ class GetPolicyResponseTests : ESTestCase() {
             states = states
         )
         val res = GetPolicyResponse(id, version, seqNo, primaryTerm, policy)
-        Assert.assertNotNull(res)
 
         val out = BytesStreamOutput()
         res.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newRes = GetPolicyResponse(sin)
-        Assert.assertEquals(id, newRes.id)
-        Assert.assertEquals(version, newRes.version)
-        Assert.assertEquals(primaryTerm, newRes.primaryTerm)
-        Assert.assertEquals(seqNo, newRes.seqNo)
-        Assert.assertEquals(policy, newRes.policy)
+        assertEquals(id, newRes.id)
+        assertEquals(version, newRes.version)
+        assertEquals(primaryTerm, newRes.primaryTerm)
+        assertEquals(seqNo, newRes.seqNo)
+        assertEquals(policy, newRes.policy)
     }
 }

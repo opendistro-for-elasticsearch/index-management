@@ -19,7 +19,6 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class GetPolicyRequestTests : ESTestCase() {
 
@@ -28,14 +27,13 @@ class GetPolicyRequestTests : ESTestCase() {
         val version: Long = 123
         val fetchSrcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         val req = GetPolicyRequest(policyID, version, fetchSrcContext)
-        Assert.assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = GetPolicyRequest(sin)
-        Assert.assertEquals(policyID, newReq.policyID)
-        Assert.assertEquals(version, newReq.version)
-        Assert.assertEquals(fetchSrcContext, newReq.fetchSrcContext)
+        assertEquals(policyID, newReq.policyID)
+        assertEquals(version, newReq.version)
+        assertEquals(fetchSrcContext, newReq.fetchSrcContext)
     }
 }

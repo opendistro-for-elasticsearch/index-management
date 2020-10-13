@@ -25,14 +25,14 @@ import java.io.IOException
 
 class GetPolicyRequest : ActionRequest {
 
-    val policyID: String?
+    val policyID: String
     val version: Long
-    val fetchSrcContext: FetchSourceContext?
+    val fetchSrcContext: FetchSourceContext
 
     constructor(
-        policyID: String?,
+        policyID: String,
         version: Long,
-        fetchSrcContext: FetchSourceContext?
+        fetchSrcContext: FetchSourceContext
     ) : super() {
         this.policyID = policyID
         this.version = version
@@ -43,15 +43,15 @@ class GetPolicyRequest : ActionRequest {
     constructor(sin: StreamInput) : this(
         policyID = sin.readString(),
         version = sin.readLong(),
-        fetchSrcContext = sin.readOptionalWriteable(::FetchSourceContext)
+        fetchSrcContext = FetchSourceContext(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (policyID == null || policyID.isEmpty()) {
+        if (policyID.isBlank()) {
             validationException = ValidateActions.addValidationError(
-                    "Missing policy ID",
-                    validationException
+                "Missing policy ID",
+                validationException
             )
         }
         return validationException
@@ -61,6 +61,6 @@ class GetPolicyRequest : ActionRequest {
     override fun writeTo(out: StreamOutput) {
         out.writeString(policyID)
         out.writeLong(version)
-        out.writeOptionalWriteable(fetchSrcContext)
+        fetchSrcContext.writeTo(out)
     }
 }

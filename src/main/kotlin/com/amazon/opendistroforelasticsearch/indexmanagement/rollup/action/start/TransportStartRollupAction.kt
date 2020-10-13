@@ -75,6 +75,7 @@ class TransportStartRollupAction @Inject constructor(
         })
     }
 
+    // TODO: Should create a transport action to update metadata
     private fun updateRollupJob(rollup: Rollup, request: StartRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
         val now = Instant.now().toEpochMilli()
         request.index(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)

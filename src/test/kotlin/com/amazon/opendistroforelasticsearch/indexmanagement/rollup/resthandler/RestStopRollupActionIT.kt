@@ -30,10 +30,10 @@ class RestStopRollupActionIT : RollupRestTestCase() {
 
     @Throws(Exception::class)
     fun `test stopping a started rollup`() {
-        val rollup = createRollup(randomRollup().copy(enabled = true, jobEnabledTime = randomInstant()))
+        val rollup = createRollup(randomRollup().copy(enabled = true, jobEnabledTime = randomInstant(), metadataID = null))
         assertTrue("Rollup was not enabled", rollup.enabled)
 
-        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop", emptyMap(), rollup.toHttpEntity())
+        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
         assertEquals("Stop rollup failed", RestStatus.OK, response.restStatus())
         val expectedResponse = mapOf("acknowledged" to true)
         assertEquals(expectedResponse, response.asMap())
@@ -42,11 +42,33 @@ class RestStopRollupActionIT : RollupRestTestCase() {
         assertFalse("Rollup was not disabled", updatedRollup.enabled)
     }
 
+    // TODO: With and without metadata
+    @Throws(Exception::class)
+    fun `test stopping a stopped rollup`() {
+        val rollup = createRollup(randomRollup().copy(enabled = true, jobEnabledTime = randomInstant(), metadataID = null))
+        assertTrue("Rollup was not enabled", rollup.enabled)
+
+        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
+        assertEquals("Stop rollup failed", RestStatus.OK, response.restStatus())
+        val expectedResponse = mapOf("acknowledged" to true)
+        assertEquals(expectedResponse, response.asMap())
+
+        val updatedRollup = getRollup(rollup.id)
+        assertFalse("Rollup was not disabled", updatedRollup.enabled)
+
+        val secondResponse = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
+        assertEquals("Stop rollup failed", RestStatus.OK, secondResponse.restStatus())
+        val expectedSecondResponse = mapOf("acknowledged" to true)
+        assertEquals(expectedSecondResponse, secondResponse.asMap())
+
+        val updatedSecondRollup = getRollup(rollup.id)
+        assertFalse("Rollup was not disabled", updatedSecondRollup.enabled)
+    }
+
     @Throws(Exception::class)
     fun `test stop a rollup with no id fails`() {
         try {
-            val rollup = randomRollup()
-            client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI//_stop", emptyMap(), rollup.toHttpEntity())
+            client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI//_stop")
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())

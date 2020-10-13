@@ -41,6 +41,7 @@ class RestStartRollupActionIT : RollupRestTestCase() {
         assertTrue("Rollup was not enabled", updatedRollup.enabled)
     }
 
+    // TODO: With and without metadata
     @Throws(Exception::class)
     fun `test starting a started rollup doesnt change enabled time`() {
         // First create a non-started rollup
@@ -70,8 +71,7 @@ class RestStartRollupActionIT : RollupRestTestCase() {
     @Throws(Exception::class)
     fun `test start a rollup with no id fails`() {
         try {
-            val rollup = randomRollup()
-            client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI//_start", emptyMap(), rollup.toHttpEntity())
+            client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI//_start")
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())

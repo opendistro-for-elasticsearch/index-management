@@ -92,18 +92,14 @@ class RollupInterceptor(
                         val rollupJobs = clusterService.state().metadata.index(index).getRollupJobs()
                                 ?: throw IllegalArgumentException("Could not find the mapping source for the index")
 
-                        val dimensionTypesToFields = mutableMapOf<String, Set<String>>()
-                        val metricFieldsToTypes = mutableMapOf<String, Set<String>>()
-
                         val queryDimensionTypesToFields = getQueryMetadata(request.source().query())
-                        dimensionTypesToFields.putAll(queryDimensionTypesToFields)
-
-                        val aggregatorFactories = request.source().aggregations()?.aggregatorFactories
-                        if (aggregatorFactories != null) {
-                            val (aggregateDimensionTypesToFields, aggregateMetricFieldsToTypes) = getAggregationMetadata(aggregatorFactories)
-                            dimensionTypesToFields.putAll(aggregateDimensionTypesToFields)
-                            metricFieldsToTypes.putAll(aggregateMetricFieldsToTypes)
-                        }
+                        val (aggregateDimensionTypesToFields, aggregateMetricFieldsToTypes) = getAggregationMetadata(
+                                request.source().aggregations()?.aggregatorFactories)
+                        val dimensionTypesToFields: Map<String, Set<String>> =
+                                (queryDimensionTypesToFields.keys + aggregateDimensionTypesToFields.keys)
+                                        .associateWith { mergeSets(queryDimensionTypesToFields[it], aggregateDimensionTypesToFields[it]) }
+                        val metricFieldsToTypes = mutableMapOf<String, Set<String>>()
+                        metricFieldsToTypes.putAll(aggregateMetricFieldsToTypes)
 
                         // TODO: How does this job matching work with roles/security?
                         // TODO: Move to helper class or ext fn - this is veeeeery inefficient, but it works for development/testing
@@ -166,7 +162,6 @@ class RollupInterceptor(
     }
 
     @Suppress("ComplexMethod")
-    @Throws(UnsupportedOperationException::class)
     private fun getAggregationMetadata(
         aggregationBuilders: Collection<AggregationBuilder>?,
         dimensionTypesToFields: MutableMap<String, MutableSet<String>> = mutableMapOf(),
@@ -207,7 +202,6 @@ class RollupInterceptor(
     }
 
     @Suppress("ComplexMethod")
-    @Throws(UnsupportedOperationException::class)
     private fun getQueryMetadata(
         query: QueryBuilder?,
         dimensionTypesToFields: MutableMap<String, MutableSet<String>> = mutableMapOf()
@@ -225,7 +219,7 @@ class RollupInterceptor(
             }
             is RangeQueryBuilder -> {
                 // TODO: looks like this can be applied on histograms as well, need additional logic
-                dimensionTypesToFields.computeIfAbsent(Dimension.Type.TERMS.type) { mutableSetOf() }.add(query.fieldName())
+                dimensionTypesToFields.computeIfAbsent(Dimension.Type.DATE_HISTOGRAM.type) { mutableSetOf() }.add(query.fieldName())
             }
             is MatchAllQueryBuilder -> {
                 // do nothing
@@ -250,9 +244,19 @@ class RollupInterceptor(
                 query.query().also { this.getQueryMetadata(it, dimensionTypesToFields) }
                 query.filterFunctionBuilders().forEach { this.getQueryMetadata(it.filter, dimensionTypesToFields) }
             }
-            else -> throw UnsupportedOperationException("Query ${query.name} is not supported")
         }
 
         return dimensionTypesToFields
+    }
+
+    private fun mergeSets(first: Set<String>?, second: Set<String>?): Set<String> {
+        val result: MutableSet<String> = HashSet()
+        if (first != null) {
+            result.addAll(first)
+        }
+        if (second != null) {
+            result.addAll(second)
+        }
+        return result
     }
 }

@@ -241,8 +241,6 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
             ValueCountAggregationBuilder(aggregationBuilder.name)
                 .field(metric.targetField + ".value_count")
         }
-        // TODO: this won't really throw an exception and stop the query..
-        //  just silently logs, we need to rewrite the parsed query to a failed with specific message
         else -> throw UnsupportedOperationException("The ${aggregationBuilder.type} aggregation is not currently supported in rollups")
     }
 }
@@ -260,8 +258,19 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder): QueryBuilder {
             return TermsQueryBuilder(updatedFieldName, queryBuilder.values())
         }
         is RangeQueryBuilder -> {
-            // TODO: not sure yet on how to rebuild
-            return queryBuilder
+            // TODO: can be potentially other dimensions, need to verify
+            val updatedFieldName = queryBuilder.fieldName() + "." + Dimension.Type.DATE_HISTOGRAM
+            val updatedRangeQueryBuilder = RangeQueryBuilder(updatedFieldName)
+            updatedRangeQueryBuilder.includeLower(queryBuilder.includeLower())
+            updatedRangeQueryBuilder.includeUpper(queryBuilder.includeUpper())
+            updatedRangeQueryBuilder.from(queryBuilder.from())
+            updatedRangeQueryBuilder.to(queryBuilder.to())
+            updatedRangeQueryBuilder.queryName(queryBuilder.queryName())
+            updatedRangeQueryBuilder.boost(queryBuilder.boost())
+            queryBuilder.timeZone()?.also { updatedRangeQueryBuilder.timeZone(it) }
+            queryBuilder.format()?.also { updatedRangeQueryBuilder.format(it) }
+            queryBuilder.relation()?.relationName.also { updatedRangeQueryBuilder.relation(it) }
+            return updatedRangeQueryBuilder
         }
         is MatchAllQueryBuilder -> {
             // Nothing to do
@@ -317,8 +326,7 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder): QueryBuilder {
             return queryBuilder
         }
         else -> {
-            // Should never be here since the query is prevented before coming to this part of code
-            throw UnsupportedOperationException("The ${queryBuilder.name} is not currently supported")
+            throw UnsupportedOperationException("The ${queryBuilder.name} query is currently not supported in rollups")
         }
     }
 }

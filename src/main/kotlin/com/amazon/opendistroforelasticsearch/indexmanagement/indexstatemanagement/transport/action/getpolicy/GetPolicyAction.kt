@@ -13,13 +13,13 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy
 
 import org.elasticsearch.action.ActionType
 
-class IndexPolicyAction private constructor() : ActionType<IndexPolicyResponse>(NAME, ::IndexPolicyResponse) {
+class GetPolicyAction private constructor() : ActionType<GetPolicyResponse>(NAME, ::GetPolicyResponse) {
     companion object {
-        val INSTANCE = IndexPolicyAction()
-        val NAME = "cluster:admin/opendistro/ism/policy/write"
+        val INSTANCE = GetPolicyAction()
+        val NAME = "cluster:admin/opendistro/ism/policy/read"
     }
 }

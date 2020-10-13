@@ -15,32 +15,18 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy.Companion.POLICY_TYPE
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._VERSION
-import org.elasticsearch.action.get.GetRequest
-import org.elasticsearch.action.get.GetResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyRequest
 import org.elasticsearch.client.node.NodeClient
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
 import org.elasticsearch.rest.RestHandler.Route
-import org.elasticsearch.rest.BytesRestResponse
-import org.elasticsearch.rest.RestChannel
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestRequest.Method.HEAD
-import org.elasticsearch.rest.RestResponse
-import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.action.RestActions
-import org.elasticsearch.rest.action.RestResponseListener
+import org.elasticsearch.rest.action.RestToXContentListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 
 class RestGetPolicyAction : BaseRestHandler() {
@@ -58,46 +44,19 @@ class RestGetPolicyAction : BaseRestHandler() {
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val policyId = request.param("policyID")
+
         if (policyId == null || policyId.isEmpty()) {
             throw IllegalArgumentException("Missing policy ID")
         }
-        val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, policyId)
-                .version(RestActions.parseVersion(request))
 
+        var fetchSrcContext: FetchSourceContext = FetchSourceContext.FETCH_SOURCE
         if (request.method() == HEAD) {
-            getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE)
+            fetchSrcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         }
-        return RestChannelConsumer { channel -> client.get(getRequest, getPolicyResponse(channel)) }
-    }
+        val getPolicyRequest = GetPolicyRequest(policyId, RestActions.parseVersion(request), fetchSrcContext)
 
-    private fun getPolicyResponse(channel: RestChannel): RestResponseListener<GetResponse> {
-        return object : RestResponseListener<GetResponse>(channel) {
-            @Throws(Exception::class)
-            override fun buildResponse(response: GetResponse): RestResponse {
-                if (!response.isExists) {
-                    return BytesRestResponse(RestStatus.NOT_FOUND, channel.newBuilder())
-                }
-
-                val builder = channel.newBuilder()
-                        .startObject()
-                        .field(_ID, response.id)
-                        .field(_VERSION, response.version)
-                        .field(_SEQ_NO, response.seqNo)
-                        .field(_PRIMARY_TERM, response.primaryTerm)
-                if (!response.isSourceEmpty) {
-                    XContentHelper.createParser(
-                        channel.request().xContentRegistry,
-                        LoggingDeprecationHandler.INSTANCE,
-                        response.sourceAsBytesRef,
-                        XContentType.JSON
-                    ).use { xcp ->
-                        val policy = Policy.parseWithType(xcp, response.id, response.seqNo, response.primaryTerm)
-                        builder.field(POLICY_TYPE, policy, XCONTENT_WITHOUT_TYPE)
-                    }
-                }
-                builder.endObject()
-                return BytesRestResponse(RestStatus.OK, builder)
-            }
+        return RestChannelConsumer { channel ->
+            client.execute(GetPolicyAction.INSTANCE, getPolicyRequest, RestToXContentListener(channel))
         }
     }
 }

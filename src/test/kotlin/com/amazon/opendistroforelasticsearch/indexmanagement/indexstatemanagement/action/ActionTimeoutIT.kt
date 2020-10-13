@@ -47,13 +47,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         // First execution. We need to initialize the policy.
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // the second execution we move into rollover action, we won't hit the timeout as this is the execution that sets the startTime
         updateManagedIndexConfigStartTime(managedIndexConfig)
@@ -97,13 +91,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         // First execution. We need to initialize the policy.
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // the second execution we move into open action, we won't hit the timeout as this is the execution that sets the startTime
         updateManagedIndexConfigStartTime(managedIndexConfig)

@@ -485,16 +485,19 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-
         lateinit var metadata: ManagedIndexMetaData
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
         while (xcp.nextToken() != Token.END_OBJECT) {
-            xcp.currentName()
+            val cn = xcp.currentName()
             xcp.nextToken()
+            if (cn == "totalManagedIndices") continue
 
             metadata = ManagedIndexMetaData.parse(xcp)
         }
+
+        // make sure metadata is initialised
+        assertTrue(metadata.transitionTo != null || metadata.stateMetaData != null || metadata.info != null || metadata.policyCompleted != null)
         return metadata
     }
 

@@ -90,9 +90,9 @@ class TransportExplainAction @Inject constructor(
 
             if (indices.isNotEmpty()) {
                 if (wildcard) { // explain/index*
-                    queryBuilder.filter(QueryBuilders.wildcardQuery("managed_index.name", indices[0]))
+                    queryBuilder.filter(QueryBuilders.wildcardQuery("managed_index.index", indices[0]))
                 } else { // explain/{index}
-                    queryBuilder.filter(QueryBuilders.termsQuery("managed_index.name", indices))
+                    queryBuilder.filter(QueryBuilders.termsQuery("managed_index.index", indices))
                 }
             } else { // explain all
                 queryBuilder.filter(QueryBuilders.existsQuery("managed_index"))
@@ -113,7 +113,10 @@ class TransportExplainAction @Inject constructor(
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
-                    totalManagedIndices = response.hits.hits.size
+                    val totalHits = response.hits.totalHits
+                    if (totalHits != null) {
+                        totalManagedIndices = totalHits.value.toInt()
+                    }
 
                     response.hits.hits.map {
                         val hitMap = it.sourceAsMap["managed_index"] as Map<String, Any>
@@ -144,6 +147,11 @@ class TransportExplainAction @Inject constructor(
 
                 override fun onFailure(t: Exception) {
                     if (t is IndexNotFoundException) { // config index hasn't been initialized
+                        if (indices.isNotEmpty()) {
+                            indexNames.addAll(indices)
+                            getMetadata(indices)
+                            return
+                        }
                         actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList(), 0))
                         return
                     }

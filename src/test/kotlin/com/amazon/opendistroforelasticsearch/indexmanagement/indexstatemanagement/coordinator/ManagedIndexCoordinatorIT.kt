@@ -125,7 +125,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
             assertPredicatesOnMetaData(
                 listOf(index to listOf(ManagedIndexSettings.POLICY_ID.key to fun(policyID: Any?): Boolean = policyID == null)),
                 getExplainMap(index),
-                true
+                false
             )
         }
     }

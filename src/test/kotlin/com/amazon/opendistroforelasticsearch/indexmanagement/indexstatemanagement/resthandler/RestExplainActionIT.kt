@@ -34,7 +34,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val expected = mapOf(
             indexName to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
-            )
+            ),
+            "totalManagedIndices" to 0
         )
         assertResponseMap(expected, getExplainMap(indexName))
     }

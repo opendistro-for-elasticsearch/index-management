@@ -63,13 +63,7 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
         // init policy on managed index
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor {
-            assertPredicatesOnMetaData(
-                listOf(indexName to listOf(ManagedIndexMetaData.POLICY_ID to policyID::equals)),
-                getExplainMap(indexName),
-                strict = false
-            )
-        }
+        waitFor { assertEquals(policy.id, getExplainManagedIndexMetaData(indexName).policyID) }
 
         // change policy seqNo on managed index
         updateManagedIndexConfigPolicySeqNo(managedIndexConfig.copy(policySeqNo = 17))

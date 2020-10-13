@@ -17,12 +17,13 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping.Companion.RANGE_MAPPING
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getRollupJobs
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.populateFieldMappings
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.rewriteSearchSourceBuilder
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
@@ -92,56 +93,14 @@ class RollupInterceptor(
                         val rollupJobs = clusterService.state().metadata.index(index).getRollupJobs()
                                 ?: throw IllegalArgumentException("Could not find the mapping source for the index")
 
-                        val queryDimensionTypesToFields = getQueryMetadata(request.source().query())
-                        val (aggregateDimensionTypesToFields, aggregateMetricFieldsToTypes) = getAggregationMetadata(
-                                request.source().aggregations()?.aggregatorFactories)
-                        val dimensionTypesToFields: Map<String, Set<String>> =
-                                (queryDimensionTypesToFields.keys + aggregateDimensionTypesToFields.keys)
-                                        .associateWith { mergeSets(queryDimensionTypesToFields[it], aggregateDimensionTypesToFields[it]) }
-                        val metricFieldsToTypes = mutableMapOf<String, Set<String>>()
-                        metricFieldsToTypes.putAll(aggregateMetricFieldsToTypes)
+                        val queryFieldMappings = getQueryMetadata(request.source().query())
+                        val aggregationFieldMappings = getAggregationMetadata(request.source().aggregations()?.aggregatorFactories)
+                        val fieldMappings = queryFieldMappings + aggregationFieldMappings
 
-                        // TODO: How does this job matching work with roles/security?
-                        // TODO: Move to helper class or ext fn - this is veeeeery inefficient, but it works for development/testing
-                        // The goal here is to find all the matching rollup jobs from the ones that exist on this rollup index
-                        // A matching rollup job is one that has all the fields used in the aggregations in its own dimensions/metrics
-                        val matchingRollupJobs = rollupJobs.filter { job ->
-                            // We take the provided dimensionsTypesToFields and confirm for each entry that
-                            // the given type (dimension type) and set (source fields) exists in the rollup job itself
-                            // to verify that the query can be answered with the data from this rollup job
-                            val hasAllDimensions = dimensionTypesToFields.entries.all { (type, set) ->
-                                // The filteredDimensionsFields are all the source fields of a specific dimension type on this job
-                                val filteredDimensionsFields = job.dimensions.filter { it.type.type == type }.map {
-                                    when (it) {
-                                        is DateHistogram -> it.sourceField
-                                        is Histogram -> it.sourceField
-                                        is Terms -> it.sourceField
-                                        // TODO: can't throw - have to return early after overwriting parsedquery
-                                        else -> throw IllegalArgumentException(
-                                                "Found unsupported Dimension during search transformation [${it.type.type}]")
-                                    }
-                                }
-                                // Confirm that the list of source fields on the rollup job's dimensions contains all of the fields in the user's
-                                // aggregation
-                                filteredDimensionsFields.containsAll(set)
-                            }
-                            // We take the provided metricFieldsToTypes and confirm for each entry that the given field (source field) and set
-                            // (metric types) exists in the rollup job itself to verify that the query can be answered with the data from this
-                            // rollup job
-                            val hasAllMetrics = metricFieldsToTypes.entries.all { (field, set) ->
-                                // The filteredMetrics are all the metric types that were computed for the given source field on this job
-                                val filteredMetrics = job.metrics.find { it.sourceField == field }?.metrics?.map { it.type.type } ?: emptyList()
-                                // Confirm that the list of metric aggregation types in the rollup job's metrics contains all of the metric types
-                                // in the user's aggregation for this given source field
-                                filteredMetrics.containsAll(set)
-                            }
-
-                            hasAllDimensions && hasAllMetrics
-                        }
+                        val (matchingRollupJobs, issues) = findMatchingRollupJobs(fieldMappings, rollupJobs)
 
                         if (matchingRollupJobs.isEmpty()) {
-                            // TODO: This needs to be more helpful and say what fields were missing
-                            throw IllegalArgumentException("Could not find a rollup job that can answer this query")
+                            throw IllegalArgumentException("Could not find a rollup job that can answer this query because $issues")
                         }
 
                         // Very simple resolution to start: just take all the matching jobs that can answer the query and use the newest one
@@ -151,7 +110,7 @@ class RollupInterceptor(
                         }
 
                         // only rebuild if there is necessity to rebuild
-                        if (!(dimensionTypesToFields.isEmpty() && metricFieldsToTypes.isEmpty())) {
+                        if (fieldMappings.isNotEmpty()) {
                             request.source(request.source().rewriteSearchSourceBuilder(matchedRollup))
                         }
                     }
@@ -164,99 +123,121 @@ class RollupInterceptor(
     @Suppress("ComplexMethod")
     private fun getAggregationMetadata(
         aggregationBuilders: Collection<AggregationBuilder>?,
-        dimensionTypesToFields: MutableMap<String, MutableSet<String>> = mutableMapOf(),
-        metricFieldsToTypes: MutableMap<String, MutableSet<String>> = mutableMapOf()
-    ): Pair<Map<String, Set<String>>, Map<String, Set<String>>> {
+        fieldMappings: MutableSet<RollupFieldMapping> = mutableSetOf()
+    ): Set<RollupFieldMapping> {
         aggregationBuilders?.forEach {
             when (it) {
                 is TermsAggregationBuilder -> {
-                    dimensionTypesToFields.computeIfAbsent(it.type) { mutableSetOf() }.add(it.field())
+                    fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, it.field(), it.type))
                 }
                 is DateHistogramAggregationBuilder -> {
-                    dimensionTypesToFields.computeIfAbsent(it.type) { mutableSetOf() }.add(it.field())
+                    fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, it.field(), it.type))
                 }
                 is HistogramAggregationBuilder -> {
-                    dimensionTypesToFields.computeIfAbsent(it.type) { mutableSetOf() }.add(it.field())
+                    fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, it.field(), it.type))
                 }
                 is SumAggregationBuilder -> {
-                    metricFieldsToTypes.computeIfAbsent(it.field()) { mutableSetOf() }.add(it.type)
+                    fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.METRIC, it.field(), it.type))
                 }
                 is AvgAggregationBuilder -> {
-                    metricFieldsToTypes.computeIfAbsent(it.field()) { mutableSetOf() }.add(it.type)
+                    fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.METRIC, it.field(), it.type))
                 }
                 is MaxAggregationBuilder -> {
-                    metricFieldsToTypes.computeIfAbsent(it.field()) { mutableSetOf() }.add(it.type)
+                    fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.METRIC, it.field(), it.type))
                 }
                 is MinAggregationBuilder -> {
-                    metricFieldsToTypes.computeIfAbsent(it.field()) { mutableSetOf() }.add(it.type)
+                    fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.METRIC, it.field(), it.type))
                 }
                 is ValueCountAggregationBuilder -> {
-                    metricFieldsToTypes.computeIfAbsent(it.field()) { mutableSetOf() }.add(it.type)
+                    fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.METRIC, it.field(), it.type))
                 }
+                else -> throw UnsupportedOperationException("The ${it.type} aggregation is not currently supported in rollups")
             }
             if (it.subAggregations?.isNotEmpty() == true) {
-                getAggregationMetadata(it.subAggregations, dimensionTypesToFields, metricFieldsToTypes)
+                getAggregationMetadata(it.subAggregations, fieldMappings)
             }
         }
-        return dimensionTypesToFields to metricFieldsToTypes
+        return fieldMappings
     }
 
     @Suppress("ComplexMethod")
     private fun getQueryMetadata(
         query: QueryBuilder?,
-        dimensionTypesToFields: MutableMap<String, MutableSet<String>> = mutableMapOf()
-    ): Map<String, Set<String>> {
+        fieldMappings: MutableSet<RollupFieldMapping> = mutableSetOf()
+    ): Set<RollupFieldMapping> {
         if (query == null) {
-            return dimensionTypesToFields
+            return fieldMappings
         }
 
         when (query) {
             is TermQueryBuilder -> {
-                dimensionTypesToFields.computeIfAbsent(Dimension.Type.TERMS.type) { mutableSetOf() }.add(query.fieldName())
+                fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, query.fieldName(), Dimension.Type.TERMS.type))
             }
             is TermsQueryBuilder -> {
-                dimensionTypesToFields.computeIfAbsent(Dimension.Type.TERMS.type) { mutableSetOf() }.add(query.fieldName())
+                fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, query.fieldName(), Dimension.Type.TERMS.type))
             }
             is RangeQueryBuilder -> {
-                // TODO: looks like this can be applied on histograms as well, need additional logic
-                dimensionTypesToFields.computeIfAbsent(Dimension.Type.DATE_HISTOGRAM.type) { mutableSetOf() }.add(query.fieldName())
+                fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, query.fieldName(), RANGE_MAPPING))
             }
             is MatchAllQueryBuilder -> {
                 // do nothing
             }
             is BoolQueryBuilder -> {
-                query.must()?.forEach { this.getQueryMetadata(it, dimensionTypesToFields) }
-                query.mustNot()?.forEach { this.getQueryMetadata(it, dimensionTypesToFields) }
-                query.should()?.forEach { this.getQueryMetadata(it, dimensionTypesToFields) }
-                query.filter()?.forEach { this.getQueryMetadata(it, dimensionTypesToFields) }
+                query.must()?.forEach { this.getQueryMetadata(it, fieldMappings) }
+                query.mustNot()?.forEach { this.getQueryMetadata(it, fieldMappings) }
+                query.should()?.forEach { this.getQueryMetadata(it, fieldMappings) }
+                query.filter()?.forEach { this.getQueryMetadata(it, fieldMappings) }
             }
             is BoostingQueryBuilder -> {
-                query.positiveQuery()?.also { this.getQueryMetadata(it, dimensionTypesToFields) }
-                query.negativeQuery()?.also { this.getQueryMetadata(it, dimensionTypesToFields) }
+                query.positiveQuery()?.also { this.getQueryMetadata(it, fieldMappings) }
+                query.negativeQuery()?.also { this.getQueryMetadata(it, fieldMappings) }
             }
             is ConstantScoreQueryBuilder -> {
-                query.innerQuery()?.also { this.getQueryMetadata(it, dimensionTypesToFields) }
+                query.innerQuery()?.also { this.getQueryMetadata(it, fieldMappings) }
             }
             is DisMaxQueryBuilder -> {
-                query.innerQueries().forEach { this.getQueryMetadata(it, dimensionTypesToFields) }
+                query.innerQueries().forEach { this.getQueryMetadata(it, fieldMappings) }
             }
             is FunctionScoreQueryBuilder -> {
-                query.query().also { this.getQueryMetadata(it, dimensionTypesToFields) }
-                query.filterFunctionBuilders().forEach { this.getQueryMetadata(it.filter, dimensionTypesToFields) }
+                query.query().also { this.getQueryMetadata(it, fieldMappings) }
+                query.filterFunctionBuilders().forEach { this.getQueryMetadata(it.filter, fieldMappings) }
+            }
+            else -> {
+                throw UnsupportedOperationException("The ${query.name} query is currently not supported in rollups")
             }
         }
 
-        return dimensionTypesToFields
+        return fieldMappings
     }
 
-    private fun mergeSets(first: Set<String>?, second: Set<String>?): Set<String> {
-        val result: MutableSet<String> = HashSet()
-        if (first != null) {
-            result.addAll(first)
+    // TODO: can be potentially more efficient
+    private fun findMatchingRollupJobs(
+        fieldMappings: Set<RollupFieldMapping>,
+        rollupJobs: List<Rollup>
+    ): Pair<Set<Rollup>, Set<String>> {
+        val rollupFieldMappings = rollupJobs.map { rollup ->
+            rollup to rollup.populateFieldMappings()
+        }.toMap()
+
+        val nonRangeFieldMappings = mutableSetOf<RollupFieldMapping>()
+        val rangeFieldMappings = mutableSetOf<RollupFieldMapping>()
+
+        fieldMappings.forEach {
+            if (it.mappingType == RANGE_MAPPING) rangeFieldMappings.add(it)
+            else nonRangeFieldMappings.add(it)
         }
-        if (second != null) {
-            result.addAll(second)
+
+        val potentialRollupFieldMappings = rollupFieldMappings.filterValues { it.containsAll(nonRangeFieldMappings) }
+
+        // TODO: not sure what to do yet on nonRangeFieldMappings
+
+        val issues = mutableSetOf<String>()
+        val allFieldMappings = mutableSetOf<RollupFieldMapping>()
+        rollupFieldMappings.values.forEach { allFieldMappings.addAll(it) }
+        nonRangeFieldMappings.forEach {
+            if (!allFieldMappings.contains(it)) issues.add(it.toIssue())
         }
-        return result
+
+        return potentialRollupFieldMappings.keys to issues
     }
 }

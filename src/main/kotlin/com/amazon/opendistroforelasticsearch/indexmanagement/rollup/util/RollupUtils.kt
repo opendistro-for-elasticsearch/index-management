@@ -19,6 +19,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupMapperService.Companion.ROLLUPS
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
@@ -241,6 +242,7 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
             ValueCountAggregationBuilder(aggregationBuilder.name)
                 .field(metric.targetField + ".value_count")
         }
+        // This will never get executed
         else -> throw UnsupportedOperationException("The ${aggregationBuilder.type} aggregation is not currently supported in rollups")
     }
 }
@@ -269,7 +271,7 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder): QueryBuilder {
             updatedRangeQueryBuilder.boost(queryBuilder.boost())
             queryBuilder.timeZone()?.also { updatedRangeQueryBuilder.timeZone(it) }
             queryBuilder.format()?.also { updatedRangeQueryBuilder.format(it) }
-            queryBuilder.relation()?.relationName.also { updatedRangeQueryBuilder.relation(it) }
+            if (queryBuilder.relation()?.relationName != null) updatedRangeQueryBuilder.relation(queryBuilder.relation().relationName)
             return updatedRangeQueryBuilder
         }
         is MatchAllQueryBuilder -> {
@@ -329,6 +331,19 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder): QueryBuilder {
             throw UnsupportedOperationException("The ${queryBuilder.name} query is currently not supported in rollups")
         }
     }
+}
+
+fun Rollup.populateFieldMappings(): Set<RollupFieldMapping> {
+    val fieldMappings = mutableSetOf<RollupFieldMapping>()
+    this.dimensions.forEach {
+        fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, it.sourceField, it.type.type))
+    }
+    this.metrics.forEach { rollupMetric ->
+        rollupMetric.metrics.forEach { metric ->
+            fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.METRIC, rollupMetric.sourceField, metric.type.type))
+        }
+    }
+    return fieldMappings
 }
 
 // TODO: Not a fan of this.. but I can't find a way to overwrite the aggregations on the shallow copy or original

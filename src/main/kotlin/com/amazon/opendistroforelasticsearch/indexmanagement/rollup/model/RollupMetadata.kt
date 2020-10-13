@@ -100,7 +100,8 @@ data class RollupMetadata(
         STARTED("started"),
         STOPPED("stopped"),
         FINISHED("finished"),
-        FAILED("failed");
+        FAILED("failed"),
+        RETRY("retry");
 
         override fun toString(): String {
             return type

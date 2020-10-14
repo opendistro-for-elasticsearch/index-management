@@ -24,7 +24,6 @@ import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.RestRequest.Method.HEAD
-import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestToXContentListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 

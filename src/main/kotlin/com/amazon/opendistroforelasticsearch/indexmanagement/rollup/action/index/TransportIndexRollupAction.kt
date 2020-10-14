@@ -34,7 +34,6 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
 import org.elasticsearch.rest.RestRequest

@@ -33,7 +33,6 @@ import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.action.update.UpdateResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.lucene.uid.Versions
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task

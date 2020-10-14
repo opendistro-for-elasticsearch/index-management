@@ -56,6 +56,13 @@ data class IndexPriorityActionConfig(
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = IndexPriorityAction(clusterService, client, managedIndexMetaData, this)
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        indexPriority = sin.readInt(),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeInt(indexPriority)
@@ -64,16 +71,6 @@ data class IndexPriorityActionConfig(
 
     companion object {
         const val INDEX_PRIORITY_FIELD = "priority"
-
-        fun fromStreamInput(sin: StreamInput): IndexPriorityActionConfig {
-            val indexPriority = sin.readInt()
-            val index = sin.readInt()
-
-            return IndexPriorityActionConfig(
-                    indexPriority = indexPriority,
-                    index = index
-            )
-        }
 
         @JvmStatic
         @Throws(IOException::class)
@@ -92,8 +89,8 @@ data class IndexPriorityActionConfig(
             }
 
             return IndexPriorityActionConfig(
-                    indexPriority = requireNotNull(indexPriority) { "$INDEX_PRIORITY_FIELD is null" },
-                    index = index
+                indexPriority = requireNotNull(indexPriority) { "$INDEX_PRIORITY_FIELD is null" },
+                index = index
             )
         }
     }

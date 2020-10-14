@@ -37,16 +37,18 @@ data class Transition(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-                .field(STATE_NAME_FIELD, stateName)
+            .field(STATE_NAME_FIELD, stateName)
         if (conditions != null) builder.field(CONDITIONS_FIELD, conditions)
         return builder.endObject()
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            sin.readString(),
-            sin.readOptionalWriteable(::Conditions)
+        stateName = sin.readString(),
+        conditions = sin.readOptionalWriteable(::Conditions)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(stateName)
         out.writeOptionalWriteable(conditions)
@@ -75,8 +77,8 @@ data class Transition(
             }
 
             return Transition(
-                    stateName = requireNotNull(name) { "Transition state name is null" },
-                    conditions = conditions
+                stateName = requireNotNull(name) { "Transition state name is null" },
+                conditions = conditions
             )
         }
     }
@@ -109,16 +111,20 @@ data class Conditions(
         return builder.endObject()
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            sin.readOptionalTimeValue(),
-            sin.readOptionalLong(),
-            sin.readOptionalWriteable(::ByteSizeValue)
+        indexAge = sin.readOptionalTimeValue(),
+        docCount = sin.readOptionalLong(),
+        size = sin.readOptionalWriteable(::ByteSizeValue),
+        cron = sin.readOptionalWriteable(::CronSchedule)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeOptionalTimeValue(indexAge)
         out.writeOptionalLong(docCount)
         out.writeOptionalWriteable(size)
+        out.writeOptionalWriteable(cron)
     }
 
     companion object {

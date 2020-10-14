@@ -78,18 +78,20 @@ data class Policy(
         return builder.endObject()
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            id = sin.readString(),
-            seqNo = sin.readLong(),
-            primaryTerm = sin.readLong(),
-            description = sin.readString(),
-            schemaVersion = sin.readLong(),
-            lastUpdatedTime = sin.readInstant(),
-            errorNotification = sin.readOptionalWriteable(::ErrorNotification),
-            defaultState = sin.readString(),
-            states = sin.readList(::State)
+        id = sin.readString(),
+        seqNo = sin.readLong(),
+        primaryTerm = sin.readLong(),
+        description = sin.readString(),
+        schemaVersion = sin.readLong(),
+        lastUpdatedTime = sin.readInstant(),
+        errorNotification = sin.readOptionalWriteable(::ErrorNotification),
+        defaultState = sin.readString(),
+        states = sin.readList(::State)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(id)
         out.writeLong(seqNo)

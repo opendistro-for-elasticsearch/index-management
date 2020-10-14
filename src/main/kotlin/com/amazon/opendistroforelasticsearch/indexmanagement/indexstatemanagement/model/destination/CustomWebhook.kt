@@ -66,15 +66,15 @@ data class CustomWebhook(
     }
 
     constructor(sin: StreamInput) : this(
-            sin.readOptionalString(),
-            sin.readOptionalString(),
-            sin.readOptionalString(),
-            sin.readInt(),
-            sin.readOptionalString(),
-            suppressWarning(sin.readMap()),
-            suppressWarning(sin.readMap()),
-            sin.readOptionalString(),
-            sin.readOptionalString()
+        sin.readOptionalString(),
+        sin.readOptionalString(),
+        sin.readOptionalString(),
+        sin.readInt(),
+        sin.readOptionalString(),
+        suppressWarning(sin.readMap()),
+        suppressWarning(sin.readMap()),
+        sin.readOptionalString(),
+        sin.readOptionalString()
     )
 
     override fun writeTo(out: StreamOutput) {

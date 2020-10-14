@@ -42,20 +42,22 @@ data class ActionRetry(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
-                .startObject(RETRY_FIELD)
+            .startObject(RETRY_FIELD)
                 .field(COUNT_FIELD, count)
                 .field(BACKOFF_FIELD, backoff)
                 .field(DELAY_FIELD, delay.stringRep)
-                .endObject()
+            .endObject()
         return builder
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            count = sin.readLong(),
-            backoff = sin.readEnum(Backoff::class.java),
-            delay = sin.readTimeValue()
+        count = sin.readLong(),
+        backoff = sin.readEnum(Backoff::class.java),
+        delay = sin.readTimeValue()
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeLong(count)
         out.writeEnum(backoff)
@@ -88,9 +90,9 @@ data class ActionRetry(
             }
 
             return ActionRetry(
-                    count = requireNotNull(count) { "ActionRetry count is null" },
-                    backoff = backoff,
-                    delay = delay
+                count = requireNotNull(count) { "ActionRetry count is null" },
+                backoff = backoff,
+                delay = delay
             )
         }
     }
@@ -122,7 +124,7 @@ data class ActionRetry(
             if (actionMetaData.consumedRetries > 0) {
                 if (actionMetaData.lastRetryTime != null) {
                     val remainingTime = getNextRetryTime(actionMetaData.consumedRetries, actionRetry.delay) -
-                            (Instant.now().toEpochMilli() - actionMetaData.lastRetryTime)
+                        (Instant.now().toEpochMilli() - actionMetaData.lastRetryTime)
 
                     return Pair(remainingTime > 0, remainingTime)
                 }

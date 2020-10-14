@@ -48,18 +48,20 @@ data class Destination(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-                .field(type.value, constructResponseForDestinationType(type))
-                .endObject()
+            .field(type.value, constructResponseForDestinationType(type))
+            .endObject()
         return builder
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            sin.readEnum(DestinationType::class.java),
-            sin.readOptionalWriteable(::Chime),
-            sin.readOptionalWriteable(::Slack),
-            sin.readOptionalWriteable(::CustomWebhook)
+        sin.readEnum(DestinationType::class.java),
+        sin.readOptionalWriteable(::Chime),
+        sin.readOptionalWriteable(::Slack),
+        sin.readOptionalWriteable(::CustomWebhook)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeEnum(type)
         out.writeOptionalWriteable(chime)
@@ -103,10 +105,10 @@ data class Destination(
             }
 
             return Destination(
-                    type,
-                    chime,
-                    slack,
-                    customWebhook
+                type,
+                chime,
+                slack,
+                customWebhook
             )
         }
     }

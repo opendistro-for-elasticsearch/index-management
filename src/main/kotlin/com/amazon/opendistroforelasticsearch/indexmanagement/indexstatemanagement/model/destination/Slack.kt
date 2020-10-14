@@ -36,11 +36,7 @@ import java.lang.IllegalStateException
  * Temporary import from alerting, this will be removed once we pull notifications out of
  * alerting so all plugins can consume and use.
  */
-data class Slack(val url: String?) : ToXContent, Writeable {
-
-    init {
-        require(!Strings.isNullOrEmpty(url)) { "URL is null or empty" }
-    }
+data class Slack(val url: String) : ToXContent, Writeable {
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject(TYPE)
@@ -48,12 +44,14 @@ data class Slack(val url: String?) : ToXContent, Writeable {
                 .endObject()
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            sin.readOptionalString()
+        sin.readString()
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeOptionalString(url)
+        out.writeString(url)
     }
 
     companion object {
@@ -63,7 +61,7 @@ data class Slack(val url: String?) : ToXContent, Writeable {
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser): Slack {
-            lateinit var url: String
+            var url: String? = null
 
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -76,7 +74,7 @@ data class Slack(val url: String?) : ToXContent, Writeable {
                     }
                 }
             }
-            return Slack(url)
+            return Slack(requireNotNull(url) { "URL is null or empty" })
         }
     }
 

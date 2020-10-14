@@ -48,20 +48,22 @@ data class State(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder
-                .startObject()
+            .startObject()
                 .field(NAME_FIELD, name)
                 .field(ACTIONS_FIELD, actions.toTypedArray())
                 .field(TRANSITIONS_FIELD, transitions.toTypedArray())
-                .endObject()
+            .endObject()
         return builder
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            sin.readString(),
-            sin.readList { ActionConfig.fromStreamInput(it) },
-            sin.readList(::Transition)
+        sin.readString(),
+        sin.readList { ActionConfig.fromStreamInput(it) },
+        sin.readList(::Transition)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(name)
         out.writeList(actions)
@@ -104,9 +106,9 @@ data class State(
             }
 
             return State(
-                    name = requireNotNull(name) { "State name is null" },
-                    actions = actions.toList(),
-                    transitions = transitions.toList()
+                name = requireNotNull(name) { "State name is null" },
+                actions = actions.toList(),
+                transitions = transitions.toList()
             )
         }
     }

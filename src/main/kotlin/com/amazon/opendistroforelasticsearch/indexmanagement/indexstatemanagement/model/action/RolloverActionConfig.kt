@@ -49,7 +49,7 @@ data class RolloverActionConfig(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         super.toXContent(builder, params)
-                .startObject(ActionType.ROLLOVER.type)
+            .startObject(ActionType.ROLLOVER.type)
         if (minSize != null) builder.field(MIN_SIZE_FIELD, minSize.stringRep)
         if (minDocs != null) builder.field(MIN_DOC_COUNT_FIELD, minDocs)
         if (minAge != null) builder.field(MIN_INDEX_AGE_FIELD, minAge.stringRep)
@@ -65,6 +65,15 @@ data class RolloverActionConfig(
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = RolloverAction(clusterService, client, managedIndexMetaData, this)
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        minSize = sin.readOptionalWriteable(::ByteSizeValue),
+        minDocs = sin.readOptionalLong(),
+        minAge = sin.readOptionalTimeValue(),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeOptionalWriteable(minSize)
@@ -72,24 +81,11 @@ data class RolloverActionConfig(
         out.writeOptionalTimeValue(minAge)
         out.writeInt(index)
     }
+
     companion object {
         const val MIN_SIZE_FIELD = "min_size"
         const val MIN_DOC_COUNT_FIELD = "min_doc_count"
         const val MIN_INDEX_AGE_FIELD = "min_index_age"
-
-        fun fromStreamInput(sin: StreamInput): RolloverActionConfig {
-            val minSize = sin.readOptionalWriteable(::ByteSizeValue)
-            val minDocs = sin.readOptionalLong()
-            val minAge = sin.readOptionalTimeValue()
-            val index = sin.readInt()
-
-            return RolloverActionConfig(
-                    minSize = minSize,
-                    minDocs = minDocs,
-                    minAge = minAge,
-                    index = index
-            )
-        }
 
         @JvmStatic
         @Throws(IOException::class)
@@ -112,10 +108,10 @@ data class RolloverActionConfig(
             }
 
             return RolloverActionConfig(
-                    minSize = minSize,
-                    minDocs = minDocs,
-                    minAge = minAge,
-                    index = index
+                minSize = minSize,
+                minDocs = minDocs,
+                minAge = minAge,
+                index = index
             )
         }
     }

@@ -62,10 +62,18 @@ data class NotificationActionConfig(
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = NotificationAction(clusterService, scriptService, client, managedIndexMetaData, this)
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        destination = Destination(sin),
+        messageTemplate = Script(sin),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
-        out.writeOptionalWriteable(destination)
-        out.writeOptionalWriteable(messageTemplate)
+        destination.writeTo(out)
+        messageTemplate.writeTo(out)
         out.writeInt(index)
     }
 
@@ -73,18 +81,6 @@ data class NotificationActionConfig(
         const val DESTINATION_FIELD = "destination"
         const val MESSAGE_TEMPLATE_FIELD = "message_template"
         const val MUSTACHE = "mustache"
-
-        fun fromStreamInput(sin: StreamInput): NotificationActionConfig {
-            val destination = sin.readOptionalWriteable(::Destination)
-            val messageTemplate = sin.readOptionalWriteable(::Script)
-            val index = sin.readInt()
-
-            return NotificationActionConfig(
-                    destination = requireNotNull(destination) { "NotificationActionConfig destination is null" },
-                    messageTemplate = requireNotNull(messageTemplate) { "NotificationActionConfig message template is null" },
-                    index = index
-            )
-        }
 
         @JvmStatic
         @Throws(IOException::class)
@@ -105,9 +101,9 @@ data class NotificationActionConfig(
             }
 
             return NotificationActionConfig(
-                    destination = requireNotNull(destination) { "NotificationActionConfig destination is null" },
-                    messageTemplate = requireNotNull(messageTemplate) { "NotificationActionConfig message template is null" },
-                    index = index
+                destination = requireNotNull(destination) { "NotificationActionConfig destination is null" },
+                messageTemplate = requireNotNull(messageTemplate) { "NotificationActionConfig message template is null" },
+                index = index
             )
         }
     }

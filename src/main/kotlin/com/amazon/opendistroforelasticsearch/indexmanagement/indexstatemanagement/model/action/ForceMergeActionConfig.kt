@@ -43,9 +43,9 @@ data class ForceMergeActionConfig(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         super.toXContent(builder, params)
-                .startObject(ActionType.FORCE_MERGE.type)
+            .startObject(ActionType.FORCE_MERGE.type)
                 .field(MAX_NUM_SEGMENTS_FIELD, maxNumSegments)
-                .endObject()
+            .endObject()
         return builder.endObject()
     }
 
@@ -58,6 +58,13 @@ data class ForceMergeActionConfig(
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = ForceMergeAction(clusterService, client, managedIndexMetaData, this)
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        maxNumSegments = sin.readInt(),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeInt(maxNumSegments)
@@ -66,16 +73,6 @@ data class ForceMergeActionConfig(
 
     companion object {
         const val MAX_NUM_SEGMENTS_FIELD = "max_num_segments"
-
-        fun fromStreamInput(sin: StreamInput): ForceMergeActionConfig {
-            val maxNumSegments = sin.readInt()
-            val index = sin.readInt()
-
-            return ForceMergeActionConfig(
-                    maxNumSegments,
-                    index
-            )
-        }
 
         @JvmStatic
         @Throws(IOException::class)
@@ -94,8 +91,8 @@ data class ForceMergeActionConfig(
             }
 
             return ForceMergeActionConfig(
-                    requireNotNull(maxNumSegments) { "ForceMergeActionConfig maxNumSegments is null" },
-                    index
+                requireNotNull(maxNumSegments) { "ForceMergeActionConfig maxNumSegments is null" },
+                index
             )
         }
     }

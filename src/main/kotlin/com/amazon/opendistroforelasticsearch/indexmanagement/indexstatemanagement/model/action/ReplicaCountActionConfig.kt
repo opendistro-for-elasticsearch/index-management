@@ -56,6 +56,13 @@ data class ReplicaCountActionConfig(
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = ReplicaCountAction(clusterService, client, managedIndexMetaData, this)
 
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : this(
+        numOfReplicas = sin.readInt(),
+        index = sin.readInt()
+    )
+
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeInt(numOfReplicas)
@@ -64,16 +71,6 @@ data class ReplicaCountActionConfig(
 
     companion object {
         const val NUMBER_OF_REPLICAS_FIELD = "number_of_replicas"
-
-        fun fromStreamInput(sin: StreamInput): ReplicaCountActionConfig {
-            val numOfReplicas = sin.readInt()
-            val index = sin.readInt()
-
-            return ReplicaCountActionConfig(
-                    numOfReplicas = numOfReplicas,
-                    index = index
-            )
-        }
 
         @JvmStatic
         @Throws(IOException::class)
@@ -92,8 +89,8 @@ data class ReplicaCountActionConfig(
             }
 
             return ReplicaCountActionConfig(
-                    numOfReplicas = requireNotNull(numOfReplicas) { "$NUMBER_OF_REPLICAS_FIELD is null" },
-                    index = index
+                numOfReplicas = requireNotNull(numOfReplicas) { "$NUMBER_OF_REPLICAS_FIELD is null" },
+                index = index
             )
         }
     }

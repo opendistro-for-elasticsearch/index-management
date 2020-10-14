@@ -32,10 +32,12 @@ data class ActionTimeout(val timeout: TimeValue) : ToXContentFragment, Writeable
         return builder.field(TIMEOUT_FIELD, timeout.stringRep)
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            timeout = sin.readTimeValue()
+        timeout = sin.readTimeValue()
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeTimeValue(timeout)
     }

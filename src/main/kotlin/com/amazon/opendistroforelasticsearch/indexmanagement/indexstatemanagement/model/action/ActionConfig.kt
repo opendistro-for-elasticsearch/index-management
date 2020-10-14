@@ -74,6 +74,7 @@ abstract class ActionConfig(
         }
     }
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeEnum(type)
         out.writeInt(actionIndex)
@@ -82,7 +83,9 @@ abstract class ActionConfig(
     }
 
     companion object {
-
+        // TODO clean up for actionIndex
+        @JvmStatic
+        @Throws(IOException::class)
         fun fromStreamInput(sin: StreamInput): ActionConfig {
             val type = sin.readEnum(ActionType::class.java)
             val actionIndex = sin.readInt()
@@ -91,17 +94,17 @@ abstract class ActionConfig(
 
             val actionConfig: ActionConfig = when (type.type) {
                 ActionType.DELETE.type -> DeleteActionConfig(actionIndex)
-                ActionType.ROLLOVER.type -> RolloverActionConfig.fromStreamInput(sin)
                 ActionType.OPEN.type -> OpenActionConfig(actionIndex)
                 ActionType.CLOSE.type -> CloseActionConfig(actionIndex)
                 ActionType.READ_ONLY.type -> ReadOnlyActionConfig(actionIndex)
                 ActionType.READ_WRITE.type -> ReadWriteActionConfig(actionIndex)
-                ActionType.REPLICA_COUNT.type -> ReplicaCountActionConfig.fromStreamInput(sin)
-                ActionType.FORCE_MERGE.type -> ForceMergeActionConfig.fromStreamInput(sin)
-                ActionType.NOTIFICATION.type -> NotificationActionConfig.fromStreamInput(sin)
-                ActionType.SNAPSHOT.type -> SnapshotActionConfig.fromStreamInput(sin)
-                ActionType.INDEX_PRIORITY.type -> IndexPriorityActionConfig.fromStreamInput(sin)
-                ActionType.ALLOCATION.type -> AllocationActionConfig.fromStreamInput(sin)
+                ActionType.ROLLOVER.type -> RolloverActionConfig(sin)
+                ActionType.REPLICA_COUNT.type -> ReplicaCountActionConfig(sin)
+                ActionType.FORCE_MERGE.type -> ForceMergeActionConfig(sin)
+                ActionType.NOTIFICATION.type -> NotificationActionConfig(sin)
+                ActionType.SNAPSHOT.type -> SnapshotActionConfig(sin)
+                ActionType.INDEX_PRIORITY.type -> IndexPriorityActionConfig(sin)
+                ActionType.ALLOCATION.type -> AllocationActionConfig(sin)
                 else -> throw IllegalArgumentException("Invalid field: [${type.type}] found in Action.")
             }
 

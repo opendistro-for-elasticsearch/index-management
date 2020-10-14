@@ -44,14 +44,16 @@ data class ErrorNotification(
                 .endObject()
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            sin.readOptionalWriteable(::Destination) as Destination,
-            sin.readOptionalWriteable(::Script) as Script
+        Destination(sin),
+        Script(sin)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeOptionalWriteable(destination)
-        out.writeOptionalWriteable(messageTemplate)
+        destination.writeTo(out)
+        messageTemplate.writeTo(out)
     }
 
     companion object {
@@ -78,8 +80,8 @@ data class ErrorNotification(
             }
 
             return ErrorNotification(
-                    destination = requireNotNull(destination) { "ErrorNotification destination is null" },
-                    messageTemplate = requireNotNull(messageTemplate) { "ErrorNotification message template is null" }
+                destination = requireNotNull(destination) { "ErrorNotification destination is null" },
+                messageTemplate = requireNotNull(messageTemplate) { "ErrorNotification message template is null" }
             )
         }
     }

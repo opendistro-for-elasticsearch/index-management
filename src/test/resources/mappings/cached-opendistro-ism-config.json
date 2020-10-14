@@ -432,7 +432,6 @@
       "properties": {
         "rollup_id": {
           "type": "text",
-          "analyzer": "all_wildcard_analyzer",
           "fields": {
             "keyword": {
               "type": "keyword",
@@ -607,7 +606,6 @@
       "properties": {
         "rollup_id": {
           "type": "text",
-          "analyzer": "all_wildcard_analyzer",
           "fields": {
             "keyword": {
               "type": "keyword",

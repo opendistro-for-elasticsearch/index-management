@@ -37,7 +37,7 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.IdsQueryBuilder
-import org.elasticsearch.index.query.QueryStringQueryBuilder
+import org.elasticsearch.index.query.WildcardQueryBuilder
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.RemoteTransportException
@@ -64,7 +64,7 @@ class TransportExplainRollupAction @Inject constructor(
             .source(SearchSourceBuilder().query(
                 BoolQueryBuilder().minimumShouldMatch(1).apply {
                     ids.forEach {
-                        this.should(QueryStringQueryBuilder("*$it*").defaultField("${Rollup.ROLLUP_TYPE}.${Rollup.ROLLUP_ID_FIELD}"))
+                        this.should(WildcardQueryBuilder("${Rollup.ROLLUP_TYPE}.${Rollup.ROLLUP_ID_FIELD}.keyword", "*$it*"))
                     }
                 }
             ))

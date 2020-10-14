@@ -4,7 +4,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndi
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices.Companion.HISTORY_WRITE_INDEX_ALIAS
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices.Companion.indexStateManagementHistoryMappings
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices.Companion.indexManagementMappings
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices.Companion.indexManagementSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementRestTestCase
@@ -17,7 +16,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.test.ESTestCase
 import java.util.Locale
@@ -62,7 +60,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         val mapping = indexManagementMappings.trim().trimStart('{').trimEnd('}')
             .replace("\"schema_version\": 5", "\"schema_version\": 0")
 
-        createIndex(INDEX_MANAGEMENT_INDEX, Settings.builder().loadFromSource(indexManagementSettings, XContentType.JSON).build(), mapping)
+        createIndex(INDEX_MANAGEMENT_INDEX, Settings.builder().put("index.hidden", true).build(), mapping)
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
         verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 0)
 

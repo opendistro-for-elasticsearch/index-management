@@ -15,11 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicies
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Table
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 
 class GetPoliciesRequestTests : ESTestCase() {
 
@@ -31,13 +31,14 @@ class GetPoliciesRequestTests : ESTestCase() {
                 0,
                 ""
         )
-        val req = GetPoliciesRequest(table)
-        Assert.assertNotNull(req)
+        val req = GetPoliciesRequest(table, IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
+        assertNotNull(req)
 
         val out = BytesStreamOutput()
         req.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newReq = GetPoliciesRequest(sin)
-        Assert.assertEquals(table, newReq.table)
+        assertEquals(table, newReq.table)
+        assertEquals(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, newReq.index)
     }
 }

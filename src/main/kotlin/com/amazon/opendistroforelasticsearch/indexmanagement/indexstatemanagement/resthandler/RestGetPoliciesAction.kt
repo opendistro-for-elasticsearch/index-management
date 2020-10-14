@@ -42,6 +42,7 @@ class RestGetPoliciesAction : BaseRestHandler() {
         val size = request.paramAsInt("size", DEFAULT_SIZE)
         val startIndex = request.paramAsInt("startIndex", DEFAULT_START_INDEX)
         val searchString = request.param("searchString", DEFAULT_SEARCH_STRING)
+        val index = request.param("index", IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
         val table = Table(
                 sortOrder,
                 sortString,
@@ -50,7 +51,7 @@ class RestGetPoliciesAction : BaseRestHandler() {
                 searchString
         )
 
-        val getPoliciesRequest = GetPoliciesRequest(table)
+        val getPoliciesRequest = GetPoliciesRequest(table, index)
 
         return RestChannelConsumer { channel ->
             client.execute(GetPoliciesAction.INSTANCE, getPoliciesRequest, RestToXContentListener(channel))

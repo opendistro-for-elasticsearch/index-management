@@ -10,17 +10,20 @@ import java.io.IOException
 class GetPoliciesRequest : ActionRequest {
 
     val table: Table
+    val index: String
 
     constructor(
-        table: Table
-
+        table: Table,
+        index: String
     ) : super() {
         this.table = table
+        this.index = index
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        table = Table.readFrom(sin)
+        table = Table.readFrom(sin),
+        index = sin.readString()
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -30,5 +33,6 @@ class GetPoliciesRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         table.writeTo(out)
+        out.writeString(index)
     }
 }

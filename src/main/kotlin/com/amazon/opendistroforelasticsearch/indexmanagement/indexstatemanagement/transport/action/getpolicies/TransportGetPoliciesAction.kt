@@ -1,6 +1,5 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicies
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
@@ -14,6 +13,7 @@ import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortBuilders
@@ -51,6 +51,7 @@ class TransportGetPoliciesAction @Inject constructor(
                 queryBuilder
                         .must(QueryBuilders
                                 .queryStringQuery(tableProp.searchString)
+                                .defaultOperator(Operator.AND)
                                 .field("policy.policy_id"))
             }
 
@@ -63,7 +64,7 @@ class TransportGetPoliciesAction @Inject constructor(
 
             val searchRequest = SearchRequest()
                     .source(searchSourceBuilder)
-                    .indices(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
+                    .indices(getPoliciesRequest.index)
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {

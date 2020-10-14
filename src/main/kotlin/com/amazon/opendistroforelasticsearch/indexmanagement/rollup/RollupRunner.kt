@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata.Companion.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -158,6 +159,8 @@ object RollupRunner : ScheduledJobRunner,
     * */
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext) {
+        if (!isJobValid(job)) return
+
         var metadata = rollupMetadataService.init(job)
         if (metadata.status == RollupMetadata.Status.FAILED) {
             val updatedRollupJob = if (metadata.id != job.metadataID) {
@@ -214,6 +217,7 @@ object RollupRunner : ScheduledJobRunner,
             }
         }
     }
+
     // TODO error handling and moving to failed status
     private suspend fun updateRollupJob(job: Rollup): Rollup {
         val req = IndexRollupRequest(rollup = job, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
@@ -227,14 +231,73 @@ object RollupRunner : ScheduledJobRunner,
     // This fn: Should we even proceed to execute this job?
     // Validations could be broken down into:
     // Is this job even allowed to run? i.e. it was in a FAILED state and someone just switched enabled to true, do we actually retry it?
-    // Does the source index exist?
-    // Does the target index exist?
-    // If target exists is it a rollup index
     // Do the job mappings make sense, is it possible to execute this job
-    // Does the job have metadata or do I need to init?
-    // What if the job has a metadataID but no metadata doc?
     // etc. etc. etc.
-    private suspend fun validateJob(job: Rollup): Rollup {
-        return job
+    private suspend fun isJobValid(job: Rollup): Boolean {
+        // TODO: Handle exceptions
+        val metadata = if (job.metadataID != null) {
+            rollupMetadataService.getExistingMetadata(job.metadataID)
+        } else null
+
+        if (!rollupMapperService.isSourceIndexValid(job.sourceIndex)) {
+            setFailedMetadata(job, "Invalid source index")
+            return false
+        }
+
+        // rollupMetadataService.init() will handle the cases where metadata is null
+        if (metadata != null) {
+            if (!rollupMapperService.indexExists(job.targetIndex)) {
+                // TODO: Handle createRollupTargetIndex fails
+                // TODO: Move error reason messages to RollupMetadataService as static strings (or functions for patterns), easier for testing
+                rollupMapperService.createRollupTargetIndex(job)
+                setFailedMetadata(job, "The target index [${job.targetIndex}] was deleted. Index has been recreated, restart job.")
+                return false
+            }
+            if (!rollupMapperService.isRollupIndex(job.targetIndex)) {
+                setFailedMetadata(job, "The target index [${job.targetIndex}] is not a rollup index")
+                return false
+            }
+            if (!rollupMapperService.jobExistsInRollupIndex(job)) {
+                setFailedMetadata(job, "The target index [${job.targetIndex}] does not have rollup job information in mappings")
+                return false
+            }
+        }
+
+        return true
+    }
+
+    // Sets a failure metadata for the rollup job with the given reason.
+    // Can provide an existing metadata to update, if none are provided a new metadata is created
+    // and replaces the current one for the job.
+    private suspend fun setFailedMetadata(job: Rollup, reason: String, existingMetadata: RollupMetadata? = null) {
+        var updatedMetadata: RollupMetadata?
+        if (existingMetadata == null) {
+            // Create new metadata
+            updatedMetadata = RollupMetadata(
+                rollupID = job.id,
+                status = RollupMetadata.Status.FAILED,
+                failureReason = reason,
+                lastUpdatedTime = Instant.now()
+            )
+        } else {
+            // Update the given existing metadata
+            updatedMetadata = existingMetadata.copy(
+                status = RollupMetadata.Status.FAILED,
+                failureReason = reason,
+                lastUpdatedTime = Instant.now()
+            )
+        }
+
+        // TODO: Handle exceptions
+        updatedMetadata = rollupMetadataService
+            .submitMetadataUpdate(updatedMetadata, updatedMetadata.id != NO_ID)
+
+        val updatedRollupJob = if (updatedMetadata.id != job.metadataID) {
+            job.copy(metadataID = updatedMetadata.id, enabled = false, jobEnabledTime = null)
+        } else {
+            job.copy(enabled = false, jobEnabledTime = null)
+        }
+        // TODO: Handle exceptions
+        updateRollupJob(updatedRollupJob)
     }
 }

@@ -223,7 +223,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerNamedXContentRegistry(xContentRegistry)
             .registerScriptService(scriptService)
             .registerSettings(settings)
-            .registerMapperService(RollupMapperService(client, clusterService))
+            .registerMapperService(RollupMapperService(client, clusterService, indexNameExpressionResolver))
             .registerIndexer(RollupIndexer(settings, clusterService, client))
             .registerSearcher(RollupSearchService(client))
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))

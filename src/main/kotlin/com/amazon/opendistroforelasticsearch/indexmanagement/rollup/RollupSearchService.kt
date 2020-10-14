@@ -42,7 +42,11 @@ class RollupSearchService(val client: Client) {
         // afterKey is if we were still processing data is if the job somehow stopped and was rescheduled (i.e. node crashed etc.)
 
         // Assuming if this has been called with null metadata, that metadata needs to be initialized
+        // TODO: This is mostly used for the check in runJob(), maybe move this out and make that call "metadata == null || shouldProcessRollup"
+        //  so that shouldProcessRollup() doesn't let this through in the while loop when rolling up
         if (metadata == null) return true
+
+        if (metadata.status == RollupMetadata.Status.RETRY) return true
 
         // Being in a STOPPED/FAILED status will take priority over an afterKey being available, user will need to retry
         if (listOf(RollupMetadata.Status.STOPPED, RollupMetadata.Status.FAILED).contains(metadata.status)) {
@@ -52,9 +56,12 @@ class RollupSearchService(val client: Client) {
         if (metadata.afterKey != null) return true
 
         if (!rollup.continuous) {
-            if (metadata.status == RollupMetadata.Status.INIT) return true
-            // If a non-continuous rollup job does not have an afterKey and is not in INIT then
-            // it is either finished, failed, stopped or in running which should not be possible if afterKey is null
+            // If metadata was set to failed and restarted using _start, metadata will be updated to RETRY.
+            // After init, metadata will be updated to STARTED, if the failure was before afterKey was ever set,
+            // we can end up here in STARTED.
+            if (listOf(RollupMetadata.Status.INIT, RollupMetadata.Status.STARTED).contains(metadata.status)) return true
+            // If a non-continuous rollup job does not have an afterKey and is not in INIT or STARTED then
+            // it can only be FINISHED here since STOPPED and FAILED have already been checked
             logger.debug("Non-continuous job [${rollup.id}] is not processing next window [$metadata]")
             return false
         } else {

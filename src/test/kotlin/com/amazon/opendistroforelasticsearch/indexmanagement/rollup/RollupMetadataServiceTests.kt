@@ -518,6 +518,7 @@ class RollupMetadataServiceTests : ESTestCase() {
         }
     }
 
+    // TODO: Test for a document timestamp before epoch
     // TODO: Test non-continuous metadata
     // TODO: Test cases with exceptions in search or index response
 

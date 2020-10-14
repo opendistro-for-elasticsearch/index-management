@@ -31,8 +31,10 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
+import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.metadata.MappingMetadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
@@ -45,7 +47,11 @@ import java.io.IOException
 // TODO: Most of this has to be in a master transport action because of race conditions
 // TODO: Handle existing rollup indices, validation of fields across source and target indices
 //  overwriting existing rollup data, using mappings from source index
-class RollupMapperService(val client: Client, val clusterService: ClusterService) {
+class RollupMapperService(
+    val client: Client,
+    val clusterService: ClusterService,
+    private val indexNameExpressionResolver: IndexNameExpressionResolver
+) {
 
     private val logger = LogManager.getLogger(javaClass)
 
@@ -109,6 +115,35 @@ class RollupMapperService(val client: Client, val clusterService: ClusterService
         return false
     }
 
+    // Source index can be a pattern so will need to resolve the index to concrete indices and check:
+    // 1. If there are any indices resolving to the given source index
+    // 2. That each concrete index is valid (in terms of mappings, etc.)
+    fun isSourceIndexValid(index: String): Boolean {
+        // Allow no indices, open and closed
+        // Rolling up on closed indices will not be caught here
+        val concreteIndices = indexNameExpressionResolver.concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpand(), index)
+        // TODO: Validate mappings of concrete indices
+        // TODO: Add some entry in metadata that will store index -> indexUUID for validated indices
+        //  That way, we only need to validate indices that aren't in the metadata (covers cases where new index with same name was made)
+        return concreteIndices.isNotEmpty()
+    }
+
+    // TODO: error handling
+    // TODO: nulls, ie index response is null
+    // TODO: no job exists vs has job and wrong metadata id vs has job and right metadata id
+    suspend fun jobExistsInRollupIndex(rollup: Rollup): Boolean {
+        val req = GetMappingsRequest().indices(rollup.targetIndex)
+        val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
+
+        val indexMapping: MappingMetadata = res.mappings[rollup.targetIndex][_DOC]
+
+        return ((indexMapping.sourceAsMap?.get(_META) as Map<*, *>?)?.get(ROLLUPS) as Map<*, *>?)?.containsKey(rollup.id) == true
+    }
+
+    fun isRollupIndex(index: String): Boolean = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(index).settings)
+
+    fun indexExists(index: String): Boolean = clusterService.state().routingTable.hasIndex(index)
+
     // TODO: error handling
     // TODO: Create custom master operation to ensure we are working with the current mappings
     //  and can't have a race condition where two jobs overwrite each other
@@ -126,18 +161,6 @@ class RollupMapperService(val client: Client, val clusterService: ClusterService
         }
     }
 
-    // TODO: error handling
-    // TODO: nulls, ie index response is null
-    // TODO: no job exists vs has job and wrong metadata id vs has job and right metadata id
-    private suspend fun jobExistsInRollupIndex(rollup: Rollup): Boolean {
-        val req = GetMappingsRequest().indices(rollup.targetIndex)
-        val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
-
-        val indexMapping: MappingMetadata = res.mappings[rollup.targetIndex][_DOC]
-
-        return ((indexMapping.sourceAsMap?.get(_META) as Map<*, *>?)?.get(ROLLUPS) as Map<*, *>?)?.containsKey(rollup.id) == true
-    }
-
     @Throws(IOException::class)
     private fun partialRollupMappingBuilder(rollup: Rollup): XContentBuilder {
         // TODO: This is dumping *everything* of rollup into the meta and we only want a slimmed down version of it
@@ -150,10 +173,6 @@ class RollupMapperService(val client: Client, val clusterService: ClusterService
                 .endObject()
             .endObject()
     }
-
-    private fun indexExists(index: String): Boolean = clusterService.state().routingTable.hasIndex(index)
-
-    private fun isRollupIndex(index: String): Boolean = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(index).settings)
 
     companion object {
         const val ROLLUPS = "rollups"

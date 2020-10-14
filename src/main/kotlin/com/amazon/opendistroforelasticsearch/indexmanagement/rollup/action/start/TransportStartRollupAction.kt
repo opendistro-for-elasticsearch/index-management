@@ -51,7 +51,7 @@ class TransportStartRollupAction @Inject constructor(
     private val log = LogManager.getLogger(javaClass)
 
     override fun doExecute(task: Task, request: StartRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
-        val getReq = GetRollupRequest(request.id(), Versions.MATCH_ANY, RestRequest.Method.GET, null)
+        val getReq = GetRollupRequest(request.id(), RestRequest.Method.GET, null)
         client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
             override fun onResponse(response: GetRollupResponse) {
                 val rollup = response.rollup

@@ -49,7 +49,6 @@ class IndexRollupRequest : IndexRequest {
         super.setRefreshPolicy(refreshPolicy)
     }
 
-    // TODO
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
         if (rollup.id.isBlank()) {

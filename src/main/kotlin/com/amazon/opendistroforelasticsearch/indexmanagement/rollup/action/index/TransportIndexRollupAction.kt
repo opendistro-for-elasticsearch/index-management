@@ -85,7 +85,7 @@ class TransportIndexRollupAction @Inject constructor(
         }
 
         private fun getRollup() {
-            val getReq = GetRollupRequest(request.rollup.id, Versions.MATCH_ANY, RestRequest.Method.GET, null)
+            val getReq = GetRollupRequest(request.rollup.id, RestRequest.Method.GET, null)
             client.execute(GetRollupAction.INSTANCE, getReq, ActionListener.wrap(::onGetRollup, actionListener::onFailure))
         }
 

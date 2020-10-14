@@ -45,7 +45,6 @@ class TransportGetRollupAction @Inject constructor(
 
     override fun doExecute(task: Task, request: GetRollupRequest, listener: ActionListener<GetRollupResponse>) {
         val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, request.id)
-            .version(request.version) // TODO: Is this still used?
             .fetchSourceContext(request.srcContext)
 
         client.get(getRequest, object : ActionListener<GetResponse> {

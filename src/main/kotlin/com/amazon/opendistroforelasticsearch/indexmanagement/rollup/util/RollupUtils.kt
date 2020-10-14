@@ -247,21 +247,25 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
     }
 }
 
-// TODO might be missing edge cases, and need to set other fields when creating new QueryBuilders
 @Suppress("ComplexMethod", "LongMethod", "ReturnCount")
-fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder): QueryBuilder {
+fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeMap: Map<String, String>): QueryBuilder {
     when (queryBuilder) {
         is TermQueryBuilder -> {
             val updatedFieldName = queryBuilder.fieldName() + "." + Dimension.Type.TERMS.type
-            return TermQueryBuilder(updatedFieldName, queryBuilder.value())
+            val updatedTermQueryBuilder = TermQueryBuilder(updatedFieldName, queryBuilder.value())
+            updatedTermQueryBuilder.boost(queryBuilder.boost())
+            updatedTermQueryBuilder.queryName(queryBuilder.queryName())
+            return updatedTermQueryBuilder
         }
         is TermsQueryBuilder -> {
             val updatedFieldName = queryBuilder.fieldName() + "." + Dimension.Type.TERMS.type
-            return TermsQueryBuilder(updatedFieldName, queryBuilder.values())
+            val updatedTermsQueryBuilder = TermsQueryBuilder(updatedFieldName, queryBuilder.values())
+            updatedTermsQueryBuilder.boost(queryBuilder.boost())
+            updatedTermsQueryBuilder.queryName(queryBuilder.queryName())
+            return updatedTermsQueryBuilder
         }
         is RangeQueryBuilder -> {
-            // TODO: can be potentially other dimensions, need to verify
-            val updatedFieldName = queryBuilder.fieldName() + "." + Dimension.Type.DATE_HISTOGRAM
+            val updatedFieldName = queryBuilder.fieldName() + "." + fieldNameMappingTypeMap.getValue(queryBuilder.fieldName())
             val updatedRangeQueryBuilder = RangeQueryBuilder(updatedFieldName)
             updatedRangeQueryBuilder.includeLower(queryBuilder.includeLower())
             updatedRangeQueryBuilder.includeUpper(queryBuilder.includeUpper())
@@ -269,8 +273,8 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder): QueryBuilder {
             updatedRangeQueryBuilder.to(queryBuilder.to())
             updatedRangeQueryBuilder.queryName(queryBuilder.queryName())
             updatedRangeQueryBuilder.boost(queryBuilder.boost())
-            queryBuilder.timeZone()?.also { updatedRangeQueryBuilder.timeZone(it) }
-            queryBuilder.format()?.also { updatedRangeQueryBuilder.format(it) }
+            if (queryBuilder.timeZone() != null) updatedRangeQueryBuilder.timeZone(queryBuilder.timeZone())
+            if (queryBuilder.format() != null) updatedRangeQueryBuilder.format(queryBuilder.format())
             if (queryBuilder.relation()?.relationName != null) updatedRangeQueryBuilder.relation(queryBuilder.relation().relationName)
             return updatedRangeQueryBuilder
         }
@@ -281,51 +285,66 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder): QueryBuilder {
         is BoolQueryBuilder -> {
             val newBoolQueryBuilder = BoolQueryBuilder()
             queryBuilder.must()?.forEach {
-                val newMustQueryBuilder = this.rewriteQueryBuilder(it)
+                val newMustQueryBuilder = this.rewriteQueryBuilder(it, fieldNameMappingTypeMap)
                 newBoolQueryBuilder.must(newMustQueryBuilder)
             }
             queryBuilder.mustNot()?.forEach {
-                val newMustNotQueryBuilder = this.rewriteQueryBuilder(it)
+                val newMustNotQueryBuilder = this.rewriteQueryBuilder(it, fieldNameMappingTypeMap)
                 newBoolQueryBuilder.mustNot(newMustNotQueryBuilder)
             }
             queryBuilder.should()?.forEach {
-                val newShouldQueryBuilder = this.rewriteQueryBuilder(it)
+                val newShouldQueryBuilder = this.rewriteQueryBuilder(it, fieldNameMappingTypeMap)
                 newBoolQueryBuilder.should(newShouldQueryBuilder)
             }
             queryBuilder.filter()?.forEach {
-                val newFilterQueryBuilder = this.rewriteQueryBuilder(it)
+                val newFilterQueryBuilder = this.rewriteQueryBuilder(it, fieldNameMappingTypeMap)
                 newBoolQueryBuilder.filter(newFilterQueryBuilder)
             }
             newBoolQueryBuilder.minimumShouldMatch(queryBuilder.minimumShouldMatch())
             newBoolQueryBuilder.adjustPureNegative(queryBuilder.adjustPureNegative())
+            newBoolQueryBuilder.queryName(queryBuilder.queryName())
+            newBoolQueryBuilder.boost(queryBuilder.boost())
             return newBoolQueryBuilder
         }
         is BoostingQueryBuilder -> {
-            val newPositiveQueryBuilder = queryBuilder.positiveQuery()?.also { this.rewriteQueryBuilder(it) }
-            val newNegativeQueryBuilder = queryBuilder.negativeQuery()?.also { this.rewriteQueryBuilder(it) }
+            val newPositiveQueryBuilder = queryBuilder.positiveQuery().also { this.rewriteQueryBuilder(it, fieldNameMappingTypeMap) }
+            val newNegativeQueryBuilder = queryBuilder.negativeQuery().also { this.rewriteQueryBuilder(it, fieldNameMappingTypeMap) }
             val newBoostingQueryBuilder = BoostingQueryBuilder(newPositiveQueryBuilder, newNegativeQueryBuilder)
             if (queryBuilder.negativeBoost() >= 0) newBoostingQueryBuilder.negativeBoost(queryBuilder.negativeBoost())
+            newBoostingQueryBuilder.queryName(queryBuilder.queryName())
+            newBoostingQueryBuilder.boost(queryBuilder.boost())
             return newBoostingQueryBuilder
         }
         is ConstantScoreQueryBuilder -> {
-            if (queryBuilder.innerQuery() == null) {
-                // Nothing to do
-                return queryBuilder
-            }
-            val newInnerQueryBuilder = queryBuilder.innerQuery().also { this.rewriteQueryBuilder(it) }
+            val newInnerQueryBuilder = queryBuilder.innerQuery().also { this.rewriteQueryBuilder(it, fieldNameMappingTypeMap) }
             val newConstantScoreQueryBuilder = ConstantScoreQueryBuilder(newInnerQueryBuilder)
             newConstantScoreQueryBuilder.boost(queryBuilder.boost())
+            newConstantScoreQueryBuilder.queryName(queryBuilder.queryName())
             return newConstantScoreQueryBuilder
         }
         is DisMaxQueryBuilder -> {
             val newDisMaxQueryBuilder = DisMaxQueryBuilder()
-            queryBuilder.innerQueries().forEach { newDisMaxQueryBuilder.add(this.rewriteQueryBuilder(it)) }
+            queryBuilder.innerQueries().forEach { newDisMaxQueryBuilder.add(this.rewriteQueryBuilder(it, fieldNameMappingTypeMap)) }
             newDisMaxQueryBuilder.tieBreaker(queryBuilder.tieBreaker())
+            newDisMaxQueryBuilder.queryName(queryBuilder.queryName())
+            newDisMaxQueryBuilder.boost(queryBuilder.boost())
             return newDisMaxQueryBuilder
         }
         is FunctionScoreQueryBuilder -> {
-            // TODO implement the logic
-            return queryBuilder
+            val newInnerQueryBuilder = queryBuilder.query().also { this.rewriteQueryBuilder(it, fieldNameMappingTypeMap) }
+            val newFilterFunctionBuilders = arrayOf<FunctionScoreQueryBuilder.FilterFunctionBuilder>()
+            queryBuilder.filterFunctionBuilders().forEach {
+                val newFilterQueryBuilder = this.rewriteQueryBuilder(it.filter, fieldNameMappingTypeMap)
+                newFilterFunctionBuilders.plus(FunctionScoreQueryBuilder.FilterFunctionBuilder(newFilterQueryBuilder, it.scoreFunction))
+            }
+            val newFunctionScoreQueryBuilder = FunctionScoreQueryBuilder(newInnerQueryBuilder, newFilterFunctionBuilders)
+            if (queryBuilder.boostMode() != null) newFunctionScoreQueryBuilder.boostMode(queryBuilder.boostMode())
+            newFunctionScoreQueryBuilder.scoreMode(queryBuilder.scoreMode())
+            newFunctionScoreQueryBuilder.maxBoost(queryBuilder.maxBoost())
+            if (queryBuilder.minScore != null) newFunctionScoreQueryBuilder.setMinScore(queryBuilder.minScore)
+            newFunctionScoreQueryBuilder.queryName(queryBuilder.queryName())
+            newFunctionScoreQueryBuilder.boost(queryBuilder.boost())
+            return newFunctionScoreQueryBuilder
         }
         else -> {
             throw UnsupportedOperationException("The ${queryBuilder.name} query is currently not supported in rollups")
@@ -349,7 +368,7 @@ fun Rollup.populateFieldMappings(): Set<RollupFieldMapping> {
 // TODO: Not a fan of this.. but I can't find a way to overwrite the aggregations on the shallow copy or original
 //  so we need to instantiate a new one so we can add the rewritten aggregation builders
 @Suppress("ComplexMethod")
-fun SearchSourceBuilder.rewriteSearchSourceBuilder(job: Rollup): SearchSourceBuilder {
+fun SearchSourceBuilder.rewriteSearchSourceBuilder(job: Rollup, fieldNameMappingTypeMap: Map<String, String>): SearchSourceBuilder {
     val ssb = SearchSourceBuilder()
     this.aggregations()?.aggregatorFactories?.forEach { ssb.aggregation(job.rewriteAggregationBuilder(it)) }
     if (this.explain() != null) ssb.explain(this.explain())
@@ -363,7 +382,7 @@ fun SearchSourceBuilder.rewriteSearchSourceBuilder(job: Rollup): SearchSourceBui
     if (this.minScore() != null) ssb.minScore(this.minScore())
     if (this.postFilter() != null) ssb.postFilter(this.postFilter())
     ssb.profile(this.profile())
-    if (this.query() != null) ssb.query(job.rewriteQueryBuilder(this.query()))
+    if (this.query() != null) ssb.query(job.rewriteQueryBuilder(this.query(), fieldNameMappingTypeMap))
     this.rescores()?.forEach { ssb.addRescorer(it) }
     this.scriptFields()?.forEach { ssb.scriptField(it.fieldName(), it.script(), it.ignoreFailure()) }
     if (this.searchAfter() != null) ssb.searchAfter(this.searchAfter())

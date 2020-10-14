@@ -19,9 +19,10 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping.Companion.RANGE_MAPPING
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping.Companion.UNKNOWN_MAPPING
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getDateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getRollupJobs
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.populateFieldMappings
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.rewriteSearchSourceBuilder
@@ -40,6 +41,7 @@ import org.elasticsearch.index.query.TermsQueryBuilder
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilder
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import org.elasticsearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.AvgAggregationBuilder
@@ -61,7 +63,7 @@ class RollupInterceptor(
 
     private val logger = LogManager.getLogger(javaClass)
 
-    @Suppress("ComplexMethod", "SpreadOperator", "NestedBlockDepth", "LongMethod")
+    @Suppress("SpreadOperator")
     override fun <T : TransportRequest> interceptHandler(
         action: String,
         executor: String,
@@ -103,15 +105,12 @@ class RollupInterceptor(
                             throw IllegalArgumentException("Could not find a rollup job that can answer this query because $issues")
                         }
 
-                        // Very simple resolution to start: just take all the matching jobs that can answer the query and use the newest one
-                        val matchedRollup = matchingRollupJobs.reduce { matched, new ->
-                            if (matched.lastUpdateTime.isAfter(new.lastUpdateTime)) matched
-                            else new
-                        }
+                        val matchedRollup = pickRollupJob(matchingRollupJobs.keys)
+                        val fieldNameMappingTypeMap = matchingRollupJobs.getValue(matchedRollup).associateBy({ it.fieldName }, { it.mappingType })
 
                         // only rebuild if there is necessity to rebuild
                         if (fieldMappings.isNotEmpty()) {
-                            request.source(request.source().rewriteSearchSourceBuilder(matchedRollup))
+                            request.source(request.source().rewriteSearchSourceBuilder(matchedRollup, fieldNameMappingTypeMap))
                         }
                     }
                 }
@@ -177,7 +176,7 @@ class RollupInterceptor(
                 fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, query.fieldName(), Dimension.Type.TERMS.type))
             }
             is RangeQueryBuilder -> {
-                fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, query.fieldName(), RANGE_MAPPING))
+                fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, query.fieldName(), UNKNOWN_MAPPING))
             }
             is MatchAllQueryBuilder -> {
                 // do nothing
@@ -210,34 +209,65 @@ class RollupInterceptor(
         return fieldMappings
     }
 
-    // TODO: can be potentially more efficient
+    // TODO: How does this job matching work with roles/security?
     private fun findMatchingRollupJobs(
         fieldMappings: Set<RollupFieldMapping>,
         rollupJobs: List<Rollup>
-    ): Pair<Set<Rollup>, Set<String>> {
+    ): Pair<Map<Rollup, Set<RollupFieldMapping>>, Set<String>> {
         val rollupFieldMappings = rollupJobs.map { rollup ->
             rollup to rollup.populateFieldMappings()
         }.toMap()
 
-        val nonRangeFieldMappings = mutableSetOf<RollupFieldMapping>()
-        val rangeFieldMappings = mutableSetOf<RollupFieldMapping>()
+        val knownFieldMappings = mutableSetOf<RollupFieldMapping>()
+        val unknownFields = mutableSetOf<String>()
 
         fieldMappings.forEach {
-            if (it.mappingType == RANGE_MAPPING) rangeFieldMappings.add(it)
-            else nonRangeFieldMappings.add(it)
+            if (it.mappingType == UNKNOWN_MAPPING) unknownFields.add(it.fieldName)
+            else knownFieldMappings.add(it)
         }
 
-        val potentialRollupFieldMappings = rollupFieldMappings.filterValues { it.containsAll(nonRangeFieldMappings) }
-
-        // TODO: not sure what to do yet on nonRangeFieldMappings
+        val potentialRollupFieldMappings = rollupFieldMappings.filterValues {
+            it.containsAll(knownFieldMappings) && it.map { rollupFieldMapping -> rollupFieldMapping.fieldName }.containsAll(unknownFields)
+        }
 
         val issues = mutableSetOf<String>()
-        val allFieldMappings = mutableSetOf<RollupFieldMapping>()
-        rollupFieldMappings.values.forEach { allFieldMappings.addAll(it) }
-        nonRangeFieldMappings.forEach {
-            if (!allFieldMappings.contains(it)) issues.add(it.toIssue())
+        if (potentialRollupFieldMappings.isEmpty()) {
+            // create a global set of all field mappings
+            val allFieldMappings = mutableSetOf<RollupFieldMapping>()
+            rollupFieldMappings.values.forEach { allFieldMappings.addAll(it) }
+
+            // create a global set of field names to handle unknown mapping types
+            val allFields = allFieldMappings.map { it.fieldName }
+
+            // Adding to the issue if cannot find field mapping and in case of unknown mapping we just check if the field exists for sanity check
+            fieldMappings.forEach {
+                if (!(allFieldMappings.contains(it) || (it.mappingType == UNKNOWN_MAPPING && allFields.contains(it.fieldName)))) {
+                    issues.add(it.toIssue())
+                }
+            }
         }
 
-        return potentialRollupFieldMappings.keys to issues
+        return potentialRollupFieldMappings to issues
+    }
+
+    // TODO: revisit - not entirely sure if this is the best thing to do, especially when there is a range query
+    private fun pickRollupJob(rollups: Set<Rollup>): Rollup {
+        if (rollups.size == 1) {
+            return rollups.first()
+        }
+
+        // Picking the job with largest rollup window for now
+        return rollups.reduce { matched, new ->
+                if (getEstimateRollupInterval(matched) > getEstimateRollupInterval(new)) matched
+                else new
+        }
+    }
+
+    private fun getEstimateRollupInterval(rollup: Rollup): Long {
+        return if (rollup.getDateHistogram().calendarInterval != null) {
+            DateHistogramInterval(rollup.getDateHistogram().calendarInterval).estimateMillis()
+        } else {
+            DateHistogramInterval(rollup.getDateHistogram().fixedInterval).estimateMillis()
+        }
     }
 }

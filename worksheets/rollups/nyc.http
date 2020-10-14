@@ -1,0 +1,26 @@
+POST localhost:9200/nyc-taxi-data/_bulk?pretty
+Content-Type: application/x-ndjson
+
+< ../../src/test/resources/data/nyc_5000.ndjson
+
+###
+DELETE localhost:9200/nyc-taxi-data/
+
+###
+GET localhost:9200/nyc-taxi-data/_mapping
+
+###
+GET localhost:9200/nyc-taxi-data/_search
+Content-Type: application/json
+
+{
+  "size": 2,
+  "_source": "total_amount",
+  "aggs": {
+    "test": {
+      "sum": {
+        "field": "total_amount"
+      }
+    }
+  }
+}

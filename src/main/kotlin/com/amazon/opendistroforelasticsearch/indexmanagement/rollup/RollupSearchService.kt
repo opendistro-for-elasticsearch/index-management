@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getRoll
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
 import java.time.Instant
 
 // TODO: Backoff/Throttling when cluster is overloaded - CircuitBreakingException?

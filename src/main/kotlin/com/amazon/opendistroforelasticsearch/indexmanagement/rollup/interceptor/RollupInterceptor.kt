@@ -71,7 +71,7 @@ class RollupInterceptor(
         }
     }
 
-    @Suppress("ComplexMethod", "SpreadOperator", "NestedBlockDepth", "LongMethod")
+    @Suppress("SpreadOperator")
     override fun <T : TransportRequest> interceptHandler(
         action: String,
         executor: String,
@@ -200,17 +200,17 @@ class RollupInterceptor(
                 query.filter()?.forEach { this.getQueryMetadata(it, fieldMappings) }
             }
             is BoostingQueryBuilder -> {
-                query.positiveQuery()?.also { this.getQueryMetadata(it, fieldMappings) }
-                query.negativeQuery()?.also { this.getQueryMetadata(it, fieldMappings) }
+                this.getQueryMetadata(query.positiveQuery(), fieldMappings)
+                this.getQueryMetadata(query.negativeQuery(), fieldMappings)
             }
             is ConstantScoreQueryBuilder -> {
-                query.innerQuery()?.also { this.getQueryMetadata(it, fieldMappings) }
+                this.getQueryMetadata(query.innerQuery(), fieldMappings)
             }
             is DisMaxQueryBuilder -> {
                 query.innerQueries().forEach { this.getQueryMetadata(it, fieldMappings) }
             }
             is FunctionScoreQueryBuilder -> {
-                query.query().also { this.getQueryMetadata(it, fieldMappings) }
+                this.getQueryMetadata(query.query(), fieldMappings)
                 query.filterFunctionBuilders().forEach { this.getQueryMetadata(it.filter, fieldMappings) }
             }
             else -> {
@@ -251,7 +251,7 @@ class RollupInterceptor(
             // create a global set of field names to handle unknown mapping types
             val allFields = allFieldMappings.map { it.fieldName }
 
-            // Adding to the issue if cannot find field mapping and in case of unknown mapping we just check if the field exists for sanity check
+            // Adding to the issue if cannot find field mapping and in case of unknown mapping we just check if the field exists
             fieldMappings.forEach {
                 if (!(allFieldMappings.contains(it) || (it.mappingType == UNKNOWN_MAPPING && allFields.contains(it.fieldName)))) {
                     issues.add(it.toIssue())

@@ -1,19 +1,19 @@
 /*
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
- *  * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License").
- *  * You may not use this file except in compliance with the License.
- *  * A copy of the License is located at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * or in the "license" file accompanying this file. This file is distributed
- *  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- *  * express or implied. See the License for the specific language governing
- *  * permissions and limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
  */
+
+@file:Suppress("TooManyFunctions")
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util
 
@@ -335,8 +335,8 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
             return newBoolQueryBuilder
         }
         is BoostingQueryBuilder -> {
-            val newPositiveQueryBuilder = queryBuilder.positiveQuery().also { this.rewriteQueryBuilder(it, fieldNameMappingTypeMap) }
-            val newNegativeQueryBuilder = queryBuilder.negativeQuery().also { this.rewriteQueryBuilder(it, fieldNameMappingTypeMap) }
+            val newPositiveQueryBuilder = this.rewriteQueryBuilder(queryBuilder.positiveQuery(), fieldNameMappingTypeMap)
+            val newNegativeQueryBuilder = this.rewriteQueryBuilder(queryBuilder.negativeQuery(), fieldNameMappingTypeMap)
             val newBoostingQueryBuilder = BoostingQueryBuilder(newPositiveQueryBuilder, newNegativeQueryBuilder)
             if (queryBuilder.negativeBoost() >= 0) newBoostingQueryBuilder.negativeBoost(queryBuilder.negativeBoost())
             newBoostingQueryBuilder.queryName(queryBuilder.queryName())
@@ -344,7 +344,7 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
             return newBoostingQueryBuilder
         }
         is ConstantScoreQueryBuilder -> {
-            val newInnerQueryBuilder = queryBuilder.innerQuery().also { this.rewriteQueryBuilder(it, fieldNameMappingTypeMap) }
+            val newInnerQueryBuilder = this.rewriteQueryBuilder(queryBuilder.innerQuery(), fieldNameMappingTypeMap)
             val newConstantScoreQueryBuilder = ConstantScoreQueryBuilder(newInnerQueryBuilder)
             newConstantScoreQueryBuilder.boost(queryBuilder.boost())
             newConstantScoreQueryBuilder.queryName(queryBuilder.queryName())
@@ -380,6 +380,13 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
     }
 }
 
+private fun buildRollupQuery(rollup: Rollup, fieldNameMappingTypeMap: Map<String, String>, oldQuery: QueryBuilder): QueryBuilder {
+    val wrappedQueryBuilder = BoolQueryBuilder()
+    wrappedQueryBuilder.must(rollup.rewriteQueryBuilder(oldQuery, fieldNameMappingTypeMap))
+    wrappedQueryBuilder.filter(TermQueryBuilder("rollup._id", rollup.id))
+    return wrappedQueryBuilder
+}
+
 fun Rollup.populateFieldMappings(): Set<RollupFieldMapping> {
     val fieldMappings = mutableSetOf<RollupFieldMapping>()
     this.dimensions.forEach {
@@ -410,7 +417,7 @@ fun SearchSourceBuilder.rewriteSearchSourceBuilder(job: Rollup, fieldNameMapping
     if (this.minScore() != null) ssb.minScore(this.minScore())
     if (this.postFilter() != null) ssb.postFilter(this.postFilter())
     ssb.profile(this.profile())
-    if (this.query() != null) ssb.query(job.rewriteQueryBuilder(this.query(), fieldNameMappingTypeMap))
+    if (this.query() != null) ssb.query(buildRollupQuery(job, fieldNameMappingTypeMap, this.query()))
     this.rescores()?.forEach { ssb.addRescorer(it) }
     this.scriptFields()?.forEach { ssb.scriptField(it.fieldName(), it.script(), it.ignoreFailure()) }
     if (this.searchAfter() != null) ssb.searchAfter(this.searchAfter())

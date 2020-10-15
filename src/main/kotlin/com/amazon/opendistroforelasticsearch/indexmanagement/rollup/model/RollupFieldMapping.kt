@@ -26,7 +26,7 @@ data class RollupFieldMapping(val fieldType: FieldType, val fieldName: String, v
 
     fun toIssue(): String {
         return when {
-            mappingType == UNKNOWN_MAPPING -> "missing $fieldName"
+            mappingType == UNKNOWN_MAPPING -> "missing field $fieldName"
             fieldType == FieldType.DIMENSION -> "missing $mappingType grouping on $fieldName"
             else -> "missing $mappingType aggregation on $fieldName"
         }

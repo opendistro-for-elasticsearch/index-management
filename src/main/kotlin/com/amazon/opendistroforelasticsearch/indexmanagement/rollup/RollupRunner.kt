@@ -243,6 +243,7 @@ object RollupRunner : ScheduledJobRunner,
     // Is this job even allowed to run? i.e. it was in a FAILED state and someone just switched enabled to true, do we actually retry it?
     // Do the job mappings make sense, is it possible to execute this job
     // etc. etc. etc.
+    @Suppress("ReturnCount")
     private suspend fun isJobValid(job: Rollup): Boolean {
         // TODO: Handle exceptions
         val metadata = if (job.metadataID != null) {

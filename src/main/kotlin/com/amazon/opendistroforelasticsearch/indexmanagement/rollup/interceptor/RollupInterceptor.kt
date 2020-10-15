@@ -37,7 +37,6 @@ import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.index.query.RangeQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.index.query.TermsQueryBuilder
-import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilder
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval
@@ -208,10 +207,6 @@ class RollupInterceptor(
             }
             is DisMaxQueryBuilder -> {
                 query.innerQueries().forEach { this.getQueryMetadata(it, fieldMappings) }
-            }
-            is FunctionScoreQueryBuilder -> {
-                this.getQueryMetadata(query.query(), fieldMappings)
-                query.filterFunctionBuilders().forEach { this.getQueryMetadata(it.filter, fieldMappings) }
             }
             else -> {
                 throw UnsupportedOperationException("The ${query.name} query is currently not supported in rollups")

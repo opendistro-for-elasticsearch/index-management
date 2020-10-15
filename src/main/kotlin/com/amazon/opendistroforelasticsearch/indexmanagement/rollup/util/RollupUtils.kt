@@ -48,7 +48,6 @@ import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.index.query.RangeQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.index.query.TermsQueryBuilder
-import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.aggregations.AggregationBuilder
@@ -357,22 +356,6 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
             newDisMaxQueryBuilder.queryName(queryBuilder.queryName())
             newDisMaxQueryBuilder.boost(queryBuilder.boost())
             return newDisMaxQueryBuilder
-        }
-        is FunctionScoreQueryBuilder -> {
-            val newInnerQueryBuilder = queryBuilder.query().also { this.rewriteQueryBuilder(it, fieldNameMappingTypeMap) }
-            val newFilterFunctionBuilders = arrayOf<FunctionScoreQueryBuilder.FilterFunctionBuilder>()
-            queryBuilder.filterFunctionBuilders().forEach {
-                val newFilterQueryBuilder = this.rewriteQueryBuilder(it.filter, fieldNameMappingTypeMap)
-                newFilterFunctionBuilders.plus(FunctionScoreQueryBuilder.FilterFunctionBuilder(newFilterQueryBuilder, it.scoreFunction))
-            }
-            val newFunctionScoreQueryBuilder = FunctionScoreQueryBuilder(newInnerQueryBuilder, newFilterFunctionBuilders)
-            if (queryBuilder.boostMode() != null) newFunctionScoreQueryBuilder.boostMode(queryBuilder.boostMode())
-            newFunctionScoreQueryBuilder.scoreMode(queryBuilder.scoreMode())
-            newFunctionScoreQueryBuilder.maxBoost(queryBuilder.maxBoost())
-            if (queryBuilder.minScore != null) newFunctionScoreQueryBuilder.setMinScore(queryBuilder.minScore)
-            newFunctionScoreQueryBuilder.queryName(queryBuilder.queryName())
-            newFunctionScoreQueryBuilder.boost(queryBuilder.boost())
-            return newFunctionScoreQueryBuilder
         }
         else -> {
             throw UnsupportedOperationException("The ${queryBuilder.name} query is currently not supported in rollups")

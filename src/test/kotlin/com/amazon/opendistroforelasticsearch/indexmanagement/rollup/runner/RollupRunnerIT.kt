@@ -73,8 +73,7 @@ class RollupRunnerIT : RollupRestTestCase() {
         }
     }
 
-    // TODO: Need to add next_window_end_time logic and fix version conflict exception before running this
-    fun `skip test metadata set to failed when rollup job has a metadata id but metadata doc doesn't exist`() {
+    fun `test metadata set to failed when rollup job has a metadata id but metadata doc doesn't exist`() {
         val indexName = "test_index"
 
         // Define rollup

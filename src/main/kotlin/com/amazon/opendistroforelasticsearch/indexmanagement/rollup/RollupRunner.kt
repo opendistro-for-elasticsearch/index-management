@@ -132,6 +132,9 @@ object RollupRunner : ScheduledJobRunner,
                 return@launch
             }
 
+            // TODO: Move isJobValid() logic to some transport action and call here instead of inside runRollupJob()
+            //   otherwise situations where source/target index are deleted are not caught until shouldProcessRollup is true
+
             // Check if rollup should be processed before acquiring the lock
             // If metadata does not exist, it will either be initialized for the first time or it will be recreated to communicate the failed state
             if (rollupSearchService.shouldProcessRollup(job, metadata)) {

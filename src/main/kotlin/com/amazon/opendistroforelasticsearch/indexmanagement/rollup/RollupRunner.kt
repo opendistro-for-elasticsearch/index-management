@@ -163,12 +163,7 @@ object RollupRunner : ScheduledJobRunner,
 
         var metadata = rollupMetadataService.init(job)
         if (metadata.status == RollupMetadata.Status.FAILED) {
-            val updatedRollupJob = if (metadata.id != job.metadataID) {
-                job.copy(metadataID = metadata.id, enabled = false, jobEnabledTime = null)
-            } else {
-                job.copy(enabled = false, jobEnabledTime = null)
-            }
-            updateRollupJob(updatedRollupJob)
+            disableJob(job, metadata)
             return
         }
 
@@ -292,8 +287,12 @@ object RollupRunner : ScheduledJobRunner,
         updatedMetadata = rollupMetadataService
             .submitMetadataUpdate(updatedMetadata, updatedMetadata.id != NO_ID)
 
-        val updatedRollupJob = if (updatedMetadata.id != job.metadataID) {
-            job.copy(metadataID = updatedMetadata.id, enabled = false, jobEnabledTime = null)
+        disableJob(job, updatedMetadata)
+    }
+
+    private suspend fun disableJob(job: Rollup, metadata: RollupMetadata) {
+        val updatedRollupJob = if (metadata.id != job.metadataID) {
+            job.copy(metadataID = metadata.id, enabled = false, jobEnabledTime = null)
         } else {
             job.copy(enabled = false, jobEnabledTime = null)
         }

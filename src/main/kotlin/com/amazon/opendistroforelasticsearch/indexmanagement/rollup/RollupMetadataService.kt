@@ -61,12 +61,32 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     suspend fun init(rollup: Rollup): RollupMetadata {
         if (rollup.metadataID != null) {
             // TODO: How does the user recover from the not found error?
-            return getExistingMetadata(rollup.metadataID)
-                ?: submitMetadataUpdate(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
+            val existingMetadata = getExistingMetadata(rollup.metadataID)
+            return if (existingMetadata != null) {
+                if (existingMetadata.status == RollupMetadata.Status.RETRY) {
+                    submitMetadataUpdate(recoverRetryMetadata(rollup, existingMetadata), true)
+                } else existingMetadata
+            } else {
+                submitMetadataUpdate(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
                     failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]"), false)
+            }
         }
         val metadata = if (rollup.continuous) createContinuousMetadata(rollup) else createNonContinuousMetadata(rollup)
         return submitMetadataUpdate(metadata, false)
+    }
+
+    private suspend fun recoverRetryMetadata(rollup: Rollup, metadata: RollupMetadata): RollupMetadata {
+        // TODO: Clean up and handle failures from getInitialStartTime
+        val continuous = if (rollup.continuous && metadata.continuous == null) {
+            val nextWindowStartTime = getInitialStartTime(rollup)
+            val nextWindowEndTime = getShiftedTime(nextWindowStartTime, rollup)
+            ContinuousMetadata(nextWindowStartTime, nextWindowEndTime)
+        } else null
+
+        return metadata.copy(
+            continuous = continuous,
+            status = RollupMetadata.Status.STARTED
+        )
     }
 
     // This returns the first instantiation of a RollupMetadata for a non-continuous rollup

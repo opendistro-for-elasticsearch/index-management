@@ -1,21 +1,19 @@
 /*
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
- *  * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License").
- *  * You may not use this file except in compliance with the License.
- *  * A copy of the License is located at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * or in the "license" file accompanying this file. This file is distributed
- *  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- *  * express or implied. See the License for the specific language governing
- *  * permissions and limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
+package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.interceptor
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping
@@ -29,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.rewrite
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.BoostingQueryBuilder
 import org.elasticsearch.index.query.ConstantScoreQueryBuilder
@@ -58,12 +57,21 @@ import org.elasticsearch.transport.TransportRequestHandler
 
 class RollupInterceptor(
     val clusterService: ClusterService,
+    val settings: Settings,
     val indexNameExpressionResolver: IndexNameExpressionResolver
 ) : TransportInterceptor {
 
     private val logger = LogManager.getLogger(javaClass)
 
-    @Suppress("SpreadOperator")
+    @Volatile private var searchEnabled = RollupSettings.ROLLUP_SEARCH_ENABLED.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(RollupSettings.ROLLUP_SEARCH_ENABLED) {
+            searchEnabled = it
+        }
+    }
+
+    @Suppress("ComplexMethod", "SpreadOperator", "NestedBlockDepth", "LongMethod")
     override fun <T : TransportRequest> interceptHandler(
         action: String,
         executor: String,
@@ -72,10 +80,14 @@ class RollupInterceptor(
     ): TransportRequestHandler<T> {
         return object : TransportRequestHandler<T> {
             override fun messageReceived(request: T, channel: TransportChannel, task: Task) {
-                if (request is ShardSearchRequest) {
+                if (searchEnabled && request is ShardSearchRequest) {
                     val index = request.shardId().indexName
                     val isRollupIndex = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(index).settings)
                     if (isRollupIndex) {
+                        if (request.source().size() != 0) {
+                            throw IllegalArgumentException("Rollup search must have size explicitly set to 0, but found ${request.source().size()}")
+                        }
+
                         val indices = request.indices().map { it.toString() }.toTypedArray()
                         val concreteIndices = indexNameExpressionResolver
                                 .concreteIndexNames(clusterService.state(), request.indicesOptions(), *indices)

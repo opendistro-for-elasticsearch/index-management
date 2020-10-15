@@ -51,7 +51,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.Ref
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.TransportRefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupIndexer
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupInterceptor
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.interceptor.RollupInterceptor
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupMapperService
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRunner
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupSearchService
@@ -228,7 +228,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerSearcher(RollupSearchService(client))
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
-        rollupInterceptor = RollupInterceptor(clusterService, indexNameExpressionResolver)
+        rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
         this.indexNameExpressionResolver = indexNameExpressionResolver
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =

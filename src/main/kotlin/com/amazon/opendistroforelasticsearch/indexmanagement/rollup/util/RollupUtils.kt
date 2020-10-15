@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupMapper
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
@@ -50,6 +49,8 @@ import org.elasticsearch.index.query.RangeQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.index.query.TermsQueryBuilder
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptType
 import org.elasticsearch.search.aggregations.AggregationBuilder
 import org.elasticsearch.search.aggregations.AggregatorFactories
 import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder
@@ -64,6 +65,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilde
 import org.elasticsearch.search.aggregations.metrics.AvgAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.MaxAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.MinAggregationBuilder
+import org.elasticsearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.SumAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.ValueCountAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.WeightedAvgAggregationBuilder
@@ -94,27 +96,33 @@ fun Rollup.getCompositeAggregationBuilder(afterKey: Map<String, Any>?): Composit
     this.dimensions.forEach { dimension ->
         when (dimension) {
             is DateHistogram -> {
-                DateHistogramValuesSourceBuilder(dimension.targetField + ".date_histogram").apply {
-                    this.field(dimension.sourceField)
-                    this.timeZone(dimension.timezone)
-                    dimension.calendarInterval?.let { it ->
-                        this.calendarInterval(DateHistogramInterval(it))
-                    }
-                    dimension.fixedInterval?.let { it ->
-                        this.fixedInterval(DateHistogramInterval(it))
-                    }
-                }.also { sources.add(it) }
+                DateHistogramValuesSourceBuilder(dimension.targetField + ".date_histogram")
+                    .missingBucket(true) // TODO: Should this always be true or be user-defined?
+                    .apply {
+                        this.field(dimension.sourceField)
+                        this.timeZone(dimension.timezone)
+                        dimension.calendarInterval?.let { it ->
+                            this.calendarInterval(DateHistogramInterval(it))
+                        }
+                        dimension.fixedInterval?.let { it ->
+                            this.fixedInterval(DateHistogramInterval(it))
+                        }
+                    }.also { sources.add(it) }
             }
             is Terms -> {
-                TermsValuesSourceBuilder(dimension.targetField + ".terms").apply {
-                    this.field(dimension.sourceField)
-                }.also { sources.add(it) }
+                TermsValuesSourceBuilder(dimension.targetField + ".terms")
+                    .missingBucket(true)
+                    .apply {
+                        this.field(dimension.sourceField)
+                    }.also { sources.add(it) }
             }
             is Histogram -> {
-                HistogramValuesSourceBuilder(dimension.targetField + ".histogram").apply {
-                    this.field(dimension.sourceField)
-                    this.interval(dimension.interval)
-                }.also { sources.add(it) }
+                HistogramValuesSourceBuilder(dimension.targetField + ".histogram")
+                    .missingBucket(true)
+                    .apply {
+                        this.field(dimension.sourceField)
+                        this.interval(dimension.interval)
+                    }.also { sources.add(it) }
             }
         }
     }
@@ -124,11 +132,11 @@ fun Rollup.getCompositeAggregationBuilder(afterKey: Map<String, Any>?): Composit
             metric.metrics.forEach { agg ->
                 compositeAgg.subAggregation(
                     when (agg) {
-                        is Average -> AvgAggregationBuilder(metric.aggregationName(agg)).field(metric.sourceField)
-                        is Sum -> SumAggregationBuilder(metric.aggregationName(agg)).field(metric.sourceField)
-                        is Max -> MaxAggregationBuilder(metric.aggregationName(agg)).field(metric.sourceField)
-                        is Min -> MinAggregationBuilder(metric.aggregationName(agg)).field(metric.sourceField)
-                        is ValueCount -> ValueCountAggregationBuilder(metric.aggregationName(agg)).field(metric.sourceField)
+                        is Average -> AvgAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
+                        is Sum -> SumAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
+                        is Max -> MaxAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
+                        is Min -> MinAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
+                        is ValueCount -> ValueCountAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
                         // TODO: This needs to cancel the rollup
                         else -> throw IllegalArgumentException("Found unsupported metric aggregation ${agg.type.type}")
                     }
@@ -149,8 +157,20 @@ fun Rollup.getDateHistogram(): DateHistogram {
 fun Rollup.findMatchingDimension(field: String, type: Dimension.Type): Dimension? =
     this.dimensions.find { dimension -> dimension.sourceField == field && dimension.type == type }
 
-inline fun <reified T> Rollup.findMatchingMetric(field: String): RollupMetrics? =
-    this.metrics.find { metric -> metric.sourceField == field && metric.metrics.any { m -> m is T } }
+// This method is only to be used after its confirmed the search/aggs is valid and these exist
+@Suppress("NestedBlockDepth")
+inline fun <reified T> Rollup.findMatchingMetricField(field: String): String {
+    for (rollupMetrics in this.metrics) {
+        if (rollupMetrics.sourceField == field) {
+            for (metric in rollupMetrics.metrics) {
+                if (metric is T) {
+                    return rollupMetrics.targetFieldWithType(metric)
+                }
+            }
+        }
+    }
+    throw IllegalStateException("Did not find matching rollup metric")
+}
 
 @Suppress("NestedBlockDepth")
 fun IndexMetadata.getRollupJobs(): List<Rollup>? {
@@ -214,33 +234,41 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
             dim.getRewrittenAggregation(aggregationBuilder, aggFactory)
         }
         is SumAggregationBuilder -> {
-            val metric = this.findMatchingMetric<Sum>(aggregationBuilder.field())!! // TODO: !! here and below
             SumAggregationBuilder(aggregationBuilder.name)
-                .field(metric.targetField + ".sum") // TODO: hardcoded here and below
+                .field(this.findMatchingMetricField<Sum>(aggregationBuilder.field()))
         }
         is AvgAggregationBuilder -> {
-            val metric = this.findMatchingMetric<Average>(aggregationBuilder.field())!!
             WeightedAvgAggregationBuilder(aggregationBuilder.name)
-                .value(MultiValuesSourceFieldConfig.Builder().setFieldName(metric.targetField + ".avg").build())
+                .value(MultiValuesSourceFieldConfig.Builder().setFieldName(this.findMatchingMetricField<Average>(aggregationBuilder.field())).build())
                 .weight(MultiValuesSourceFieldConfig.Builder().setFieldName("rollup.doc_count").build()) // TODO
                 // TODO: .setMetadata()?
                 // TODO: .subAggregations()?
                 // TODO: .format()? and anything else?
         }
         is MaxAggregationBuilder -> {
-            val metric = this.findMatchingMetric<Max>(aggregationBuilder.field())!!
             MaxAggregationBuilder(aggregationBuilder.name)
-                .field(metric.targetField + ".max")
+                .field(this.findMatchingMetricField<Max>(aggregationBuilder.field()))
         }
         is MinAggregationBuilder -> {
-            val metric = this.findMatchingMetric<Min>(aggregationBuilder.field())!!
             MinAggregationBuilder(aggregationBuilder.name)
-                .field(metric.targetField + ".min")
+                .field(this.findMatchingMetricField<Min>(aggregationBuilder.field()))
         }
         is ValueCountAggregationBuilder -> {
-            val metric = this.findMatchingMetric<ValueCount>(aggregationBuilder.field())!!
-            ValueCountAggregationBuilder(aggregationBuilder.name)
-                .field(metric.targetField + ".value_count")
+            /*
+            * A value count aggs of a pre-computed value count is incorrect as it just returns the number of
+            * pre-computed value counts instead of their sum. Unfortunately can't just use the sum aggregation
+            * because I was not able to find a way to cast the result of that to a long (instead of the returned float)
+            * and the 3893 vs 3893.0 was bothering me.. so this is the next best I can think of. Hopefully there is a better
+            * way and we can use that in the future.
+            * */
+            ScriptedMetricAggregationBuilder(aggregationBuilder.name)
+                .initScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, "state.valueCounts = []", emptyMap()))
+                .mapScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
+                    "state.valueCounts.add(doc[\"${this.findMatchingMetricField<ValueCount>(aggregationBuilder.field())}\"].value)", emptyMap()))
+                .combineScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
+                    "long valueCount = 0; for (vc in state.valueCounts) { valueCount += vc } return valueCount", emptyMap()))
+                .reduceScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
+                    "long valueCount = 0; for (vc in states) { valueCount += vc } return valueCount", emptyMap()))
         }
         // This will never get executed
         else -> throw UnsupportedOperationException("The ${aggregationBuilder.type} aggregation is not currently supported in rollups")

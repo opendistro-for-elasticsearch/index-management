@@ -95,7 +95,7 @@ data class RollupMetrics(
         }
     }
 
-    fun aggregationName(metric: Metric): String {
+    fun targetFieldWithType(metric: Metric): String {
         return when (metric) {
             is Average -> "$targetField.avg"
             is Sum -> "$targetField.sum"

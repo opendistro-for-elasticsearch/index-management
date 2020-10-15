@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_MILLIS
@@ -63,12 +64,14 @@ class RollupIndexer(
     *  But does "in the future" mean the next execution or just the the next loop in the current execution?
     * TODO: Can someone set a really high backoff that causes us to go over the lock duration?
     * */
-    suspend fun indexRollups(rollup: Rollup, internalComposite: InternalComposite) {
+    suspend fun indexRollups(rollup: Rollup, internalComposite: InternalComposite): RollupStats {
         var requestsToRetry = convertResponseToRequests(rollup, internalComposite)
+        var stats = RollupStats(0, 0, requestsToRetry.size.toLong(), 0, 0)
         if (requestsToRetry.isNotEmpty()) {
             retryIngestPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
                 val bulkRequest = BulkRequest().add(requestsToRetry)
                 val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
+                stats = stats.copy(indexTimeInMillis = stats.indexTimeInMillis + bulkResponse.took.millis)
                 val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
                 requestsToRetry = failedResponses.filter { it.status() == RestStatus.TOO_MANY_REQUESTS }
                     .map { bulkRequest.requests()[it.itemId] as IndexRequest }
@@ -79,6 +82,7 @@ class RollupIndexer(
                 }
             }
         }
+        return stats
     }
 
     // TODO: Doc counts for aggregations are showing the doc counts of the rollup docs and not the raw data which is expected...

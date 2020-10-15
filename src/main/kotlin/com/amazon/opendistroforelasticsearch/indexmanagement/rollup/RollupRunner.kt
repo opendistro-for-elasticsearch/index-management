@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupRequest
@@ -22,6 +23,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata.Companion.NO_ID
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.incrementStats
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.mergeStats
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -32,12 +36,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.script.ScriptService
+import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
 import java.time.Instant
 
 @Suppress("TooManyFunctions")
@@ -129,7 +136,14 @@ object RollupRunner : ScheduledJobRunner,
             // If metadata does not exist, it will either be initialized for the first time or it will be recreated to communicate the failed state
             if (rollupSearchService.shouldProcessRollup(job, metadata)) {
                 // Attempt to acquire lock
-                val lock: LockModel? = context.lockService.suspendUntil { acquireLock(job, context, it) }
+                var lock: LockModel? = null
+                try {
+                    BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(1000), 3).retry(logger) {
+                        lock = context.lockService.suspendUntil { acquireLock(job, context, it) }
+                    }
+                } catch (e: Exception) {
+                    logger.error("Error trying to acquireLock", e)
+                }
                 if (lock == null) {
                     logger.debug("Could not acquire lock for ${job.id}")
                 } else {
@@ -190,13 +204,14 @@ object RollupRunner : ScheduledJobRunner,
             updateRollupJob(updatableJob.copy(enabled = false, jobEnabledTime = null))
             return
         }
-
         while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
             do {
                 try {
-                    val internalComposite = rollupSearchService.executeCompositeSearch(updatableJob, metadata)
-                    rollupIndexer.indexRollups(updatableJob, internalComposite)
-                    metadata = rollupMetadataService.updateMetadata(updatableJob, metadata, internalComposite)
+                    val compositeResponse = rollupSearchService.executeCompositeSearch(updatableJob, metadata)
+                    val internalComposite: InternalComposite = compositeResponse.aggregations.get(updatableJob.id)
+                    metadata = metadata.incrementStats(compositeResponse, internalComposite)
+                    val indexStats = rollupIndexer.indexRollups(updatableJob, internalComposite)
+                    metadata = rollupMetadataService.updateMetadata(updatableJob, metadata.mergeStats(indexStats), internalComposite)
                     // TODO: Is this still needed now that job is updated earlier in runRollupJob()?
                     //  Job is not being retrieved during the middle of a rollup loop so removing job.metadataID won't be reflected here
                     if (updatableJob.metadataID == null) updatableJob = updateRollupJob(updatableJob.copy(metadataID = metadata.id))
@@ -272,7 +287,8 @@ object RollupRunner : ScheduledJobRunner,
                 rollupID = job.id,
                 status = RollupMetadata.Status.FAILED,
                 failureReason = reason,
-                lastUpdatedTime = Instant.now()
+                lastUpdatedTime = Instant.now(),
+                stats = RollupStats(0, 0, 0, 0, 0)
             )
         } else {
             // Update the given existing metadata

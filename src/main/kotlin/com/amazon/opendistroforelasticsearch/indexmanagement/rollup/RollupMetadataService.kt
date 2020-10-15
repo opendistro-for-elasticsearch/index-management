@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendU
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ContinuousMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -68,7 +69,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                 } else existingMetadata
             } else {
                 submitMetadataUpdate(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
-                    failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]"), false)
+                    failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]", stats = RollupStats(0, 0, 0, 0, 0)), false)
             }
         }
         val metadata = if (rollup.continuous) createContinuousMetadata(rollup) else createNonContinuousMetadata(rollup)
@@ -91,7 +92,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
 
     // This returns the first instantiation of a RollupMetadata for a non-continuous rollup
     private fun createNonContinuousMetadata(rollup: Rollup): RollupMetadata =
-        RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.INIT)
+        RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.INIT,
+            stats = RollupStats(0, 0, 0, 0, 0))
 
     // This updates the metadata for a non-continuous rollup after an execution of the composite search and ingestion of rollup data
     private fun getUpdatedNonContinuousMetadata(
@@ -118,7 +120,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             lastUpdatedTime = Instant.now(),
             continuous = ContinuousMetadata(nextWindowStartTime, nextWindowEndTime),
             status = RollupMetadata.Status.INIT,
-            failureReason = null
+            failureReason = null,
+            stats = RollupStats(0, 0, 0, 0, 0)
         )
     }
 

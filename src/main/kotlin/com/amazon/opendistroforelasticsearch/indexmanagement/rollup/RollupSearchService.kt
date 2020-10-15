@@ -74,8 +74,7 @@ class RollupSearchService(val client: Client) {
     }
 
     // TODO: error handling
-    suspend fun executeCompositeSearch(job: Rollup, metadata: RollupMetadata): InternalComposite {
-        val response: SearchResponse = client.suspendUntil { search(job.getRollupSearchRequest(metadata), it) }
-        return response.aggregations.get(job.id)
+    suspend fun executeCompositeSearch(job: Rollup, metadata: RollupMetadata): SearchResponse {
+        return client.suspendUntil { search(job.getRollupSearchRequest(metadata), it) }
     }
 }

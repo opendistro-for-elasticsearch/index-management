@@ -18,7 +18,15 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.runner
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Average
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Max
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Min
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Sum
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.ValueCount
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomCalendarDateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
@@ -222,6 +230,145 @@ class RollupRunnerIT : RollupRestTestCase() {
         }
 
         // TODO: Call _start to retry and test recovery behavior?
+    }
+
+    fun `test metadata stats contains correct info`() {
+        generateNYCTaxiData("source")
+
+        val rollup = Rollup(
+            id = "basic_stats_check",
+            schemaVersion = 1L,
+            enabled = true,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = Instant.now(),
+            jobEnabledTime = Instant.now(),
+            description = "basic stats test",
+            sourceIndex = "source",
+            targetIndex = "target",
+            metadataID = null,
+            roles = emptyList(),
+            pageSize = 100,
+            delay = 0,
+            continuous = false,
+            dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h")),
+            metrics = listOf(
+                RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
+            )
+        ).let { createRollup(it, it.id) }
+
+        val secondRollup = Rollup(
+            id = "all_inclusive_intervals",
+            schemaVersion = 1L,
+            enabled = true,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = Instant.now(),
+            jobEnabledTime = Instant.now(),
+            description = "basic stats test",
+            sourceIndex = "source",
+            targetIndex = "target",
+            metadataID = null,
+            roles = emptyList(),
+            pageSize = 100,
+            delay = 0,
+            continuous = false,
+            dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "100d")),
+            metrics = listOf(
+                RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
+            )
+        ).let { createRollup(it, it.id) }
+
+        val thirdRollup = Rollup(
+            id = "second_interval",
+            schemaVersion = 1L,
+            enabled = true,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = Instant.now(),
+            jobEnabledTime = Instant.now(),
+            description = "basic 1s test",
+            sourceIndex = "source",
+            targetIndex = "target",
+            metadataID = null,
+            roles = emptyList(),
+            pageSize = 100,
+            delay = 0,
+            continuous = false,
+            dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1s")),
+            metrics = listOf(
+                RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
+            )
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+        updateRollupStartTime(secondRollup)
+        updateRollupStartTime(thirdRollup)
+
+        waitFor { assertTrue("Target rollup index was not created", indexExists(rollup.targetIndex)) }
+
+        val finishedRollup = waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+            rollupJob
+        }
+
+        val secondFinishedRollup = waitFor {
+            val rollupJob = getRollup(rollupId = secondRollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+            rollupJob
+        }
+
+        val thirdFinishedRollup = waitFor {
+            val rollupJob = getRollup(rollupId = thirdRollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+            rollupJob
+        }
+
+        refreshAllIndices()
+
+        val rollupMetadataID = finishedRollup.metadataID!!
+        val rollupMetadata = getRollupMetadata(rollupMetadataID)
+        val secondRollupMetadataID = secondFinishedRollup.metadataID!!
+        val secondRollupMetadata = getRollupMetadata(secondRollupMetadataID)
+        val thirdRollupMetadataID = thirdFinishedRollup.metadataID!!
+        val thirdRollupMetadata = getRollupMetadata(thirdRollupMetadataID)
+
+        // These might seem like magic numbers but they are static/fixed based off the dataset in the resources
+        // We have two pages processed because afterKey is always returned if there is data in the response
+        // So the first pagination returns an afterKey and the second doesn't
+        assertEquals("Did not have 2 pages processed", 2L, rollupMetadata.stats.pagesProcessed)
+        // This is a non-continuous job that rolls up every document of which there are 5k
+        assertEquals("Did not have 5000 documents processed", 5000L, rollupMetadata.stats.documentsProcessed)
+        // Based on the very first document using the tpep_pickup_datetime date field and an hourly rollup there
+        // should be 10 buckets with data in them which means 10 rollup documents
+        assertEquals("Did not have 10 rollups indexed", 10L, rollupMetadata.stats.rollupsIndexed)
+        // These are hard to test.. just assert they are more than 0
+        assertTrue("Did not spend time indexing", rollupMetadata.stats.indexTimeInMillis > 0L)
+        assertTrue("Did not spend time searching", rollupMetadata.stats.searchTimeInMillis > 0L)
+
+        assertEquals("Did not have 2 pages processed", 2L, secondRollupMetadata.stats.pagesProcessed)
+        // This is a non-continuous job that rolls up every document of which there are 5k
+        assertEquals("Did not have 5000 documents processed", 5000L, secondRollupMetadata.stats.documentsProcessed)
+        // Based on the very first document using the tpep_pickup_datetime date field and a 100 day rollup there
+        // should be 1 bucket with data in them which means 1 rollup documents
+        assertEquals("Did not have 1 rollup indexed", 1L, secondRollupMetadata.stats.rollupsIndexed)
+        // These are hard to test.. just assert they are more than 0
+        assertTrue("Did not spend time indexing", secondRollupMetadata.stats.indexTimeInMillis > 0L)
+        assertTrue("Did not spend time searching", secondRollupMetadata.stats.searchTimeInMillis > 0L)
+
+        assertEquals("Did not have 28 pages processed", 28L, thirdRollupMetadata.stats.pagesProcessed)
+        // This is a non-continuous job that rolls up every document of which there are 5k
+        assertEquals("Did not have 5000 documents processed", 5000L, thirdRollupMetadata.stats.documentsProcessed)
+        // Based on the very first document using the tpep_pickup_datetime date field and a 1 second rollup there
+        // should be 2667 buckets with data in them which means 2667 rollup documents
+        assertEquals("Did not have 2667 rollups indexed", 2667L, thirdRollupMetadata.stats.rollupsIndexed)
+        // These are hard to test.. just assert they are more than 0
+        assertTrue("Did not spend time indexing", thirdRollupMetadata.stats.indexTimeInMillis > 0L)
+        assertTrue("Did not spend time searching", thirdRollupMetadata.stats.searchTimeInMillis > 0L)
     }
 
     // TODO: Test scenarios:

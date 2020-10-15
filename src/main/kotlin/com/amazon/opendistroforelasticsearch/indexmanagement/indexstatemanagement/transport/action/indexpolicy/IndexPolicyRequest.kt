@@ -27,23 +27,26 @@ import java.io.IOException
 class IndexPolicyRequest : ActionRequest {
 
     val policyID: String
-    val policy: Policy
+    var policy: Policy
     val seqNo: Long
     val primaryTerm: Long
     val refreshPolicy: WriteRequest.RefreshPolicy
+    val authHeader: String?
 
     constructor(
         policyID: String,
         policy: Policy,
         seqNo: Long,
         primaryTerm: Long,
-        refreshPolicy: WriteRequest.RefreshPolicy
+        refreshPolicy: WriteRequest.RefreshPolicy,
+        authHeader: String?
     ) : super() {
         this.policyID = policyID
         this.policy = policy
         this.seqNo = seqNo
         this.primaryTerm = primaryTerm
         this.refreshPolicy = refreshPolicy
+        this.authHeader = authHeader
     }
 
     @Throws(IOException::class)
@@ -52,7 +55,8 @@ class IndexPolicyRequest : ActionRequest {
         policy = Policy(sin),
         seqNo = sin.readLong(),
         primaryTerm = sin.readLong(),
-        refreshPolicy = sin.readEnum(WriteRequest.RefreshPolicy::class.java)
+        refreshPolicy = sin.readEnum(WriteRequest.RefreshPolicy::class.java),
+        authHeader = sin.readOptionalString()
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -70,5 +74,6 @@ class IndexPolicyRequest : ActionRequest {
         out.writeLong(seqNo)
         out.writeLong(primaryTerm)
         out.writeEnum(refreshPolicy)
+        out.writeOptionalString(authHeader)
     }
 }

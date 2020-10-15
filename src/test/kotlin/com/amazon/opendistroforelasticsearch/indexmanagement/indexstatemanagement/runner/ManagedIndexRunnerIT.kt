@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomReadWriteActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomTransition
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomUser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.readonly.SetReadOnlyStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.readwrite.SetReadWriteStep
@@ -52,7 +53,8 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
-            states = states
+            states = states,
+            user = randomUser()
         )
 
         createPolicy(policy, policyID)

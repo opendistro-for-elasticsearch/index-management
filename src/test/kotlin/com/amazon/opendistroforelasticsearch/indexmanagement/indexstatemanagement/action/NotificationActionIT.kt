@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination.DestinationType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomUser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
@@ -67,7 +68,8 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
-            states = states
+            states = states,
+            user = randomUser()
         )
 
         createPolicy(policy, policyID)

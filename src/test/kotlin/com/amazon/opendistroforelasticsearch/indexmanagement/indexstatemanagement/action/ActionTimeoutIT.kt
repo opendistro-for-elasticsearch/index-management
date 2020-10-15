@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.open.AttemptOpenStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollover.AttemptRolloverStep
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.stringUser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
 import org.hamcrest.collection.IsMapContaining
 import java.time.Instant
@@ -35,7 +36,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         val testPolicy = """
         {"policy":{"description":"Default policy","default_state":"rolloverstate","states":[
         {"name":"rolloverstate","actions":[{"timeout":"1s","rollover":{"min_doc_count":100}}],
-        "transitions":[]}]}}
+        "transitions":[]}], ${stringUser()}}}
         """.trimIndent()
 
         createPolicyJson(testPolicy, policyID)
@@ -85,7 +86,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
         val testPolicy = """
         {"policy":{"description":"Default policy","default_state":"rolloverstate","states":[
         {"name":"rolloverstate","actions":[{"timeout": "5s","open":{}},{"timeout":"1s","rollover":{"min_doc_count":100}}],
-        "transitions":[]}]}}
+        "transitions":[]}], ${stringUser()}}}
         """.trimIndent()
 
         createPolicyJson(testPolicy, policyID)

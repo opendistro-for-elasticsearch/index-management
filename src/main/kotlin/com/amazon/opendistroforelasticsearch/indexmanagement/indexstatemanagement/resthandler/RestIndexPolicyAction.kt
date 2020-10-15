@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.ALLOW_LIST
@@ -98,7 +99,8 @@ class RestIndexPolicyAction(
             }
         }
 
-        val indexPolicyRequest = IndexPolicyRequest(id, policy, seqNo, primaryTerm, refreshPolicy)
+        val auth = request.header(ConfigConstants.AUTHORIZATION)
+        val indexPolicyRequest = IndexPolicyRequest(id, policy, seqNo, primaryTerm, refreshPolicy, auth)
 
         return RestChannelConsumer { channel ->
             client.execute(IndexPolicyAction.INSTANCE, indexPolicyRequest, object : RestResponseListener<IndexPolicyResponse>(channel) {

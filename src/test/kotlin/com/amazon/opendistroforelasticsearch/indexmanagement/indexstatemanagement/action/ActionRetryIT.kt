@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollover.AttemptRolloverStep
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.stringUser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
 import java.time.Instant
 import java.util.Locale
@@ -37,7 +38,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         {"policy":{"description":"Default policy","default_state":"Ingest","states":[
         {"name":"Ingest","actions":[{"retry":{"count":2,"backoff":"constant","delay":"1s"},"rollover":{"min_doc_count":100}}],"transitions":[{"state_name":"Search"}]},
         {"name":"Search","actions":[],"transitions":[{"state_name":"Delete","conditions":{"min_index_age":"30d"}}]},
-        {"name":"Delete","actions":[{"delete":{}}],"transitions":[]}]}}
+        {"name":"Delete","actions":[{"delete":{}}],"transitions":[]}], ${stringUser()}}}
         """.trimIndent()
 
         val indexName = "${testIndexName}_index_1"
@@ -102,7 +103,7 @@ class ActionRetryIT : IndexStateManagementRestTestCase() {
         {"policy":{"description":"Default policy","default_state":"Ingest","states":[
         {"name":"Ingest","actions":[{"retry":{"count":2,"backoff":"exponential","delay":"1m"},"rollover":{"min_doc_count":100}}],"transitions":[{"state_name":"Search"}]},
         {"name":"Search","actions":[],"transitions":[{"state_name":"Delete","conditions":{"min_index_age":"30d"}}]},
-        {"name":"Delete","actions":[{"delete":{}}],"transitions":[]}]}}
+        {"name":"Delete","actions":[{"delete":{}}],"transitions":[]}], ${stringUser()}}}
         """.trimIndent()
 
         val indexName = "${testIndexName}_index_2"

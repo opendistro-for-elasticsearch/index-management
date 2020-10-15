@@ -15,8 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
 import org.elasticsearch.common.io.stream.StreamInput
@@ -41,7 +43,8 @@ data class Policy(
     val lastUpdatedTime: Instant,
     val errorNotification: ErrorNotification?,
     val defaultState: String,
-    val states: List<State>
+    val states: List<State>,
+    val user: User?
 ) : ToXContentObject, Writeable {
 
     init {
@@ -64,7 +67,9 @@ data class Policy(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-        if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(POLICY_TYPE)
+        if (params.paramAsBoolean(WITH_TYPE, true))
+            builder.startObject(POLICY_TYPE)
+
         builder.field(POLICY_ID_FIELD, id)
             .field(DESCRIPTION_FIELD, description)
             .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
@@ -72,7 +77,11 @@ data class Policy(
             .field(ERROR_NOTIFICATION_FIELD, errorNotification)
             .field(DEFAULT_STATE_FIELD, defaultState)
             .field(STATES_FIELD, states.toTypedArray())
-        if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
+            .optionalUserField(USER_FIELD, user)
+
+        if (params.paramAsBoolean(WITH_TYPE, true))
+            builder.endObject()
+
         return builder.endObject()
     }
 
@@ -86,7 +95,8 @@ data class Policy(
         lastUpdatedTime = sin.readInstant(),
         errorNotification = sin.readOptionalWriteable(::ErrorNotification),
         defaultState = sin.readString(),
-        states = sin.readList(::State)
+        states = sin.readList(::State),
+        user = sin.readOptionalWriteable(::User)
     )
 
     @Throws(IOException::class)
@@ -100,6 +110,7 @@ data class Policy(
         out.writeOptionalWriteable(errorNotification)
         out.writeString(defaultState)
         out.writeList(states)
+        out.writeOptionalWriteable(user)
     }
 
     companion object {
@@ -112,6 +123,7 @@ data class Policy(
         const val ERROR_NOTIFICATION_FIELD = "error_notification"
         const val DEFAULT_STATE_FIELD = "default_state"
         const val STATES_FIELD = "states"
+        const val USER_FIELD = "user"
 
         @Suppress("ComplexMethod")
         @JvmStatic
@@ -129,6 +141,7 @@ data class Policy(
             var lastUpdatedTime: Instant? = null
             var schemaVersion: Long = IndexUtils.DEFAULT_SCHEMA_VERSION
             val states: MutableList<State> = mutableListOf()
+            var user: User? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -148,6 +161,7 @@ data class Policy(
                             states.add(State.parse(xcp))
                         }
                     }
+                    USER_FIELD -> user = if (xcp.currentToken() == Token.VALUE_NULL) null else User.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Policy.")
                 }
             }
@@ -161,7 +175,8 @@ data class Policy(
                 lastUpdatedTime ?: Instant.now(),
                 errorNotification,
                 requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
-                states.toList()
+                states.toList(),
+                user
             )
         }
 

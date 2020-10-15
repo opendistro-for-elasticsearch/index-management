@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Conditions
@@ -64,16 +65,34 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
+fun randomAuthHeader(): String {
+    return ESRestTestCase.randomAlphaOfLength(20)
+}
+
+fun randomUser(): User {
+    return User(ESRestTestCase.randomAlphaOfLength(10), listOf(ESRestTestCase.randomAlphaOfLength(10),
+            ESRestTestCase.randomAlphaOfLength(10)), listOf("all_access"), listOf("test_attr=test"))
+}
+
+fun stringUser(): String {
+    return "\"user\":{\"name\":\"\", \"backend_roles\":[], \"roles\":[], \"custom_attribute_names\":[]}"
+}
+
+fun emptyUser(): User {
+    return User("", listOf(), listOf(), listOf())
+}
+
 fun randomPolicy(
     id: String = ESRestTestCase.randomAlphaOfLength(10),
     description: String = ESRestTestCase.randomAlphaOfLength(10),
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     errorNotification: ErrorNotification? = randomErrorNotification(),
-    states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
+    states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() },
+    user: User = randomUser()
 ): Policy {
     return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description)
+            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description, user = user)
 }
 
 fun randomState(

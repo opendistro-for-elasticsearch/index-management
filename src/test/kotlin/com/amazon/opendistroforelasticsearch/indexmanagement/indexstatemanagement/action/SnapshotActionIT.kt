@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomUser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.AttemptSnapshotStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.WaitForSnapshotStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
@@ -50,7 +51,8 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
-            states = states
+            states = states,
+            user = randomUser()
         )
         createPolicy(policy, policyID)
         createIndex(indexName, policyID)
@@ -82,13 +84,14 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
         createRepository(repository)
 
         val policy = Policy(
-                id = policyID,
-                description = "$testIndexName description",
-                schemaVersion = 1L,
-                lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-                errorNotification = randomErrorNotification(),
-                defaultState = states[0].name,
-                states = states
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states,
+            user = randomUser()
         )
         createPolicy(policy, policyID)
         createIndex(indexName, policyID)
@@ -131,13 +134,14 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
         createRepository(repository)
 
         val policy = Policy(
-                id = policyID,
-                description = "$testIndexName description",
-                schemaVersion = 1L,
-                lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-                errorNotification = randomErrorNotification(),
-                defaultState = states[0].name,
-                states = states
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states,
+            user = randomUser()
         )
         createPolicy(policy, policyID)
         createIndex(indexName, policyID)

@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.IndexPriorityActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomUser
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestStatus
@@ -43,7 +44,8 @@ class IndexPolicyResponseTests : ESTestCase() {
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
-            states = states
+            states = states,
+            user = randomUser()
         )
         val status = RestStatus.CREATED
 

@@ -17,6 +17,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
@@ -66,6 +67,13 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
         return nullField(name)
     }
     return this.timeField(name, name, instant.toEpochMilli())
+}
+
+fun XContentBuilder.optionalUserField(name: String, user: User?): XContentBuilder {
+    if (user == null) {
+        return nullField(name)
+    }
+    return this.field(name, user)
 }
 
 /**

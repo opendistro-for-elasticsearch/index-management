@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 4
+    "schema_version": 5
   },
   "dynamic": "strict",
   "properties": {
@@ -337,6 +337,43 @@
                 "conditions": {
                   "type": "object",
                   "enabled": false
+                }
+              }
+            }
+          }
+        },
+        "user": {
+          "properties": {
+            "name": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "backend_roles": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
+                }
+              }
+            },
+            "roles": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
+                }
+              }
+            },
+            "custom_attribute_names": {
+              "type" : "text",
+              "fields" : {
+                "keyword" : {
+                  "type" : "keyword"
                 }
               }
             }

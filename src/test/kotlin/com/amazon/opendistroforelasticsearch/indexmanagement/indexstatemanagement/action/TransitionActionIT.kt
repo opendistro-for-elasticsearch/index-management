@@ -6,6 +6,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomUser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.transition.AttemptTransitionStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
 import java.time.Instant
@@ -32,7 +33,8 @@ class TransitionActionIT : IndexStateManagementRestTestCase() {
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
-            states = states
+            states = states,
+            user = randomUser()
         )
 
         createPolicy(policy, policyID)

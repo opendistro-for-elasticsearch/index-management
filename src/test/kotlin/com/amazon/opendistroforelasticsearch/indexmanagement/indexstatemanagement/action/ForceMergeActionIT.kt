@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ForceMergeActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomUser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.AttemptCallForceMergeStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.AttemptSetReadOnlyStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
@@ -49,7 +50,8 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
-            states = states
+            states = states,
+            user = randomUser()
         )
 
         createPolicy(policy, policyID)
@@ -110,7 +112,8 @@ class ForceMergeActionIT : IndexStateManagementRestTestCase() {
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
-            states = states
+            states = states,
+            user = randomUser()
         )
 
         createPolicy(policy, policyID)

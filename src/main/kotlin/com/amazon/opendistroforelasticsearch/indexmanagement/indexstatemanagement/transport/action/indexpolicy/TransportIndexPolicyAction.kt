@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
@@ -27,6 +29,9 @@ import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.master.AcknowledgedResponse
+import org.elasticsearch.client.Response
+import org.elasticsearch.client.ResponseListener
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.xcontent.XContentFactory
@@ -34,11 +39,13 @@ import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import java.io.IOException
 
 private val log = LogManager.getLogger(TransportIndexPolicyAction::class.java)
 
 class TransportIndexPolicyAction @Inject constructor(
     val client: NodeClient,
+    val restClient: RestClient,
     transportService: TransportService,
     actionFilters: ActionFilters,
     val ismIndices: IndexManagementIndices
@@ -54,6 +61,33 @@ class TransportIndexPolicyAction @Inject constructor(
         private val actionListener: ActionListener<IndexPolicyResponse>,
         private val request: IndexPolicyRequest
     ) {
+
+        fun resolveUserAndStart() {
+            if (request.authHeader.isNullOrEmpty()) {
+                // Security is disabled, add empty user to destination. user is null for older versions.
+                request.policy = request.policy
+                        .copy(user = User("", listOf(), listOf(), listOf()))
+                start()
+            } else {
+                val authRequest = AuthUserRequestBuilder(request.authHeader).build()
+                restClient.performRequestAsync(authRequest, object : ResponseListener {
+                    override fun onSuccess(response: Response) {
+                        try {
+                            val user = User(response)
+                            request.policy = request.policy
+                                    .copy(user = User(user.name, user.backendRoles, user.roles, user.customAttNames))
+                            start()
+                        } catch (t: IOException) {
+                            actionListener.onFailure(t)
+                        }
+                    }
+                    override fun onFailure(t: Exception) {
+                        actionListener.onFailure(t)
+                    }
+                })
+            }
+        }
+
         fun start() {
             ismIndices.checkAndUpdateIMConfigIndex(object : ActionListener<AcknowledgedResponse> {
                 override fun onResponse(response: AcknowledgedResponse) {

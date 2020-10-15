@@ -32,6 +32,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.ValueCount
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.util.*
 
@@ -113,6 +114,8 @@ fun randomRollup(): Rollup {
         metrics = ESRestTestCase.randomList(20, ::randomRollupMetrics).distinctBy { it.targetField }
     )
 }
+
+fun randomTermQuery(): TermQueryBuilder { return TermQueryBuilder(ESRestTestCase.randomAlphaOfLength(5), ESRestTestCase.randomAlphaOfLength(5))}
 
 fun DateHistogram.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
 

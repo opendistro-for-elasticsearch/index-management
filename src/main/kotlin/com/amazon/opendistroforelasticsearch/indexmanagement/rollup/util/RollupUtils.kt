@@ -363,10 +363,10 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
     }
 }
 
-private fun buildRollupQuery(rollup: Rollup, fieldNameMappingTypeMap: Map<String, String>, oldQuery: QueryBuilder): QueryBuilder {
+fun Rollup.buildRollupQuery(fieldNameMappingTypeMap: Map<String, String>, oldQuery: QueryBuilder): QueryBuilder {
     val wrappedQueryBuilder = BoolQueryBuilder()
-    wrappedQueryBuilder.must(rollup.rewriteQueryBuilder(oldQuery, fieldNameMappingTypeMap))
-    wrappedQueryBuilder.filter(TermQueryBuilder("rollup._id", rollup.id))
+    wrappedQueryBuilder.must(this.rewriteQueryBuilder(oldQuery, fieldNameMappingTypeMap))
+    wrappedQueryBuilder.filter(TermQueryBuilder("rollup._id", this.id))
     return wrappedQueryBuilder
 }
 
@@ -400,7 +400,7 @@ fun SearchSourceBuilder.rewriteSearchSourceBuilder(job: Rollup, fieldNameMapping
     if (this.minScore() != null) ssb.minScore(this.minScore())
     if (this.postFilter() != null) ssb.postFilter(this.postFilter())
     ssb.profile(this.profile())
-    if (this.query() != null) ssb.query(buildRollupQuery(job, fieldNameMappingTypeMap, this.query()))
+    if (this.query() != null) ssb.query(job.buildRollupQuery(fieldNameMappingTypeMap, this.query()))
     this.rescores()?.forEach { ssb.addRescorer(it) }
     this.scriptFields()?.forEach { ssb.scriptField(it.fieldName(), it.script(), it.ignoreFailure()) }
     if (this.searchAfter() != null) ssb.searchAfter(this.searchAfter())

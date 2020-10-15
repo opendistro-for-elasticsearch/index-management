@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.interceptor
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
@@ -53,7 +52,6 @@ class RollupInterceptorIT : RollupRestTestCase() {
             sourceIndex = "source",
             targetIndex = "target",
             metadataID = null,
-            user = User("", emptyList(), emptyList(), emptyList()),
             roles = emptyList(),
             pageSize = 10,
             delay = 0,
@@ -139,7 +137,6 @@ class RollupInterceptorIT : RollupRestTestCase() {
             sourceIndex = "source",
             targetIndex = "target",
             metadataID = null,
-            user = User("", emptyList(), emptyList(), emptyList()),
             roles = emptyList(),
             pageSize = 10,
             delay = 0,

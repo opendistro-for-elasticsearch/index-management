@@ -175,6 +175,5 @@ class RollupUtilsTests : ESTestCase() {
         assertEquals(rollup.rewriteQueryBuilder(queryBuilder, mapOf()), actual.must().first())
         assertEquals(1, actual.filter().size)
         assertEquals(expectedFilter, actual.filter().first())
-
     }
 }

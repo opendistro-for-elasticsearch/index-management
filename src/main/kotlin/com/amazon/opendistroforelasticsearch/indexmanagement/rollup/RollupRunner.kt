@@ -222,7 +222,7 @@ object RollupRunner : ScheduledJobRunner,
                         metadata = metadata.incrementStats(compositeResponse, internalComposite)
                         val indexStats = rollupIndexer.indexRollups(updatableJob, internalComposite)
                         metadata = rollupMetadataService.updateMetadata(updatableJob, metadata.mergeStats(indexStats), internalComposite)
-                    } catch(e: RollupMetadataException) {
+                    } catch (e: RollupMetadataException) {
                         // Rethrow this exception so it doesn't get consumed here
                         throw e
                     } catch (e: Exception) {

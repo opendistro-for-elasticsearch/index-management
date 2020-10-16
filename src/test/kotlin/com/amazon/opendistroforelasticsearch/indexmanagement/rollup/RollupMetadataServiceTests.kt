@@ -15,7 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.doAnswer
@@ -25,11 +28,14 @@ import com.nhaarman.mockitokotlin2.whenever
 import kotlinx.coroutines.runBlocking
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteResponse
+import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.SearchHits
@@ -39,6 +45,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 class RollupMetadataServiceTests : ESTestCase() {
 
@@ -560,9 +567,140 @@ class RollupMetadataServiceTests : ESTestCase() {
         }
     }
 
+    fun `test metadata init when getting existing metadata fails`() {
+        val rollup = randomRollup().copy(
+            enabled = true,
+            jobEnabledTime = Instant.now(),
+            metadataID = randomAlphaOfLength(10)
+        )
+
+        val getException = Exception("Test failure")
+        val client: Client = mock {
+            doAnswer { invocationOnMock ->
+                val listener = invocationOnMock.getArgument<ActionListener<GetResponse>>(1)
+                listener.onFailure(getException)
+            }.whenever(this.mock).get(any(), any())
+        }
+        val metadataService = RollupMetadataService(client, xContentRegistry)
+
+        runBlocking {
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Failure) { "Init metadata returned unexpected results" }
+
+            assertEquals(getException, initMetadataResult.cause)
+        }
+    }
+
+    fun `test metadata init when indexing new metadata fails`() {
+        val rollup = randomRollup().copy(
+            enabled = true,
+            jobEnabledTime = Instant.now(),
+            metadataID = null
+        )
+
+        val indexException = Exception("Test failure")
+        val firstDocTimestamp = Instant.now().toString()
+        val client = getClient(
+            searchResponse = getSearchResponseForTimestamp(rollup, firstDocTimestamp),
+            searchException = null,
+            indexResponse = null,
+            indexException = indexException
+        )
+        val metadataService = RollupMetadataService(client, xContentRegistry)
+
+        runBlocking {
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Failure) { "Init metadata returned unexpected results" }
+
+            assertEquals(indexException, initMetadataResult.cause)
+        }
+    }
+
+    // TODO: This test is failing with a thread leak error: "There are still zombie threads that couldn't be terminated"
+    //   May be due to the use of BytesArray as it didn't start until after that was added
+    fun `skip test get existing metadata`() {
+        val metadata = RollupMetadata(
+            id = randomAlphaOfLength(10),
+            seqNo = 0,
+            primaryTerm = 1,
+            rollupID = randomAlphaOfLength(10),
+            // Truncating to seconds since not doing so causes milliseconds mismatch when comparing results
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.SECONDS),
+            status = RollupMetadata.Status.INIT,
+            stats = RollupStats(0, 0, 0, 0, 0)
+        )
+
+        val getResponse: GetResponse = mock()
+        val source: BytesReference = BytesArray(metadata.toJsonString(params = ToXContent.MapParams(mapOf(WITH_TYPE to "true"))))
+        whenever(getResponse.isExists).doReturn(true)
+        whenever(getResponse.seqNo).doReturn(metadata.seqNo)
+        whenever(getResponse.primaryTerm).doReturn(metadata.primaryTerm)
+        whenever(getResponse.id).doReturn(metadata.id)
+        whenever(getResponse.sourceAsBytesRef).doReturn(source)
+
+        val client: Client = mock {
+            doAnswer { invocationOnMock ->
+                val listener = invocationOnMock.getArgument<ActionListener<GetResponse>>(1)
+                listener.onResponse(getResponse)
+            }.whenever(this.mock).get(any(), any())
+        }
+        val metadataService = RollupMetadataService(client, xContentRegistry)
+
+        runBlocking {
+            val getExistingMetadataResult = metadataService.getExistingMetadata(metadata.id)
+            require(getExistingMetadataResult is RollupMetadataService.MetadataResult.Success) {
+                "Getting existing metadata returned unexpected results"
+            }
+
+            assertEquals(metadata, getExistingMetadataResult.metadata)
+        }
+    }
+
+    fun `test get existing metadata when metadata does not exist`() {
+        val getResponse: GetResponse = mock()
+        whenever(getResponse.isExists).doReturn(true)
+
+        val client: Client = mock {
+            doAnswer { invocationOnMock ->
+                val listener = invocationOnMock.getArgument<ActionListener<GetResponse>>(1)
+                listener.onResponse(getResponse)
+            }.whenever(this.mock).get(any(), any())
+        }
+        val metadataService = RollupMetadataService(client, xContentRegistry)
+
+        runBlocking {
+            val getExistingMetadataResult = metadataService.getExistingMetadata(randomAlphaOfLength(10))
+            require(getExistingMetadataResult is RollupMetadataService.MetadataResult.NoMetadata) {
+                "Getting existing metadata returned unexpected results"
+            }
+        }
+    }
+
+    // TODO: This can be split into multiple tests if the exceptions being caught are handled
+    //   differently, for now just assuming a general exception is thrown
+    fun `test get existing metadata fails`() {
+        val getException = Exception("Test failure")
+
+        val client: Client = mock {
+            doAnswer { invocationOnMock ->
+                val listener = invocationOnMock.getArgument<ActionListener<GetResponse>>(1)
+                listener.onFailure(getException)
+            }.whenever(this.mock).get(any(), any())
+        }
+        val metadataService = RollupMetadataService(client, xContentRegistry)
+
+        runBlocking {
+            val getExistingMetadataResult = metadataService.getExistingMetadata(randomAlphaOfLength(10))
+            require(getExistingMetadataResult is RollupMetadataService.MetadataResult.Failure) {
+                "Getting existing metadata returned unexpected results"
+            }
+
+            assertEquals(getException, getExistingMetadataResult.cause)
+        }
+    }
+
     // TODO: Test for a document timestamp before epoch
     // TODO: Test non-continuous metadata
-    // TODO: Test cases with exceptions in search or index response
 
     // Return a SearchResponse containing a single document with the given timestamp
     // Used to mock the search performed when initializing continuous rollup metadata

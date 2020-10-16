@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomSchedule
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
@@ -136,3 +137,5 @@ fun ValueCount.toJsonString(): String = this.toXContent(XContentFactory.jsonBuil
 fun RollupMetrics.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
 
 fun Rollup.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()
+
+fun RollupMetadata.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()

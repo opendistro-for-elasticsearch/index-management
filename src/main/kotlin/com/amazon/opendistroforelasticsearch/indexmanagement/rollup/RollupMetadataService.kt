@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendU
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ContinuousMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata.Companion.NO_ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import kotlinx.coroutines.Dispatchers
@@ -65,9 +66,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             val existingMetadata = when (val getMetadataResult = getExistingMetadata(rollup.metadataID)) {
                 is MetadataResult.Success -> getMetadataResult.metadata
                 is MetadataResult.NoMetadata -> null
-                // TODO: Possibly update RollupMetadataException to take an exception so we can pass in "getMetadataResult.e"
-                //   Or can return MetadataResult.Failure here and update it to take in a "message" and exception
-                is MetadataResult.Failure -> throw RollupMetadataException("Error getting existing metadata during init")
+                is MetadataResult.Failure -> return getMetadataResult
             }
 
             if (existingMetadata != null) {
@@ -88,7 +87,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                     return MetadataResult.Success(existingMetadata)
                 }
             } else {
-                submitMetadataUpdate(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
+                // The existing metadata was not found, create a new metadata in FAILED status
+                return submitMetadataUpdate(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
                     failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]", stats = RollupStats(0, 0, 0, 0, 0)), false)
             }
         }
@@ -110,7 +110,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                 is StartingTimeResult.NoDocumentsFound -> return MetadataResult.NoMetadata
                 // TODO: Probably change this to return MetadataResult.Failure() with a message so that
                 //   runner can be the one to throw the exception
-                is StartingTimeResult.Failure -> throw RollupMetadataException("Failed to initialize start time for retried job")
+                is StartingTimeResult.Failure ->
+                    throw RollupMetadataException("Failed to initialize start time for retried rollup job [${rollup.id}]", initStartTimeResult.e)
             }
             val nextWindowEndTime = getShiftedTime(nextWindowStartTime, rollup)
             continuousMetadata = ContinuousMetadata(nextWindowStartTime, nextWindowEndTime)
@@ -149,7 +150,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         val nextWindowStartTime = when (val initStartTimeResult = getInitialStartTime(rollup)) {
             is StartingTimeResult.Success -> initStartTimeResult.startingTime
             is StartingTimeResult.NoDocumentsFound -> return MetadataResult.NoMetadata
-            is StartingTimeResult.Failure -> throw RollupMetadataException("Failed to initialize start time")
+            is StartingTimeResult.Failure -> throw RollupMetadataException("Failed to initialize start time for rollup [${rollup.id}]", null)
         }
         // The first end time is just the next window start time
         val nextWindowEndTime = getShiftedTime(nextWindowStartTime, rollup)
@@ -297,7 +298,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         } catch (e: Exception) {
             // TODO: Catching general exceptions for now, can make more granular
             logger.debug("Error when getting rollup metadata [$id]")
-            return MetadataResult.Failure(e)
+            return MetadataResult.Failure("Error when getting rollup metadata [$id]", e)
         }
     }
 
@@ -310,10 +311,38 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
 
         return when (val metadataUpdateResult = submitMetadataUpdate(updatedMetadata, metadata.id != RollupMetadata.NO_ID)) {
             is MetadataResult.Success -> metadataUpdateResult.metadata
-            is MetadataResult.Failure -> throw RollupMetadataException("Failed to update rollup metadata [${metadata.id}]")
+            is MetadataResult.Failure -> throw RollupMetadataException("Failed to update rollup metadata [${metadata.id}]", null)
             // NoMetadata is not expected from submitMetadataUpdate here
-            is MetadataResult.NoMetadata -> throw RollupMetadataException("Unexpected state when updating rollup metadata [${metadata.id}]")
+            is MetadataResult.NoMetadata -> throw RollupMetadataException("Unexpected state when updating rollup metadata [${metadata.id}]", null)
         }
+    }
+
+    /**
+     * Sets a failure metadata for the rollup job with the given reason.
+     * Can provide an existing metadata to update, if none are provided a new metadata is created
+     * and replaces the current one for the job.
+     */
+    suspend fun setFailedMetadata(job: Rollup, reason: String, existingMetadata: RollupMetadata? = null): MetadataResult {
+        val updatedMetadata: RollupMetadata?
+        if (existingMetadata == null) {
+            // Create new metadata
+            updatedMetadata = RollupMetadata(
+                rollupID = job.id,
+                status = RollupMetadata.Status.FAILED,
+                failureReason = reason,
+                lastUpdatedTime = Instant.now(),
+                stats = RollupStats(0, 0, 0, 0, 0)
+            )
+        } else {
+            // Update the given existing metadata
+            updatedMetadata = existingMetadata.copy(
+                status = RollupMetadata.Status.FAILED,
+                failureReason = reason,
+                lastUpdatedTime = Instant.now()
+            )
+        }
+
+        return submitMetadataUpdate(updatedMetadata, updatedMetadata.id != NO_ID)
     }
 
     // TODO: error handling, make sure to handle RTE for pretty much everything..
@@ -355,8 +384,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             )
         } catch (e: Exception) {
             // TODO: Catching general exceptions for now, can make more granular
-            logger.debug("Error when ${if (updating) "updating" else "creating"} rollup metadata")
-            return MetadataResult.Failure(e)
+            val message = "An error occurred when ${if (updating) "updating" else "creating"} rollup metadata"
+            return MetadataResult.Failure(message, e)
         }
     }
 
@@ -364,7 +393,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         // A successful MetadataResult just means a metadata was returned,
         // it can still have a FAILED status
         data class Success(val metadata: RollupMetadata) : MetadataResult()
-        data class Failure(val e: Exception) : MetadataResult()
+        data class Failure(val message: String = "An error occurred for rollup metadata", val cause: Exception) : MetadataResult()
         object NoMetadata : MetadataResult()
     }
 
@@ -373,6 +402,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         data class Failure(val e: Exception) : StartingTimeResult()
         object NoDocumentsFound : StartingTimeResult()
     }
-
-    class RollupMetadataException(message: String) : Exception(message)
 }
+
+class RollupMetadataException(message: String, cause: Throwable?) : Exception(message, cause)

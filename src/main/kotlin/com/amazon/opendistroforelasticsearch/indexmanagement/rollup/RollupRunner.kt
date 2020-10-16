@@ -22,8 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata.Companion.NO_ID
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.incrementStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.mergeStats
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
@@ -45,7 +43,6 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
-import java.time.Instant
 
 @Suppress("TooManyFunctions")
 object RollupRunner : ScheduledJobRunner,
@@ -121,14 +118,19 @@ object RollupRunner : ScheduledJobRunner,
         }
 
         launch {
-            val metadata: RollupMetadata?
+            var metadata: RollupMetadata? = null
             try {
-                metadata = if (job.metadataID != null) {
-                    rollupMetadataService.getExistingMetadata(job.metadataID)
-                } else null
-            } catch (e: Exception) {
+                if (job.metadataID != null) {
+                    metadata = when (val getMetadataResult = rollupMetadataService.getExistingMetadata(job.metadataID)) {
+                        is RollupMetadataService.MetadataResult.Success -> getMetadataResult.metadata
+                        is RollupMetadataService.MetadataResult.NoMetadata -> null
+                        is RollupMetadataService.MetadataResult.Failure ->
+                            throw RollupMetadataException("Failed to get existing rollup metadata [${job.metadataID}]", getMetadataResult.cause)
+                    }
+                }
+            } catch (e: RollupMetadataException) {
                 // If the metadata was not able to be retrieved, the exception will be logged and the job run will be a no-op
-                logger.error("Failed to get existing rollup metadata [${job.metadataID}]", e)
+                logger.error(e.message, e.cause)
                 return@launch
             }
 
@@ -176,67 +178,102 @@ object RollupRunner : ScheduledJobRunner,
     * */
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext) {
-        if (!isJobValid(job)) return
+        try {
+            if (!isJobValid(job)) return
 
-        var metadata = rollupMetadataService.init(job)
-        if (metadata.status == RollupMetadata.Status.FAILED) {
-            disableJob(job, metadata)
-            return
-        }
-
-        // If metadata was created for the first time, update job with the id
-        var updatableJob = job
-        if (updatableJob.metadataID == null && metadata.status == RollupMetadata.Status.INIT) {
-            updatableJob = updateRollupJob(updatableJob.copy(metadataID = metadata.id))
-        }
-
-        // TODO: before creating target index we also validate the source index exists?
-        //  and anything else that would cause this to get delayed right away like invalid fields
-        val successful = rollupMapperService.init(updatableJob)
-        if (!successful) {
-            // TODO: More helpful error messaging
-            // TODO: Update to metadata fails
-            rollupMetadataService.submitMetadataUpdate(
-                metadata = metadata.copy(
-                    status = RollupMetadata.Status.FAILED,
-                    failureReason = "Failed to initialize the target index",
-                    lastUpdatedTime = Instant.now()
-                ),
-                updating = true
-            )
-            updateRollupJob(updatableJob.copy(enabled = false, jobEnabledTime = null))
-            return
-        }
-        while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
-            do {
-                try {
-                    val compositeResponse = rollupSearchService.executeCompositeSearch(updatableJob, metadata)
-                    val internalComposite: InternalComposite = compositeResponse.aggregations.get(updatableJob.id)
-                    metadata = metadata.incrementStats(compositeResponse, internalComposite)
-                    val indexStats = rollupIndexer.indexRollups(updatableJob, internalComposite)
-                    metadata = rollupMetadataService.updateMetadata(updatableJob, metadata.mergeStats(indexStats), internalComposite)
-                    // TODO: Is this still needed now that job is updated earlier in runRollupJob()?
-                    //  Job is not being retrieved during the middle of a rollup loop so removing job.metadataID won't be reflected here
-                    if (updatableJob.metadataID == null) updatableJob = updateRollupJob(updatableJob.copy(metadataID = metadata.id))
-                } catch (e: Exception) {
-                    logger.error("Failed to rollup ", e)
-                }
-            } while (metadata.afterKey != null)
-        }
-
-        if (!updatableJob.continuous) {
-            if (listOf(RollupMetadata.Status.STOPPED, RollupMetadata.Status.FINISHED, RollupMetadata.Status.FAILED).contains(metadata.status)) {
-                updateRollupJob(updatableJob.copy(enabled = false, jobEnabledTime = null))
+            var metadata = when (val initMetadataResult = rollupMetadataService.init(job)) {
+                is RollupMetadataService.MetadataResult.Success -> initMetadataResult.metadata
+                is RollupMetadataService.MetadataResult.NoMetadata -> return // No-op this execution
+                is RollupMetadataService.MetadataResult.Failure ->
+                    throw RollupMetadataException("Failed to initialize rollup metadata", initMetadataResult.cause)
             }
+
+            if (metadata.status == RollupMetadata.Status.FAILED) {
+                disableJob(job, metadata)
+                return
+            }
+
+            // If metadata was created for the first time, update job with the id
+            var updatableJob = job
+            if (updatableJob.metadataID == null && metadata.status == RollupMetadata.Status.INIT) {
+                when (val updateRollupJobResult = updateRollupJob(updatableJob.copy(metadataID = metadata.id), metadata)) {
+                    is RollupResult.Success -> updatableJob = updateRollupJobResult.rollup
+                    is RollupResult.Failure -> {
+                        logger.error("Updating the rollup job [${updatableJob.id}] with metadata id [${metadata.id}]")
+                        return // Exit runner early
+                    }
+                }
+            }
+
+            // TODO: before creating target index we also validate the source index exists?
+            //  and anything else that would cause this to get delayed right away like invalid fields
+            val successful = rollupMapperService.init(updatableJob)
+            if (!successful) {
+                // TODO: More helpful error messaging
+                setFailedMetadataAndDisableJob(updatableJob, "Failed to initialize the target index", metadata)
+                return
+            }
+
+            while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
+                do {
+                    try {
+                        val compositeResponse = rollupSearchService.executeCompositeSearch(updatableJob, metadata)
+                        val internalComposite: InternalComposite = compositeResponse.aggregations.get(updatableJob.id)
+                        metadata = metadata.incrementStats(compositeResponse, internalComposite)
+                        val indexStats = rollupIndexer.indexRollups(updatableJob, internalComposite)
+                        metadata = rollupMetadataService.updateMetadata(updatableJob, metadata.mergeStats(indexStats), internalComposite)
+                    } catch(e: RollupMetadataException) {
+                        // Rethrow this exception so it doesn't get consumed here
+                        throw e
+                    } catch (e: Exception) {
+                        // TODO: Remove this general exception catch since it will allow the rollup to keep going
+                        logger.error("Failed to rollup ", e)
+                    }
+                } while (metadata.afterKey != null)
+            }
+
+            if (!updatableJob.continuous) {
+                if (listOf(RollupMetadata.Status.STOPPED, RollupMetadata.Status.FINISHED, RollupMetadata.Status.FAILED).contains(metadata.status)) {
+                    disableJob(updatableJob, metadata)
+                }
+            }
+        } catch (e: RollupMetadataException) {
+            // In most scenarios in the runner, the metadata will be used to communicate the result to the user
+            // If change to the metadata itself fails, there is nothing else to relay state change
+            // In these cases, the cause of the metadata operation will be logged here and the runner execution will exit
+            logger.error(e.message, e.cause)
         }
     }
 
-    // TODO error handling and moving to failed status
-    private suspend fun updateRollupJob(job: Rollup): Rollup {
-        val req = IndexRollupRequest(rollup = job, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
-        val res: IndexRollupResponse = client.suspendUntil { execute(IndexRollupAction.INSTANCE, req, it) }
-        // Verify the seqNo/primterm got updated
-        return res.rollup
+    /**
+     * Updates a rollup job.
+     *
+     * Takes in the metadata for the rollup job as well. This metadata should be create/updated
+     * before passing it to this method as it will not create/update the metadata during normal conditions.
+     *
+     * However, in the case that the update to the rollup job fails, the provided metadata will be set to FAILED
+     * status and updated to reflect the change.
+     */
+    private suspend fun updateRollupJob(job: Rollup, metadata: RollupMetadata): RollupResult {
+        try {
+            val req = IndexRollupRequest(rollup = job, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
+            val res: IndexRollupResponse = client.suspendUntil { execute(IndexRollupAction.INSTANCE, req, it) }
+            // TODO: Verify the seqNo/primterm got updated
+            return RollupResult.Success(res.rollup)
+        } catch (e: Exception) {
+            // TODO: Catching general exceptions for now, can make more granular
+            // Set metadata to failed since update to rollup job failed
+            val errorMessage = "An error occurred when updating rollup job [${job.id}]"
+            return when (val setFailedMetadataResult = rollupMetadataService.setFailedMetadata(job, errorMessage, metadata)) {
+                is RollupMetadataService.MetadataResult.Success -> RollupResult.Failure(errorMessage, e)
+                // If the metadata update failed as well, throw an exception to end the runner execution
+                is RollupMetadataService.MetadataResult.Failure ->
+                    throw RollupMetadataException(setFailedMetadataResult.message, setFailedMetadataResult.cause)
+                // Should not get NoMetadata here
+                is RollupMetadataService.MetadataResult.NoMetadata ->
+                    throw RollupMetadataException("Unexpected state when updating metadata", null)
+            }
+        }
     }
 
     // TODO: Source index could be a pattern but it's used at runtime so it could match new indices which weren't matched before
@@ -254,7 +291,7 @@ object RollupRunner : ScheduledJobRunner,
         } else null
 
         if (!rollupMapperService.isSourceIndexValid(job.sourceIndex)) {
-            setFailedMetadata(job, "Invalid source index")
+            setFailedMetadataAndDisableJob(job, "Invalid source index")
             return false
         }
 
@@ -264,15 +301,15 @@ object RollupRunner : ScheduledJobRunner,
                 // TODO: Handle createRollupTargetIndex fails
                 // TODO: Move error reason messages to RollupMetadataService as static strings (or functions for patterns), easier for testing
                 rollupMapperService.createRollupTargetIndex(job)
-                setFailedMetadata(job, "The target index [${job.targetIndex}] was deleted. Index has been recreated, restart job.")
+                setFailedMetadataAndDisableJob(job, "The target index [${job.targetIndex}] was deleted. Index has been recreated, restart job.")
                 return false
             }
             if (!rollupMapperService.isRollupIndex(job.targetIndex)) {
-                setFailedMetadata(job, "The target index [${job.targetIndex}] is not a rollup index")
+                setFailedMetadataAndDisableJob(job, "The target index [${job.targetIndex}] is not a rollup index")
                 return false
             }
             if (!rollupMapperService.jobExistsInRollupIndex(job)) {
-                setFailedMetadata(job, "The target index [${job.targetIndex}] does not have rollup job information in mappings")
+                setFailedMetadataAndDisableJob(job, "The target index [${job.targetIndex}] does not have rollup job information in mappings")
                 return false
             }
         }
@@ -280,36 +317,27 @@ object RollupRunner : ScheduledJobRunner,
         return true
     }
 
-    // Sets a failure metadata for the rollup job with the given reason.
-    // Can provide an existing metadata to update, if none are provided a new metadata is created
-    // and replaces the current one for the job.
-    private suspend fun setFailedMetadata(job: Rollup, reason: String, existingMetadata: RollupMetadata? = null) {
-        var updatedMetadata: RollupMetadata?
-        if (existingMetadata == null) {
-            // Create new metadata
-            updatedMetadata = RollupMetadata(
-                rollupID = job.id,
-                status = RollupMetadata.Status.FAILED,
-                failureReason = reason,
-                lastUpdatedTime = Instant.now(),
-                stats = RollupStats(0, 0, 0, 0, 0)
-            )
-        } else {
-            // Update the given existing metadata
-            updatedMetadata = existingMetadata.copy(
-                status = RollupMetadata.Status.FAILED,
-                failureReason = reason,
-                lastUpdatedTime = Instant.now()
-            )
+    /** Sets a failed metadata (updating an existing metadata if provided, otherwise creating a new one) and disables the job */
+    private suspend fun setFailedMetadataAndDisableJob(job: Rollup, reason: String, existingMetadata: RollupMetadata? = null) {
+        val updatedMetadata = when (val setFailedMetadataResult = rollupMetadataService.setFailedMetadata(job, reason, existingMetadata)) {
+            is RollupMetadataService.MetadataResult.Success -> setFailedMetadataResult.metadata
+            is RollupMetadataService.MetadataResult.Failure ->
+                throw RollupMetadataException(setFailedMetadataResult.message, setFailedMetadataResult.cause)
+            // Should not get NoMetadata here
+            is RollupMetadataService.MetadataResult.NoMetadata ->
+                throw RollupMetadataException("Unexpected state when setting failed metadata", null)
         }
-
-        // TODO: Handle exceptions
-        updatedMetadata = rollupMetadataService
-            .submitMetadataUpdate(updatedMetadata, updatedMetadata.id != NO_ID)
 
         disableJob(job, updatedMetadata)
     }
 
+    /**
+     * Disables a given job. Also takes in an existing metadata to replace the metadataID of the job
+     * if this was a newly created metadata.
+     *
+     * Note: Set metadata to failed and ensure it's updated before passing it to this method because it
+     * will not update the metadata (unless updateRollupJob job fails).
+     */
     private suspend fun disableJob(job: Rollup, metadata: RollupMetadata) {
         val updatedRollupJob = if (metadata.id != job.metadataID) {
             job.copy(metadataID = metadata.id, enabled = false, jobEnabledTime = null)
@@ -317,6 +345,11 @@ object RollupRunner : ScheduledJobRunner,
             job.copy(enabled = false, jobEnabledTime = null)
         }
         // TODO: Handle exceptions
-        updateRollupJob(updatedRollupJob)
+        updateRollupJob(updatedRollupJob, metadata)
+    }
+
+    sealed class RollupResult {
+        data class Success(val rollup: Rollup) : RollupResult()
+        data class Failure(val message: String = "An error occurred for rollup job", val cause: Exception) : RollupResult()
     }
 }

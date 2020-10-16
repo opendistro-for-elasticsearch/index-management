@@ -439,6 +439,5 @@ class RollupInterceptorIT : RollupRestTestCase() {
             )
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
         }
-
     }
 }

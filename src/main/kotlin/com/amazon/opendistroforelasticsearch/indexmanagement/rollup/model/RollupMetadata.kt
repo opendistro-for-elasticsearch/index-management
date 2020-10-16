@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -204,13 +205,17 @@ data class RollupMetadata(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-            .field(ROLLUP_ID_FIELD, rollupID)
+        if (params.paramAsBoolean(WITH_TYPE, false)) builder.startObject(ROLLUP_METADATA_TYPE)
+
+        builder.field(ROLLUP_ID_FIELD, rollupID)
         if (afterKey != null) builder.field(AFTER_KEY_FIELD, afterKey)
         builder.timeField(LAST_UPDATED_FIELD, LAST_UPDATED_FIELD, lastUpdatedTime.toEpochMilli())
         if (continuous != null) builder.field(CONTINUOUS_FIELD, continuous)
         builder.field(STATUS_FIELD, status.type)
         if (failureReason != null) builder.field(FAILURE_REASON, failureReason)
         builder.field(STATS_FIELD, stats)
+
+        if (params.paramAsBoolean(WITH_TYPE, false)) builder.endObject()
         return builder.endObject()
     }
 

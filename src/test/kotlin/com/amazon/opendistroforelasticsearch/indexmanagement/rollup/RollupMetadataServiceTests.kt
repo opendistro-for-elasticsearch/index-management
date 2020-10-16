@@ -76,7 +76,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-10-02T05:02:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -109,7 +112,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-10-02T06:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -143,7 +149,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = localDateAtTimezone("2020-03-08T03:00:00", ZoneId.of("America/Los_Angeles"))
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -176,7 +185,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-10-03T00:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -209,7 +221,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-02-29T00:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -244,7 +259,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-03-23T00:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -277,7 +295,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-01-01T00:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -310,7 +331,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-07-01T00:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -343,7 +367,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2021-01-01T00:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -376,7 +403,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = localDateAtTimezone("2020-04-24T09:00:00", ZoneId.of("America/Los_Angeles"))
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -409,7 +439,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = localDateAtTimezone("2020-04-24T02:00:00", ZoneId.of("America/Los_Angeles"))
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -442,7 +475,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-04-25T00:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -477,7 +513,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = localDateAtTimezone("2020-03-08T03:00:00", ZoneId.of("America/Los_Angeles"))
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)
@@ -511,7 +550,10 @@ class RollupMetadataServiceTests : ESTestCase() {
         val expectedWindowEndTime = getInstant("2020-02-08T00:00:00Z")
 
         runBlocking {
-            val metadata = metadataService.init(rollup)
+            val initMetadataResult = metadataService.init(rollup)
+            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+
+            val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
             assertEquals(expectedWindowStartTime, metadata.continuous!!.nextWindowStartTime)
             assertEquals(expectedWindowEndTime, metadata.continuous!!.nextWindowEndTime)

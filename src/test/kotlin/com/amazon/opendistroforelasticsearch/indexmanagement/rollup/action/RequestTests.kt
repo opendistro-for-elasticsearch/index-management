@@ -31,6 +31,7 @@ class RequestTests : ESTestCase() {
         val rollup = randomRollup()
         val req = IndexRollupRequest(
             rollup = rollup,
+            authHeader = null,
             refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE
         ).index(INDEX_MANAGEMENT_INDEX)
 

@@ -35,14 +35,16 @@ class TransportDeleteRollupAction @Inject constructor(
 
     override fun doExecute(task: Task, request: DeleteRollupRequest, actionListener: ActionListener<DeleteResponse>) {
         request.index(INDEX_MANAGEMENT_INDEX)
-        client.delete(request, object : ActionListener<DeleteResponse> {
-            override fun onResponse(response: DeleteResponse) {
-                actionListener.onResponse(response)
-            }
+        client.threadPool().threadContext.stashContext().use {
+            client.delete(request, object : ActionListener<DeleteResponse> {
+                override fun onResponse(response: DeleteResponse) {
+                    actionListener.onResponse(response)
+                }
 
-            override fun onFailure(t: Exception) {
-                actionListener.onFailure(t)
-            }
-        })
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
     }
 }

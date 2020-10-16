@@ -88,8 +88,9 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                 }
             } else {
                 // The existing metadata was not found, create a new metadata in FAILED status
-                return submitMetadataUpdate(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(), status = RollupMetadata.Status.FAILED,
-                    failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]", stats = RollupStats(0, 0, 0, 0, 0)), false)
+                return submitMetadataUpdate(RollupMetadata(rollupID = rollup.id, lastUpdatedTime = Instant.now(),
+                    status = RollupMetadata.Status.FAILED, failureReason = "Not able to get the rollup metadata [${rollup.metadataID}]",
+                    stats = RollupStats(0, 0, 0, 0, 0)), false)
             }
         }
 

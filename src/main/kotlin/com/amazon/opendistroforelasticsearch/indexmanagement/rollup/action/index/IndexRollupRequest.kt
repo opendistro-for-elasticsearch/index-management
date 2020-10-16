@@ -27,17 +27,20 @@ import org.elasticsearch.index.seqno.SequenceNumbers
 import java.io.IOException
 
 class IndexRollupRequest : IndexRequest {
-    val rollup: Rollup
+    var rollup: Rollup
+    val authHeader: String?
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : super(sin) {
         rollup = Rollup(sin)
         super.setRefreshPolicy(WriteRequest.RefreshPolicy.readFrom(sin))
+        this.authHeader = sin.readOptionalString()
     }
 
     constructor(
         rollup: Rollup,
-        refreshPolicy: WriteRequest.RefreshPolicy
+        refreshPolicy: WriteRequest.RefreshPolicy,
+        authHeader: String?
     ) {
         this.rollup = rollup
         if (rollup.seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO || rollup.primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
@@ -47,6 +50,7 @@ class IndexRollupRequest : IndexRequest {
             .setIfPrimaryTerm(rollup.primaryTerm)
         }
         super.setRefreshPolicy(refreshPolicy)
+        this.authHeader = authHeader
     }
 
     override fun validate(): ActionRequestValidationException? {
@@ -62,5 +66,6 @@ class IndexRollupRequest : IndexRequest {
         super.writeTo(out)
         rollup.writeTo(out)
         refreshPolicy.writeTo(out)
+        out.writeOptionalString(authHeader)
     }
 }

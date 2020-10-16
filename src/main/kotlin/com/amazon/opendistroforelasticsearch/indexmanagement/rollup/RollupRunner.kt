@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupAction
@@ -24,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.incrementStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.mergeStats
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -33,6 +35,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.WriteRequest
@@ -43,6 +46,7 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
+import org.elasticsearch.threadpool.ThreadPool
 
 @Suppress("TooManyFunctions")
 object RollupRunner : ScheduledJobRunner,
@@ -55,6 +59,7 @@ object RollupRunner : ScheduledJobRunner,
     private lateinit var xContentRegistry: NamedXContentRegistry
     private lateinit var scriptService: ScriptService
     private lateinit var settings: Settings
+    private lateinit var threadPool: ThreadPool
     private lateinit var rollupMapperService: RollupMapperService
     private lateinit var rollupIndexer: RollupIndexer
     private lateinit var rollupSearchService: RollupSearchService
@@ -82,6 +87,11 @@ object RollupRunner : ScheduledJobRunner,
 
     fun registerSettings(settings: Settings): RollupRunner {
         this.settings = settings
+        return this
+    }
+
+    fun registerThreadPool(threadPool: ThreadPool): RollupRunner {
+        this.threadPool = threadPool
         return this
     }
 
@@ -120,6 +130,8 @@ object RollupRunner : ScheduledJobRunner,
         launch {
             var metadata: RollupMetadata? = null
             try {
+                // Get Metadata does a get request to the config index which the role will not have access to. This is an internal
+                // call used by the plugin to populate the metadata itself so do not run this with role's context
                 if (job.metadataID != null) {
                     metadata = when (val getMetadataResult = rollupMetadataService.getExistingMetadata(job.metadataID)) {
                         is RollupMetadataService.MetadataResult.Success -> getMetadataResult.metadata
@@ -143,7 +155,12 @@ object RollupRunner : ScheduledJobRunner,
                 // Attempt to acquire lock
                 var lock: LockModel? = null
                 try {
-                    BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(1000), 3).retry(logger) {
+                    // acquireLock will attempt to create the lock index if needed and then read/create a lock. This is purely for internal purposes
+                    // and should not need the role's context to run
+                    BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(
+                        RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_DELAY),
+                        RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_COUNT
+                    ).retry(logger) {
                         lock = context.lockService.suspendUntil { acquireLock(job, context, it) }
                     }
                 } catch (e: Exception) {
@@ -179,8 +196,10 @@ object RollupRunner : ScheduledJobRunner,
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext) {
         try {
+            // TODO: Verify which parts of isJobValid needs to be run securely
             if (!isJobValid(job)) return
 
+            // Anything related to creating, reading, and deleting metadata should not require role's context
             var metadata = when (val initMetadataResult = rollupMetadataService.init(job)) {
                 is RollupMetadataService.MetadataResult.Success -> initMetadataResult.metadata
                 is RollupMetadataService.MetadataResult.NoMetadata -> return // No-op this execution
@@ -214,13 +233,23 @@ object RollupRunner : ScheduledJobRunner,
                 return
             }
 
+            // TODO: Is knowing whether or not to process the window leaking information to a user that doesn't have the correct permissions?
+            //  Or if we get to this point then we know the applied role has the correct permissions (i.e. shoiuld check in isValidJob)
             while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
                 do {
                     try {
-                        val compositeResponse = rollupSearchService.executeCompositeSearch(updatableJob, metadata)
-                        val internalComposite: InternalComposite = compositeResponse.aggregations.get(updatableJob.id)
-                        metadata = metadata.incrementStats(compositeResponse, internalComposite)
-                        val indexStats = rollupIndexer.indexRollups(updatableJob, internalComposite)
+                        // TODO: BIG TODO - Remove all_access once role injection works with bulk requests
+                        // TODO: Clean up withContext wrapper and internalComposite/indexStats pair
+                        val (internalComposite, indexStats) = withContext(
+                            InjectorContextElement(job.id, settings, threadPool.threadContext, job.roles + listOf("all_access"))
+                        ) {
+                            val compositeResponse = rollupSearchService.executeCompositeSearch(updatableJob, metadata)
+                            val internalComposite: InternalComposite =
+                                compositeResponse.aggregations.get(updatableJob.id)
+                            metadata = metadata.incrementStats(compositeResponse, internalComposite)
+                            val indexStats = rollupIndexer.indexRollups(updatableJob, internalComposite)
+                            internalComposite to indexStats
+                        }
                         metadata = rollupMetadataService.updateMetadata(updatableJob, metadata.mergeStats(indexStats), internalComposite)
                     } catch (e: RollupMetadataException) {
                         // Rethrow this exception so it doesn't get consumed here
@@ -256,7 +285,7 @@ object RollupRunner : ScheduledJobRunner,
      */
     private suspend fun updateRollupJob(job: Rollup, metadata: RollupMetadata): RollupResult {
         try {
-            val req = IndexRollupRequest(rollup = job, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
+            val req = IndexRollupRequest(rollup = job, authHeader = null, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
             val res: IndexRollupResponse = client.suspendUntil { execute(IndexRollupAction.INSTANCE, req, it) }
             // TODO: Verify the seqNo/primterm got updated
             return RollupResult.Success(res.rollup)
@@ -283,6 +312,7 @@ object RollupRunner : ScheduledJobRunner,
     // Is this job even allowed to run? i.e. it was in a FAILED state and someone just switched enabled to true, do we actually retry it?
     // Do the job mappings make sense, is it possible to execute this job
     // etc. etc. etc.
+    // TODO: Validations should be checking if the role on the job has permissions to read from source index and index to target index
     @Suppress("ReturnCount")
     private suspend fun isJobValid(job: Rollup): Boolean {
         // TODO: Handle exceptions
@@ -290,11 +320,14 @@ object RollupRunner : ScheduledJobRunner,
             rollupMetadataService.getExistingMetadata(job.metadataID)
         } else null
 
+        // TODO: Potentially need to wrap this with the role injection context depending on the final implementation of this function
         if (!rollupMapperService.isSourceIndexValid(job.sourceIndex)) {
             setFailedMetadataAndDisableJob(job, "Invalid source index")
             return false
         }
 
+        // TODO: Which of these should only be run in the roles secure context? Validation of target index existing -> if role can't view target index
+        //  is this giving priveleged information to know that it does or does not exist?
         // rollupMetadataService.init() will handle the cases where metadata is null
         if (metadata != null) {
             if (!rollupMapperService.indexExists(job.targetIndex)) {

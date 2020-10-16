@@ -21,7 +21,6 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.rules.DisableOnDebug
 import java.nio.file.Files
@@ -31,7 +30,7 @@ import javax.management.ObjectName
 import javax.management.remote.JMXConnectorFactory
 import javax.management.remote.JMXServiceURL
 
-abstract class IndexManagementRestTestCase : ESRestTestCase() {
+abstract class IndexManagementRestTestCase : ODFERestTestCase() {
 
     protected val isDebuggingTest = DisableOnDebug(null).isDebugging
     protected val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()

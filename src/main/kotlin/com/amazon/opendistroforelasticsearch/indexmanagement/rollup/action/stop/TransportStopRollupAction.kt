@@ -51,27 +51,29 @@ class TransportStopRollupAction @Inject constructor(
 
     override fun doExecute(task: Task, request: StopRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
         val getReq = GetRollupRequest(request.id(), RestRequest.Method.GET, null)
-        client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
-            override fun onResponse(response: GetRollupResponse) {
-                val rollup = response.rollup
-                if (rollup == null) {
-                    return actionListener.onFailure(
-                        ElasticsearchStatusException("Could not find find rollup [${request.id()}]", RestStatus.NOT_FOUND)
-                    )
+        client.threadPool().threadContext.stashContext().use {
+            client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
+                override fun onResponse(response: GetRollupResponse) {
+                    val rollup = response.rollup
+                    if (rollup == null) {
+                        return actionListener.onFailure(
+                            ElasticsearchStatusException("Could not find find rollup [${request.id()}]", RestStatus.NOT_FOUND)
+                        )
+                    }
+
+                    // TODO: This check could be come stale if it's true and then immediately after the metadata is INIT in the runner
+                    if (rollup.metadataID != null) {
+                        updateRollupMetadata(rollup, request, actionListener)
+                    } else {
+                        updateRollupJob(request, actionListener)
+                    }
                 }
 
-                // TODO: This check could be come stale if it's true and then immediately after the metadata is INIT in the runner
-                if (rollup.metadataID != null) {
-                    updateRollupMetadata(rollup, request, actionListener)
-                } else {
-                    updateRollupJob(request, actionListener)
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
                 }
-            }
-
-            override fun onFailure(e: Exception) {
-                actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
-            }
-        })
+            })
+        }
     }
 
     private fun updateRollupJob(request: StopRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {

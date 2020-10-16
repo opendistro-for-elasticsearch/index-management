@@ -25,19 +25,9 @@ import org.elasticsearch.index.query.MatchAllQueryBuilder
 import org.elasticsearch.index.query.RangeQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.index.query.TermsQueryBuilder
-import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder
 import org.elasticsearch.test.ESTestCase
-import kotlin.test.assertFailsWith
 
 class RollupUtilsTests : ESTestCase() {
-
-    fun `test rewriteQueryBuilder unsupported query`() {
-        assertFailsWith(UnsupportedOperationException::class, "FunctionScoreQuery is not supported") {
-            val filterFunctionBuilders = arrayOf<FunctionScoreQueryBuilder.FilterFunctionBuilder>()
-            val queryBuilder = FunctionScoreQueryBuilder(filterFunctionBuilders)
-            randomRollup().rewriteQueryBuilder(queryBuilder, mapOf())
-        }
-    }
 
     fun `test rewriteQueryBuilder term query`() {
         val termQuery = randomTermQuery()

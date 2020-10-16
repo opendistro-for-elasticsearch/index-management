@@ -171,7 +171,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 },
                 "aggs": {
                     "min_passenger_count": {
-                        "min": {
+                        "sum": {
                             "field": "passenger_count"
                         }
                     }
@@ -239,7 +239,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 },
                 "aggs": {
                     "min_passenger_count": {
-                        "min": {
+                        "sum": {
                             "field": "passenger_count"
                         }
                     }
@@ -307,7 +307,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 },
                 "aggs": {
                     "min_passenger_count": {
-                        "min": {
+                        "sum": {
                             "field": "passenger_count"
                         }
                     }
@@ -379,7 +379,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 },
                 "aggs": {
                     "min_passenger_count": {
-                        "min": {
+                        "sum": {
                             "field": "passenger_count"
                         }
                     }
@@ -398,6 +398,355 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 rawAggRes.getValue("min_passenger_count")["value"],
                 rollupAggRes.getValue("min_passenger_count")["value"]
         )
+    }
+
+    fun `test a boost query`() {
+        generateNYCTaxiData("source")
+        val rollup = Rollup(
+                id = "basic_term_query",
+                schemaVersion = 1L,
+                enabled = true,
+                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                jobLastUpdatedTime = Instant.now(),
+                jobEnabledTime = Instant.now(),
+                description = "basic search test",
+                sourceIndex = "source",
+                targetIndex = "target",
+                metadataID = null,
+                roles = emptyList(),
+                pageSize = 10,
+                delay = 0,
+                continuous = false,
+                dimensions = listOf(
+                        DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                        Terms("RatecodeID", "RatecodeID")
+                ),
+                metrics = listOf(
+                        RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
+                )
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+
+        waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+        }
+
+        refreshAllIndices()
+
+        val req = """
+            {
+                "size": 0,
+                "query": {
+                    "boosting": {
+                       "positive": {"range": {"RatecodeID": {"gte": 1}}},
+                       "negative": {"term": {"RatecodeID": 2}},
+                       "negative_boost": 1.0
+                    }
+                },
+                "aggs": {
+                    "min_passenger_count": {
+                        "sum": {
+                            "field": "passenger_count"
+                        }
+                    }
+                }
+            }
+        """.trimIndent()
+
+        val rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rawRes.restStatus() == RestStatus.OK)
+        val rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rollupRes.restStatus() == RestStatus.OK)
+        val rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
+        val rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
+        assertEquals(
+                "Source and rollup index did not return same min results",
+                rawAggRes.getValue("min_passenger_count")["value"],
+                rollupAggRes.getValue("min_passenger_count")["value"]
+        )
+    }
+
+    fun `test a const score query`() {
+        generateNYCTaxiData("source")
+        val rollup = Rollup(
+                id = "basic_term_query",
+                schemaVersion = 1L,
+                enabled = true,
+                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                jobLastUpdatedTime = Instant.now(),
+                jobEnabledTime = Instant.now(),
+                description = "basic search test",
+                sourceIndex = "source",
+                targetIndex = "target",
+                metadataID = null,
+                roles = emptyList(),
+                pageSize = 10,
+                delay = 0,
+                continuous = false,
+                dimensions = listOf(
+                        DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                        Terms("RatecodeID", "RatecodeID")
+                ),
+                metrics = listOf(
+                        RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
+                )
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+
+        waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+        }
+
+        refreshAllIndices()
+
+        val req = """
+            {
+                "size": 0,
+                "query": {
+                    "constant_score": {
+                       "filter": {"range": {"RatecodeID": {"gt": 1}}},
+                       "boost": 1.2
+                    }
+                },
+                "aggs": {
+                    "min_passenger_count": {
+                        "sum": {
+                            "field": "passenger_count"
+                        }
+                    }
+                }
+            }
+        """.trimIndent()
+
+        val rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rawRes.restStatus() == RestStatus.OK)
+        val rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rollupRes.restStatus() == RestStatus.OK)
+        val rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
+        val rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
+        assertEquals(
+                "Source and rollup index did not return same min results",
+                rawAggRes.getValue("min_passenger_count")["value"],
+                rollupAggRes.getValue("min_passenger_count")["value"]
+        )
+    }
+
+    fun `test a dis max query`() {
+        generateNYCTaxiData("source")
+        val rollup = Rollup(
+                id = "basic_term_query",
+                schemaVersion = 1L,
+                enabled = true,
+                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                jobLastUpdatedTime = Instant.now(),
+                jobEnabledTime = Instant.now(),
+                description = "basic search test",
+                sourceIndex = "source",
+                targetIndex = "target",
+                metadataID = null,
+                roles = emptyList(),
+                pageSize = 10,
+                delay = 0,
+                continuous = false,
+                dimensions = listOf(
+                        DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                        Terms("RatecodeID", "RatecodeID")
+                ),
+                metrics = listOf(
+                        RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
+                )
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+
+        waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+        }
+
+        refreshAllIndices()
+
+        val req = """
+            {
+                "size": 0,
+                "query": {
+                    "dis_max": {
+                        "queries": [
+                           {"range": {"RatecodeID": {"gt": 1}}},
+                           {"bool": {"filter": {"term": {"RatecodeID": 2}}}}
+                        ],
+                        "tie_breaker": 0.8
+                    }
+                },
+                "aggs": {
+                    "min_passenger_count": {
+                        "sum": {
+                            "field": "passenger_count"
+                        }
+                    }
+                }
+            }
+        """.trimIndent()
+
+        val rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rawRes.restStatus() == RestStatus.OK)
+        val rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rollupRes.restStatus() == RestStatus.OK)
+        val rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
+        val rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
+        assertEquals(
+                "Source and rollup index did not return same min results",
+                rawAggRes.getValue("min_passenger_count")["value"],
+                rollupAggRes.getValue("min_passenger_count")["value"]
+        )
+    }
+
+    fun `test an unsupported query`() {
+        generateNYCTaxiData("source")
+        val rollup = Rollup(
+                id = "basic_term_query",
+                schemaVersion = 1L,
+                enabled = true,
+                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                jobLastUpdatedTime = Instant.now(),
+                jobEnabledTime = Instant.now(),
+                description = "basic search test",
+                sourceIndex = "source",
+                targetIndex = "target",
+                metadataID = null,
+                roles = emptyList(),
+                pageSize = 10,
+                delay = 0,
+                continuous = false,
+                dimensions = listOf(
+                        DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                        Terms("RatecodeID", "RatecodeID")
+                ),
+                metrics = listOf(
+                        RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
+                )
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+
+        waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+        }
+
+        refreshAllIndices()
+
+        val req = """
+            {
+                "size": 0,
+                "query": {
+                    "match": {
+                        "RatecodeID": 1
+                    }
+                },
+                "aggs": {
+                    "min_passenger_count": {
+                        "sum": {
+                            "field": "passenger_count"
+                        }
+                    }
+                }
+            }
+        """.trimIndent()
+
+        try {
+            client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+            fail("Expected 400 Method BAD_REQUEST response")
+        } catch (e: ResponseException) {
+            assertEquals(
+                    "Wrong error message",
+                    "The match query is currently not supported in rollups",
+                    (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
+            )
+            assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+    }
+
+    fun `test no valid rollup job for rollup search`() {
+        generateNYCTaxiData("source")
+        val rollup = Rollup(
+                id = "basic_term_query",
+                schemaVersion = 1L,
+                enabled = true,
+                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                jobLastUpdatedTime = Instant.now(),
+                jobEnabledTime = Instant.now(),
+                description = "basic search test",
+                sourceIndex = "source",
+                targetIndex = "target",
+                metadataID = null,
+                roles = emptyList(),
+                pageSize = 10,
+                delay = 0,
+                continuous = false,
+                dimensions = listOf(
+                        DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                        Terms("RatecodeID", "RatecodeID")
+                ),
+                metrics = listOf(
+                        RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Min(), Max(), ValueCount(), Average()))
+                )
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+
+        waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+        }
+
+        refreshAllIndices()
+
+        val req = """
+            {
+                "size": 0,
+                "query": {
+                    "bool": {
+                        "must": {"range": {"RateCodeID": {"gt": 1}}},
+                        "filter": {"term": {"timestamp": "2020-10-03T00:00:00.000Z"}}
+                    }
+                },
+                "aggs": {
+                    "min_passenger_count": {
+                        "sum": {
+                            "field": "passenger_count"
+                        }
+                    }
+                }
+            }
+        """.trimIndent()
+
+        try {
+            client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+            fail("Expected 400 Method BAD_REQUEST response")
+        } catch (e: ResponseException) {
+            assertEquals(
+                    "Wrong error message",
+                    "Could not find a rollup job that can answer this query because [missing field RateCodeID, missing terms grouping on " +
+                            "timestamp, missing sum aggregation on passenger_count]",
+                    (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
+            )
+            assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
     }
 
     fun `test invalid size on rollup search`() {

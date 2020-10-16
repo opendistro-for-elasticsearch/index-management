@@ -269,27 +269,25 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
                 .reduceScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
                     "long valueCount = 0; for (vc in states) { valueCount += vc } return valueCount", emptyMap()))
         }
-        // This will never get executed
-        else -> throw UnsupportedOperationException("The ${aggregationBuilder.type} aggregation is not currently supported in rollups")
+        // We do nothing otherwise, the validation logic should have already verified so not throwing an exception
+        else -> aggregationBuilder
     }
 }
 
-@Suppress("ComplexMethod", "LongMethod", "ReturnCount")
+@Suppress("ComplexMethod", "LongMethod")
 fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeMap: Map<String, String>): QueryBuilder {
-    when (queryBuilder) {
+    return when (queryBuilder) {
         is TermQueryBuilder -> {
             val updatedFieldName = queryBuilder.fieldName() + "." + Dimension.Type.TERMS.type
             val updatedTermQueryBuilder = TermQueryBuilder(updatedFieldName, queryBuilder.value())
             updatedTermQueryBuilder.boost(queryBuilder.boost())
             updatedTermQueryBuilder.queryName(queryBuilder.queryName())
-            return updatedTermQueryBuilder
         }
         is TermsQueryBuilder -> {
             val updatedFieldName = queryBuilder.fieldName() + "." + Dimension.Type.TERMS.type
             val updatedTermsQueryBuilder = TermsQueryBuilder(updatedFieldName, queryBuilder.values())
             updatedTermsQueryBuilder.boost(queryBuilder.boost())
             updatedTermsQueryBuilder.queryName(queryBuilder.queryName())
-            return updatedTermsQueryBuilder
         }
         is RangeQueryBuilder -> {
             val updatedFieldName = queryBuilder.fieldName() + "." + fieldNameMappingTypeMap.getValue(queryBuilder.fieldName())
@@ -298,16 +296,11 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
             updatedRangeQueryBuilder.includeUpper(queryBuilder.includeUpper())
             updatedRangeQueryBuilder.from(queryBuilder.from())
             updatedRangeQueryBuilder.to(queryBuilder.to())
-            updatedRangeQueryBuilder.queryName(queryBuilder.queryName())
-            updatedRangeQueryBuilder.boost(queryBuilder.boost())
             if (queryBuilder.timeZone() != null) updatedRangeQueryBuilder.timeZone(queryBuilder.timeZone())
             if (queryBuilder.format() != null) updatedRangeQueryBuilder.format(queryBuilder.format())
             if (queryBuilder.relation()?.relationName != null) updatedRangeQueryBuilder.relation(queryBuilder.relation().relationName)
-            return updatedRangeQueryBuilder
-        }
-        is MatchAllQueryBuilder -> {
-            // Nothing to do
-            return queryBuilder
+            updatedRangeQueryBuilder.queryName(queryBuilder.queryName())
+            updatedRangeQueryBuilder.boost(queryBuilder.boost())
         }
         is BoolQueryBuilder -> {
             val newBoolQueryBuilder = BoolQueryBuilder()
@@ -331,7 +324,6 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
             newBoolQueryBuilder.adjustPureNegative(queryBuilder.adjustPureNegative())
             newBoolQueryBuilder.queryName(queryBuilder.queryName())
             newBoolQueryBuilder.boost(queryBuilder.boost())
-            return newBoolQueryBuilder
         }
         is BoostingQueryBuilder -> {
             val newPositiveQueryBuilder = this.rewriteQueryBuilder(queryBuilder.positiveQuery(), fieldNameMappingTypeMap)
@@ -340,14 +332,12 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
             if (queryBuilder.negativeBoost() >= 0) newBoostingQueryBuilder.negativeBoost(queryBuilder.negativeBoost())
             newBoostingQueryBuilder.queryName(queryBuilder.queryName())
             newBoostingQueryBuilder.boost(queryBuilder.boost())
-            return newBoostingQueryBuilder
         }
         is ConstantScoreQueryBuilder -> {
             val newInnerQueryBuilder = this.rewriteQueryBuilder(queryBuilder.innerQuery(), fieldNameMappingTypeMap)
             val newConstantScoreQueryBuilder = ConstantScoreQueryBuilder(newInnerQueryBuilder)
             newConstantScoreQueryBuilder.boost(queryBuilder.boost())
             newConstantScoreQueryBuilder.queryName(queryBuilder.queryName())
-            return newConstantScoreQueryBuilder
         }
         is DisMaxQueryBuilder -> {
             val newDisMaxQueryBuilder = DisMaxQueryBuilder()
@@ -355,11 +345,9 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
             newDisMaxQueryBuilder.tieBreaker(queryBuilder.tieBreaker())
             newDisMaxQueryBuilder.queryName(queryBuilder.queryName())
             newDisMaxQueryBuilder.boost(queryBuilder.boost())
-            return newDisMaxQueryBuilder
         }
-        else -> {
-            throw UnsupportedOperationException("The ${queryBuilder.name} query is currently not supported in rollups")
-        }
+        // We do nothing otherwise, the validation logic should have already verified so not throwing an exception
+        else -> queryBuilder
     }
 }
 

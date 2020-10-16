@@ -161,7 +161,7 @@ class RollupInterceptor(
                 is ValueCountAggregationBuilder -> {
                     fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.METRIC, it.field(), it.type))
                 }
-                else -> throw UnsupportedOperationException("The ${it.type} aggregation is not currently supported in rollups")
+                else -> throw IllegalArgumentException("The ${it.type} aggregation is not currently supported in rollups")
             }
             if (it.subAggregations?.isNotEmpty() == true) {
                 getAggregationMetadata(it.subAggregations, fieldMappings)
@@ -209,7 +209,7 @@ class RollupInterceptor(
                 query.innerQueries().forEach { this.getQueryMetadata(it, fieldMappings) }
             }
             else -> {
-                throw UnsupportedOperationException("The ${query.name} query is currently not supported in rollups")
+                throw IllegalArgumentException("The ${query.name} query is currently not supported in rollups")
             }
         }
 
@@ -246,11 +246,10 @@ class RollupInterceptor(
             // create a global set of field names to handle unknown mapping types
             val allFields = allFieldMappings.map { it.fieldName }
 
-            // Adding to the issue if cannot find field mapping and in case of unknown mapping we just check if the field exists
+            // Adding to the issue if cannot find defined field mapping or if the field is missing
             fieldMappings.forEach {
-                if (!(allFieldMappings.contains(it) || (it.mappingType == UNKNOWN_MAPPING && allFields.contains(it.fieldName)))) {
-                    issues.add(it.toIssue())
-                }
+                if (!allFields.contains(it.fieldName)) issues.add(it.toIssue(true))
+                else if (it.mappingType != UNKNOWN_MAPPING && !allFieldMappings.contains(it)) issues.add(it.toIssue())
             }
         }
 

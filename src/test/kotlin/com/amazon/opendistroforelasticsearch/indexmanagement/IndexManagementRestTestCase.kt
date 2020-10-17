@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement
 
+import org.apache.http.entity.ContentType
+import org.apache.http.entity.StringEntity
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.Response
@@ -22,6 +24,7 @@ import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import org.junit.AfterClass
+import org.junit.Before
 import org.junit.rules.DisableOnDebug
 import java.nio.file.Files
 import java.nio.file.Path
@@ -31,6 +34,15 @@ import javax.management.remote.JMXConnectorFactory
 import javax.management.remote.JMXServiceURL
 
 abstract class IndexManagementRestTestCase : ODFERestTestCase() {
+
+    // Having issues with tests leaking into other tests and mappings being incorrect and they are not caught by any pending task wait check as
+    // they do not go through the pending task queue. Ideally this should probably be written in a way to wait for the
+    // jobs themselves to finish and gracefully shut them down.. but for now seeing if this works.
+    @Before
+    fun setAutoCreateIndex(bool: Boolean = false) {
+        client().makeRequest("PUT", "_cluster/settings",
+            StringEntity("""{"persistent":{"action.auto_create_index":$bool}}""", ContentType.APPLICATION_JSON))
+    }
 
     protected val isDebuggingTest = DisableOnDebug(null).isDebugging
     protected val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()

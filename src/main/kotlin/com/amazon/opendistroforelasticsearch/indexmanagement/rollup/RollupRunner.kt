@@ -133,7 +133,7 @@ object RollupRunner : ScheduledJobRunner,
                 // Get Metadata does a get request to the config index which the role will not have access to. This is an internal
                 // call used by the plugin to populate the metadata itself so do not run this with role's context
                 if (job.metadataID != null) {
-                    metadata = when (val getMetadataResult = rollupMetadataService.getExistingMetadata(job.metadataID)) {
+                    metadata = when (val getMetadataResult = rollupMetadataService.getExistingMetadata(job)) {
                         is RollupMetadataService.MetadataResult.Success -> getMetadataResult.metadata
                         is RollupMetadataService.MetadataResult.NoMetadata -> null
                         is RollupMetadataService.MetadataResult.Failure ->
@@ -306,7 +306,7 @@ object RollupRunner : ScheduledJobRunner,
     private suspend fun isJobValid(job: Rollup): Boolean {
         // TODO: Handle exceptions
         val metadata = if (job.metadataID != null) {
-            rollupMetadataService.getExistingMetadata(job.metadataID)
+            rollupMetadataService.getExistingMetadata(job)
         } else null
 
         // TODO: Potentially need to wrap this with the role injection context depending on the final implementation of this function

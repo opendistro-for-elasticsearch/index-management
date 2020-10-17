@@ -51,7 +51,6 @@ import java.time.Instant
 import java.time.ZonedDateTime
 
 // Service that handles CRUD operations for rollup metadata
-// TODO: Metadata should be stored on same shard as its owning rollup job using routing
 // TODO: This whole class needs to be cleaned up
 @Suppress("TooManyFunctions")
 class RollupMetadataService(val client: Client, val xContentRegistry: NamedXContentRegistry) {
@@ -63,7 +62,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     suspend fun init(rollup: Rollup): MetadataResult {
         if (rollup.metadataID != null) {
             // TODO: How does the user recover from the not found error?
-            val existingMetadata = when (val getMetadataResult = getExistingMetadata(rollup.metadataID)) {
+            val existingMetadata = when (val getMetadataResult = getExistingMetadata(rollup)) {
                 is MetadataResult.Success -> getMetadataResult.metadata
                 is MetadataResult.NoMetadata -> null
                 is MetadataResult.Failure -> return getMetadataResult
@@ -168,9 +167,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         )
     }
 
-    // TODO: Let user specify when the first window should start at? i.e. they want daily rollups and they want it exactly at 12:00AM -> 11:59PM
-    //  but their first event is at 5:35PM, or maybe they want to rollup just the past months worth of data but there is a years worth in index?
-    //  Could perhaps solve that by allowing the user to specify their own filter query that is applied to the composite agg search
+    //  TODO: Let User specify their own filter query that is applied to the composite agg search
     // TODO: handle exception
     @Throws(Exception::class)
     private suspend fun getInitialStartTime(rollup: Rollup): StartingTimeResult {
@@ -277,10 +274,10 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     }
 
     @Suppress("BlockingMethodInNonBlockingContext")
-    suspend fun getExistingMetadata(id: String): MetadataResult {
+    suspend fun getExistingMetadata(rollup: Rollup): MetadataResult {
         try {
             var rollupMetadata: RollupMetadata? = null
-            val getRequest = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, id)
+            val getRequest = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, rollup.metadataID).routing(rollup.id)
             val response: GetResponse = client.suspendUntil { get(getRequest, it) }
 
             if (!response.isExists) return MetadataResult.NoMetadata
@@ -298,8 +295,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             } else MetadataResult.NoMetadata
         } catch (e: Exception) {
             // TODO: Catching general exceptions for now, can make more granular
-            logger.debug("Error when getting rollup metadata [$id]")
-            return MetadataResult.Failure("Error when getting rollup metadata [$id]", e)
+            logger.debug("Error when getting rollup metadata [${rollup.metadataID}]")
+            return MetadataResult.Failure("Error when getting rollup metadata [${rollup.metadataID}]", e)
         }
     }
 
@@ -354,7 +351,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             val builder = XContentFactory.jsonBuilder().startObject()
                 .field(RollupMetadata.ROLLUP_METADATA_TYPE, metadata)
                 .endObject()
-            val indexRequest = IndexRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX).source(builder)
+            val indexRequest = IndexRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX).source(builder).routing(metadata.rollupID)
             if (updating) {
                 indexRequest.id(metadata.id).setIfSeqNo(metadata.seqNo).setIfPrimaryTerm(metadata.primaryTerm)
             } else {

@@ -310,9 +310,9 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             getUpdatedNonContinuousMetadata(rollup, metadata, internalComposite)
         }
 
-        return when (val metadataUpdateResult = submitMetadataUpdate(updatedMetadata, metadata.id != RollupMetadata.NO_ID)) {
+        return when (val metadataUpdateResult = submitMetadataUpdate(updatedMetadata, metadata.id != NO_ID)) {
             is MetadataResult.Success -> metadataUpdateResult.metadata
-            is MetadataResult.Failure -> throw RollupMetadataException("Failed to update rollup metadata [${metadata.id}]", null)
+            is MetadataResult.Failure -> throw RollupMetadataException("Failed to update rollup metadata [${metadata.id}]", metadataUpdateResult.cause)
             // NoMetadata is not expected from submitMetadataUpdate here
             is MetadataResult.NoMetadata -> throw RollupMetadataException("Unexpected state when updating rollup metadata [${metadata.id}]", null)
         }

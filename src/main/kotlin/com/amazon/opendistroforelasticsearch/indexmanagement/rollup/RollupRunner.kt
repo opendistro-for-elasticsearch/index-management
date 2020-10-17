@@ -185,11 +185,6 @@ object RollupRunner : ScheduledJobRunner,
     // TODO: need to get local version of job to see if page size has been changed
     /*
     * TODO situations:
-    *  There is a rollup.metadataID and no metadata doc -> create new metadata doc with FAILED status?
-    *  There is a rollup.metadataID and doc but theres no target index?
-    *        -> index was deleted -> just recreate (but we would have to start over)? Or move to FAILED?
-    *  There is a rollup.metadataID and doc but target index is not rollup index?
-    *        -> index was deleted and recreated as non rollup -> move to FAILED
     *  There is a rollup.metadataID and doc but theres no job in target index?
     *        -> index was deleted and recreated as rollup -> just recreate (but we would have to start over)? Or move to FAILED?
     * */
@@ -224,8 +219,6 @@ object RollupRunner : ScheduledJobRunner,
                 }
             }
 
-            // TODO: before creating target index we also validate the source index exists?
-            //  and anything else that would cause this to get delayed right away like invalid fields
             val successful = rollupMapperService.init(updatableJob)
             if (!successful) {
                 // TODO: More helpful error messaging
@@ -255,7 +248,7 @@ object RollupRunner : ScheduledJobRunner,
                         // Rethrow this exception so it doesn't get consumed here
                         throw e
                     } catch (e: Exception) {
-                        // TODO: Remove this general exception catch since it will allow the rollup to keep going
+                        // TODO: Should update metadata and disable job here instead of allowing the rollup to keep going
                         logger.error("Failed to rollup ", e)
                     }
                 } while (metadata.afterKey != null)
@@ -264,6 +257,7 @@ object RollupRunner : ScheduledJobRunner,
             if (!updatableJob.continuous) {
                 if (listOf(RollupMetadata.Status.STOPPED, RollupMetadata.Status.FINISHED, RollupMetadata.Status.FAILED).contains(metadata.status)) {
                     disableJob(updatableJob, metadata)
+                    return
                 }
             }
         } catch (e: RollupMetadataException) {
@@ -307,11 +301,6 @@ object RollupRunner : ScheduledJobRunner,
 
     // TODO: Source index could be a pattern but it's used at runtime so it could match new indices which weren't matched before
     //  which means we always need to validate the source index on every execution?
-    // This fn: Should we even proceed to execute this job?
-    // Validations could be broken down into:
-    // Is this job even allowed to run? i.e. it was in a FAILED state and someone just switched enabled to true, do we actually retry it?
-    // Do the job mappings make sense, is it possible to execute this job
-    // etc. etc. etc.
     // TODO: Validations should be checking if the role on the job has permissions to read from source index and index to target index
     @Suppress("ReturnCount")
     private suspend fun isJobValid(job: Rollup): Boolean {
@@ -342,6 +331,7 @@ object RollupRunner : ScheduledJobRunner,
                 return false
             }
             if (!rollupMapperService.jobExistsInRollupIndex(job)) {
+                // TODO: Make rollupMapperService.updateRollupIndexMappings public and call here to add job before setting to FAILED?
                 setFailedMetadataAndDisableJob(job, "The target index [${job.targetIndex}] does not have rollup job information in mappings")
                 return false
             }
@@ -350,8 +340,13 @@ object RollupRunner : ScheduledJobRunner,
         return true
     }
 
-    /** Sets a failed metadata (updating an existing metadata if provided, otherwise creating a new one) and disables the job */
-    private suspend fun setFailedMetadataAndDisableJob(job: Rollup, reason: String, existingMetadata: RollupMetadata? = null) {
+    /**
+     * Sets a failed metadata (updating an existing metadata if provided, otherwise creating a new one) and disables the job.
+     *
+     * Returns true if disabling the job was successful. If any metadata operations fail along the way, RollupMetadataException
+     * is thrown to be caught by the runner.
+     */
+    private suspend fun setFailedMetadataAndDisableJob(job: Rollup, reason: String, existingMetadata: RollupMetadata? = null): Boolean {
         val updatedMetadata = when (val setFailedMetadataResult = rollupMetadataService.setFailedMetadata(job, reason, existingMetadata)) {
             is RollupMetadataService.MetadataResult.Success -> setFailedMetadataResult.metadata
             is RollupMetadataService.MetadataResult.Failure ->
@@ -361,24 +356,35 @@ object RollupRunner : ScheduledJobRunner,
                 throw RollupMetadataException("Unexpected state when setting failed metadata", null)
         }
 
-        disableJob(job, updatedMetadata)
+        return disableJob(job, updatedMetadata)
     }
 
     /**
      * Disables a given job. Also takes in an existing metadata to replace the metadataID of the job
      * if this was a newly created metadata.
      *
+     * This method will return true or false based on whether or not updating the job was successful. When
+     * calling this method, it can be assumed that when the response is false, the failed metadata was updated
+     * to relay the failure. If the metadata update failed, a RollupMetadataException would be thrown which gets
+     * caught in the runner so that case does not need to be explicitly handled by the caller of the method.
+     *
      * Note: Set metadata to failed and ensure it's updated before passing it to this method because it
      * will not update the metadata (unless updateRollupJob job fails).
      */
-    private suspend fun disableJob(job: Rollup, metadata: RollupMetadata) {
+    private suspend fun disableJob(job: Rollup, metadata: RollupMetadata): Boolean {
         val updatedRollupJob = if (metadata.id != job.metadataID) {
             job.copy(metadataID = metadata.id, enabled = false, jobEnabledTime = null)
         } else {
             job.copy(enabled = false, jobEnabledTime = null)
         }
-        // TODO: Handle exceptions
-        updateRollupJob(updatedRollupJob, metadata)
+
+        return when (val updateRollupResult = updateRollupJob(updatedRollupJob, metadata)) {
+            is RollupResult.Success -> true
+            is RollupResult.Failure -> {
+                logger.error("Failed to disable rollup job [${job.id}]", updateRollupResult.cause)
+                false
+            }
+        }
     }
 
     sealed class RollupResult {

@@ -24,12 +24,16 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Sum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.ValueCount
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomAverage
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomContinuousMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomExplainRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMax
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMin
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollupMetrics
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomSum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomTerms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomValueCount
@@ -117,5 +121,37 @@ class WriteableTests : ESTestCase() {
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val streamedRollup = Rollup(sin)
         assertEquals("Round tripping Rollup stream doesn't work", rollup, streamedRollup)
+    }
+
+    fun `test explain rollup as stream`() {
+        val explainRollup = randomExplainRollup()
+        val out = BytesStreamOutput().also { explainRollup.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedExplainRollup = ExplainRollup(sin)
+        assertEquals("Round tripping ExplainRollup stream doesn't work", explainRollup, streamedExplainRollup)
+    }
+
+    fun `test continuous metadata as stream`() {
+        val continuousMetadata = randomContinuousMetadata()
+        val out = BytesStreamOutput().also { continuousMetadata.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedContinuousMetadata = ContinuousMetadata(sin)
+        assertEquals("Round tripping ContinuousMetadata stream doesn't work", continuousMetadata, streamedContinuousMetadata)
+    }
+
+    fun `test rollup stats as stream`() {
+        val stats = randomRollupStats()
+        val out = BytesStreamOutput().also { stats.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedStats = RollupStats(sin)
+        assertEquals("Round tripping RollupStats stream doesn't work", stats, streamedStats)
+    }
+
+    fun `test rollup metadata as stream`() {
+        val rollupMetadata = randomRollupMetadata()
+        val out = BytesStreamOutput().also { rollupMetadata.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedRollupMetadata = RollupMetadata(sin)
+        assertEquals("Round tripping RollupMetadata stream doesn't work", rollupMetadata, streamedRollupMetadata)
     }
 }

@@ -18,9 +18,12 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomSchedule
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ContinuousMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ExplainRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
@@ -114,6 +117,58 @@ fun randomRollup(): Rollup {
         dimensions = randomRollupDimensions(),
         metrics = ESRestTestCase.randomList(20, ::randomRollupMetrics).distinctBy { it.targetField }
     )
+}
+
+fun randomRollupStats(): RollupStats {
+    return RollupStats(
+        pagesProcessed = ESRestTestCase.randomNonNegativeLong(),
+        documentsProcessed = ESRestTestCase.randomNonNegativeLong(),
+        rollupsIndexed = ESRestTestCase.randomNonNegativeLong(),
+        indexTimeInMillis = ESRestTestCase.randomNonNegativeLong(),
+        searchTimeInMillis = ESRestTestCase.randomNonNegativeLong()
+    )
+}
+
+fun randomRollupMetadataStatus(): RollupMetadata.Status {
+    return ESRestTestCase.randomFrom(RollupMetadata.Status.values().toList())
+}
+
+fun randomContinuousMetadata(): ContinuousMetadata {
+    val one = randomInstant()
+    val two = randomInstant()
+    return ContinuousMetadata(
+        nextWindowEndTime = if (one.isAfter(two)) one else two,
+        nextWindowStartTime = if (one.isAfter(two)) two else one
+    )
+}
+
+fun randomAfterKey(): Map<String, Any>? {
+    return if (ESRestTestCase.randomBoolean()) {
+        null
+    } else {
+        mapOf("test" to 17)
+    }
+}
+
+fun randomRollupMetadata(): RollupMetadata {
+    val status = randomRollupMetadataStatus()
+    return RollupMetadata(
+        id = ESRestTestCase.randomAlphaOfLength(10),
+        seqNo = ESRestTestCase.randomNonNegativeLong(),
+        primaryTerm = ESRestTestCase.randomNonNegativeLong(),
+        rollupID = ESRestTestCase.randomAlphaOfLength(10),
+        afterKey = randomAfterKey(),
+        lastUpdatedTime = randomInstant(),
+        continuous = randomContinuousMetadata(),
+        status = status,
+        failureReason = if (status == RollupMetadata.Status.FAILED) ESRestTestCase.randomAlphaOfLength(10) else null,
+        stats = randomRollupStats()
+    )
+}
+
+fun randomExplainRollup(): ExplainRollup {
+    val metadata = randomRollupMetadata()
+    return ExplainRollup(metadataID = metadata.id, metadata = metadata)
 }
 
 fun randomTermQuery(): TermQueryBuilder { return TermQueryBuilder(ESRestTestCase.randomAlphaOfLength(5), ESRestTestCase.randomAlphaOfLength(5)) }

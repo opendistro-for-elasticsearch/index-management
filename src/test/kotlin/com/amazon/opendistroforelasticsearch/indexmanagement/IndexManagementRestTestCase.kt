@@ -39,9 +39,9 @@ abstract class IndexManagementRestTestCase : ODFERestTestCase() {
     // they do not go through the pending task queue. Ideally this should probably be written in a way to wait for the
     // jobs themselves to finish and gracefully shut them down.. but for now seeing if this works.
     @Before
-    fun setAutoCreateIndex(bool: Boolean = false) {
+    fun setAutoCreateIndex() {
         client().makeRequest("PUT", "_cluster/settings",
-            StringEntity("""{"persistent":{"action.auto_create_index":$bool}}""", ContentType.APPLICATION_JSON))
+            StringEntity("""{"persistent":{"action.auto_create_index":false}}""", ContentType.APPLICATION_JSON))
     }
 
     protected val isDebuggingTest = DisableOnDebug(null).isDebugging

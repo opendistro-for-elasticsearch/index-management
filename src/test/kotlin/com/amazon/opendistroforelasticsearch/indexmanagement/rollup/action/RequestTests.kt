@@ -18,17 +18,74 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete.DeleteRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain.ExplainRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start.StartRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.stop.StopRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
+import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
+import org.elasticsearch.index.seqno.SequenceNumbers
+import org.elasticsearch.rest.RestRequest
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.test.ESTestCase
 
 class RequestTests : ESTestCase() {
 
+    fun `test delete rollup request`() {
+        val id = "some_id"
+        val req = DeleteRollupRequest(id).index(INDEX_MANAGEMENT_INDEX)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = DeleteRollupRequest(sin)
+        assertEquals(id, streamedReq.id())
+    }
+
+    fun `test explain rollup request`() {
+        val ids = listOf("oneid", "twoid", "threeid")
+        val req = ExplainRollupRequest(ids)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = ExplainRollupRequest(sin)
+        assertEquals(ids, streamedReq.rollupIDs)
+    }
+
+    fun `test get rollup request`() {
+        val id = "some_id"
+        val method = RestRequest.Method.GET
+        val srcContext = null
+        val req = GetRollupRequest(id, method, srcContext)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = GetRollupRequest(sin)
+        assertEquals(id, streamedReq.id)
+        assertEquals(method, streamedReq.method)
+        assertEquals(srcContext, streamedReq.srcContext)
+    }
+
+    fun `test head get rollup request`() {
+        val id = "some_id"
+        val method = RestRequest.Method.HEAD
+        val srcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
+        val req = GetRollupRequest(id, method, srcContext)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = GetRollupRequest(sin)
+        assertEquals(id, streamedReq.id)
+        assertEquals(method, streamedReq.method)
+        assertEquals(srcContext, streamedReq.srcContext)
+    }
+
     fun `test index rollup post request`() {
-        val rollup = randomRollup()
+        val rollup = randomRollup().copy(seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO, primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val req = IndexRollupRequest(
             rollup = rollup,
             authHeader = null,
@@ -38,44 +95,48 @@ class RequestTests : ESTestCase() {
         val out = BytesStreamOutput().apply { req.writeTo(this) }
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val streamedReq = IndexRollupRequest(sin)
-        assertEquals(rollup.id, streamedReq.rollup.id)
         assertEquals(rollup, streamedReq.rollup)
         assertEquals(rollup.seqNo, streamedReq.ifSeqNo())
         assertEquals(rollup.primaryTerm, streamedReq.ifPrimaryTerm())
         assertEquals(WriteRequest.RefreshPolicy.IMMEDIATE, streamedReq.refreshPolicy)
+        assertEquals(DocWriteRequest.OpType.CREATE, streamedReq.opType())
     }
 
-    //    fun `test index monitor post request`() {
-    //
-    //        val req = IndexMonitorRequest("1234", 1L, 2L, WriteRequest.RefreshPolicy.IMMEDIATE, RestRequest.Method.POST,
-    //                randomMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
-    //        assertNotNull(req)
-    //
-    //        val out = BytesStreamOutput()
-    //        req.writeTo(out)
-    //        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-    //        val newReq = IndexMonitorRequest(sin)
-    //        assertEquals("1234", newReq.monitorId)
-    //        assertEquals(1L, newReq.seqNo)
-    //        assertEquals(2L, newReq.primaryTerm)
-    //        assertEquals(RestRequest.Method.POST, newReq.method)
-    //        assertNotNull(newReq.monitor)
-    //    }
-    //
-    //    fun `test index monitor put request`() {
-    //
-    //        val req = IndexMonitorRequest("1234", 1L, 2L, WriteRequest.RefreshPolicy.IMMEDIATE, RestRequest.Method.PUT,
-    //                randomMonitor().copy(inputs = listOf(SearchInput(emptyList(), SearchSourceBuilder()))))
-    //        assertNotNull(req)
-    //
-    //        val out = BytesStreamOutput()
-    //        req.writeTo(out)
-    //        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
-    //        val newReq = IndexMonitorRequest(sin)
-    //        assertEquals("1234", newReq.monitorId)
-    //        assertEquals(1L, newReq.seqNo)
-    //        assertEquals(2L, newReq.primaryTerm)
-    //        assertEquals(RestRequest.Method.PUT, newReq.method)
-    //        assertNotNull(newReq.monitor)
-    //    }
+    fun `test index rollup put request`() {
+        val rollup = randomRollup().copy(seqNo = 1L, primaryTerm = 2L)
+        val req = IndexRollupRequest(
+            rollup = rollup,
+            authHeader = null,
+            refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE
+        ).index(INDEX_MANAGEMENT_INDEX)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = IndexRollupRequest(sin)
+        assertEquals(rollup, streamedReq.rollup)
+        assertEquals(rollup.seqNo, streamedReq.ifSeqNo())
+        assertEquals(rollup.primaryTerm, streamedReq.ifPrimaryTerm())
+        assertEquals(WriteRequest.RefreshPolicy.IMMEDIATE, streamedReq.refreshPolicy)
+        assertEquals(DocWriteRequest.OpType.INDEX, streamedReq.opType())
+    }
+
+    fun `test start rollup request`() {
+        val id = "some_id"
+        val req = StartRollupRequest(id).index(INDEX_MANAGEMENT_INDEX)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = StartRollupRequest(sin)
+        assertEquals(id, streamedReq.id())
+    }
+
+    fun `test stop rollup request`() {
+        val id = "some_id"
+        val req = StopRollupRequest(id).index(INDEX_MANAGEMENT_INDEX)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = StopRollupRequest(sin)
+        assertEquals(id, streamedReq.id())
+    }
 }

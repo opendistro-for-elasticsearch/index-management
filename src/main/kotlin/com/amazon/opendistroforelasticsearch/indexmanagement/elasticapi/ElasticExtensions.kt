@@ -32,7 +32,6 @@ import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.util.concurrent.ThreadContext
-import org.elasticsearch.common.util.concurrent.ThreadContext.StoredContext
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper

@@ -30,7 +30,6 @@ import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.index.seqno.SequenceNumbers
-import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.test.ESTestCase
 
@@ -58,29 +57,27 @@ class RequestTests : ESTestCase() {
 
     fun `test get rollup request`() {
         val id = "some_id"
-        val method = RestRequest.Method.GET
         val srcContext = null
-        val req = GetRollupRequest(id, method, srcContext)
+        val preference = "_local"
+        val req = GetRollupRequest(id, srcContext, preference)
 
         val out = BytesStreamOutput().apply { req.writeTo(this) }
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val streamedReq = GetRollupRequest(sin)
         assertEquals(id, streamedReq.id)
-        assertEquals(method, streamedReq.method)
         assertEquals(srcContext, streamedReq.srcContext)
+        assertEquals(preference, streamedReq.preference)
     }
 
     fun `test head get rollup request`() {
         val id = "some_id"
-        val method = RestRequest.Method.HEAD
         val srcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
-        val req = GetRollupRequest(id, method, srcContext)
+        val req = GetRollupRequest(id, srcContext)
 
         val out = BytesStreamOutput().apply { req.writeTo(this) }
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val streamedReq = GetRollupRequest(sin)
         assertEquals(id, streamedReq.id)
-        assertEquals(method, streamedReq.method)
         assertEquals(srcContext, streamedReq.srcContext)
     }
 

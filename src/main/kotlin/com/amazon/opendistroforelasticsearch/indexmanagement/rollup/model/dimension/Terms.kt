@@ -112,7 +112,7 @@ data class Terms(
                     else -> throw IllegalArgumentException("Invalid field [$fieldName] found in terms dimension.")
                 }
             }
-            if (targetField == null) targetField = sourceField // TODO: testing
+            if (targetField == null) targetField = sourceField
             return Terms(
                 requireNotNull(sourceField) { "Source field cannot be null" },
                 requireNotNull(targetField) { "Target field cannot be null" }

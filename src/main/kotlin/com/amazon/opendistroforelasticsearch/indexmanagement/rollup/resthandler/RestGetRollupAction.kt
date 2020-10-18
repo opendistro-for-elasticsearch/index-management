@@ -47,7 +47,7 @@ class RestGetRollupAction : BaseRestHandler() {
         }
 
         val srcContext: FetchSourceContext? = if (request.method() == HEAD) FetchSourceContext.DO_NOT_FETCH_SOURCE else null
-        val getRollupRequest = GetRollupRequest(rollupID, request.method(), srcContext)
+        val getRollupRequest = GetRollupRequest(rollupID, srcContext)
         return RestChannelConsumer { channel ->
             client.execute(GetRollupAction.INSTANCE, getRollupRequest, RestToXContentListener(channel))
         }

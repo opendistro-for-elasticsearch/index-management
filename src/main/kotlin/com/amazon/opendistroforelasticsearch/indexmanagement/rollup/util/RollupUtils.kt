@@ -84,7 +84,7 @@ fun Rollup.getRollupSearchRequest(metadata: RollupMetadata): SearchRequest {
         .query(query)
     return SearchRequest(this.sourceIndex)
         .source(searchSourceBuilder)
-        .allowPartialSearchResults(false) // TODO check the behavior one this
+        .allowPartialSearchResults(false)
 }
 
 @Suppress("ComplexMethod", "NestedBlockDepth")
@@ -138,7 +138,7 @@ fun Rollup.getCompositeAggregationBuilder(afterKey: Map<String, Any>?): Composit
                     is Max -> listOf(MaxAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField))
                     is Min -> listOf(MinAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField))
                     is ValueCount -> listOf(ValueCountAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField))
-                    // TODO: This needs to cancel the rollup
+                    // This shouldn't be possible as rollup will fail to initialize with an unsupported metric
                     else -> throw IllegalArgumentException("Found unsupported metric aggregation ${agg.type.type}")
                 }
             }

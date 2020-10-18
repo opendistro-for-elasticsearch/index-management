@@ -20,30 +20,29 @@ import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.ValidateActions
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
-import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import java.io.IOException
 
 class GetRollupRequest : ActionRequest {
     var id: String
-    val method: RestRequest.Method
     val srcContext: FetchSourceContext?
+    val preference: String?
 
     constructor(
         id: String,
-        method: RestRequest.Method,
-        srcContext: FetchSourceContext?
+        srcContext: FetchSourceContext? = null,
+        preference: String? = null
     ) : super() {
         this.id = id
-        this.method = method
         this.srcContext = srcContext
+        this.preference = preference
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         id = sin.readString(),
-        method = sin.readEnum(RestRequest.Method::class.java),
-        srcContext = if (sin.readBoolean()) FetchSourceContext(sin) else null
+        srcContext = if (sin.readBoolean()) FetchSourceContext(sin) else null,
+        preference = sin.readOptionalString()
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -57,12 +56,12 @@ class GetRollupRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(id)
-        out.writeEnum(method)
         if (srcContext == null) {
             out.writeBoolean(false)
         } else {
             out.writeBoolean(true)
             srcContext.writeTo(out)
         }
+        out.writeOptionalString(preference)
     }
 }

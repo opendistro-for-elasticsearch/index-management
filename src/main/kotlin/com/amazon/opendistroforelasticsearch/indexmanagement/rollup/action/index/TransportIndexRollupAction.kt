@@ -42,7 +42,6 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
-import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
@@ -133,7 +132,7 @@ class TransportIndexRollupAction @Inject constructor(
         }
 
         private fun getRollup() {
-            val getReq = GetRollupRequest(request.rollup.id, RestRequest.Method.GET, null)
+            val getReq = GetRollupRequest(request.rollup.id, null)
             client.execute(GetRollupAction.INSTANCE, getReq, ActionListener.wrap(::onGetRollup, actionListener::onFailure))
         }
 

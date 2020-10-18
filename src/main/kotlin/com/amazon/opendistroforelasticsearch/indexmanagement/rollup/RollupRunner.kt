@@ -18,6 +18,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupResponse
@@ -37,6 +40,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.Client
@@ -244,6 +248,9 @@ object RollupRunner : ScheduledJobRunner,
                             internalComposite to indexStats
                         }
                         metadata = rollupMetadataService.updateMetadata(updatableJob, metadata.mergeStats(indexStats), internalComposite)
+                        updatableJob = client.suspendUntil { listener: ActionListener<GetRollupResponse> ->
+                            execute(GetRollupAction.INSTANCE, GetRollupRequest(updatableJob.id, null, "_local"), listener)
+                        }.rollup ?: throw IllegalStateException("Unable to get rollup job")
                     } catch (e: RollupMetadataException) {
                         // Rethrow this exception so it doesn't get consumed here
                         throw e

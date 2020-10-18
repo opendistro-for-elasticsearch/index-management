@@ -46,7 +46,7 @@ class TransportGetRollupAction @Inject constructor(
 
     override fun doExecute(task: Task, request: GetRollupRequest, listener: ActionListener<GetRollupResponse>) {
         val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, request.id)
-            .fetchSourceContext(request.srcContext)
+            .fetchSourceContext(request.srcContext).preference(request.preference)
         client.threadPool().threadContext.stashContext().use {
             client.get(getRequest, object : ActionListener<GetResponse> {
                 override fun onResponse(response: GetResponse) {

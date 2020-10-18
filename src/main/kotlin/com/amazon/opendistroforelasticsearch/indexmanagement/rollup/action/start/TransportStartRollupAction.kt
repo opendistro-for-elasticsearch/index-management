@@ -33,7 +33,6 @@ import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.action.update.UpdateResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
@@ -50,7 +49,7 @@ class TransportStartRollupAction @Inject constructor(
     private val log = LogManager.getLogger(javaClass)
 
     override fun doExecute(task: Task, request: StartRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
-        val getReq = GetRollupRequest(request.id(), RestRequest.Method.GET, null)
+        val getReq = GetRollupRequest(request.id(), null)
         client.threadPool().threadContext.stashContext().use {
             client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
                 override fun onResponse(response: GetRollupResponse) {

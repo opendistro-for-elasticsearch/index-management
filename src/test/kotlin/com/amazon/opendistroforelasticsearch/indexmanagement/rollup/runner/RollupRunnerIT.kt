@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.runner
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
@@ -368,6 +369,63 @@ class RollupRunnerIT : RollupRestTestCase() {
         // These are hard to test.. just assert they are more than 0
         assertTrue("Did not spend time indexing", thirdRollupMetadata.stats.indexTimeInMillis > 0L)
         assertTrue("Did not spend time searching", thirdRollupMetadata.stats.searchTimeInMillis > 0L)
+    }
+
+    fun `test changing page size during execution`() {
+        // The idea with this test is we set the original pageSize=1 and fixedInterval to 1s to take a long time
+        // to rollup a single document per execution which gives us enough time to change the pageSize to something large
+        generateNYCTaxiData("source")
+
+        val rollup = Rollup(
+            id = "page_size",
+            schemaVersion = 1L,
+            enabled = true,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = Instant.now(),
+            jobEnabledTime = Instant.now(),
+            description = "basic change of page size",
+            sourceIndex = "source",
+            targetIndex = "target",
+            metadataID = null,
+            roles = emptyList(),
+            pageSize = 1,
+            delay = 0,
+            continuous = false,
+            dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1s")),
+            metrics = listOf(
+                RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
+            )
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+
+        waitFor { assertTrue("Target rollup index was not created", indexExists(rollup.targetIndex)) }
+
+        val startedRollup = waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not started", RollupMetadata.Status.STARTED, rollupMetadata.status)
+            rollupJob
+        }
+
+        client().makeRequest("PUT",
+            "$ROLLUP_JOBS_BASE_URI/${startedRollup.id}?if_seq_no=${startedRollup.seqNo}&if_primary_term=${startedRollup.primaryTerm}",
+            emptyMap(), rollup.copy(pageSize = 1000).toHttpEntity())
+
+        val finishedRollup = waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not started", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+            rollupJob
+        }
+
+        val rollupMetadataID = finishedRollup.metadataID!!
+        val rollupMetadata = getRollupMetadata(rollupMetadataID)
+
+        // Randomly choosing 100.. if it didn't work we'd either fail hitting the timeout in waitFor or we'd have thousands of pages processed
+        assertTrue("Did not have less than 100 pages processed", rollupMetadata.stats.pagesProcessed < 100L)
     }
 
     // TODO: Test scenarios:

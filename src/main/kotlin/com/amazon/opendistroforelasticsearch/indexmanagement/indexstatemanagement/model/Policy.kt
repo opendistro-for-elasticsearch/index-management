@@ -164,22 +164,5 @@ data class Policy(
                 states.toList()
             )
         }
-
-        @JvmStatic
-        @JvmOverloads
-        @Throws(IOException::class)
-        fun parseWithType(
-            xcp: XContentParser,
-            id: String = NO_ID,
-            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
-            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
-        ): Policy {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val policy = parse(xcp, id, seqNo, primaryTerm)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            return policy
-        }
     }
 }

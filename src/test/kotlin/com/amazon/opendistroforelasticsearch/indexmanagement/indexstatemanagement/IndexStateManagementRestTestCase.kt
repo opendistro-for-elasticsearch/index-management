@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -242,7 +243,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         val hit = searchResponse.hits.hits.firstOrNull()
         return hit?.run {
             val xcp = createParser(jsonXContent, this.sourceRef)
-            ManagedIndexConfig.parseWithType(xcp, id, seqNo, primaryTerm)
+            xcp.parseWithType(id, seqNo, primaryTerm, ManagedIndexConfig.Companion::parse)
         }
     }
 
@@ -253,7 +254,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         assertTrue("Did not find managed index config", getResponse.isExists)
         return getResponse?.run {
             val xcp = createParser(jsonXContent, sourceAsBytesRef)
-            ManagedIndexConfig.parseWithType(xcp, id, seqNo, primaryTerm)
+            xcp.parseWithType(id, seqNo, primaryTerm, ManagedIndexConfig.Companion::parse)
         }
     }
 

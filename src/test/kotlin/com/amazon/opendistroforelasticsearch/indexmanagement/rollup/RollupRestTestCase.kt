@@ -183,11 +183,11 @@ abstract class RollupRestTestCase : IndexManagementRestTestCase() {
                 _ID -> id = parser.text()
                 _SEQ_NO -> seqNo = parser.longValue()
                 _PRIMARY_TERM -> primaryTerm = parser.longValue()
-                RollupMetadata.ROLLUP_METADATA_TYPE -> metadata = RollupMetadata.parse(parser)
+                RollupMetadata.ROLLUP_METADATA_TYPE -> metadata = RollupMetadata.parse(parser, id, seqNo, primaryTerm)
             }
         }
 
-        return metadata.copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
+        return metadata
     }
 
     protected fun Rollup.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)

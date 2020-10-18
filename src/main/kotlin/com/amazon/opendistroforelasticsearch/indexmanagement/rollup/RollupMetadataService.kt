@@ -59,6 +59,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
 
     // If the job does not have a metadataID then we need to initialize the first metadata
     // document for this job otherwise we should get the existing metadata document
+    @Suppress("ReturnCount")
     suspend fun init(rollup: Rollup): MetadataResult {
         if (rollup.metadataID != null) {
             // TODO: How does the user recover from the not found error?
@@ -169,6 +170,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
 
     //  TODO: Let User specify their own filter query that is applied to the composite agg search
     // TODO: handle exception
+    @Suppress("ReturnCount")
     @Throws(Exception::class)
     private suspend fun getInitialStartTime(rollup: Rollup): StartingTimeResult {
         try {

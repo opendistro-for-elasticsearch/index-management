@@ -67,8 +67,6 @@ import org.elasticsearch.search.aggregations.metrics.MinAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.SumAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.ValueCountAggregationBuilder
-import org.elasticsearch.search.aggregations.metrics.WeightedAvgAggregationBuilder
-import org.elasticsearch.search.aggregations.support.MultiValuesSourceFieldConfig
 import org.elasticsearch.search.builder.SearchSourceBuilder
 
 fun Rollup.getRollupSearchRequest(metadata: RollupMetadata): SearchRequest {
@@ -128,19 +126,23 @@ fun Rollup.getCompositeAggregationBuilder(afterKey: Map<String, Any>?): Composit
     return CompositeAggregationBuilder(this.id, sources).size(this.pageSize).also { compositeAgg ->
         afterKey?.let { compositeAgg.aggregateAfter(it) }
         this.metrics.forEach { metric ->
-            metric.metrics.forEach { agg ->
-                compositeAgg.subAggregation(
-                    when (agg) {
-                        is Average -> AvgAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
-                        is Sum -> SumAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
-                        is Max -> MaxAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
-                        is Min -> MinAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
-                        is ValueCount -> ValueCountAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField)
-                        // TODO: This needs to cancel the rollup
-                        else -> throw IllegalArgumentException("Found unsupported metric aggregation ${agg.type.type}")
+            val subAggs = metric.metrics.flatMap { agg ->
+                when (agg) {
+                    is Average -> {
+                        listOf(
+                            SumAggregationBuilder(metric.targetFieldWithType(agg) + ".sum").field(metric.sourceField),
+                            ValueCountAggregationBuilder(metric.targetFieldWithType(agg) + ".value_count").field(metric.sourceField)
+                        )
                     }
-                )
+                    is Sum -> listOf(SumAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField))
+                    is Max -> listOf(MaxAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField))
+                    is Min -> listOf(MinAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField))
+                    is ValueCount -> listOf(ValueCountAggregationBuilder(metric.targetFieldWithType(agg)).field(metric.sourceField))
+                    // TODO: This needs to cancel the rollup
+                    else -> throw IllegalArgumentException("Found unsupported metric aggregation ${agg.type.type}")
+                }
             }
+            subAggs.forEach { compositeAgg.subAggregation(it) }
         }
     }
 }
@@ -237,12 +239,15 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
                 .field(this.findMatchingMetricField<Sum>(aggregationBuilder.field()))
         }
         is AvgAggregationBuilder -> {
-            WeightedAvgAggregationBuilder(aggregationBuilder.name)
-                .value(MultiValuesSourceFieldConfig.Builder().setFieldName(this.findMatchingMetricField<Average>(aggregationBuilder.field())).build())
-                .weight(MultiValuesSourceFieldConfig.Builder().setFieldName("rollup.doc_count").build()) // TODO
-                // TODO: .setMetadata()?
-                // TODO: .subAggregations()?
-                // TODO: .format()? and anything else?
+            ScriptedMetricAggregationBuilder(aggregationBuilder.name)
+                .initScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, "state.sums = 0; state.counts = 0;", emptyMap()))
+                .mapScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
+                    "state.sums += doc[\"${this.findMatchingMetricField<Average>(aggregationBuilder.field()) + ".sum"}\"].value; state.counts" +
+                        " += doc[\"${this.findMatchingMetricField<Average>(aggregationBuilder.field()) + ".value_count"}\"].value", emptyMap()))
+                .combineScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
+                    "def d = new long[2]; d[0] = state.sums; d[1] = state.counts; return d", emptyMap()))
+                .reduceScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
+                    "double sum = 0; double count = 0; for (a in states) { sum += a[0]; count += a[1]; } return sum/count", emptyMap()))
         }
         is MaxAggregationBuilder -> {
             MaxAggregationBuilder(aggregationBuilder.name)

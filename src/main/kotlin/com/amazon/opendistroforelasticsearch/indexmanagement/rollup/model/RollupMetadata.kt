@@ -212,7 +212,7 @@ data class RollupMetadata(
         builder.timeField(LAST_UPDATED_FIELD, LAST_UPDATED_FIELD, lastUpdatedTime.toEpochMilli())
         if (continuous != null) builder.field(CONTINUOUS_FIELD, continuous)
         builder.field(STATUS_FIELD, status.type)
-        if (failureReason != null) builder.field(FAILURE_REASON, failureReason)
+        builder.field(FAILURE_REASON, failureReason)
         builder.field(STATS_FIELD, stats)
 
         if (params.paramAsBoolean(WITH_TYPE, false)) builder.endObject()
@@ -273,7 +273,7 @@ data class RollupMetadata(
                     LAST_UPDATED_FIELD -> lastUpdatedTime = xcp.instant()
                     CONTINUOUS_FIELD -> continuous = ContinuousMetadata.parse(xcp)
                     STATUS_FIELD -> status = Status.valueOf(xcp.text().toUpperCase(Locale.ROOT))
-                    FAILURE_REASON -> failureReason = xcp.text()
+                    FAILURE_REASON -> failureReason = xcp.textOrNull()
                     STATS_FIELD -> stats = RollupStats.parse(xcp)
                 }
             }

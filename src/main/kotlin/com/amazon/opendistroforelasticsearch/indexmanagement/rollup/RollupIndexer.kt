@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
@@ -101,25 +100,22 @@ class RollupIndexer(
                 if (it.value == null) "#ODFE-MAGIC-NULL-MAGIC-ODFE#" else it.value.toString()
             }
             // TODO: Move these somewhere else to be reused
-            val mapOfKeyValues = mutableMapOf(
+            val mapOfKeyValues = mutableMapOf<String, Any?>(
                 "${Rollup.ROLLUP_TYPE}.$_ID" to job.id,
                 "${Rollup.ROLLUP_TYPE}.doc_count" to it.docCount,
                 "${Rollup.ROLLUP_TYPE}.${Rollup.SCHEMA_VERSION_FIELD}" to job.schemaVersion
             )
-            val aggResults = mutableMapOf<String, MutableMap<String, Any?>>()
+            val aggResults = mutableMapOf<String, Any?>()
             // TODO: Should we store more information about date_histogram and histogram on the rollup document or rely on it being on the rollup job?
-            it.key.entries.forEach {
-                val type = (job.dimensions.find { dim -> "${dim.targetField}.${dim.type.type}" == it.key } as Dimension).type.type
-                aggResults.computeIfAbsent(it.key.removeSuffix(".$type")) { mutableMapOf() }[type] = it.value
-            }
+            it.key.entries.forEach { aggResults[it.key] = it.value }
             it.aggregations.forEach {
                 when (it) {
                     // TODO: Clean up suffixes
-                    is InternalSum -> aggResults.computeIfAbsent(it.name.removeSuffix(".sum")) { mutableMapOf() }[it.type] = it.value
-                    is InternalMax -> aggResults.computeIfAbsent(it.name.removeSuffix(".max")) { mutableMapOf() }[it.type] = it.value
-                    is InternalMin -> aggResults.computeIfAbsent(it.name.removeSuffix(".min")) { mutableMapOf() }[it.type] = it.value
-                    is InternalValueCount -> aggResults.computeIfAbsent(it.name.removeSuffix(".value_count")) { mutableMapOf() }[it.type] = it.value
-                    is InternalAvg -> aggResults.computeIfAbsent(it.name.removeSuffix(".avg")) { mutableMapOf() }[it.type] = it.value
+                    is InternalSum -> aggResults[it.name] = it.value
+                    is InternalMax -> aggResults[it.name] = it.value
+                    is InternalMin -> aggResults[it.name] = it.value
+                    is InternalValueCount -> aggResults[it.name] = it.value
+                    is InternalAvg -> aggResults[it.name] = it.value
                     else -> logger.info("Unsupported aggregation") // TODO: error
                 }
             }

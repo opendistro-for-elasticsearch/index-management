@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.convertToMap
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
@@ -348,7 +349,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         updateManagedIndexMetaData(updatedManagedIndexMetaData)
     }
 
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "BlockingMethodInNonBlockingContext")
     private suspend fun getPolicy(policyID: String): Policy? {
         try {
             val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, policyID)
@@ -362,7 +363,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return withContext(Dispatchers.IO) {
                 val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                         policySource, XContentType.JSON)
-                Policy.parseWithType(xcp, getResponse.id, getResponse.seqNo, getResponse.primaryTerm)
+                xcp.parseWithType(getResponse.id, getResponse.seqNo, getResponse.primaryTerm, Policy.Companion::parse)
             }
         } catch (e: Exception) {
             logger.error("Failed to get policy: $policyID", e)

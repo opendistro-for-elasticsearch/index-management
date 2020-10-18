@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Metric
@@ -115,7 +116,8 @@ class XContentTests : ESTestCase() {
     fun `test rollup parsing with type`() {
         val rollup = randomRollup()
         val rollupString = rollup.toJsonString()
-        val parsedRollup = Rollup.parseWithType(parserWithType(rollupString), rollup.id, rollup.seqNo, rollup.primaryTerm)
+        val parser = parserWithType(rollupString)
+        val parsedRollup = parser.parseWithType(rollup.id, rollup.seqNo, rollup.primaryTerm, Rollup.Companion::parse)
         assertEquals("Round tripping Rollup with type doesn't work", rollup, parsedRollup)
     }
 

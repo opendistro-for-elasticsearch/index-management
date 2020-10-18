@@ -292,24 +292,6 @@ data class RollupMetadata(
             )
         }
 
-        // TODO generic helper with generic type for parsing with type
-        @JvmStatic
-        @JvmOverloads
-        @Throws(IOException::class)
-        fun parseWithType(
-            xcp: XContentParser,
-            id: String = NO_ID,
-            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
-            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
-        ): RollupMetadata {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val metadata = parse(xcp, id, seqNo, primaryTerm)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            return metadata
-        }
-
         @JvmStatic
         @Throws(IOException::class)
         fun readFrom(sin: StreamInput) = RollupMetadata(sin)

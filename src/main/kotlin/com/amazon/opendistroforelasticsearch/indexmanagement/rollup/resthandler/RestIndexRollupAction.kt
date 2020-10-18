@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IF_PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IF_SEQ_NO
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.REFRESH
@@ -67,7 +68,8 @@ class RestIndexRollupAction : BaseRestHandler() {
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val xcp = request.contentParser()
-        val rollup = Rollup.parseWithType(xcp = xcp, id = id, seqNo = seqNo, primaryTerm = primaryTerm).copy(jobLastUpdatedTime = Instant.now())
+        val rollup = xcp.parseWithType(id = id, seqNo = seqNo, primaryTerm = primaryTerm, parse = Rollup.Companion::parse)
+            .copy(jobLastUpdatedTime = Instant.now())
         val refreshPolicy = if (request.hasParam(REFRESH)) {
             WriteRequest.RefreshPolicy.parse(request.param(REFRESH))
         } else {

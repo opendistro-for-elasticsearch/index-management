@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomAllocationActionConfig
@@ -46,7 +47,7 @@ class XContentTests : ESTestCase() {
         val policy = randomPolicy()
 
         val policyString = policy.toJsonString()
-        val parsedPolicy = Policy.parseWithType(parserWithType(policyString), policy.id, policy.seqNo, policy.primaryTerm)
+        val parsedPolicy = parserWithType(policyString).parseWithType(policy.id, policy.seqNo, policy.primaryTerm, Policy.Companion::parse)
         assertEquals("Round tripping Policy doesn't work", policy, parsedPolicy)
     }
 
@@ -184,12 +185,12 @@ class XContentTests : ESTestCase() {
         val configTwoString = configTwo.toJsonString()
         val configThreeString = configThree.toJsonString()
         val parsedConfig =
-            ManagedIndexConfig.parseWithType(parserWithType(configString), config.id, config.seqNo, config.primaryTerm)
+            parserWithType(configString).parseWithType(config.id, config.seqNo, config.primaryTerm, ManagedIndexConfig.Companion::parse)
         val parsedConfigTwo =
-            ManagedIndexConfig.parseWithType(parserWithType(configTwoString), configTwo.id, configTwo.seqNo, configTwo.primaryTerm)
+            parserWithType(configTwoString).parseWithType(configTwo.id, configTwo.seqNo, configTwo.primaryTerm, ManagedIndexConfig.Companion::parse)
         configThree = configThree.copy(id = "some_doc_id", seqNo = 17, primaryTerm = 1)
         val parsedConfigThree =
-            ManagedIndexConfig.parseWithType(parserWithType(configThreeString), configThree.id, configThree.seqNo, configThree.primaryTerm)
+            parserWithType(configThreeString).parseWithType(configThree.id, configThree.seqNo, configThree.primaryTerm, ManagedIndexConfig.Companion::parse)
 
         assertEquals("Round tripping ManagedIndexConfig doesn't work", config, parsedConfig)
         assertEquals("Round tripping ManagedIndexConfig doesn't work with null change policy", configTwo, parsedConfigTwo)

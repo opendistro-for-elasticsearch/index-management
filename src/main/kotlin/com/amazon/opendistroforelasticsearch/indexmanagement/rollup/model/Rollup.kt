@@ -84,7 +84,7 @@ data class Rollup(
 
     override fun getLastUpdateTime() = jobLastUpdatedTime
 
-    override fun getLockDurationSeconds(): Long = 3600L // 1 hour // TODO: What lock duration?
+    override fun getLockDurationSeconds(): Long = 1800L // 30 minutes
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
@@ -302,23 +302,6 @@ data class Rollup(
                 dimensions = dimensions,
                 metrics = metrics
             )
-        }
-
-        @JvmStatic
-        @JvmOverloads
-        @Throws(IOException::class)
-        fun parseWithType(
-            xcp: XContentParser,
-            id: String = NO_ID,
-            seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
-            primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
-        ): Rollup {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val rollup = parse(xcp, id, seqNo, primaryTerm)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            return rollup
         }
     }
 }

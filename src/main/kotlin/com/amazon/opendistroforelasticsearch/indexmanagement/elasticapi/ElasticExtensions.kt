@@ -18,6 +18,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi
 
 import com.amazon.opendistroforelasticsearch.commons.InjectSecurity
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
 import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.delay
@@ -36,10 +37,14 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.transport.RemoteTransportException
+import java.io.IOException
 import java.time.Instant
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
@@ -54,7 +59,7 @@ fun ToXContent.convertToMap(): Map<String, Any> {
 
 fun XContentParser.instant(): Instant? {
     return when {
-        currentToken() == XContentParser.Token.VALUE_NULL -> null
+        currentToken() == Token.VALUE_NULL -> null
         currentToken().isValue -> Instant.ofEpochMilli(longValue())
         else -> {
             XContentParserUtils.throwUnknownToken(currentToken(), tokenLocation)
@@ -154,26 +159,6 @@ fun DefaultShardOperationFailedException.getUsefulCauseString(): String {
     return if (rte == null) this.toString() else ExceptionsHelper.unwrapCause(rte).toString()
 }
 
-/**
- * Store a [ThreadContext] and restore a [ThreadContext] when the coroutine resumes on a different thread.
- *
- * @param threadContext - a [ThreadContext] instance
- */
-class ElasticThreadContextElement(private val threadContext: ThreadContext) : ThreadContextElement<Unit> {
-
-    companion object Key : CoroutineContext.Key<ElasticThreadContextElement>
-    private var context: StoredContext = threadContext.newStoredContext(true)
-
-    override val key: CoroutineContext.Key<*>
-        get() = Key
-
-    override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
-        this.context = threadContext.stashContext()
-    }
-
-    override fun updateThreadContext(context: CoroutineContext) = this.context.close()
-}
-
 class InjectorContextElement(
     id: String,
     settings: Settings,
@@ -194,4 +179,20 @@ class InjectorContextElement(
     override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
         rolesInjectorHelper.close()
     }
+}
+
+@JvmOverloads
+@Throws(IOException::class)
+fun <T> XContentParser.parseWithType(
+    id: String = NO_ID,
+    seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
+    primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
+    parse: (xcp: XContentParser, id: String, seqNo: Long, primaryTerm: Long) -> T
+): T {
+    ensureExpectedToken(Token.START_OBJECT, nextToken(), this::getTokenLocation)
+    ensureExpectedToken(Token.FIELD_NAME, nextToken(), this::getTokenLocation)
+    ensureExpectedToken(Token.START_OBJECT, nextToken(), this::getTokenLocation)
+    val parsed = parse(this, id, seqNo, primaryTerm)
+    ensureExpectedToken(Token.END_OBJECT, this.nextToken(), this::getTokenLocation)
+    return parsed
 }

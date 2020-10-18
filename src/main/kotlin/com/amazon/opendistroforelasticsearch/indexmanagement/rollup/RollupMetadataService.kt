@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ContinuousMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
@@ -288,7 +289,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             metadataSource?.let {
                 withContext(Dispatchers.IO) {
                     val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, metadataSource, XContentType.JSON)
-                    rollupMetadata = RollupMetadata.parseWithType(xcp, response.id, response.seqNo, response.primaryTerm)
+                    rollupMetadata = xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, RollupMetadata.Companion::parse)
                 }
             }
 

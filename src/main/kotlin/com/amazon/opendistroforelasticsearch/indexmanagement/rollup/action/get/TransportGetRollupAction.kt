@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -57,7 +58,7 @@ class TransportGetRollupAction @Inject constructor(
                     if (!response.isSourceEmpty) {
                         XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
                         response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
-                            rollup = Rollup.parseWithType(xcp, response.id, response.seqNo, response.primaryTerm)
+                            rollup = xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, Rollup.Companion::parse)
                         }
                     }
 

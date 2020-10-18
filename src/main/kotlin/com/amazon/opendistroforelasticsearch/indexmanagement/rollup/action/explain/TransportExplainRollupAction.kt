@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ExplainRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
@@ -74,7 +75,7 @@ class TransportExplainRollupAction @Inject constructor(
                 override fun onResponse(response: SearchResponse) {
                     try {
                         response.hits.hits.forEach {
-                            val rollup = Rollup.parseWithType(contentParser(it.sourceRef), it.id, it.seqNo, it.primaryTerm)
+                            val rollup = contentParser(it.sourceRef).parseWithType(it.id, it.seqNo, it.primaryTerm, Rollup.Companion::parse)
                             idsToExplain[rollup.id] = ExplainRollup(metadataID = rollup.metadataID)
                         }
                     } catch (e: Exception) {
@@ -90,7 +91,7 @@ class TransportExplainRollupAction @Inject constructor(
                         override fun onResponse(response: SearchResponse) {
                             try {
                                 response.hits.hits.forEach {
-                                    val metadata = RollupMetadata.parseWithType(contentParser(it.sourceRef), it.id, it.seqNo, it.primaryTerm)
+                                    val metadata = contentParser(it.sourceRef).parseWithType(it.id, it.seqNo, it.primaryTerm, RollupMetadata.Companion::parse)
                                     idsToExplain.computeIfPresent(metadata.rollupID) { _, explainRollup -> explainRollup.copy(metadata = metadata) }
                                 }
                                 actionListener.onResponse(ExplainRollupResponse(idsToExplain.toMap()))

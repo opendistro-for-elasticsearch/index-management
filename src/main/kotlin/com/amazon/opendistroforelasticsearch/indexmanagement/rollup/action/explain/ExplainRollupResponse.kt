@@ -27,7 +27,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import java.io.IOException
 
 class ExplainRollupResponse : ActionResponse, ToXContentObject {
-    private val idsToExplain: Map<String, ExplainRollup?>
+    val idsToExplain: Map<String, ExplainRollup?>
 
     constructor(idsToExplain: Map<String, ExplainRollup?>) : super() {
         this.idsToExplain = idsToExplain

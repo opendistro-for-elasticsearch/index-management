@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMe
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.ChimeMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.CustomWebhookMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage
-import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationHttpResponse
+import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.convertToMap
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.io.stream.StreamInput
@@ -114,7 +114,7 @@ data class Destination(
     }
 
     @Throws(IOException::class)
-    fun publish(compiledSubject: String?, compiledMessage: String): DestinationHttpResponse {
+    fun publish(compiledSubject: String?, compiledMessage: String): DestinationResponse {
         val destinationMessage: BaseMessage
         when (type) {
             DestinationType.CHIME -> {
@@ -143,7 +143,7 @@ data class Destination(
                         .withMessage(compiledMessage).build()
             }
         }
-        val response = Notification.publish(destinationMessage) as DestinationHttpResponse
+        val response = Notification.publish(destinationMessage) as DestinationResponse
         logger.info("Message published for action type: $type, messageid: ${response.responseContent}, statuscode: ${response.statusCode}")
         return response
     }

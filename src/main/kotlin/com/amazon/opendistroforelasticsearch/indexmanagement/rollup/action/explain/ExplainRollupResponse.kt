@@ -33,6 +33,10 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
         this.idsToExplain = idsToExplain
     }
 
+    internal fun getIdsToExplain(): Map<String, ExplainRollup?> {
+        return this.idsToExplain
+    }
+
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         idsToExplain = sin.let {

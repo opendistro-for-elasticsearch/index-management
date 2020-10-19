@@ -26,7 +26,7 @@ class AttemptCreateRollupJobStep(
     val client: Client,
     val rollup: Rollup,
     managedIndexMetaData: ManagedIndexMetaData
-) : Step("attempt_create_rollup", managedIndexMetaData) {
+) : Step(name, managedIndexMetaData) {
 
     override fun isIdempotent() = false
 
@@ -36,5 +36,9 @@ class AttemptCreateRollupJobStep(
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         TODO("Not yet implemented")
+    }
+
+    companion object {
+        const val name = "attempt_create_rollup"
     }
 }

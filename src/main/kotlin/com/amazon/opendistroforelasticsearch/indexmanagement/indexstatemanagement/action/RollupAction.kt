@@ -39,7 +39,22 @@ class RollupAction(
 
     override fun getSteps(): List<Step> = listOf(attemptCreateRollupJobStep, waitForRollupCompletionStep)
 
+    // TODO: Not entirely certain, may be we should retry creation if the wait step is in CONDITION_NOT_MET
     override fun getStepToExecute(): Step {
-        TODO("Not yet implemented")
+        // If stepMetaData is null, return the first step
+        val stepMetaData = managedIndexMetaData.stepMetaData ?: return attemptCreateRollupJobStep
+
+        // If the current step has completed, return the next step
+        if (stepMetaData.stepStatus == Step.StepStatus.COMPLETED) {
+            return when (stepMetaData.name) {
+                AttemptCreateRollupJobStep.name -> waitForRollupCompletionStep
+                else -> attemptCreateRollupJobStep
+            }
+        }
+
+        return when (stepMetaData.name) {
+            AttemptCreateRollupJobStep.name -> attemptCreateRollupJobStep
+            else -> waitForRollupCompletionStep
+        }
     }
 }

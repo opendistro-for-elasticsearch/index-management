@@ -32,4 +32,4 @@ jobs:
         if: failure()
         with:
           name: logs
-          path: build/testclusters/*
+          path: build/testclusters/integTest-*/logs/*

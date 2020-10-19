@@ -32,12 +32,12 @@ import java.io.IOException
 
 class GetRollupsResponse : ActionResponse, ToXContentObject {
     val rollups: List<Rollup>
-    val totalRollups: Long
+    val totalRollups: Int
     val status: RestStatus
 
     constructor(
         rollups: List<Rollup>,
-        totalRollups: Long,
+        totalRollups: Int,
         status: RestStatus
     ) : super() {
         this.rollups = rollups
@@ -48,14 +48,14 @@ class GetRollupsResponse : ActionResponse, ToXContentObject {
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         rollups = sin.readList(::Rollup),
-        totalRollups = sin.readLong(),
+        totalRollups = sin.readInt(),
         status = sin.readEnum(RestStatus::class.java)
     )
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeCollection(rollups)
-        out.writeLong(totalRollups)
+        out.writeInt(totalRollups)
         out.writeEnum(status)
     }
 

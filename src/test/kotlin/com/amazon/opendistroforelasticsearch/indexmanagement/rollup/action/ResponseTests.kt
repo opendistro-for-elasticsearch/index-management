@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain.ExplainRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomExplainRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
@@ -61,6 +62,20 @@ class ResponseTests : ESTestCase() {
         assertEquals(3L, streamedRes.primaryTerm)
         assertEquals(RestStatus.OK, streamedRes.status)
         assertEquals(rollup, streamedRes.rollup)
+    }
+
+    fun `test get rollups response`() {
+        val rollups = randomList(1, 15) { randomRollup() }
+        val res = GetRollupsResponse(rollups, rollups.size, RestStatus.OK)
+        val out = BytesStreamOutput().apply { res.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedRes = GetRollupsResponse(sin)
+        assertEquals(rollups.size, streamedRes.totalRollups)
+        assertEquals(rollups.size, streamedRes.rollups.size)
+        assertEquals(RestStatus.OK, streamedRes.status)
+        for (i in 0 until rollups.size) {
+            assertEquals(rollups[i], streamedRes.rollups[i])
+        }
     }
 
     fun `test index rollup response`() {

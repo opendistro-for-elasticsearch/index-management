@@ -79,7 +79,7 @@ class TransportGetRollupsAction @Inject constructor(
                             val rollups = response.hits.hits.map {
                                 contentParser(it.sourceRef).parseWithType(it.id, it.seqNo, it.primaryTerm, Rollup.Companion::parse)
                             }
-                            listener.onResponse(GetRollupsResponse(rollups, totalRollups, RestStatus.OK))
+                            listener.onResponse(GetRollupsResponse(rollups, totalRollups.toInt(), RestStatus.OK))
                         } catch (e: Exception) {
                             listener.onFailure(ElasticsearchStatusException("Failed to parse rollups",
                                 RestStatus.INTERNAL_SERVER_ERROR, ExceptionsHelper.unwrapCause(e)))

@@ -19,6 +19,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete.DeleteRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start.StartRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.stop.StopRollupAction
@@ -39,6 +40,11 @@ class ActionTests : ESTestCase() {
     fun `test get action name`() {
         assertNotNull(GetRollupAction.INSTANCE.name())
         assertEquals(GetRollupAction.INSTANCE.name(), GetRollupAction.NAME)
+    }
+
+    fun `test get(s) action name`() {
+        assertNotNull(GetRollupsAction.INSTANCE.name())
+        assertEquals(GetRollupsAction.INSTANCE.name(), GetRollupsAction.NAME)
     }
 
     fun `test start action name`() {

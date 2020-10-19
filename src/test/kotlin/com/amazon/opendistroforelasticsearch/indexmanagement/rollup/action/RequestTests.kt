@@ -21,9 +21,11 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete.DeleteRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain.ExplainRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start.StartRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.stop.StopRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.support.WriteRequest
@@ -79,6 +81,32 @@ class RequestTests : ESTestCase() {
         val streamedReq = GetRollupRequest(sin)
         assertEquals(id, streamedReq.id)
         assertEquals(srcContext, streamedReq.srcContext)
+    }
+
+    fun `test get rollups request default`() {
+        val req = GetRollupsRequest()
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = GetRollupsRequest(sin)
+        assertEquals("", streamedReq.searchString)
+        assertEquals(0, streamedReq.from)
+        assertEquals(20, streamedReq.size)
+        assertEquals("${Rollup.ROLLUP_TYPE}.${Rollup.ROLLUP_ID_FIELD}.keyword", streamedReq.sortField)
+        assertEquals("asc", streamedReq.sortDirection)
+    }
+
+    fun `test get rollups request`() {
+        val req = GetRollupsRequest("searching", 10, 50, "sorted", "desc")
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedReq = GetRollupsRequest(sin)
+        assertEquals("searching", streamedReq.searchString)
+        assertEquals(10, streamedReq.from)
+        assertEquals(50, streamedReq.size)
+        assertEquals("sorted", streamedReq.sortField)
+        assertEquals("desc", streamedReq.sortDirection)
     }
 
     fun `test index rollup post request`() {

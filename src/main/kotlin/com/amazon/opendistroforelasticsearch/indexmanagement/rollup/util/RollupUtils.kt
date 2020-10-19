@@ -209,7 +209,8 @@ fun IndexMetadata.getRollupJobs(): List<Rollup>? {
             else -> xcp.skipChildren()
         }
     }
-    return rollupJobs
+    // This method is the authoritative source for getting the rollupJobs for an index and if there are none found this method should return null
+    return if (rollupJobs.size > 0) rollupJobs else null
 }
 
 // TODO: If we have to set this manually for each aggregation builder then it means we could miss new ones settings in the future

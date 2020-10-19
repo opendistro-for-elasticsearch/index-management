@@ -104,7 +104,7 @@ class RollupInterceptor(
                         }
 
                         val rollupJobs = clusterService.state().metadata.index(index).getRollupJobs()
-                                ?: throw IllegalArgumentException("Could not find the mapping source for the index")
+                                ?: throw IllegalArgumentException("Could not find any rollup jobs on the index")
 
                         val queryFieldMappings = getQueryMetadata(request.source().query())
                         val aggregationFieldMappings = getAggregationMetadata(request.source().aggregations()?.aggregatorFactories)

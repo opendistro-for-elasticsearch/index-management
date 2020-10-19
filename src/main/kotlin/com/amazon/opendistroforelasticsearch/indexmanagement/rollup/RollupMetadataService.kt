@@ -104,6 +104,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         }
     }
 
+    @Suppress("ReturnCount")
     private suspend fun recoverRetryMetadata(rollup: Rollup, metadata: RollupMetadata): MetadataResult {
         var continuousMetadata = metadata.continuous
         if (rollup.continuous && metadata.continuous == null) {
@@ -148,6 +149,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     }
 
     // This returns the first instantiation of a RollupMetadata for a continuous rollup
+    @Suppress("ReturnCount")
     private suspend fun createContinuousMetadata(rollup: Rollup): MetadataResult {
         val nextWindowStartTime = when (val initStartTimeResult = getInitialStartTime(rollup)) {
             is StartingTimeResult.Success -> initStartTimeResult.startingTime

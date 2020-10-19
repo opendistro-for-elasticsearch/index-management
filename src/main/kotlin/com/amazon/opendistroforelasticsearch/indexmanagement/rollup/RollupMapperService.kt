@@ -17,7 +17,8 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion._META
@@ -30,7 +31,6 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse
-import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
@@ -38,11 +38,8 @@ import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.metadata.MappingMetadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.XContentBuilder
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.transport.RemoteTransportException
-import java.io.IOException
 
 // TODO: Most of this has to be in a master transport action because of race conditions
 // TODO: Handle existing rollup indices, validation of fields across source and target indices
@@ -145,33 +142,16 @@ class RollupMapperService(
     fun indexExists(index: String): Boolean = clusterService.state().routingTable.hasIndex(index)
 
     // TODO: error handling
-    // TODO: Create custom master operation to ensure we are working with the current mappings
-    //  and can't have a race condition where two jobs overwrite each other
     // TODO: PutMappings needs to ensure we don't overwrite an existing rollup job meta
     //  - list current ones and ignore if it's already there
-    // TODO: PUT mappings seems to overwrite all _meta data? which means we need to get and then append and then put
     @Suppress("BlockingMethodInNonBlockingContext")
     private suspend fun updateRollupIndexMappings(rollup: Rollup): Boolean {
         return withContext(Dispatchers.IO) {
-            val putMappingRequest = PutMappingRequest(rollup.targetIndex).type(_DOC).source(partialRollupMappingBuilder(rollup))
-            // probably can just get current mappings and parse all the existing job ids - if this job id already exists then ignore
-            // should we let a person delete a job from the meta mappings of an index? they would have to make sure they deleted the data too
-            val putResponse: AcknowledgedResponse = client.admin().indices().suspendUntil { putMapping(putMappingRequest, it) }
-            putResponse.isAcknowledged
+            val resp: AcknowledgedResponse = client.suspendUntil {
+                execute(UpdateRollupMappingAction.INSTANCE, UpdateRollupMappingRequest(rollup), it)
+            }
+            resp.isAcknowledged
         }
-    }
-
-    @Throws(IOException::class)
-    private fun partialRollupMappingBuilder(rollup: Rollup): XContentBuilder {
-        // TODO: This is dumping *everything* of rollup into the meta and we only want a slimmed down version of it
-        return XContentFactory.jsonBuilder()
-            .startObject()
-                .startObject(_META)
-                    .startObject(ROLLUPS)
-                        .field(rollup.id, rollup, XCONTENT_WITHOUT_TYPE)
-                    .endObject()
-                .endObject()
-            .endObject()
     }
 
     companion object {

@@ -440,84 +440,84 @@ class RollupInterceptorIT : RollupRestTestCase() {
         }
     }
 
-        fun `test bucket and sub aggregations have correct values`() {
-            generateNYCTaxiData("source")
-            val rollup = Rollup(
-                id = "basic_term_query",
-                schemaVersion = 1L,
-                enabled = true,
-                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
-                jobLastUpdatedTime = Instant.now(),
-                jobEnabledTime = Instant.now(),
-                description = "basic search test",
-                sourceIndex = "source",
-                targetIndex = "target",
-                metadataID = null,
-                roles = emptyList(),
-                pageSize = 10,
-                delay = 0,
-                continuous = false,
-                dimensions = listOf(
-                    DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
-                    Terms("RatecodeID", "RatecodeID"),
-                    Terms("PULocationID", "PULocationID")
-                ),
-                metrics = listOf(
-                    RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
-                        ValueCount(), Average())),
-                    RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
-                )
-            ).let { createRollup(it, it.id) }
+    fun `test bucket and sub aggregations have correct values`() {
+        generateNYCTaxiData("source")
+        val rollup = Rollup(
+            id = "basic_term_query",
+            schemaVersion = 1L,
+            enabled = true,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = Instant.now(),
+            jobEnabledTime = Instant.now(),
+            description = "basic search test",
+            sourceIndex = "source",
+            targetIndex = "target",
+            metadataID = null,
+            roles = emptyList(),
+            pageSize = 10,
+            delay = 0,
+            continuous = false,
+            dimensions = listOf(
+                DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                Terms("RatecodeID", "RatecodeID"),
+                Terms("PULocationID", "PULocationID")
+            ),
+            metrics = listOf(
+                RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
+                    ValueCount(), Average())),
+                RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
+            )
+        ).let { createRollup(it, it.id) }
 
-            updateRollupStartTime(rollup)
+        updateRollupStartTime(rollup)
 
-            waitFor {
-                val rollupJob = getRollup(rollupId = rollup.id)
-                assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
-                val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
-                assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
-            }
+        waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+        }
 
-            refreshAllIndices()
+        refreshAllIndices()
 
-            // No query just bucket and sub metric aggregations
-            val req = """
-                {
-                    "size": 0,
-                    "aggs": {
-                        "pickup_areas": {
-                            "terms": { "field": "PULocationID", "size": 1000, "order": { "_key": "asc" } },
-                            "aggs": {
-                              "sum": { "sum": { "field": "passenger_count" } },
-                              "min": { "min": { "field": "passenger_count" } },
-                              "max": { "max": { "field": "passenger_count" } },
-                              "avg": { "avg": { "field": "passenger_count" } },
-                              "value_count": { "value_count": { "field": "passenger_count" } }
-                            }
+        // No query just bucket and sub metric aggregations
+        val req = """
+            {
+                "size": 0,
+                "aggs": {
+                    "pickup_areas": {
+                        "terms": { "field": "PULocationID", "size": 1000, "order": { "_key": "asc" } },
+                        "aggs": {
+                          "sum": { "sum": { "field": "passenger_count" } },
+                          "min": { "min": { "field": "passenger_count" } },
+                          "max": { "max": { "field": "passenger_count" } },
+                          "avg": { "avg": { "field": "passenger_count" } },
+                          "value_count": { "value_count": { "field": "passenger_count" } }
                         }
                     }
                 }
-            """.trimIndent()
-            val rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
-            assertTrue(rawRes.restStatus() == RestStatus.OK)
-            val rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
-            assertTrue(rollupRes.restStatus() == RestStatus.OK)
-            val rawAggBuckets = (rawRes.asMap()["aggregations"] as Map<String, Map<String, List<Map<String, Map<String, Any>>>>>)["pickup_areas"]!!["buckets"]!!
-            val rollupAggBuckets = (rollupRes.asMap()["aggregations"] as Map<String, Map<String, List<Map<String, Map<String, Any>>>>>)["pickup_areas"]!!["buckets"]!!
-
-            assertEquals("Different bucket sizes", rawAggBuckets.size, rollupAggBuckets.size)
-            rawAggBuckets.forEachIndexed { idx, rawAggBucket ->
-                val rollupAggBucket = rollupAggBuckets[idx]
-                assertEquals("The sum aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["sum"]!!["value"], rollupAggBucket["sum"]!!["value"])
-                assertEquals("The max aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["max"]!!["value"], rollupAggBucket["max"]!!["value"])
-                assertEquals("The min aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["min"]!!["value"], rollupAggBucket["min"]!!["value"])
-                assertEquals("The value_count aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["value_count"]!!["value"], rollupAggBucket["value_count"]!!["value"])
-                assertEquals("The avg aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["avg"]!!["value"], rollupAggBucket["avg"]!!["value"])
             }
+        """.trimIndent()
+        val rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rawRes.restStatus() == RestStatus.OK)
+        val rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rollupRes.restStatus() == RestStatus.OK)
+        val rawAggBuckets = (rawRes.asMap()["aggregations"] as Map<String, Map<String, List<Map<String, Map<String, Any>>>>>)["pickup_areas"]!!["buckets"]!!
+        val rollupAggBuckets = (rollupRes.asMap()["aggregations"] as Map<String, Map<String, List<Map<String, Map<String, Any>>>>>)["pickup_areas"]!!["buckets"]!!
+
+        assertEquals("Different bucket sizes", rawAggBuckets.size, rollupAggBuckets.size)
+        rawAggBuckets.forEachIndexed { idx, rawAggBucket ->
+            val rollupAggBucket = rollupAggBuckets[idx]
+            assertEquals("The sum aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
+                rawAggBucket["sum"]!!["value"], rollupAggBucket["sum"]!!["value"])
+            assertEquals("The max aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
+                rawAggBucket["max"]!!["value"], rollupAggBucket["max"]!!["value"])
+            assertEquals("The min aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
+                rawAggBucket["min"]!!["value"], rollupAggBucket["min"]!!["value"])
+            assertEquals("The value_count aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
+                rawAggBucket["value_count"]!!["value"], rollupAggBucket["value_count"]!!["value"])
+            assertEquals("The avg aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
+                rawAggBucket["avg"]!!["value"], rollupAggBucket["avg"]!!["value"])
         }
+    }
 }

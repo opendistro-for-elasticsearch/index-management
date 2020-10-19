@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -80,7 +81,7 @@ class TransportGetPolicyAction @Inject constructor(
                     response.sourceAsBytesRef,
                     XContentType.JSON
                 ).use { xcp ->
-                    policy = Policy.parseWithType(xcp, response.id, response.seqNo, response.primaryTerm)
+                    policy = xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, Policy.Companion::parse)
                 }
             }
 

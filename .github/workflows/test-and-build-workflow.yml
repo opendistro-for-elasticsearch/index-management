@@ -29,6 +29,12 @@ jobs:
           java-version: 14
       - name: Build with Gradle
         run: ./gradlew build
+      - name: Upload failed logs
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: logs
+          path: build/testclusters/*
       - name: Create Artifact Path
         run: |
           mkdir -p index-management-artifacts

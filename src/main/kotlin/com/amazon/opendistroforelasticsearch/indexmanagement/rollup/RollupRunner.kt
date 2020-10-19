@@ -132,6 +132,8 @@ object RollupRunner : ScheduledJobRunner,
             throw IllegalArgumentException("Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}")
         }
 
+        logger.info("runJob ${job.id}")
+
         launch {
             var metadata: RollupMetadata? = null
             try {
@@ -195,19 +197,27 @@ object RollupRunner : ScheduledJobRunner,
     * */
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod", "ThrowsCount")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext) {
+        logger.info("runRollupJob ${job.id}")
         try {
             // TODO: Verify which parts of isJobValid needs to be run securely
-            if (!isJobValid(job)) return
+            if (!isJobValid(job)) {
+                logger.info("Not a valid job $job")
+                return
+            }
 
             // Anything related to creating, reading, and deleting metadata should not require role's context
             var metadata = when (val initMetadataResult = rollupMetadataService.init(job)) {
                 is MetadataResult.Success -> initMetadataResult.metadata
-                is MetadataResult.NoMetadata -> return // No-op this execution
+                is MetadataResult.NoMetadata -> {
+                    logger.info("Init metadata NoMetadata returning early")
+                    return
+                } // No-op this execution
                 is MetadataResult.Failure ->
                     throw RollupMetadataException("Failed to initialize rollup metadata", initMetadataResult.cause)
             }
 
             if (metadata.status == RollupMetadata.Status.FAILED) {
+                logger.info("Metadata status is FAILED, disabling job $metadata")
                 disableJob(job, metadata)
                 return
             }
@@ -258,8 +268,10 @@ object RollupRunner : ScheduledJobRunner,
                         }
                         when (rollupResult) {
                             is RollupResult.Success -> {
+                                logger.info("Updating metadata on RollupResult.Success $metadata")
                                 metadata = rollupMetadataService.updateMetadata(updatableJob,
                                     metadata.mergeStats(rollupResult.stats), rollupResult.internalComposite)
+                                logger.info("Updated metadata on RollupResult.Success $metadata")
                                 updatableJob = client.suspendUntil { listener: ActionListener<GetRollupResponse> ->
                                     execute(GetRollupAction.INSTANCE, GetRollupRequest(updatableJob.id, null, "_local"), listener)
                                 }.rollup ?: throw IllegalStateException("Unable to get rollup job")
@@ -272,6 +284,7 @@ object RollupRunner : ScheduledJobRunner,
                         }
                     } catch (e: RollupMetadataException) {
                         // Rethrow this exception so it doesn't get consumed here
+                        logger.info("RollupMetadataException being thrown", e)
                         throw e
                     } catch (e: Exception) {
                         // TODO: Should update metadata and disable job here instead of allowing the rollup to keep going

@@ -173,12 +173,13 @@ object RollupRunner : ScheduledJobRunner,
                 } catch (e: Exception) {
                     logger.error("Error trying to acquireLock", e)
                 }
-                if (lock == null) {
+                val finalizedLock = lock
+                if (finalizedLock == null) {
                     logger.debug("Could not acquire lock for ${job.id}")
                 } else {
-                    runRollupJob(job, context)
+                    runRollupJob(job, context, finalizedLock)
                     // Release lock
-                    val released: Boolean = context.lockService.suspendUntil { release(lock, it) }
+                    val released: Boolean = context.lockService.suspendUntil { release(finalizedLock, it) }
                     if (!released) {
                         logger.debug("Could not release lock for ${job.id}")
                     }
@@ -196,7 +197,7 @@ object RollupRunner : ScheduledJobRunner,
     *        -> index was deleted and recreated as rollup -> just recreate (but we would have to start over)? Or move to FAILED?
     * */
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod", "ThrowsCount")
-    private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext) {
+    private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext, lock: LockModel) {
         logger.info("runRollupJob ${job.id}")
         try {
             // TODO: Verify which parts of isJobValid needs to be run securely
@@ -241,6 +242,7 @@ object RollupRunner : ScheduledJobRunner,
                 return
             }
 
+            var updatableLock = lock
             // TODO: Is knowing whether or not to process the window leaking information to a user that doesn't have the correct permissions?
             //  Or if we get to this point then we know the applied role has the correct permissions (i.e. shoiuld check in isValidJob)
             while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
@@ -281,6 +283,19 @@ object RollupRunner : ScheduledJobRunner,
                                     metadata.copy(status = RollupMetadata.Status.FAILED, failureReason = rollupResult.cause.message)
                                 )
                             }
+                        }
+                        try {
+                            BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(
+                                RollupSettings.DEFAULT_RENEW_LOCK_RETRY_DELAY),
+                                RollupSettings.DEFAULT_RENEW_LOCK_RETRY_COUNT
+                            ).retry(logger) {
+                                updatableLock = context.lockService.suspendUntil { renewLock(updatableLock, it) }
+                            }
+                        } catch (e: Exception) {
+                            logger.warn("Failed trying to renew lock on $updatableLock", e)
+                            // If we fail to renew the lock it doesn't mean we need to perm fail the job, we can just return early
+                            // and let the next execution try to process the data from where this one left off
+                            return
                         }
                     } catch (e: RollupMetadataException) {
                         // Rethrow this exception so it doesn't get consumed here

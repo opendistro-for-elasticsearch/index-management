@@ -63,25 +63,30 @@ class RollupIndexer(
     *  But does "in the future" mean the next execution or just the the next loop in the current execution?
     * TODO: Can someone set a really high backoff that causes us to go over the lock duration?
     * */
-    suspend fun indexRollups(rollup: Rollup, internalComposite: InternalComposite): RollupStats {
+    suspend fun indexRollups(rollup: Rollup, internalComposite: InternalComposite): RollupIndexResult {
         var requestsToRetry = convertResponseToRequests(rollup, internalComposite)
-        var stats = RollupStats(0, 0, requestsToRetry.size.toLong(), 0, 0)
-        if (requestsToRetry.isNotEmpty()) {
-            retryIngestPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
-                val bulkRequest = BulkRequest().add(requestsToRetry)
-                val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
-                stats = stats.copy(indexTimeInMillis = stats.indexTimeInMillis + bulkResponse.took.millis)
-                val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
-                requestsToRetry = failedResponses.filter { it.status() == RestStatus.TOO_MANY_REQUESTS }
-                    .map { bulkRequest.requests()[it.itemId] as IndexRequest }
+        try {
+            var stats = RollupStats(0, 0, requestsToRetry.size.toLong(), 0, 0)
+            if (requestsToRetry.isNotEmpty()) {
+                retryIngestPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
+                    val bulkRequest = BulkRequest().add(requestsToRetry)
+                    val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
+                    stats = stats.copy(indexTimeInMillis = stats.indexTimeInMillis + bulkResponse.took.millis)
+                    val failedResponses = (bulkResponse.items ?: arrayOf()).filter { it.isFailed }
+                    requestsToRetry = failedResponses.filter { it.status() == RestStatus.TOO_MANY_REQUESTS }
+                        .map { bulkRequest.requests()[it.itemId] as IndexRequest }
 
-                if (requestsToRetry.isNotEmpty()) {
-                    val retryCause = failedResponses.first { it.status() == RestStatus.TOO_MANY_REQUESTS }.failure.cause
-                    throw ExceptionsHelper.convertToElastic(retryCause)
+                    if (requestsToRetry.isNotEmpty()) {
+                        val retryCause = failedResponses.first { it.status() == RestStatus.TOO_MANY_REQUESTS }.failure.cause
+                        throw ExceptionsHelper.convertToElastic(retryCause)
+                    }
                 }
             }
+            return RollupIndexResult.Success(stats)
+        } catch (e: Exception) { // TODO: other exceptions
+            logger.error(e.message, e.cause)
+            return RollupIndexResult.Failure(cause = e)
         }
-        return stats
     }
 
     // TODO: Doc counts for aggregations are showing the doc counts of the rollup docs and not the raw data which is expected...
@@ -127,4 +132,12 @@ class RollupIndexer(
         }
         return requests
     }
+}
+
+sealed class RollupIndexResult {
+    data class Success(val stats: RollupStats) : RollupIndexResult()
+    data class Failure(
+        val message: String = "An error occurred while indexing to the rollup target index",
+        val cause: Exception
+    ) : RollupIndexResult()
 }

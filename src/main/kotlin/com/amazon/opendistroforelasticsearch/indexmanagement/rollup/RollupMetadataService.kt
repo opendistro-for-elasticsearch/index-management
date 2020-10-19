@@ -276,7 +276,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         )
     }
 
-    @Suppress("BlockingMethodInNonBlockingContext")
+    @Suppress("BlockingMethodInNonBlockingContext", "ReturnCount")
     suspend fun getExistingMetadata(rollup: Rollup): MetadataResult {
         try {
             var rollupMetadata: RollupMetadata? = null
@@ -310,9 +310,14 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             getUpdatedNonContinuousMetadata(rollup, metadata, internalComposite)
         }
 
-        return when (val metadataUpdateResult = submitMetadataUpdate(updatedMetadata, metadata.id != NO_ID)) {
+        return updateMetadata(updatedMetadata)
+    }
+
+    suspend fun updateMetadata(metadata: RollupMetadata): RollupMetadata {
+        return when (val metadataUpdateResult = submitMetadataUpdate(metadata, metadata.id != NO_ID)) {
             is MetadataResult.Success -> metadataUpdateResult.metadata
-            is MetadataResult.Failure -> throw RollupMetadataException("Failed to update rollup metadata [${metadata.id}]", metadataUpdateResult.cause)
+            is MetadataResult.Failure ->
+                throw RollupMetadataException("Failed to update rollup metadata [${metadata.id}]", metadataUpdateResult.cause)
             // NoMetadata is not expected from submitMetadataUpdate here
             is MetadataResult.NoMetadata -> throw RollupMetadataException("Unexpected state when updating rollup metadata [${metadata.id}]", null)
         }
@@ -389,20 +394,20 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             return MetadataResult.Failure(message, e)
         }
     }
+}
 
-    sealed class MetadataResult {
-        // A successful MetadataResult just means a metadata was returned,
-        // it can still have a FAILED status
-        data class Success(val metadata: RollupMetadata) : MetadataResult()
-        data class Failure(val message: String = "An error occurred for rollup metadata", val cause: Exception) : MetadataResult()
-        object NoMetadata : MetadataResult()
-    }
+sealed class MetadataResult {
+    // A successful MetadataResult just means a metadata was returned,
+    // it can still have a FAILED status
+    data class Success(val metadata: RollupMetadata) : MetadataResult()
+    data class Failure(val message: String = "An error occurred for rollup metadata", val cause: Exception) : MetadataResult()
+    object NoMetadata : MetadataResult()
+}
 
-    sealed class StartingTimeResult {
-        data class Success(val startingTime: Instant) : StartingTimeResult()
-        data class Failure(val e: Exception) : StartingTimeResult()
-        object NoDocumentsFound : StartingTimeResult()
-    }
+sealed class StartingTimeResult {
+    data class Success(val startingTime: Instant) : StartingTimeResult()
+    data class Failure(val e: Exception) : StartingTimeResult()
+    object NoDocumentsFound : StartingTimeResult()
 }
 
 class RollupMetadataException(message: String, cause: Throwable?) : Exception(message, cause)

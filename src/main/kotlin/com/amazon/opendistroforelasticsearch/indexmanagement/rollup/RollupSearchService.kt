@@ -15,23 +15,50 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_SEARCH_BACKOFF_COUNT
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_SEARCH_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getRollupSearchRequest
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
+import org.elasticsearch.action.ActionListener
+import org.elasticsearch.action.bulk.BackoffPolicy
+import org.elasticsearch.action.search.SearchPhaseExecutionException
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.breaker.CircuitBreakingException
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.search.aggregations.MultiBucketConsumerService
+import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
+import kotlin.math.max
+import kotlin.math.pow
 
 // TODO: Backoff/Throttling when cluster is overloaded - CircuitBreakingException?
 //  A cluster level setting to control how many rollups can run at once? Or should we be skipping when cpu/memory/jvm is high?
 // Deals with knowing when and how to search the source index
 // Knowing when means dealing with time windows and whether or not enough time has passed
 // Knowing how means converting the rollup configuration into a composite aggregation
-class RollupSearchService(val client: Client) {
+class RollupSearchService(
+    settings: Settings,
+    clusterService: ClusterService,
+    val client: Client
+) {
 
     private val logger = LogManager.getLogger(javaClass)
+
+    @Volatile private var retrySearchPolicy =
+        BackoffPolicy.constantBackoff(ROLLUP_SEARCH_BACKOFF_MILLIS.get(settings), ROLLUP_SEARCH_BACKOFF_COUNT.get(settings))
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ROLLUP_SEARCH_BACKOFF_MILLIS, ROLLUP_SEARCH_BACKOFF_COUNT) {
+                millis, count -> retrySearchPolicy = BackoffPolicy.constantBackoff(millis, count)
+        }
+    }
 
     // TODO: Failed shouldn't process? How to recover from failed -> how does a user retry a failed rollup
     @Suppress("ReturnCount")
@@ -72,8 +99,45 @@ class RollupSearchService(val client: Client) {
         return Instant.now().isAfter(metadata.continuous!!.nextWindowEndTime) // TODO: !!
     }
 
-    // TODO: error handling
-    suspend fun executeCompositeSearch(job: Rollup, metadata: RollupMetadata): SearchResponse {
-        return client.suspendUntil { search(job.getRollupSearchRequest(metadata), it) }
+    suspend fun executeCompositeSearch(job: Rollup, metadata: RollupMetadata): RollupSearchResult {
+        return try {
+            var retryCount = 0
+            RollupSearchResult.Success(
+                retrySearchPolicy.retry(logger) {
+                    val decay = 2f.pow(retryCount++)
+                    client.suspendUntil { listener: ActionListener<SearchResponse> ->
+                        val pageSize = max(1, job.pageSize.div(decay.toInt()))
+                        if (decay > 1) logger.warn("Composite search failed for rollup, retrying [#${retryCount - 1}] -" +
+                            " reducing page size of composite aggregation from ${job.pageSize} to $pageSize")
+                        search(job.copy(pageSize = pageSize).getRollupSearchRequest(metadata), listener)
+                    }
+                }
+            )
+        } catch (e: SearchPhaseExecutionException) {
+            logger.error(e.message, e.cause)
+            if (e.shardFailures().isEmpty()) {
+                RollupSearchResult.Failure(cause = ExceptionsHelper.unwrapCause(e) as Exception)
+            } else {
+                val shardFailure = e.shardFailures().reduce { s1, s2 -> if (s1.status().status > s2.status().status) s1 else s2 }
+                RollupSearchResult.Failure(cause = ExceptionsHelper.unwrapCause(shardFailure.cause) as Exception)
+            }
+        } catch (e: RemoteTransportException) {
+            logger.error(e.message, e.cause)
+            RollupSearchResult.Failure(cause = ExceptionsHelper.unwrapCause(e) as Exception)
+        } catch (e: CircuitBreakingException) {
+            logger.error(e.message, e.cause)
+            RollupSearchResult.Failure(cause = e)
+        } catch (e: MultiBucketConsumerService.TooManyBucketsException) {
+            logger.error(e.message, e.cause)
+            RollupSearchResult.Failure(cause = e)
+        } catch (e: Exception) {
+            logger.error(e.message, e.cause)
+            RollupSearchResult.Failure(cause = e)
+        }
     }
+}
+
+sealed class RollupSearchResult {
+    data class Success(val searchResponse: SearchResponse) : RollupSearchResult()
+    data class Failure(val message: String = "An error occurred while searching the rollup source index", val cause: Exception) : RollupSearchResult()
 }

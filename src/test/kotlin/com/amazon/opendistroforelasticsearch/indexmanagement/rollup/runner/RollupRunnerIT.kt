@@ -32,6 +32,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomCalend
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
+import org.apache.http.entity.ContentType
+import org.apache.http.entity.StringEntity
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -426,6 +428,78 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         // Randomly choosing 100.. if it didn't work we'd either fail hitting the timeout in waitFor or we'd have thousands of pages processed
         assertTrue("Did not have less than 100 pages processed", rollupMetadata.stats.pagesProcessed < 100L)
+    }
+
+    fun `test search max buckets breaker`() {
+        generateNYCTaxiData("source")
+        // Set the search max buckets to 50 and rollup search retry count to 0 so it won't retry on failure. This is to confirm first that yes we do get an error and moved into failed state.
+        client().makeRequest("PUT", "/_cluster/settings", StringEntity("""{"persistent":{"search.max_buckets":"50", "opendistro.rollup.search.backoff_count": 0 }}""", ContentType.APPLICATION_JSON))
+
+        val rollup = Rollup(
+            id = "page_size_no_retry",
+            schemaVersion = 1L,
+            enabled = true,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = Instant.now(),
+            jobEnabledTime = Instant.now(),
+            description = "basic page size",
+            sourceIndex = "source",
+            targetIndex = "target",
+            metadataID = null,
+            roles = emptyList(),
+            pageSize = 100,
+            delay = 0,
+            continuous = false,
+            dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1m")),
+            metrics = listOf(RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average())))
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+
+        waitFor { assertTrue("Target rollup index was not created", indexExists(rollup.targetIndex)) }
+
+        waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not failed", RollupMetadata.Status.FAILED, rollupMetadata.status)
+            assertTrue("Did not contain failure message about too many buckets", rollupMetadata.failureReason?.contains("Trying to create too many buckets") == true)
+        }
+
+        // If we get to this point it means that yes it does fail with too many buckets error, now we'll try with backoff and having it reduce below the max buckets limit
+
+        client().makeRequest("PUT", "/_cluster/settings", StringEntity("""{"persistent":{"search.max_buckets":"50", "opendistro.rollup.search.backoff_count": 5 }}""", ContentType.APPLICATION_JSON))
+
+        val secondRollup = Rollup(
+            id = "page_size_with_retry",
+            schemaVersion = 1L,
+            enabled = true,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = Instant.now(),
+            jobEnabledTime = Instant.now(),
+            description = "basic page size",
+            sourceIndex = "source",
+            targetIndex = "new_target",
+            metadataID = null,
+            roles = emptyList(),
+            pageSize = 100,
+            delay = 0,
+            continuous = false,
+            dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1m")),
+            metrics = listOf(RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average())))
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(secondRollup)
+
+        waitFor { assertTrue("Target rollup index was not created", indexExists(secondRollup.targetIndex)) }
+
+        waitFor {
+            val rollupJob = getRollup(rollupId = secondRollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+            val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
+            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+            assertNull("Had a failure reason", rollupMetadata.failureReason)
+        }
     }
 
     // TODO: Test scenarios:

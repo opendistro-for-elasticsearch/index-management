@@ -229,7 +229,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerThreadPool(threadPool)
             .registerMapperService(RollupMapperService(client, clusterService, indexNameExpressionResolver))
             .registerIndexer(RollupIndexer(settings, clusterService, client))
-            .registerSearcher(RollupSearchService(client))
+            .registerSearcher(RollupSearchService(settings, clusterService, client))
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
         rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
@@ -267,6 +267,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ManagedIndexSettings.ALLOW_LIST,
             RollupSettings.ROLLUP_INGEST_BACKOFF_COUNT,
             RollupSettings.ROLLUP_INGEST_BACKOFF_MILLIS,
+            RollupSettings.ROLLUP_SEARCH_BACKOFF_COUNT,
+            RollupSettings.ROLLUP_SEARCH_BACKOFF_MILLIS,
             RollupSettings.ROLLUP_INDEX,
             RollupSettings.ROLLUP_ENABLED,
             RollupSettings.ROLLUP_SEARCH_ENABLED

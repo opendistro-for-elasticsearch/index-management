@@ -49,14 +49,28 @@ class RollupSettings {
 
         val ROLLUP_INGEST_BACKOFF_MILLIS: Setting<TimeValue> = Setting.positiveTimeSetting(
             "opendistro.rollup.ingest.backoff_millis",
-            TimeValue.timeValueMillis(50),
+            TimeValue.timeValueMillis(1000),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
 
         val ROLLUP_INGEST_BACKOFF_COUNT: Setting<Int> = Setting.intSetting(
             "opendistro.rollup.ingest.backoff_count",
-            2,
+            3,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val ROLLUP_SEARCH_BACKOFF_MILLIS: Setting<TimeValue> = Setting.positiveTimeSetting(
+            "opendistro.rollup.search.backoff_millis",
+            TimeValue.timeValueMillis(1000),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val ROLLUP_SEARCH_BACKOFF_COUNT: Setting<Int> = Setting.intSetting(
+            "opendistro.rollup.search.backoff_count",
+            5,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )

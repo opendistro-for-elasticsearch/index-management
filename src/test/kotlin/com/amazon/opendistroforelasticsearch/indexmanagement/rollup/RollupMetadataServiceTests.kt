@@ -84,7 +84,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -120,7 +120,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -157,7 +157,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -193,7 +193,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -229,7 +229,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -267,7 +267,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -303,7 +303,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -339,7 +339,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -375,7 +375,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -411,7 +411,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -447,7 +447,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -483,7 +483,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -521,7 +521,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -558,7 +558,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Success) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Success) { "Init metadata returned unexpected results" }
 
             val metadata = initMetadataResult.metadata
             assertNotNull(metadata.continuous)
@@ -585,7 +585,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Failure) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Failure) { "Init metadata returned unexpected results" }
 
             assertEquals(getException, initMetadataResult.cause)
         }
@@ -610,7 +610,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         runBlocking {
             val initMetadataResult = metadataService.init(rollup)
-            require(initMetadataResult is RollupMetadataService.MetadataResult.Failure) { "Init metadata returned unexpected results" }
+            require(initMetadataResult is MetadataResult.Failure) { "Init metadata returned unexpected results" }
 
             assertEquals(indexException, initMetadataResult.cause)
         }
@@ -648,7 +648,7 @@ class RollupMetadataServiceTests : ESTestCase() {
 
 //        runBlocking {
 //            val getExistingMetadataResult = metadataService.getExistingMetadata(metadata.id)
-//            require(getExistingMetadataResult is RollupMetadataService.MetadataResult.Success) {
+//            require(getExistingMetadataResult is MetadataResult.Success) {
 //                "Getting existing metadata returned unexpected results"
 //            }
 //
@@ -671,7 +671,7 @@ class RollupMetadataServiceTests : ESTestCase() {
         runBlocking {
             val getExistingMetadataResult = metadataService.getExistingMetadata(randomRollup()
                 .copy(id = randomAlphaOfLength(10), metadataID = randomAlphaOfLength(10)))
-            require(getExistingMetadataResult is RollupMetadataService.MetadataResult.NoMetadata) {
+            require(getExistingMetadataResult is MetadataResult.NoMetadata) {
                 "Getting existing metadata returned unexpected results"
             }
         }
@@ -693,7 +693,7 @@ class RollupMetadataServiceTests : ESTestCase() {
         runBlocking {
             val getExistingMetadataResult = metadataService.getExistingMetadata(randomRollup()
                 .copy(id = randomAlphaOfLength(10), metadataID = randomAlphaOfLength(10)))
-            require(getExistingMetadataResult is RollupMetadataService.MetadataResult.Failure) {
+            require(getExistingMetadataResult is MetadataResult.Failure) {
                 "Getting existing metadata returned unexpected results"
             }
 

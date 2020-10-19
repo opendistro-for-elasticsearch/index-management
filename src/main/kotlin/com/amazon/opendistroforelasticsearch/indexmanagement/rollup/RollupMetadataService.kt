@@ -113,7 +113,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                 // TODO: Probably change this to return MetadataResult.Failure() with a message so that
                 //   runner can be the one to throw the exception
                 is StartingTimeResult.Failure ->
-                    throw RollupMetadataException("Failed to initialize start time for retried rollup job [${rollup.id}]", initStartTimeResult.e)
+                    return MetadataResult.Failure("Failed to initialize start time for retried rollup job [${rollup.id}]", initStartTimeResult.e)
             }
             val nextWindowEndTime = getShiftedTime(nextWindowStartTime, rollup)
             continuousMetadata = ContinuousMetadata(nextWindowStartTime, nextWindowEndTime)
@@ -152,7 +152,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         val nextWindowStartTime = when (val initStartTimeResult = getInitialStartTime(rollup)) {
             is StartingTimeResult.Success -> initStartTimeResult.startingTime
             is StartingTimeResult.NoDocumentsFound -> return MetadataResult.NoMetadata
-            is StartingTimeResult.Failure -> throw RollupMetadataException("Failed to initialize start time for rollup [${rollup.id}]", null)
+            is StartingTimeResult.Failure ->
+                return MetadataResult.Failure("Failed to initialize start time for rollup [${rollup.id}]", initStartTimeResult.e)
         }
         // The first end time is just the next window start time
         val nextWindowEndTime = getShiftedTime(nextWindowStartTime, rollup)
@@ -189,7 +190,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             val response: SearchResponse = client.suspendUntil { search(searchRequest, it) }
 
             if (response.hits.hits.isEmpty()) {
-                // TODO: Handle empty hits (should result in no-op for runner)
+                // Empty doc hits will result in a no-op from the runner
                 return StartingTimeResult.NoDocumentsFound
             }
 
@@ -246,7 +247,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                 .build()
         } else {
             // Fixed intervals are handled here
-            val timeValue = TimeValue.parseTimeValue(intervalString, "RollupMetadataService#getTimeInterval")
+            val timeValue = TimeValue.parseTimeValue(intervalString, "RollupMetadataService#getRoundingStrategy")
             Rounding.builder(timeValue)
                 .timeZone(dateHistogram.timezone)
                 .build()
@@ -326,7 +327,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     /**
      * Sets a failure metadata for the rollup job with the given reason.
      * Can provide an existing metadata to update, if none are provided a new metadata is created
-     * and replaces the current one for the job.
+     * to replace the current one for the job.
      */
     suspend fun setFailedMetadata(job: Rollup, reason: String, existingMetadata: RollupMetadata? = null): MetadataResult {
         val updatedMetadata: RollupMetadata?

@@ -112,7 +112,9 @@ class TransportUpdateRollupMappingAction @Inject constructor(
             } else {
                 if ((rollups as Map<*, *>).containsKey(request.rollup.id)) {
                     log.debug("Meta rollup mappings already contain rollup ${request.rollup.id} for index [$index]")
-                    return listener.onFailure(IllegalStateException("Meta rollup mappings already contain rollup ${request.rollup.id} for index [$index]"))
+                    return listener.onFailure(
+                        IllegalStateException("Meta rollup mappings already contain rollup ${request.rollup.id} for index [$index]")
+                    )
                 }
 
                 // In this case rollup mappings exists and there is no entry for request.rollup.id

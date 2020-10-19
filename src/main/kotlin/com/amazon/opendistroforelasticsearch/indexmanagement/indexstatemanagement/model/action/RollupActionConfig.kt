@@ -19,19 +19,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.RollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Max
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Min
-import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.script.ScriptService
 import java.io.IOException
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 // TODO: Not sure what interface should be
 class RollupActionConfig(
@@ -54,26 +47,9 @@ class RollupActionConfig(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): RollupActionConfig {
+            // TODO: not sure if we let customer set the id or we choose the id
+            val rollup = Rollup.parse(xcp)
 
-            // TODO: implement logic to parse the xcp - probably need to parse the rollup object from xcp
-            val rollup = Rollup(
-                    id = "dummy_rollup",
-                    schemaVersion = 1L,
-                    enabled = true,
-                    jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
-                    jobLastUpdatedTime = Instant.now(),
-                    jobEnabledTime = Instant.now(),
-                    description = "basic search test",
-                    sourceIndex = "source",
-                    targetIndex = "target",
-                    metadataID = null,
-                    roles = emptyList(),
-                    pageSize = 10,
-                    delay = 0,
-                    continuous = false,
-                    dimensions = listOf(DateHistogram(sourceField = "timestamp", fixedInterval = "1h")),
-                    metrics = listOf(RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min())))
-            )
             return RollupActionConfig(
                     index = index,
                     rollup = rollup

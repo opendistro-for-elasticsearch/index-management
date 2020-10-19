@@ -18,6 +18,8 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestHandler.Route
@@ -31,6 +33,7 @@ class RestGetRollupAction : BaseRestHandler() {
 
     override fun routes(): List<Route> {
         return listOf(
+            Route(GET, ROLLUP_JOBS_BASE_URI),
             Route(GET, "$ROLLUP_JOBS_BASE_URI/{rollupID}"),
             Route(HEAD, "$ROLLUP_JOBS_BASE_URI/{rollupID}")
         )
@@ -42,14 +45,13 @@ class RestGetRollupAction : BaseRestHandler() {
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val rollupID = request.param("rollupID")
-        if (rollupID == null || rollupID.isEmpty()) {
-            throw IllegalArgumentException("Missing rollup ID")
-        }
-
-        val srcContext: FetchSourceContext? = if (request.method() == HEAD) FetchSourceContext.DO_NOT_FETCH_SOURCE else null
-        val getRollupRequest = GetRollupRequest(rollupID, srcContext)
         return RestChannelConsumer { channel ->
-            client.execute(GetRollupAction.INSTANCE, getRollupRequest, RestToXContentListener(channel))
+            if (rollupID == null || rollupID.isEmpty()) {
+                client.execute(GetRollupsAction.INSTANCE, GetRollupsRequest(), RestToXContentListener(channel))
+            } else {
+                val req = GetRollupRequest(rollupID, if (request.method() == HEAD) FetchSourceContext.DO_NOT_FETCH_SOURCE else null)
+                client.execute(GetRollupAction.INSTANCE, req, RestToXContentListener(channel))
+            }
         }
     }
 }

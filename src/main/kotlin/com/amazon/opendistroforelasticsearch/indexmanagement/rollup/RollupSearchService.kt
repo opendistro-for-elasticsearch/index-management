@@ -63,6 +63,7 @@ class RollupSearchService(
     // TODO: Failed shouldn't process? How to recover from failed -> how does a user retry a failed rollup
     @Suppress("ReturnCount")
     fun shouldProcessRollup(rollup: Rollup, metadata: RollupMetadata?): Boolean {
+        if (!rollup.enabled) return false
         // For both continuous and non-continuous rollups if there is an afterKey it means we are still
         // processing data from the current window and should continue to process, the only way we ended up here with an
         // afterKey is if we were still processing data is if the job somehow stopped and was rescheduled (i.e. node crashed etc.)

@@ -35,7 +35,7 @@ class RollupAction(
 ) : Action(ActionConfig.ActionType.ROLLUP, config, managedIndexMetaData) {
 
     private val attemptCreateRollupJobStep = AttemptCreateRollupJobStep(clusterService, client, rollup, managedIndexMetaData)
-    private val waitForRollupCompletionStep = WaitForRollupCompletionStep(clusterService, client, rollup.id ,managedIndexMetaData)
+    private val waitForRollupCompletionStep = WaitForRollupCompletionStep(clusterService, client, rollup.id, managedIndexMetaData)
 
     override fun getSteps(): List<Step> = listOf(attemptCreateRollupJobStep, waitForRollupCompletionStep)
 

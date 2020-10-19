@@ -43,7 +43,7 @@ class WaitForRollupCompletionStep(
 
     override suspend fun execute(): WaitForRollupCompletionStep {
         val explainRollupRequest = ExplainRollupRequest(listOf(rollupJobId))
-        client.execute(ExplainRollupAction.INSTANCE, explainRollupRequest, object: ActionListener<ExplainRollupResponse> {
+        client.execute(ExplainRollupAction.INSTANCE, explainRollupRequest, object : ActionListener<ExplainRollupResponse> {
             override fun onFailure(e: Exception?) {
                 processFailure(e)
             }

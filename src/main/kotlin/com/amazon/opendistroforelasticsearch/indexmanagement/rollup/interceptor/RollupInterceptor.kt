@@ -80,6 +80,21 @@ class RollupInterceptor(
         return object : TransportRequestHandler<T> {
             override fun messageReceived(request: T, channel: TransportChannel, task: Task) {
                 if (searchEnabled && request is ShardSearchRequest) {
+                    val indices = request.indices().map { it.toString() }.toTypedArray()
+
+                    val concreteIndices = indexNameExpressionResolver
+                            .concreteIndexNames(clusterService.state(), request.indicesOptions(), *indices)
+
+                    val isRollupSearch = concreteIndices.any {
+                        RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(it).settings)
+                    }
+
+                    if (isRollupSearch && concreteIndices.size > 1) {
+                        logger.warn("There can be only one index in search request if its a rollup search - requested to search [${concreteIndices
+                                .size}] indices including rollup index")
+                        throw IllegalArgumentException("Searching rollup index with other indices is not supported")
+                    }
+
                     val index = request.shardId().indexName
                     val isRollupIndex = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(index).settings)
                     if (isRollupIndex) {
@@ -87,24 +102,8 @@ class RollupInterceptor(
                             throw IllegalArgumentException("Rollup search must have size explicitly set to 0, but found ${request.source().size()}")
                         }
 
-                        val indices = request.indices().map { it.toString() }.toTypedArray()
-                        val concreteIndices = indexNameExpressionResolver
-                                .concreteIndexNames(clusterService.state(), request.indicesOptions(), *indices)
-
-                        val hasNonRollupIndex = concreteIndices.any {
-                            val isNonRollupIndex = !RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(it).settings)
-                            if (isNonRollupIndex) {
-                                logger.warn("A non-rollup index cannot be searched with a rollup index [non-rollup-index=$it] [rollup-index=$index]")
-                            }
-                            isNonRollupIndex
-                        }
-
-                        if (hasNonRollupIndex) {
-                            throw IllegalArgumentException("Cannot query rollup and normal indices in the same request")
-                        }
-
                         val rollupJobs = clusterService.state().metadata.index(index).getRollupJobs()
-                                ?: throw IllegalArgumentException("Could not find any rollup jobs on the index")
+                                ?: throw IllegalArgumentException("Could not find any valid rollup job on the index")
 
                         val queryFieldMappings = getQueryMetadata(request.source().query())
                         val aggregationFieldMappings = getAggregationMetadata(request.source().aggregations()?.aggregatorFactories)

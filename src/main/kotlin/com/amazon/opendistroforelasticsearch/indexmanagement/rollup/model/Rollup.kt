@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimens
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.logger
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
@@ -66,6 +67,14 @@ data class Rollup(
             requireNotNull(jobEnabledTime) { "Job enabled time must be present if the job is enabled" }
         } else {
             require(jobEnabledTime == null) { "Job enabled time must not be present if the job is disabled" }
+        }
+        when (jobSchedule) {
+            is CronSchedule -> {
+                // Job scheduler already correctly throws errors for this
+            }
+            is IntervalSchedule -> {
+                require(jobSchedule.interval > 0) { "Rollup job schedule interval must be greater than 0" }
+            }
         }
         require(sourceIndex != targetIndex) { "Your source and target index cannot be the same" }
         require(dimensions.filter { it.type == Dimension.Type.DATE_HISTOGRAM }.size == 1) {
@@ -281,6 +290,15 @@ data class Rollup(
                 enabledTime = Instant.now()
             } else if (!enabled) {
                 enabledTime = null
+            }
+
+            // If the seqNo/primaryTerm are unassigned this job hasn't been created yet so we instantiate the startTime
+            // TODO: Make startTime public in Job Scheduler so we can just directly check the value
+            logger.info("Rollup seq no $seqNo and prim $primaryTerm")
+            if (seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO || primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
+                if (schedule is IntervalSchedule) {
+                    schedule = IntervalSchedule(Instant.now(), schedule.interval, schedule.unit)
+                }
             }
             return Rollup(
                 id = id,

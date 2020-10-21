@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
@@ -39,7 +38,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -200,7 +198,6 @@ object RollupRunner : ScheduledJobRunner,
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext, lock: LockModel) {
         logger.info("runRollupJob ${job.id}")
         try {
-            // TODO: Verify which parts of isJobValid needs to be run securely
             if (!isJobValid(job)) {
                 logger.info("Not a valid job $job")
                 return
@@ -244,30 +241,21 @@ object RollupRunner : ScheduledJobRunner,
             }
 
             var updatableLock = lock
-            // TODO: Is knowing whether or not to process the window leaking information to a user that doesn't have the correct permissions?
-            //  Or if we get to this point then we know the applied role has the correct permissions (i.e. shoiuld check in isValidJob)
             while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
                 do {
                     try {
-                        // TODO: BIG TODO - Remove all_access once role injection works with bulk requests
-                        // TODO: Include in execution loop and using updateable job in case someone
-                        //  updates roles while rolling up, add test for this scenario
-                        val roles = updatableJob.roles + listOf("all_access")
-                        // TODO: Clean up withContext wrapper and internalComposite/indexStats pair
-                        val rollupResult = withContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles)) {
-                            when (val rollupSearchResult = rollupSearchService.executeCompositeSearch(updatableJob, metadata)) {
+                        val rollupResult = when (val rollupSearchResult = rollupSearchService.executeCompositeSearch(updatableJob, metadata)) {
                                 is RollupSearchResult.Success -> {
                                     val compositeRes: InternalComposite = rollupSearchResult.searchResponse.aggregations.get(updatableJob.id)
                                     metadata = metadata.incrementStats(rollupSearchResult.searchResponse, compositeRes)
-                                    return@withContext when (val rollupIndexResult = rollupIndexer.indexRollups(updatableJob, compositeRes)) {
+                                    when (val rollupIndexResult = rollupIndexer.indexRollups(updatableJob, compositeRes)) {
                                         is RollupIndexResult.Success -> RollupResult.Success(compositeRes, rollupIndexResult.stats)
                                         is RollupIndexResult.Failure -> RollupResult.Failure(rollupIndexResult.message, rollupIndexResult.cause)
                                     }
                                 }
                                 is RollupSearchResult.Failure -> {
-                                    return@withContext RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
+                                    RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
                                 }
-                            }
                         }
                         when (rollupResult) {
                             is RollupResult.Success -> {
@@ -335,7 +323,7 @@ object RollupRunner : ScheduledJobRunner,
      */
     private suspend fun updateRollupJob(job: Rollup, metadata: RollupMetadata): RollupJobResult {
         try {
-            val req = IndexRollupRequest(rollup = job, authHeader = null, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
+            val req = IndexRollupRequest(rollup = job, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
             val res: IndexRollupResponse = client.suspendUntil { execute(IndexRollupAction.INSTANCE, req, it) }
             // TODO: Verify the seqNo/primterm got updated
             return RollupJobResult.Success(res.rollup)
@@ -357,7 +345,6 @@ object RollupRunner : ScheduledJobRunner,
 
     // TODO: Source index could be a pattern but it's used at runtime so it could match new indices which weren't matched before
     //  which means we always need to validate the source index on every execution?
-    // TODO: Validations should be checking if the role on the job has permissions to read from source index and index to target index
     @Suppress("ReturnCount")
     private suspend fun isJobValid(job: Rollup): Boolean {
         // TODO: Handle exceptions
@@ -371,8 +358,6 @@ object RollupRunner : ScheduledJobRunner,
             return false
         }
 
-        // TODO: Which of these should only be run in the roles secure context? Validation of target index existing -> if role can't view target index
-        //  is this giving priveleged information to know that it does or does not exist?
         // rollupMetadataService.init() will handle the cases where metadata is null
         if (metadata != null) {
             if (!rollupMapperService.indexExists(job.targetIndex)) {

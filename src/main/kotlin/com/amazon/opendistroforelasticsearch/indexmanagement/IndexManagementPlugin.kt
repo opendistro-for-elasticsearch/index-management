@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement
 
-import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
@@ -89,7 +88,6 @@ import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
 import org.elasticsearch.cluster.service.ClusterService
@@ -124,7 +122,6 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     lateinit var clusterService: ClusterService
     lateinit var indexNameExpressionResolver: IndexNameExpressionResolver
     lateinit var rollupInterceptor: RollupInterceptor
-    lateinit var restClient: RestClient
 
     companion object {
         const val PLUGIN_NAME = "opendistro-im"
@@ -250,8 +247,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
 
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
             client, clusterService, threadPool, indexManagementIndices)
-        this.restClient = SecureRestClientBuilder(settings, environment.configFile()).build()
-        return listOf(managedIndexRunner, rollupRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory, restClient)
+        return listOf(managedIndexRunner, rollupRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
     }
 
     override fun getSettings(): List<Setting<*>> {

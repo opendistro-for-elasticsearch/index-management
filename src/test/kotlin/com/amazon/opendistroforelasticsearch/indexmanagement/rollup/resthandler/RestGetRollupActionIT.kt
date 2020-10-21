@@ -32,7 +32,12 @@ class RestGetRollupActionIT : RollupRestTestCase() {
         var rollup = createRollup(randomRollup())
         val indexedRollup = getRollup(rollup.id)
         // Schema version and last updated time are updated during the creation so we need to update the original too for comparison
-        rollup = rollup.copy(schemaVersion = indexedRollup.schemaVersion, jobLastUpdatedTime = indexedRollup.jobLastUpdatedTime)
+        // Job schedule interval will have a dynamic start time
+        rollup = rollup.copy(
+            schemaVersion = indexedRollup.schemaVersion,
+            jobLastUpdatedTime = indexedRollup.jobLastUpdatedTime,
+            jobSchedule = indexedRollup.jobSchedule
+        )
         assertEquals("Indexed and retrieved rollup differ", rollup, indexedRollup)
     }
 

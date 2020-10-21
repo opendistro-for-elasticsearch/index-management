@@ -113,7 +113,6 @@ class RequestTests : ESTestCase() {
         val rollup = randomRollup().copy(seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO, primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val req = IndexRollupRequest(
             rollup = rollup,
-            authHeader = null,
             refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE
         ).index(INDEX_MANAGEMENT_INDEX)
 
@@ -131,7 +130,6 @@ class RequestTests : ESTestCase() {
         val rollup = randomRollup().copy(seqNo = 1L, primaryTerm = 2L)
         val req = IndexRollupRequest(
             rollup = rollup,
-            authHeader = null,
             refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE
         ).index(INDEX_MANAGEMENT_INDEX)
 

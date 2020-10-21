@@ -151,10 +151,10 @@ abstract class RollupRestTestCase : IndexManagementRestTestCase() {
                 _ID -> id = parser.text()
                 _SEQ_NO -> seqNo = parser.longValue()
                 _PRIMARY_TERM -> primaryTerm = parser.longValue()
-                Rollup.ROLLUP_TYPE -> rollup = Rollup.parse(parser)
+                Rollup.ROLLUP_TYPE -> rollup = Rollup.parse(parser, id, seqNo, primaryTerm)
             }
         }
-        return rollup.copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
+        return rollup
     }
 
     protected fun getRollupMetadata(

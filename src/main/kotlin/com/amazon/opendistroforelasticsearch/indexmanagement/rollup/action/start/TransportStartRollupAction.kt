@@ -50,29 +50,27 @@ class TransportStartRollupAction @Inject constructor(
 
     override fun doExecute(task: Task, request: StartRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
         val getReq = GetRollupRequest(request.id(), null)
-        client.threadPool().threadContext.stashContext().use {
-            client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
-                override fun onResponse(response: GetRollupResponse) {
-                    val rollup = response.rollup
-                    if (rollup == null) {
-                        return actionListener.onFailure(
-                            ElasticsearchStatusException("Could not find find rollup [${request.id()}]", RestStatus.NOT_FOUND)
-                        )
-                    }
-
-                    if (rollup.enabled) {
-                        log.debug("Rollup job is already enabled")
-                        return actionListener.onResponse(AcknowledgedResponse(true))
-                    }
-
-                    updateRollupJob(rollup, request, actionListener)
+        client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
+            override fun onResponse(response: GetRollupResponse) {
+                val rollup = response.rollup
+                if (rollup == null) {
+                    return actionListener.onFailure(
+                        ElasticsearchStatusException("Could not find find rollup [${request.id()}]", RestStatus.NOT_FOUND)
+                    )
                 }
 
-                override fun onFailure(e: Exception) {
-                    actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
+                if (rollup.enabled) {
+                    log.debug("Rollup job is already enabled")
+                    return actionListener.onResponse(AcknowledgedResponse(true))
                 }
-            })
-        }
+
+                updateRollupJob(rollup, request, actionListener)
+            }
+
+            override fun onFailure(e: Exception) {
+                actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
+            }
+        })
     }
 
     // TODO: Should create a transport action to update metadata

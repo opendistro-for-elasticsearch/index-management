@@ -15,8 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.AuthUserRequestBuilder
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
@@ -25,7 +23,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.G
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.ElasticsearchSecurityException
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
@@ -35,9 +32,6 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.client.Response
-import org.elasticsearch.client.ResponseListener
-import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.xcontent.ToXContent
@@ -45,13 +39,11 @@ import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
-import java.io.IOException
 
 // TODO: Field and mappings validations of source and target index, i.e. reject a histogram agg on example_field if its not possible
 class TransportIndexRollupAction @Inject constructor(
     transportService: TransportService,
     val client: Client,
-    val restClient: RestClient,
     actionFilters: ActionFilters,
     val indexManagementIndices: IndexManagementIndices,
     val clusterService: ClusterService
@@ -62,11 +54,7 @@ class TransportIndexRollupAction @Inject constructor(
     private val log = LogManager.getLogger(javaClass)
 
     override fun doExecute(task: Task, request: IndexRollupRequest, listener: ActionListener<IndexRollupResponse>) {
-        // Security has already validated the user has permission to call this API at this point, so now strip off the user context
-        // from the thread context so we can run with full access (otherwise can't access config index) and do our own validation
-        client.threadPool().threadContext.stashContext().use {
-            IndexRollupHandler(client, listener, request).resolveUserAndStart()
-        }
+        IndexRollupHandler(client, listener, request).start()
     }
 
     inner class IndexRollupHandler(
@@ -74,43 +62,6 @@ class TransportIndexRollupAction @Inject constructor(
         private val actionListener: ActionListener<IndexRollupResponse>,
         private val request: IndexRollupRequest
     ) {
-
-        fun resolveUserAndStart() {
-            if (request.authHeader.isNullOrEmpty()) {
-                // Security is disabled, just run normally
-                start()
-            } else {
-                // Security is enabled and we need to validate the request
-                val authRequest = AuthUserRequestBuilder(request.authHeader).build()
-                restClient.performRequestAsync(authRequest, object : ResponseListener {
-                    override fun onSuccess(response: Response) {
-                        try {
-                            val user = User(response)
-                            // Every put (create or update) request that comes in has the users roles validated with the roles that are
-                            // being saved on the rollup job. If the user does not have those roles then they cannot update the rollup job.
-                            val requestRoles = request.rollup.roles
-                            require(requestRoles.isNotEmpty()) { "Must select at least one role for the rollup job to run as" }
-                            if (!user.roles.containsAll(requestRoles)) {
-                                log.warn("$user tried to ${request.opType().lowercase} a rollup using role(s) they do not have $requestRoles")
-                                actionListener.onFailure(
-                                    ElasticsearchSecurityException(
-                                        "User does not have the chosen rollup roles ${request.rollup.roles}",
-                                        RestStatus.FORBIDDEN
-                                    )
-                                )
-                            } else {
-                                start()
-                            }
-                        } catch (e: IOException) {
-                            actionListener.onFailure(e)
-                        }
-                    }
-                    override fun onFailure(e: Exception) {
-                        actionListener.onFailure(e)
-                    }
-                })
-            }
-        }
 
         fun start() {
             indexManagementIndices.checkAndUpdateIMConfigIndex(ActionListener.wrap(::onCreateMappingsResponse, actionListener::onFailure))

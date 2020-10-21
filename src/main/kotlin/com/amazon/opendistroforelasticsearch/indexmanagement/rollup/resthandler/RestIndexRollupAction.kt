@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IF_PRIMARY_TERM
@@ -62,9 +61,6 @@ class RestIndexRollupAction : BaseRestHandler() {
             throw IllegalArgumentException("Missing rollup ID")
         }
 
-        // Get roles of the user executing this rest action
-        val auth = request.header(ConfigConstants.AUTHORIZATION)
-
         val seqNo = request.paramAsLong(IF_SEQ_NO, SequenceNumbers.UNASSIGNED_SEQ_NO)
         val primaryTerm = request.paramAsLong(IF_PRIMARY_TERM, SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val xcp = request.contentParser()
@@ -75,7 +71,7 @@ class RestIndexRollupAction : BaseRestHandler() {
         } else {
             WriteRequest.RefreshPolicy.IMMEDIATE
         }
-        val indexRollupRequest = IndexRollupRequest(rollup, refreshPolicy, auth)
+        val indexRollupRequest = IndexRollupRequest(rollup, refreshPolicy)
         return RestChannelConsumer { channel ->
             client.execute(IndexRollupAction.INSTANCE, indexRollupRequest, indexRollupResponse(channel))
         }

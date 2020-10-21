@@ -69,63 +69,60 @@ class TransportExplainRollupAction @Inject constructor(
                     }
                 }
             ))
-        // TODO: Can anyone with explain permission view all rollup job info?
-        client.threadPool().threadContext.stashContext().use {
-            client.search(searchRequest, object : ActionListener<SearchResponse> {
-                override fun onResponse(response: SearchResponse) {
-                    try {
-                        response.hits.hits.forEach {
-                            val rollup = contentParser(it.sourceRef).parseWithType(it.id, it.seqNo, it.primaryTerm, Rollup.Companion::parse)
-                            idsToExplain[rollup.id] = ExplainRollup(metadataID = rollup.metadataID)
-                        }
-                    } catch (e: Exception) {
-                        log.error("Failed to parse explain response", e)
-                        actionListener.onFailure(e)
-                        return
+        client.search(searchRequest, object : ActionListener<SearchResponse> {
+            override fun onResponse(response: SearchResponse) {
+                try {
+                    response.hits.hits.forEach {
+                        val rollup = contentParser(it.sourceRef).parseWithType(it.id, it.seqNo, it.primaryTerm, Rollup.Companion::parse)
+                        idsToExplain[rollup.id] = ExplainRollup(metadataID = rollup.metadataID)
                     }
-
-                    val metadataIds = idsToExplain.values.mapNotNull { it?.metadataID }
-                    val metadataSearchRequest = SearchRequest(INDEX_MANAGEMENT_INDEX)
-                        .source(SearchSourceBuilder().query(IdsQueryBuilder().addIds(*metadataIds.toTypedArray())))
-                    client.search(metadataSearchRequest, object : ActionListener<SearchResponse> {
-                        override fun onResponse(response: SearchResponse) {
-                            try {
-                                response.hits.hits.forEach {
-                                    val metadata = contentParser(it.sourceRef)
-                                        .parseWithType(it.id, it.seqNo, it.primaryTerm, RollupMetadata.Companion::parse)
-                                    idsToExplain.computeIfPresent(metadata.rollupID) { _, explainRollup -> explainRollup.copy(metadata = metadata) }
-                                }
-                                actionListener.onResponse(ExplainRollupResponse(idsToExplain.toMap()))
-                            } catch (e: Exception) {
-                                log.error("Failed to parse rollup metadata", e)
-                                actionListener.onFailure(e)
-                                return
-                            }
-                        }
-
-                        override fun onFailure(e: Exception) {
-                            log.error("Failed to search rollup metadata", e)
-                            when (e) {
-                                is RemoteTransportException -> actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
-                                else -> actionListener.onFailure(e)
-                            }
-                        }
-                    })
+                } catch (e: Exception) {
+                    log.error("Failed to parse explain response", e)
+                    actionListener.onFailure(e)
+                    return
                 }
 
-                override fun onFailure(e: Exception) {
-                    log.error("Failed to search for rollups", e)
-                    when (e) {
-                        is ResourceNotFoundException -> {
-                            val nonWildcardIds = ids.filter { !it.contains("*") }.map { it to null }.toMap(mutableMapOf())
-                            actionListener.onResponse(ExplainRollupResponse(nonWildcardIds))
+                val metadataIds = idsToExplain.values.mapNotNull { it?.metadataID }
+                val metadataSearchRequest = SearchRequest(INDEX_MANAGEMENT_INDEX)
+                    .source(SearchSourceBuilder().query(IdsQueryBuilder().addIds(*metadataIds.toTypedArray())))
+                client.search(metadataSearchRequest, object : ActionListener<SearchResponse> {
+                    override fun onResponse(response: SearchResponse) {
+                        try {
+                            response.hits.hits.forEach {
+                                val metadata = contentParser(it.sourceRef)
+                                    .parseWithType(it.id, it.seqNo, it.primaryTerm, RollupMetadata.Companion::parse)
+                                idsToExplain.computeIfPresent(metadata.rollupID) { _, explainRollup -> explainRollup.copy(metadata = metadata) }
+                            }
+                            actionListener.onResponse(ExplainRollupResponse(idsToExplain.toMap()))
+                        } catch (e: Exception) {
+                            log.error("Failed to parse rollup metadata", e)
+                            actionListener.onFailure(e)
+                            return
                         }
-                        is RemoteTransportException -> actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
-                        else -> actionListener.onFailure(e)
                     }
+
+                    override fun onFailure(e: Exception) {
+                        log.error("Failed to search rollup metadata", e)
+                        when (e) {
+                            is RemoteTransportException -> actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
+                            else -> actionListener.onFailure(e)
+                        }
+                    }
+                })
+            }
+
+            override fun onFailure(e: Exception) {
+                log.error("Failed to search for rollups", e)
+                when (e) {
+                    is ResourceNotFoundException -> {
+                        val nonWildcardIds = ids.filter { !it.contains("*") }.map { it to null }.toMap(mutableMapOf())
+                        actionListener.onResponse(ExplainRollupResponse(nonWildcardIds))
+                    }
+                    is RemoteTransportException -> actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
+                    else -> actionListener.onFailure(e)
                 }
-            })
-        }
+            }
+        })
     }
 
     private fun contentParser(bytesReference: BytesReference): XContentParser {

@@ -67,7 +67,11 @@ data class Histogram(
     ): HistogramAggregationBuilder =
         HistogramAggregationBuilder(aggregationBuilder.name)
             .interval(aggregationBuilder.interval())
-            .extendedBounds(aggregationBuilder.minBound(), aggregationBuilder.maxBound())
+            .also {
+                if (aggregationBuilder.minBound().isFinite() && aggregationBuilder.maxBound().isFinite()) {
+                    it.extendedBounds(aggregationBuilder.minBound(), aggregationBuilder.maxBound())
+                }
+            }
             .keyed(aggregationBuilder.keyed())
             .also {
                 if (aggregationBuilder.minDocCount() >= 0) {

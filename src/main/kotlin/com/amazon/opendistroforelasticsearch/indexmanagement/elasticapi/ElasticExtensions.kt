@@ -17,10 +17,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi
 
-import com.amazon.opendistroforelasticsearch.commons.InjectSecurity
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
-import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.delay
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
@@ -30,8 +28,6 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.DefaultShardOperationFailedException
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.common.bytes.BytesReference
-import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.util.concurrent.ThreadContext
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -45,7 +41,6 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.transport.RemoteTransportException
 import java.io.IOException
 import java.time.Instant
-import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -156,28 +151,6 @@ fun Throwable.findRemoteTransportException(): RemoteTransportException? {
 fun DefaultShardOperationFailedException.getUsefulCauseString(): String {
     val rte = this.cause?.findRemoteTransportException()
     return if (rte == null) this.toString() else ExceptionsHelper.unwrapCause(rte).toString()
-}
-
-class InjectorContextElement(
-    id: String,
-    settings: Settings,
-    threadContext: ThreadContext,
-    private val roles: List<String>?
-) : ThreadContextElement<Unit> {
-
-    companion object Key : CoroutineContext.Key<InjectorContextElement>
-    override val key: CoroutineContext.Key<*>
-        get() = Key
-
-    var rolesInjectorHelper = InjectSecurity(id, settings, threadContext)
-
-    override fun updateThreadContext(context: CoroutineContext) {
-        rolesInjectorHelper.injectRoles(roles)
-    }
-
-    override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
-        rolesInjectorHelper.close()
-    }
 }
 
 @JvmOverloads

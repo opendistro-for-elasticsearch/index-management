@@ -21,6 +21,11 @@ import org.elasticsearch.test.rest.ESRestTestCase
 
 abstract class IndexManagementRestTestCase : ESRestTestCase() {
 
+    protected val isLocalTest = clusterName() == "integTest"
+    private fun clusterName(): String {
+        return System.getProperty("tests.clustername")
+    }
+
     fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 
     protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)

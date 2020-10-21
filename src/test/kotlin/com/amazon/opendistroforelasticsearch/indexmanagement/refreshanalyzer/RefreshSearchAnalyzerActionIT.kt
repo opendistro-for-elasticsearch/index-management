@@ -21,6 +21,7 @@ import org.elasticsearch.client.Request
 import org.elasticsearch.common.io.Streams
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
+import org.junit.Assume
 import java.io.InputStreamReader
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
@@ -28,6 +29,7 @@ import java.nio.file.Files
 
 class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
     fun `test index time analyzer`() {
+        Assume.assumeTrue(isLocalTest)
         val buildDir = System.getProperty("buildDir")
         val numNodes = System.getProperty("cluster.number_of_nodes", "1").toInt()
         val indexName = "testindex"
@@ -74,6 +76,7 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
     }
 
     fun `test search time analyzer`() {
+        Assume.assumeTrue(isLocalTest)
         val buildDir = System.getProperty("buildDir")
         val numNodes = System.getProperty("cluster.number_of_nodes", "1").toInt()
         val indexName = "testindex"
@@ -120,6 +123,7 @@ class RefreshSearchAnalyzerActionIT : IndexManagementRestTestCase() {
     }
 
     fun `test alias`() {
+        Assume.assumeTrue(isLocalTest)
         val indexName = "testindex"
         val numNodes = System.getProperty("cluster.number_of_nodes", "1").toInt()
         val buildDir = System.getProperty("buildDir")

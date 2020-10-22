@@ -52,7 +52,6 @@ import java.time.Instant
 import java.time.ZonedDateTime
 
 // Service that handles CRUD operations for rollup metadata
-// TODO: This whole class needs to be cleaned up
 @Suppress("TooManyFunctions")
 class RollupMetadataService(val client: Client, val xContentRegistry: NamedXContentRegistry) {
 
@@ -111,8 +110,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             val nextWindowStartTime = when (val initStartTimeResult = getInitialStartTime(rollup)) {
                 is StartingTimeResult.Success -> initStartTimeResult.startingTime
                 is StartingTimeResult.NoDocumentsFound -> return MetadataResult.NoMetadata
-                // TODO: Probably change this to return MetadataResult.Failure() with a message so that
-                //   runner can be the one to throw the exception
                 is StartingTimeResult.Failure ->
                     return MetadataResult.Failure("Failed to initialize start time for retried rollup job [${rollup.id}]", initStartTimeResult.e)
             }
@@ -139,7 +136,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         metadata: RollupMetadata,
         internalComposite: InternalComposite
     ): RollupMetadata {
-        // TODO: finished, failed, failure reason
         val afterKey = internalComposite.afterKey()
         return metadata.copy(
             afterKey = afterKey,
@@ -172,8 +168,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         )
     }
 
-    //  TODO: Let User specify their own filter query that is applied to the composite agg search
-    // TODO: handle exception
+    // TODO: Let User specify their own filter query that is applied to the composite agg search
     @Suppress("ReturnCount")
     @Throws(Exception::class)
     private suspend fun getInitialStartTime(rollup: Rollup): StartingTimeResult {
@@ -262,7 +257,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         metadata: RollupMetadata,
         internalComposite: InternalComposite
     ): RollupMetadata {
-        // TODO: finished, failed, failure reason
         val afterKey = internalComposite.afterKey()
         // TODO: get rid of !!
         val nextStart = if (afterKey == null) {
@@ -355,7 +349,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     }
 
     // TODO: error handling, make sure to handle RTE for pretty much everything..
-    // TODO: Clean this up
     suspend fun submitMetadataUpdate(metadata: RollupMetadata, updating: Boolean): MetadataResult {
         @Suppress("BlockingMethodInNonBlockingContext")
         try {

@@ -41,7 +41,6 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.transport.RemoteTransportException
 
-// TODO: Most of this has to be in a master transport action because of race conditions
 // TODO: Handle existing rollup indices, validation of fields across source and target indices
 //  overwriting existing rollup data, using mappings from source index
 class RollupMapperService(
@@ -66,7 +65,6 @@ class RollupMapperService(
     @Suppress("ReturnCount")
     private suspend fun initExistingRollupIndex(rollup: Rollup): Boolean {
         if (isRollupIndex(rollup.targetIndex)) {
-            // TODO: Should this only be by ID? What happens if a user wants to delete a job and reuse?
             if (jobExistsInRollupIndex(rollup)) {
                 return true
             } else {
@@ -81,9 +79,7 @@ class RollupMapperService(
 
     // This creates the target index if it doesn't already exist
     // Should reject if the target index exists and is not a rolled up index
-    // TODO: Already existing rollup target index
     // TODO: error handling
-    // TODO: Race condition here, need to move it into master operation
     @Suppress("ReturnCount")
     suspend fun createRollupTargetIndex(job: Rollup): Boolean {
         if (indexExists(job.targetIndex)) return isRollupIndex(job.targetIndex)
@@ -106,6 +102,7 @@ class RollupMapperService(
             logger.info("RemoteTransportException") // TODO: handle resource already exists too
         } catch (e: ResourceAlreadyExistsException) {
             logger.warn("Failed to create ${job.targetIndex} as it already exists - checking if we can add ${job.id}")
+            // TODO: Check if targetIndex is a rollup index and update mappings
         } catch (e: Exception) {
             logger.error("Failed to create ${job.targetIndex}", e) // TODO
         }
@@ -127,7 +124,6 @@ class RollupMapperService(
 
     // TODO: error handling
     // TODO: nulls, ie index response is null
-    // TODO: no job exists vs has job and wrong metadata id vs has job and right metadata id
     suspend fun jobExistsInRollupIndex(rollup: Rollup): Boolean {
         val req = GetMappingsRequest().indices(rollup.targetIndex)
         val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
@@ -142,8 +138,12 @@ class RollupMapperService(
     fun indexExists(index: String): Boolean = clusterService.state().routingTable.hasIndex(index)
 
     // TODO: error handling
-    // TODO: PutMappings needs to ensure we don't overwrite an existing rollup job meta
-    //  - list current ones and ignore if it's already there
+    // TODO: The use of the master transport action UpdateRollupMappingAction will prevent
+    //   overwriting an existing rollup job _meta by checking for the job id
+    //   but there is still a race condition if two jobs are added at the same time for the
+    //   same target index. There is a small time window after get mapping and put mappings
+    //   where they can both get the same mapping state and only add their own job, meaning one
+    //   of the jobs won't be added to the target index _meta
     @Suppress("BlockingMethodInNonBlockingContext")
     private suspend fun updateRollupIndexMappings(rollup: Rollup): Boolean {
         return withContext(Dispatchers.IO) {

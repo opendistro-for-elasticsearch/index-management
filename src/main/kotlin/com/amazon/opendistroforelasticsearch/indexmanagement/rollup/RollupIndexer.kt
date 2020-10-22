@@ -31,6 +31,8 @@ import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.UUIDs
+import org.elasticsearch.common.hash.MurmurHash3
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
@@ -40,6 +42,7 @@ import org.elasticsearch.search.aggregations.metrics.InternalMax
 import org.elasticsearch.search.aggregations.metrics.InternalMin
 import org.elasticsearch.search.aggregations.metrics.InternalSum
 import org.elasticsearch.search.aggregations.metrics.InternalValueCount
+import java.util.Random
 
 class RollupIndexer(
     settings: Settings,
@@ -99,11 +102,14 @@ class RollupIndexer(
     fun convertResponseToRequests(job: Rollup, internalComposite: InternalComposite): List<DocWriteRequest<*>> {
         val requests = mutableListOf<DocWriteRequest<*>>()
         internalComposite.buckets.forEach {
-            // TODO: Come up with way to handle documentID - needs to be deterministic and unique for all rollup documents per rollup job
-            //  For now just use the sorted keys for development
-            val documentId = it.key.entries.sortedBy { it.key }.joinToString("#") {
-                if (it.value == null) "#ODFE-MAGIC-NULL-MAGIC-ODFE#" else it.value.toString()
-            }
+            // TODO: We're hashing and then providing as a seed into random which seems like
+            //  unneeded work, look into the randomBase64 to see if we can skip the random part - has to be before initial release
+            val docId = job.id + "#" + it.key.entries.joinToString("#") { it.value?.toString() ?: "#ODFE-MAGIC-NULL-MAGIC-ODFE#" }
+            val docByteArray = docId.toByteArray()
+            val hash = MurmurHash3.hash128(docByteArray, 0, docByteArray.size, 72390, MurmurHash3.Hash128())
+            val uuid1 = UUIDs.randomBase64UUID(Random(hash.h1))
+            val uuid2 = UUIDs.randomBase64UUID(Random(hash.h2))
+            val documentId = "${job.id}#$uuid1#$uuid2"
             // TODO: Move these somewhere else to be reused
             val mapOfKeyValues = mutableMapOf<String, Any?>(
                 "${Rollup.ROLLUP_TYPE}.$_ID" to job.id,

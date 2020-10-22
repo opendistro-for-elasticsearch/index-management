@@ -499,13 +499,12 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     protected fun createRepository(
         repository: String
     ) {
-        val path = getRepoPath()
         val response = client()
             .makeRequest(
                 "PUT",
                 "_snapshot/$repository",
                 emptyMap(),
-                StringEntity("{\"type\":\"fs\", \"settings\": {\"location\": \"$path\"}}", APPLICATION_JSON)
+                StringEntity("{\"type\":\"fs\", \"settings\": {\"location\": \"$repository\"}}", APPLICATION_JSON)
             )
         assertEquals("Unable to create a new repository", RestStatus.OK, response.restStatus())
     }

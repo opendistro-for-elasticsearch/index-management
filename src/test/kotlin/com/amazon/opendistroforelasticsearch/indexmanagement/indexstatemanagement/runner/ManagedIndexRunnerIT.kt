@@ -99,7 +99,8 @@ class ManagedIndexRunnerIT : IndexStateManagementRestTestCase() {
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
-        assertEquals("Created managed index did not default to 5 minutes", 5, (managedIndexConfig.jobSchedule as IntervalSchedule).interval)
+        assertEquals("Created managed index did not default to ${ManagedIndexSettings.DEFAULT_JOB_INTERVAL}minutes",
+                ManagedIndexSettings.DEFAULT_JOB_INTERVAL, (managedIndexConfig.jobSchedule as IntervalSchedule).interval)
 
         // init policy
         updateManagedIndexConfigStartTime(managedIndexConfig)

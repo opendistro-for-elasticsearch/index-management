@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getInitialDocValues
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
@@ -63,9 +62,6 @@ class RollupIndexer(
     }
 
     /*
-    * TODO: Need to handle the situation where we retried but still had failed bulk items
-    *  In that case we can't proceed, we need to allow the job to try and re-rollup this window in the future
-    *  But does "in the future" mean the next execution or just the the next loop in the current execution?
     * TODO: Can someone set a really high backoff that causes us to go over the lock duration?
     * */
     suspend fun indexRollups(rollup: Rollup, internalComposite: InternalComposite): RollupIndexResult {
@@ -88,10 +84,10 @@ class RollupIndexer(
                 }
             }
             return RollupIndexResult.Success(stats)
-        } catch(e: RemoteTransportException) {
+        } catch (e: RemoteTransportException) {
             logger.error(e.message, e.cause)
             return RollupIndexResult.Failure(cause = ExceptionsHelper.unwrapCause(e) as Exception)
-        } catch (e: Exception) { // TODO: other exceptions
+        } catch (e: Exception) {
             logger.error(e.message, e.cause)
             return RollupIndexResult.Failure(cause = e)
         }
@@ -119,7 +115,6 @@ class RollupIndexer(
 
             val mapOfKeyValues = job.getInitialDocValues(it.docCount)
             val aggResults = mutableMapOf<String, Any?>()
-            // TODO: Should we store more information about date_histogram and histogram on the rollup document or rely on it being on the rollup job?
             it.key.entries.forEach { aggResults[it.key] = it.value }
             it.aggregations.forEach {
                 when (it) {

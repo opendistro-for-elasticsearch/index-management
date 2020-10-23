@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings
 import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.unit.TimeValue
 
-// TODO: Finalize all setting names and defaults
 class RollupSettings {
 
     companion object {
@@ -58,7 +57,7 @@ class RollupSettings {
 
         val ROLLUP_INGEST_BACKOFF_COUNT: Setting<Int> = Setting.intSetting(
             "opendistro.rollup.ingest.backoff_count",
-            3,
+            5,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )

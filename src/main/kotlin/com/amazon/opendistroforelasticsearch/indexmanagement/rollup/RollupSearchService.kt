@@ -38,8 +38,7 @@ import java.time.Instant
 import kotlin.math.max
 import kotlin.math.pow
 
-// TODO: Backoff/Throttling when cluster is overloaded - CircuitBreakingException?
-//  A cluster level setting to control how many rollups can run at once? Or should we be skipping when cpu/memory/jvm is high?
+// TODO: A cluster level setting to control how many rollups can run at once? Or should we be skipping when cpu/memory/jvm is high?
 // Deals with knowing when and how to search the source index
 // Knowing when means dealing with time windows and whether or not enough time has passed
 // Knowing how means converting the rollup configuration into a composite aggregation

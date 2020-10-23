@@ -412,3 +412,10 @@ fun SearchSourceBuilder.rewriteSearchSourceBuilder(job: Rollup, fieldNameMapping
     if (this.collapse() != null) ssb.collapse(this.collapse())
     return ssb
 }
+
+fun Rollup.getInitialDocValues(docCount: Long): MutableMap<String, Any?> =
+    mutableMapOf(
+        Rollup.ROLLUP_DOC_ID_FIELD to this.id,
+        Rollup.ROLLUP_DOC_COUNT_FIELD to docCount,
+        Rollup.ROLLUP_DOC_SCHEMA_VERSION_FIELD to this.schemaVersion
+    )

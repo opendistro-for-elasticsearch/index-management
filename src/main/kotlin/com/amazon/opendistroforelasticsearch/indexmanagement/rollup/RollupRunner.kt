@@ -130,8 +130,6 @@ object RollupRunner : ScheduledJobRunner,
             throw IllegalArgumentException("Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}")
         }
 
-        logger.info("runJob ${job.id}")
-
         launch {
             var metadata: RollupMetadata? = null
             try {
@@ -188,7 +186,6 @@ object RollupRunner : ScheduledJobRunner,
 
     // TODO: Clean up runner
     // TODO: Scenario: The rollup job is finished, but I (the user) want to redo it all again
-    // TODO: need to get local version of job to see if page size has been changed
     /*
     * TODO situations:
     *  There is a rollup.metadataID and doc but theres no job in target index?
@@ -196,7 +193,6 @@ object RollupRunner : ScheduledJobRunner,
     * */
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod", "ThrowsCount")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext, lock: LockModel) {
-        logger.info("runRollupJob ${job.id}")
         try {
             if (!isJobValid(job)) {
                 logger.info("Not a valid job $job")
@@ -259,10 +255,8 @@ object RollupRunner : ScheduledJobRunner,
                         }
                         when (rollupResult) {
                             is RollupResult.Success -> {
-                                logger.info("Updating metadata on RollupResult.Success $metadata")
                                 metadata = rollupMetadataService.updateMetadata(updatableJob,
                                     metadata.mergeStats(rollupResult.stats), rollupResult.internalComposite)
-                                logger.info("Updated metadata on RollupResult.Success $metadata")
                                 updatableJob = client.suspendUntil { listener: ActionListener<GetRollupResponse> ->
                                     execute(GetRollupAction.INSTANCE, GetRollupRequest(updatableJob.id, null, "_local"), listener)
                                 }.rollup ?: throw IllegalStateException("Unable to get rollup job")

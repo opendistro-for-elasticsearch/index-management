@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimens
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.CronSchedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
@@ -222,6 +223,9 @@ data class Rollup(
         const val MINIMUM_DELAY = 0
         const val MINIMUM_PAGE_SIZE = 1
         const val MAXIMUM_PAGE_SIZE = 10_000
+        const val ROLLUP_DOC_ID_FIELD = "$ROLLUP_TYPE.$_ID"
+        const val ROLLUP_DOC_COUNT_FIELD = "$ROLLUP_TYPE._doc_count"
+        const val ROLLUP_DOC_SCHEMA_VERSION_FIELD = "$ROLLUP_TYPE._$SCHEMA_VERSION_FIELD"
 
         @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic

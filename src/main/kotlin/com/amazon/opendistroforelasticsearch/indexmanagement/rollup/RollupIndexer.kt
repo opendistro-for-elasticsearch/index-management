@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getInitialDocValues
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
@@ -42,6 +43,7 @@ import org.elasticsearch.search.aggregations.metrics.InternalMax
 import org.elasticsearch.search.aggregations.metrics.InternalMin
 import org.elasticsearch.search.aggregations.metrics.InternalSum
 import org.elasticsearch.search.aggregations.metrics.InternalValueCount
+import org.elasticsearch.transport.RemoteTransportException
 import java.util.Random
 
 class RollupIndexer(
@@ -67,8 +69,8 @@ class RollupIndexer(
     * TODO: Can someone set a really high backoff that causes us to go over the lock duration?
     * */
     suspend fun indexRollups(rollup: Rollup, internalComposite: InternalComposite): RollupIndexResult {
-        var requestsToRetry = convertResponseToRequests(rollup, internalComposite)
         try {
+            var requestsToRetry = convertResponseToRequests(rollup, internalComposite)
             var stats = RollupStats(0, 0, requestsToRetry.size.toLong(), 0, 0)
             if (requestsToRetry.isNotEmpty()) {
                 retryIngestPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
@@ -86,6 +88,9 @@ class RollupIndexer(
                 }
             }
             return RollupIndexResult.Success(stats)
+        } catch(e: RemoteTransportException) {
+            logger.error(e.message, e.cause)
+            return RollupIndexResult.Failure(cause = ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) { // TODO: other exceptions
             logger.error(e.message, e.cause)
             return RollupIndexResult.Failure(cause = e)
@@ -111,24 +116,19 @@ class RollupIndexer(
             val uuid1 = UUIDs.randomBase64UUID(Random(hash.h1))
             val uuid2 = UUIDs.randomBase64UUID(Random(hash.h2))
             val documentId = "${job.id}#$uuid1#$uuid2"
-            // TODO: Move these somewhere else to be reused
-            val mapOfKeyValues = mutableMapOf<String, Any?>(
-                "${Rollup.ROLLUP_TYPE}.$_ID" to job.id,
-                "${Rollup.ROLLUP_TYPE}.doc_count" to it.docCount,
-                "${Rollup.ROLLUP_TYPE}.${Rollup.SCHEMA_VERSION_FIELD}" to job.schemaVersion
-            )
+
+            val mapOfKeyValues = job.getInitialDocValues(it.docCount)
             val aggResults = mutableMapOf<String, Any?>()
             // TODO: Should we store more information about date_histogram and histogram on the rollup document or rely on it being on the rollup job?
             it.key.entries.forEach { aggResults[it.key] = it.value }
             it.aggregations.forEach {
                 when (it) {
-                    // TODO: Clean up suffixes
                     is InternalSum -> aggResults[it.name] = it.value
                     is InternalMax -> aggResults[it.name] = it.value
                     is InternalMin -> aggResults[it.name] = it.value
                     is InternalValueCount -> aggResults[it.name] = it.value
                     is InternalAvg -> aggResults[it.name] = it.value
-                    else -> logger.info("Unsupported aggregation") // TODO: error
+                    else -> throw IllegalStateException("Found aggregation in composite result that is not supported [${it.type} - ${it.name}]")
                 }
             }
             mapOfKeyValues.putAll(aggResults)

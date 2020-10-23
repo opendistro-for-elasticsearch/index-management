@@ -42,9 +42,9 @@ import java.util.*
 
 fun randomInterval(): String = if (ESRestTestCase.randomBoolean()) randomFixedInterval() else randomCalendarInterval()
 
-fun randomCalendarInterval(): String = "1d" // TODO: random all choices?
+fun randomCalendarInterval(): String = "1d"
 
-fun randomFixedInterval(): String = "30m" // TODO: random all choices?
+fun randomFixedInterval(): String = "30m"
 
 fun randomFixedDateHistogram(): DateHistogram = ESRestTestCase.randomAlphaOfLength(10).let {
     DateHistogram(sourceField = it, targetField = it, fixedInterval = randomFixedInterval(), calendarInterval = null, timezone = ESRestTestCase.randomZone())

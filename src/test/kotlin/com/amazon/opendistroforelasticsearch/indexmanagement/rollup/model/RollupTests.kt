@@ -60,4 +60,33 @@ class RollupTests : ESTestCase() {
             randomRollup().copy(enabled = false, jobEnabledTime = randomInstant())
         }
     }
+
+    fun `test rollup requires page size to be between 1 and 10k`() {
+        assertFailsWith(IllegalArgumentException::class, "Page size was negative") {
+            randomRollup().copy(pageSize = -1)
+        }
+
+        assertFailsWith(IllegalArgumentException::class, "Page size was zero") {
+            randomRollup().copy(pageSize = 0)
+        }
+
+        assertFailsWith(IllegalArgumentException::class, "Page size was 10,0001") {
+            randomRollup().copy(pageSize = 10001)
+        }
+
+        // These should successfully parse without exceptions
+        randomRollup().copy(pageSize = 1)
+        randomRollup().copy(pageSize = 10000)
+        randomRollup().copy(pageSize = 345)
+    }
+
+    fun `test rollup requires delay greater or equal than 0 if set`() {
+        assertFailsWith(IllegalArgumentException::class, "Delay was negative") {
+            randomRollup().copy(delay = -1)
+        }
+
+        // These should successfully parse without exceptions
+        randomRollup().copy(delay = 0)
+        randomRollup().copy(delay = 930490)
+    }
 }

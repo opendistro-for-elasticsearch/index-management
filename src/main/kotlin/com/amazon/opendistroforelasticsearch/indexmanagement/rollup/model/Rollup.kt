@@ -81,6 +81,8 @@ data class Rollup(
             "Must specify precisely one date histogram dimension" // this covers empty dimensions case too
         }
         require(dimensions.first().type == Dimension.Type.DATE_HISTOGRAM) { "The first dimension must be a date histogram" }
+        require(pageSize in 1..10000) { "Page size must be between 1 and 10,000" }
+        if (delay != null) require(delay >= 0) { "Delay must be non-negative if set" }
     }
 
     override fun isEnabled() = enabled

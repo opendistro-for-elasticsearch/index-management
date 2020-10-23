@@ -88,15 +88,15 @@ suspend fun <T> BackoffPolicy.retry(
     block: suspend (backoff: TimeValue) -> T
 ): T {
     val iter = iterator()
-    var backoff = iter.next()
+    var backoff: TimeValue = TimeValue.ZERO
     do {
         try {
             return block(backoff)
         } catch (e: ElasticsearchException) {
             if (iter.hasNext() && (e.isRetryable() || retryOn.contains(e.status()))) {
+                backoff = iter.next()
                 logger.warn("Operation failed. Retrying in $backoff.", e)
                 delay(backoff.millis)
-                backoff = iter.next()
             } else {
                 throw e
             }

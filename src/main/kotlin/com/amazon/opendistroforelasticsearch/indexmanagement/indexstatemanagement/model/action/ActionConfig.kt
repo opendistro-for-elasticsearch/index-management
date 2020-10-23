@@ -85,6 +85,7 @@ abstract class ActionConfig(
 
     companion object {
         // TODO clean up for actionIndex
+        @Suppress("ComplexMethod")
         @JvmStatic
         @Throws(IOException::class)
         fun fromStreamInput(sin: StreamInput): ActionConfig {

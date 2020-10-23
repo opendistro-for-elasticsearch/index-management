@@ -100,6 +100,7 @@ class RollupSearchService(
         return Instant.now().isAfter(metadata.continuous!!.nextWindowEndTime) // TODO: !!
     }
 
+    @Suppress("ComplexMethod")
     suspend fun executeCompositeSearch(job: Rollup, metadata: RollupMetadata): RollupSearchResult {
         return try {
             var retryCount = 0

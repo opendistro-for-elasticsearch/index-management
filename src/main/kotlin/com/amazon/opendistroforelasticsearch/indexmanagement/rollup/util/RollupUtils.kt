@@ -173,7 +173,7 @@ inline fun <reified T> Rollup.findMatchingMetricField(field: String): String {
     throw IllegalStateException("Did not find matching rollup metric")
 }
 
-@Suppress("NestedBlockDepth")
+@Suppress("NestedBlockDepth", "ComplexMethod")
 fun IndexMetadata.getRollupJobs(): List<Rollup>? {
     val rollupJobs = mutableListOf<Rollup>()
     val source = this.mapping()?.source() ?: return null

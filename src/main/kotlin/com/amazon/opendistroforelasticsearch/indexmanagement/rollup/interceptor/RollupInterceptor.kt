@@ -211,6 +211,7 @@ class RollupInterceptor(
     }
 
     // TODO: How does this job matching work with roles/security?
+    @Suppress("ComplexMethod")
     private fun findMatchingRollupJobs(
         fieldMappings: Set<RollupFieldMapping>,
         rollupJobs: List<Rollup>

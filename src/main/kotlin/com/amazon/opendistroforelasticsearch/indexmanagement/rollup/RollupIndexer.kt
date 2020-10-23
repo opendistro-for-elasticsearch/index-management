@@ -106,7 +106,8 @@ class RollupIndexer(
             //  unneeded work, look into the randomBase64 to see if we can skip the random part - has to be before initial release
             val docId = job.id + "#" + it.key.entries.joinToString("#") { it.value?.toString() ?: "#ODFE-MAGIC-NULL-MAGIC-ODFE#" }
             val docByteArray = docId.toByteArray()
-            val hash = MurmurHash3.hash128(docByteArray, 0, docByteArray.size, 72390, MurmurHash3.Hash128())
+            val hash = MurmurHash3.hash128(docByteArray, 0, docByteArray.size, DOCUMENT_ID_SEED, MurmurHash3.Hash128())
+
             val uuid1 = UUIDs.randomBase64UUID(Random(hash.h1))
             val uuid2 = UUIDs.randomBase64UUID(Random(hash.h2))
             val documentId = "${job.id}#$uuid1#$uuid2"
@@ -137,6 +138,10 @@ class RollupIndexer(
             requests.add(indexRequest)
         }
         return requests
+    }
+
+    companion object {
+        const val DOCUMENT_ID_SEED = 72390L
     }
 }
 

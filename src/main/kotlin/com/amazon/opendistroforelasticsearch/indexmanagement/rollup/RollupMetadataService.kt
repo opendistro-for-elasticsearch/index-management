@@ -59,7 +59,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
 
     // If the job does not have a metadataID then we need to initialize the first metadata
     // document for this job otherwise we should get the existing metadata document
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "ComplexMethod", "NestedBlockDepth")
     suspend fun init(rollup: Rollup): MetadataResult {
         if (rollup.metadataID != null) {
             // TODO: How does the user recover from the not found error?

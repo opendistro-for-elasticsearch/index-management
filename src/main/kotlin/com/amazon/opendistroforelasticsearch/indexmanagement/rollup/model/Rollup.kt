@@ -95,7 +95,7 @@ data class Rollup(
 
     override fun getLastUpdateTime() = jobLastUpdatedTime
 
-    override fun getLockDurationSeconds(): Long = 1800L // 30 minutes
+    override fun getLockDurationSeconds(): Long = ROLLUP_LOCK_DURATION_SECONDS
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
@@ -201,6 +201,7 @@ data class Rollup(
         enum class ScheduleType {
             CRON, INTERVAL;
         }
+        const val ROLLUP_LOCK_DURATION_SECONDS = 1800L // 30 minutes
         const val ROLLUP_TYPE = "rollup"
         const val ROLLUP_ID_FIELD = "rollup_id"
         const val NO_ID = ""

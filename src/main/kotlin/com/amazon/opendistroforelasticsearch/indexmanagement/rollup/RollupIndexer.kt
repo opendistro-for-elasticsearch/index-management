@@ -61,15 +61,17 @@ class RollupIndexer(
         }
     }
 
-    /*
-    * TODO: Can someone set a really high backoff that causes us to go over the lock duration?
-    * */
     suspend fun indexRollups(rollup: Rollup, internalComposite: InternalComposite): RollupIndexResult {
         try {
             var requestsToRetry = convertResponseToRequests(rollup, internalComposite)
             var stats = RollupStats(0, 0, requestsToRetry.size.toLong(), 0, 0)
             if (requestsToRetry.isNotEmpty()) {
                 retryIngestPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
+                    if (it.seconds >= (Rollup.ROLLUP_LOCK_DURATION_SECONDS / 2)) {
+                        throw ExceptionsHelper.convertToElastic(
+                            IllegalStateException("Cannot retry ingestion with a delay more than half of the rollup lock TTL")
+                        )
+                    }
                     val bulkRequest = BulkRequest().add(requestsToRetry)
                     val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
                     stats = stats.copy(indexTimeInMillis = stats.indexTimeInMillis + bulkResponse.took.millis)

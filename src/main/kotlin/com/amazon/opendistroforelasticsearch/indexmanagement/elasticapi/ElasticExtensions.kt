@@ -28,6 +28,7 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.DefaultShardOperationFailedException
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -84,17 +85,18 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
 suspend fun <T> BackoffPolicy.retry(
     logger: Logger,
     retryOn: List<RestStatus> = emptyList(),
-    block: suspend () -> T
+    block: suspend (backoff: TimeValue) -> T
 ): T {
     val iter = iterator()
+    var backoff = iter.next()
     do {
         try {
-            return block()
+            return block(backoff)
         } catch (e: ElasticsearchException) {
             if (iter.hasNext() && (e.isRetryable() || retryOn.contains(e.status()))) {
-                val backoff = iter.next()
                 logger.warn("Operation failed. Retrying in $backoff.", e)
                 delay(backoff.millis)
+                backoff = iter.next()
             } else {
                 throw e
             }

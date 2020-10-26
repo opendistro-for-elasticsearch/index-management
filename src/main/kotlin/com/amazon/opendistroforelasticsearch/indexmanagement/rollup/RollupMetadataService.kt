@@ -62,7 +62,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     @Suppress("ReturnCount", "ComplexMethod", "NestedBlockDepth")
     suspend fun init(rollup: Rollup): MetadataResult {
         if (rollup.metadataID != null) {
-            // TODO: How does the user recover from the not found error?
             val existingMetadata = when (val getMetadataResult = getExistingMetadata(rollup)) {
                 is MetadataResult.Success -> getMetadataResult.metadata
                 is MetadataResult.NoMetadata -> null

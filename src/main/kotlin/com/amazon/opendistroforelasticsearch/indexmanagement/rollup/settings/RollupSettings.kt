@@ -26,6 +26,8 @@ class RollupSettings {
         const val DEFAULT_ACQUIRE_LOCK_RETRY_DELAY = 1000L
         const val DEFAULT_RENEW_LOCK_RETRY_COUNT = 3
         const val DEFAULT_RENEW_LOCK_RETRY_DELAY = 1000L
+        const val DEFAULT_CLIENT_REQUEST_RETRY_COUNT = 3
+        const val DEFAULT_CLIENT_REQUEST_RETRY_DELAY = 1000L
 
         val ROLLUP_ENABLED: Setting<Boolean> = Setting.boolSetting(
             "opendistro.rollup.enabled",

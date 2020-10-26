@@ -265,17 +265,17 @@ object RollupRunner : ScheduledJobRunner,
                 do {
                     try {
                         val rollupResult = when (val rollupSearchResult = rollupSearchService.executeCompositeSearch(updatableJob, metadata)) {
-                                is RollupSearchResult.Success -> {
-                                    val compositeRes: InternalComposite = rollupSearchResult.searchResponse.aggregations.get(updatableJob.id)
-                                    metadata = metadata.incrementStats(rollupSearchResult.searchResponse, compositeRes)
-                                    when (val rollupIndexResult = rollupIndexer.indexRollups(updatableJob, compositeRes)) {
-                                        is RollupIndexResult.Success -> RollupResult.Success(compositeRes, rollupIndexResult.stats)
-                                        is RollupIndexResult.Failure -> RollupResult.Failure(rollupIndexResult.message, rollupIndexResult.cause)
-                                    }
+                            is RollupSearchResult.Success -> {
+                                val compositeRes: InternalComposite = rollupSearchResult.searchResponse.aggregations.get(updatableJob.id)
+                                metadata = metadata.incrementStats(rollupSearchResult.searchResponse, compositeRes)
+                                when (val rollupIndexResult = rollupIndexer.indexRollups(updatableJob, compositeRes)) {
+                                    is RollupIndexResult.Success -> RollupResult.Success(compositeRes, rollupIndexResult.stats)
+                                    is RollupIndexResult.Failure -> RollupResult.Failure(rollupIndexResult.message, rollupIndexResult.cause)
                                 }
-                                is RollupSearchResult.Failure -> {
-                                    RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
-                                }
+                            }
+                            is RollupSearchResult.Failure -> {
+                                RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
+                            }
                         }
                         when (rollupResult) {
                             is RollupResult.Success -> {
@@ -371,7 +371,7 @@ object RollupRunner : ScheduledJobRunner,
         } else null
 
         // TODO: get the failure message from the isSourceIndexValid
-        if (!rollupMapperService.isSourceIndexValid(job.sourceIndex)) {
+        if (!rollupMapperService.isSourceIndexValid(job)) {
            return RollupJobValidationResult.Failure("Source index [${job.sourceIndex}] is not valid")
         }
 

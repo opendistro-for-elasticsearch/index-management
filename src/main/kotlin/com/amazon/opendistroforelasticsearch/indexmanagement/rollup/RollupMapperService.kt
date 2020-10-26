@@ -20,7 +20,11 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendU
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.PROPERTIES
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion._META
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
 import kotlinx.coroutines.Dispatchers
@@ -112,14 +116,89 @@ class RollupMapperService(
     // Source index can be a pattern so will need to resolve the index to concrete indices and check:
     // 1. If there are any indices resolving to the given source index
     // 2. That each concrete index is valid (in terms of mappings, etc.)
-    fun isSourceIndexValid(index: String): Boolean {
-        // Allow no indices, open and closed
-        // Rolling up on closed indices will not be caught here
-        val concreteIndices = indexNameExpressionResolver.concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpand(), index)
-        // TODO: Validate mappings of concrete indices
+    suspend fun isSourceIndexValid(rollup: Rollup): SourceIndexValidationResult {
         // TODO: Add some entry in metadata that will store index -> indexUUID for validated indices
         //  That way, we only need to validate indices that aren't in the metadata (covers cases where new index with same name was made)
-        return concreteIndices.isNotEmpty()
+        // Allow no indices, open and closed
+        // Rolling up on closed indices will not be caught here
+        val concreteIndices =
+            indexNameExpressionResolver.concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpand(), rollup.sourceIndex)
+        if (concreteIndices.isEmpty()) return SourceIndexValidationResult.Invalid("No indices found for [$rollup.sourceIndex]")
+
+        // Validate mappings for each concrete index resolved from the rollup source index
+        concreteIndices.forEach { index ->
+            when (val sourceIndexMappingResult = isSourceIndexMappingsValid(index, rollup)) {
+                is SourceIndexMappingsValidationResult.Valid -> {} // no-op if valid
+                is SourceIndexMappingsValidationResult.Invalid -> return SourceIndexValidationResult.Invalid(sourceIndexMappingResult.reason)
+                is SourceIndexMappingsValidationResult.Failure -> return SourceIndexValidationResult.Failure(sourceIndexMappingResult.e)
+            }
+        }
+
+        return SourceIndexValidationResult.Valid
+    }
+
+    private suspend fun isSourceIndexMappingsValid(index: String, rollup: Rollup): SourceIndexMappingsValidationResult {
+        try {
+            val req = GetMappingsRequest().indices(rollup.sourceIndex)
+            val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
+
+            val indexMapping: MappingMetadata = res.mappings[rollup.targetIndex][_DOC]
+            val indexProperties = indexMapping.sourceAsMap?.get(PROPERTIES) as Map<*, *>?
+                ?: return SourceIndexMappingsValidationResult.Invalid("No mappings found for index [${rollup.sourceIndex}")
+
+            val issues = mutableSetOf<String>()
+            // Validate source fields in dimensions
+            rollup.dimensions.forEach { dimension ->
+                if (!isFieldInMappings(dimension.sourceField, indexProperties))
+                    issues.add("missing field ${dimension.sourceField}")
+
+                when (dimension) {
+                    is DateHistogram -> {
+                        // TODO: Validate if field is date type: date, date_nanos?
+                    }
+                    is Histogram -> {
+                        // TODO: Validate field types for histograms
+                    }
+                    is Terms -> {
+                        // TODO: Validate field types for terms
+                    }
+                }
+            }
+
+            // Validate source fields in metrics
+            rollup.metrics.forEach { metric ->
+                if (!isFieldInMappings(metric.sourceField, indexProperties))
+                    issues.add("missing field ${metric.sourceField}")
+
+                // TODO: Validate field type for metrics
+                //  are all Numeric field types valid?
+            }
+
+            return if (issues.isEmpty()) {
+                SourceIndexMappingsValidationResult.Valid
+            } else {
+                SourceIndexMappingsValidationResult.Invalid("Invalid mappings for index [$index] because $issues")
+            }
+        } catch (e: Exception) {
+            return SourceIndexMappingsValidationResult.Failure(e)
+        }
+    }
+
+    /**
+     * Checks to see if the given field name is in the mappings map.
+     *
+     * The field name can be a path in the format "field1.field2...fieldn" so each field
+     * will be checked in the map to get the next level until all subfields are checked for,
+     * in which case true is returned. If at any point any of the fields is not in the map, false is returned.
+     */
+    private fun isFieldInMappings(fieldName: String, mappings: Map<*, *>): Boolean {
+        var currMap = mappings
+        fieldName.split(".").forEach { field ->
+            val nextMap = currMap[field] ?: return false
+            currMap = nextMap as Map<*, *>
+        }
+
+        return true
     }
 
     // TODO: error handling
@@ -156,5 +235,17 @@ class RollupMapperService(
 
     companion object {
         const val ROLLUPS = "rollups"
+    }
+
+    sealed class SourceIndexValidationResult {
+        object Valid : SourceIndexValidationResult()
+        data class Invalid(val reason: String) : SourceIndexValidationResult()
+        data class Failure(val e: Exception) : SourceIndexValidationResult()
+    }
+
+    sealed class SourceIndexMappingsValidationResult {
+        object Valid : SourceIndexMappingsValidationResult()
+        data class Invalid(val reason: String) : SourceIndexMappingsValidationResult()
+        data class Failure(val e: Exception) : SourceIndexMappingsValidationResult()
     }
 }

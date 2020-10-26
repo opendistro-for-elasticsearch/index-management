@@ -149,39 +149,59 @@ object RollupRunner : ScheduledJobRunner,
                 return@launch
             }
 
-            // TODO: Move isJobValid() logic to some transport action and call here instead of inside runRollupJob()
-            //   otherwise situations where source/target index are deleted are not caught until shouldProcessRollup is true
-
             // Check if rollup should be processed before acquiring the lock
             // If metadata does not exist, it will either be initialized for the first time or it will be recreated to communicate the failed state
             if (rollupSearchService.shouldProcessRollup(job, metadata)) {
                 // Attempt to acquire lock
-                var lock: LockModel? = null
-                try {
-                    // acquireLock will attempt to create the lock index if needed and then read/create a lock. This is purely for internal purposes
-                    // and should not need the role's context to run
-                    BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(
-                        RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_DELAY),
-                        RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_COUNT
-                    ).retry(logger) {
-                        lock = context.lockService.suspendUntil { acquireLock(job, context, it) }
-                    }
-                } catch (e: Exception) {
-                    logger.error("Error trying to acquireLock", e)
-                }
-                val finalizedLock = lock
-                if (finalizedLock == null) {
+                val lock = acquireLockForRollupJob(job, context)
+                if (lock == null) {
                     logger.debug("Could not acquire lock for ${job.id}")
                 } else {
-                    runRollupJob(job, context, finalizedLock)
+                    runRollupJob(job, context, lock)
                     // Release lock
-                    val released: Boolean = context.lockService.suspendUntil { release(finalizedLock, it) }
+                    val released: Boolean = releaseLockForRollupJob(context, lock)
                     if (!released) {
                         logger.debug("Could not release lock for ${job.id}")
                     }
                 }
+            } else if (job.isEnabled) {
+                // We are doing this outside of ShouldProcess as schedule job interval can be more frequent than rollup and we want to fail
+                // validation as soon as possible
+                when (val jobValidity = isJobValid(job)) {
+                    is RollupJobValidationResult.Failure -> {
+                        val lock = acquireLockForRollupJob(job, context)
+                        if (lock != null) {
+                            setFailedMetadataAndDisableJob(job, jobValidity.message)
+                            logger.info("updating metadata service to disable the job [${job.id}]")
+                            releaseLockForRollupJob(context, lock)
+                        }
+                    }
+                    else -> {}
+                }
             }
         }
+    }
+
+    private suspend fun acquireLockForRollupJob(rollupJob: ScheduledJobParameter, context: JobExecutionContext): LockModel? {
+        var lock: LockModel? = null
+        try {
+            // acquireLock will attempt to create the lock index if needed and then read/create a lock. This is purely for internal purposes
+            // and should not need the role's context to run
+            BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(
+                    RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_DELAY),
+                    RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_COUNT
+            ).retry(logger) {
+                lock = context.lockService.suspendUntil { acquireLock(rollupJob, context, it) }
+            }
+        } catch (e: Exception) {
+            logger.error("Error trying to acquireLock", e)
+        }
+
+        return lock
+    }
+
+    private suspend fun releaseLockForRollupJob(context: JobExecutionContext, lock: LockModel): Boolean {
+        return context.lockService.suspendUntil { release(lock, it) }
     }
 
     // TODO: Clean up runner
@@ -194,9 +214,13 @@ object RollupRunner : ScheduledJobRunner,
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod", "ThrowsCount")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext, lock: LockModel) {
         try {
-            if (!isJobValid(job)) {
-                logger.info("Not a valid job $job")
-                return
+            when (val jobValidity = isJobValid(job)) {
+                is RollupJobValidationResult.Failure -> {
+                    logger.info("Not a valid job ${job.id} because ${jobValidity.message}")
+                    setFailedMetadataAndDisableJob(job, jobValidity.message)
+                    return
+                }
+                else -> {}
             }
 
             // Anything related to creating, reading, and deleting metadata should not require role's context
@@ -231,7 +255,7 @@ object RollupRunner : ScheduledJobRunner,
 
             val successful = rollupMapperService.init(updatableJob)
             if (!successful) {
-                // TODO: More helpful error messaging
+                // TODO: Use the error message returned by the mapper service to set in the metadata
                 setFailedMetadataAndDisableJob(updatableJob, "Failed to initialize the target index", metadata)
                 return
             }
@@ -340,39 +364,34 @@ object RollupRunner : ScheduledJobRunner,
     // TODO: Source index could be a pattern but it's used at runtime so it could match new indices which weren't matched before
     //  which means we always need to validate the source index on every execution?
     @Suppress("ReturnCount")
-    private suspend fun isJobValid(job: Rollup): Boolean {
+    private suspend fun isJobValid(job: Rollup): RollupJobValidationResult {
         // TODO: Handle exceptions
         val metadata = if (job.metadataID != null) {
             rollupMetadataService.getExistingMetadata(job)
         } else null
 
-        // TODO: Potentially need to wrap this with the role injection context depending on the final implementation of this function
+        // TODO: get the failure message from the isSourceIndexValid
         if (!rollupMapperService.isSourceIndexValid(job.sourceIndex)) {
-            setFailedMetadataAndDisableJob(job, "Invalid source index")
-            return false
+           return RollupJobValidationResult.Failure("Source index [${job.sourceIndex}] is not valid")
         }
 
         // rollupMetadataService.init() will handle the cases where metadata is null
         if (metadata != null) {
-            if (!rollupMapperService.indexExists(job.targetIndex)) {
-                // TODO: Handle createRollupTargetIndex fails
-                // TODO: Move error reason messages to RollupMetadataService as static strings (or functions for patterns), easier for testing
-                rollupMapperService.createRollupTargetIndex(job)
-                setFailedMetadataAndDisableJob(job, "The target index [${job.targetIndex}] was deleted. Index has been recreated, restart job.")
-                return false
+            if (!rollupMapperService.indexExists(job.targetIndex) || !rollupMapperService.jobExistsInRollupIndex(job)) {
+                logger.info("trying to create the target index")
+                // TODO: Set the failure and success messages from CreateRollupTargetIndex
+                return if (rollupMapperService.createRollupTargetIndex(job)) {
+                    RollupJobValidationResult.Success()
+                } else {
+                    RollupJobValidationResult.Failure("Failed to create the target index [${job.targetIndex}]")
+                }
             }
             if (!rollupMapperService.isRollupIndex(job.targetIndex)) {
-                setFailedMetadataAndDisableJob(job, "The target index [${job.targetIndex}] is not a rollup index")
-                return false
-            }
-            if (!rollupMapperService.jobExistsInRollupIndex(job)) {
-                // TODO: Make rollupMapperService.updateRollupIndexMappings public and call here to add job before setting to FAILED?
-                setFailedMetadataAndDisableJob(job, "The target index [${job.targetIndex}] does not have rollup job information in mappings")
-                return false
+                return RollupJobValidationResult.Failure("The target index [${job.targetIndex}] is not a rollup index")
             }
         }
 
-        return true
+        return RollupJobValidationResult.Success()
     }
 
     /**
@@ -421,6 +440,11 @@ object RollupRunner : ScheduledJobRunner,
             }
         }
     }
+}
+
+sealed class RollupJobValidationResult {
+    data class Success(val info: String? = null) : RollupJobValidationResult()
+    data class Failure(val message: String) : RollupJobValidationResult()
 }
 
 sealed class RollupJobResult {

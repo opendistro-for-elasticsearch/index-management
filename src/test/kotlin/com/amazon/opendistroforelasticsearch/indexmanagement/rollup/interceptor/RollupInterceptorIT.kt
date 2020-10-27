@@ -57,7 +57,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 delay = 0,
                 continuous = false,
                 dimensions = listOf(
-                        DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                        DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
                         Terms("RatecodeID", "RatecodeID"),
                         Terms("PULocationID", "PULocationID")
                 ),
@@ -354,8 +354,8 @@ class RollupInterceptorIT : RollupRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals(
                     "Wrong error message",
-                    "Could not find a rollup job that can answer this query because [missing field RateCodeID, missing terms grouping on " +
-                            "timestamp, missing sum aggregation on total_amount]",
+                    "Could not find a rollup job that can answer this query because [missing field RateCodeID, missing field timestamp, " +
+                            "missing sum aggregation on total_amount]",
                     (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
             )
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -458,7 +458,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
             delay = 0,
             continuous = false,
             dimensions = listOf(
-                DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
                 Terms("RatecodeID", "RatecodeID"),
                 Terms("PULocationID", "PULocationID")
             ),

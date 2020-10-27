@@ -91,7 +91,7 @@ class RestStopRollupActionIT : RollupRestTestCase() {
             delay = 0,
             continuous = false,
             dimensions = listOf(
-                DateHistogram(sourceField = "timestamp", fixedInterval = "1h"),
+                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
                 Terms("RatecodeID", "RatecodeID"),
                 Terms("PULocationID", "PULocationID")
             ),

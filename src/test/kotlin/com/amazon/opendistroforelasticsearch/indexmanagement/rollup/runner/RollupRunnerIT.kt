@@ -228,7 +228,7 @@ class RollupRunnerIT : RollupRestTestCase() {
             rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
             assertNotNull("Rollup metadata not found", rollupMetadata)
             assertEquals("Unexpected metadata status", RollupMetadata.Status.FAILED, rollupMetadata!!.status)
-            assertEquals("Unexpected failure reason", "Source index [test_index] is not valid", rollupMetadata!!.failureReason)
+            assertEquals("Unexpected failure reason", "No indices found for [${rollup.sourceIndex}]", rollupMetadata!!.failureReason)
         }
 
         // TODO: Call _start to retry and test recovery behavior?

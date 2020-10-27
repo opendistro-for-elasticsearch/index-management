@@ -332,3 +332,9 @@ data class Rollup(
         }
     }
 }
+
+sealed class RollupJobValidationResult {
+    object Valid : RollupJobValidationResult()
+    data class Invalid(val reason: String) : RollupJobValidationResult()
+    data class Failure(val message: String, val e: Exception? = null) : RollupJobValidationResult()
+}

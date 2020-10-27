@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupJobValidationResult
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.incrementStats
@@ -168,10 +169,10 @@ object RollupRunner : ScheduledJobRunner,
                 // We are doing this outside of ShouldProcess as schedule job interval can be more frequent than rollup and we want to fail
                 // validation as soon as possible
                 when (val jobValidity = isJobValid(job)) {
-                    is RollupJobValidationResult.Failure -> {
+                    is RollupJobValidationResult.Invalid -> {
                         val lock = acquireLockForRollupJob(job, context)
                         if (lock != null) {
-                            setFailedMetadataAndDisableJob(job, jobValidity.message)
+                            setFailedMetadataAndDisableJob(job, jobValidity.reason)
                             logger.info("updating metadata service to disable the job [${job.id}]")
                             releaseLockForRollupJob(context, lock)
                         }
@@ -215,9 +216,9 @@ object RollupRunner : ScheduledJobRunner,
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext, lock: LockModel) {
         try {
             when (val jobValidity = isJobValid(job)) {
-                is RollupJobValidationResult.Failure -> {
-                    logger.info("Not a valid job ${job.id} because ${jobValidity.message}")
-                    setFailedMetadataAndDisableJob(job, jobValidity.message)
+                is RollupJobValidationResult.Invalid -> {
+                    logger.info("Not a valid job ${job.id} because ${jobValidity.reason}")
+                    setFailedMetadataAndDisableJob(job, jobValidity.reason)
                     return
                 }
                 else -> {}
@@ -253,11 +254,16 @@ object RollupRunner : ScheduledJobRunner,
                 }
             }
 
-            val successful = rollupMapperService.init(updatableJob)
-            if (!successful) {
-                // TODO: Use the error message returned by the mapper service to set in the metadata
-                setFailedMetadataAndDisableJob(updatableJob, "Failed to initialize the target index", metadata)
-                return
+            when(val result = rollupMapperService.init(updatableJob)) {
+                is RollupJobValidationResult.Failure ->  {
+                    setFailedMetadataAndDisableJob(updatableJob, result.message, metadata)
+                    return
+                }
+                is RollupJobValidationResult.Invalid -> {
+                    setFailedMetadataAndDisableJob(updatableJob, result.reason, metadata)
+                    return
+                }
+                else -> {}
             }
 
             var updatableLock = lock
@@ -375,35 +381,23 @@ object RollupRunner : ScheduledJobRunner,
             }
         }
 
-        when (val sourceIndexValidResult = rollupMapperService.isSourceIndexValid(job)) {
-            is RollupMapperService.SourceIndexValidationResult.Valid -> {} // No action taken when valid
-            is RollupMapperService.SourceIndexValidationResult.Invalid -> {
-                return RollupJobValidationResult.Failure(sourceIndexValidResult.reason)
-            }
-            is RollupMapperService.SourceIndexValidationResult.Failure -> {
-                val errorMessage = "Error when attempting to validate source index [${job.sourceIndex}] for rollup job [${job.id}]"
-                logger.error(errorMessage, sourceIndexValidResult.e)
-                return RollupJobValidationResult.Failure(errorMessage)
-            }
+        when (val sourceIndexValidationResult = rollupMapperService.isSourceIndexValid(job)) {
+            is RollupJobValidationResult.Valid -> {} // No action taken when valid
+            else -> return sourceIndexValidationResult
         }
 
         // rollupMetadataService.init() will handle the cases where metadata is null
         if (metadata != null) {
             if (!rollupMapperService.indexExists(job.targetIndex) || !rollupMapperService.jobExistsInRollupIndex(job)) {
                 logger.info("trying to create the target index")
-                // TODO: Set the failure and success messages from CreateRollupTargetIndex
-                return if (rollupMapperService.createRollupTargetIndex(job)) {
-                    RollupJobValidationResult.Success()
-                } else {
-                    RollupJobValidationResult.Failure("Failed to create the target index [${job.targetIndex}]")
-                }
+                return rollupMapperService.createRollupTargetIndex(job)
             }
             if (!rollupMapperService.isRollupIndex(job.targetIndex)) {
-                return RollupJobValidationResult.Failure("The target index [${job.targetIndex}] is not a rollup index")
+                return RollupJobValidationResult.Invalid("The target index [${job.targetIndex}] is not a rollup index")
             }
         }
 
-        return RollupJobValidationResult.Success()
+        return RollupJobValidationResult.Valid
     }
 
     /**
@@ -452,11 +446,6 @@ object RollupRunner : ScheduledJobRunner,
             }
         }
     }
-}
-
-sealed class RollupJobValidationResult {
-    data class Success(val info: String? = null) : RollupJobValidationResult()
-    data class Failure(val message: String) : RollupJobValidationResult()
 }
 
 sealed class RollupJobResult {

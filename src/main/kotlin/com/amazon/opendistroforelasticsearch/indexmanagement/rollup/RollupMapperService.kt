@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendU
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupJobValidationResult
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
@@ -30,7 +31,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.ResourceAlreadyExistsException
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest
@@ -55,90 +55,90 @@ class RollupMapperService(
 
     private val logger = LogManager.getLogger(javaClass)
 
-    suspend fun init(rollup: Rollup): Boolean {
-        if (indexExists(rollup.targetIndex)) {
-            return initExistingRollupIndex(rollup)
+    suspend fun init(rollup: Rollup): RollupJobValidationResult {
+        return if (indexExists(rollup.targetIndex)) {
+            initExistingRollupIndex(rollup)
         } else {
             createRollupTargetIndex(rollup)
         }
-        return true
     }
 
     // If the index already exists we need to verify it's a rollup index,
     // confirm it does not conflict with existing jobs and is a valid job
     @Suppress("ReturnCount")
-    private suspend fun initExistingRollupIndex(rollup: Rollup): Boolean {
-        if (isRollupIndex(rollup.targetIndex)) {
-            if (jobExistsInRollupIndex(rollup)) {
-                return true
-            } else {
-                return updateRollupIndexMappings(rollup)
-            }
-        } else {
-            // TODO: If we reach here this can never be resolved by the plugin -- the user
-            //  has to fix the job or the index themselves so we need to permanently fail the job
-            return false
+    private suspend fun initExistingRollupIndex(rollup: Rollup): RollupJobValidationResult {
+        if (!isRollupIndex(rollup.targetIndex)) {
+            return RollupJobValidationResult.Invalid("Target index [${rollup.targetIndex}] is a non rollup index")
         }
+
+        if (!jobExistsInRollupIndex(rollup)) {
+            return updateRollupIndexMappings(rollup)
+        }
+
+        return RollupJobValidationResult.Valid
     }
 
     // This creates the target index if it doesn't already exist
     // Should reject if the target index exists and is not a rolled up index
     // TODO: error handling
     @Suppress("ReturnCount")
-    suspend fun createRollupTargetIndex(job: Rollup): Boolean {
-        // TODO: In this case, after checking isRollupIndex, need to check if job is present and add it if it's not
-        if (indexExists(job.targetIndex)) return isRollupIndex(job.targetIndex)
-        try {
-            val request = CreateIndexRequest(job.targetIndex)
-                .settings(Settings.builder().put(RollupSettings.ROLLUP_INDEX.key, true).build())
-                .mapping(_DOC, IndexManagementIndices.rollupTargetMappings, XContentType.JSON)
+    suspend fun createRollupTargetIndex(job: Rollup): RollupJobValidationResult {
+        if (indexExists(job.targetIndex)) {
+            return initExistingRollupIndex(job)
+        } else {
+            val errorMessage = "Failed to create target index [${job.targetIndex}]"
+            try {
+                val request = CreateIndexRequest(job.targetIndex)
+                        .settings(Settings.builder().put(RollupSettings.ROLLUP_INDEX.key, true).build())
+                        .mapping(_DOC, IndexManagementIndices.rollupTargetMappings, XContentType.JSON)
                 // TODO: Perhaps we can do better than this for mappings... as it'll be dynamic for rest
                 //  Can we read in the actual mappings from the source index and use that?
                 //  Can it have issues with metrics? i.e. an int mapping with 3, 5, 6 added up and divided by 3 for avg is 14/3 = 4.6666
                 //  What happens if the first indexing is an integer, i.e. 3 + 3 + 3 = 9/3 = 3 and it saves it as int
                 //  and then the next is float and it fails or rounds it up? Does elasticsearch dynamically resolve to int?
-            val response: CreateIndexResponse = client.admin().indices().suspendUntil { create(request, it) }
-            // Test should not be able to put rollup metadata in non rollup index
+                val response: CreateIndexResponse = client.admin().indices().suspendUntil { create(request, it) }
+                // Test should not be able to put rollup metadata in non rollup index
 
-            if (response.isAcknowledged) {
-                return updateRollupIndexMappings(job)
+                return if (response.isAcknowledged) {
+                    initExistingRollupIndex(job)
+                } else {
+                    RollupJobValidationResult.Failure(errorMessage)
+                }
+            } catch (e: RemoteTransportException) {
+                logger.info("$errorMessage because RemoteTransportException")
+                return RollupJobValidationResult.Failure(errorMessage, e)
+            } catch (e: Exception) {
+                logger.error("$errorMessage because ", e)
+                return RollupJobValidationResult.Failure(errorMessage, e)
             }
-        } catch (e: RemoteTransportException) {
-            logger.info("RemoteTransportException") // TODO: handle resource already exists too
-        } catch (e: ResourceAlreadyExistsException) {
-            logger.warn("Failed to create ${job.targetIndex} as it already exists - checking if we can add ${job.id}")
-            // TODO: Check if targetIndex is a rollup index and update mappings
-        } catch (e: Exception) {
-            logger.error("Failed to create ${job.targetIndex}", e) // TODO
         }
-        return false
     }
 
     // Source index can be a pattern so will need to resolve the index to concrete indices and check:
     // 1. If there are any indices resolving to the given source index
     // 2. That each concrete index is valid (in terms of mappings, etc.)
-    suspend fun isSourceIndexValid(rollup: Rollup): SourceIndexValidationResult {
+    suspend fun isSourceIndexValid(rollup: Rollup): RollupJobValidationResult {
         // TODO: Add some entry in metadata that will store index -> indexUUID for validated indices
         //  That way, we only need to validate indices that aren't in the metadata (covers cases where new index with same name was made)
         // Allow no indices, open and closed
         // Rolling up on closed indices will not be caught here
         val concreteIndices =
             indexNameExpressionResolver.concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpand(), rollup.sourceIndex)
-        if (concreteIndices.isEmpty()) return SourceIndexValidationResult.Invalid("No indices found for [${rollup.sourceIndex}]")
+        if (concreteIndices.isEmpty()) return RollupJobValidationResult.Invalid("No indices found for [${rollup.sourceIndex}]")
 
         // Validate mappings for each concrete index resolved from the rollup source index
         concreteIndices.forEach { index ->
             when (val sourceIndexMappingResult = isSourceIndexMappingsValid(index, rollup)) {
-                is SourceIndexValidationResult.Valid -> {} // no-op if valid
-                is SourceIndexValidationResult.Invalid -> return sourceIndexMappingResult
-                is SourceIndexValidationResult.Failure -> return sourceIndexMappingResult
+                is RollupJobValidationResult.Valid -> {} // no-op if valid
+                is RollupJobValidationResult.Invalid -> return sourceIndexMappingResult
+                is RollupJobValidationResult.Failure -> return sourceIndexMappingResult
             }
         }
 
-        return SourceIndexValidationResult.Valid
+        return RollupJobValidationResult.Valid
     }
 
-    private suspend fun isSourceIndexMappingsValid(index: String, rollup: Rollup): SourceIndexValidationResult {
+    private suspend fun isSourceIndexMappingsValid(index: String, rollup: Rollup): RollupJobValidationResult {
         try {
             val req = GetMappingsRequest().indices(index)
             val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
@@ -146,7 +146,7 @@ class RollupMapperService(
             logger.info("Source mappings: ${res.mappings}")
             val indexMapping: MappingMetadata = res.mappings[index][_DOC]
             val indexProperties = indexMapping.sourceAsMap?.get(PROPERTIES) as Map<*, *>?
-                ?: return SourceIndexValidationResult.Invalid("No mappings found for index [$index]")
+                ?: return RollupJobValidationResult.Invalid("No mappings found for index [$index]")
 
             val issues = mutableSetOf<String>()
             // Validate source fields in dimensions
@@ -177,12 +177,12 @@ class RollupMapperService(
             }
 
             return if (issues.isEmpty()) {
-                SourceIndexValidationResult.Valid
+                RollupJobValidationResult.Valid
             } else {
-                SourceIndexValidationResult.Invalid("Invalid mappings for index [$index] because $issues")
+                RollupJobValidationResult.Invalid("Invalid mappings for index [$index] because $issues")
             }
         } catch (e: Exception) {
-            return SourceIndexValidationResult.Failure(e)
+            return RollupJobValidationResult.Failure("Failed to validate the source index mappings", e)
         }
     }
 
@@ -218,7 +218,7 @@ class RollupMapperService(
 
     fun indexExists(index: String): Boolean = clusterService.state().routingTable.hasIndex(index)
 
-    // TODO: error handling
+    // TODO: error handling - can RemoteTransportException happen here?
     // TODO: The use of the master transport action UpdateRollupMappingAction will prevent
     //   overwriting an existing rollup job _meta by checking for the job id
     //   but there is still a race condition if two jobs are added at the same time for the
@@ -226,24 +226,29 @@ class RollupMapperService(
     //   where they can both get the same mapping state and only add their own job, meaning one
     //   of the jobs won't be added to the target index _meta
     @Suppress("BlockingMethodInNonBlockingContext")
-    private suspend fun updateRollupIndexMappings(rollup: Rollup): Boolean {
-        return withContext(Dispatchers.IO) {
-            val resp: AcknowledgedResponse = client.suspendUntil {
-                execute(UpdateRollupMappingAction.INSTANCE, UpdateRollupMappingRequest(rollup), it)
+    private suspend fun updateRollupIndexMappings(rollup: Rollup): RollupJobValidationResult {
+        val errorMessage = "Failed to update mappings of target index [${rollup.targetIndex}] with rollup job"
+        try {
+            val response = withContext(Dispatchers.IO) {
+                val resp: AcknowledgedResponse = client.suspendUntil {
+                    execute(UpdateRollupMappingAction.INSTANCE, UpdateRollupMappingRequest(rollup), it)
+                }
+                resp.isAcknowledged
             }
-            resp.isAcknowledged
+
+            if (!response) {
+                // TODO: when this happens is it failure or invalid?
+                logger.error("$errorMessage, with no exception")
+                return RollupJobValidationResult.Failure(errorMessage)
+            }
+            return RollupJobValidationResult.Valid
+        } catch (e: Exception) {
+            logger.error("$errorMessage, because ", e)
+            return RollupJobValidationResult.Failure(errorMessage, e)
         }
     }
 
     companion object {
         const val ROLLUPS = "rollups"
-    }
-
-    // TODO: Create a RollupIndexResult for createRollupTargetIndex/initExistingRollupIndex
-
-    sealed class SourceIndexValidationResult {
-        object Valid : SourceIndexValidationResult()
-        data class Invalid(val reason: String) : SourceIndexValidationResult()
-        data class Failure(val e: Exception) : SourceIndexValidationResult()
     }
 }

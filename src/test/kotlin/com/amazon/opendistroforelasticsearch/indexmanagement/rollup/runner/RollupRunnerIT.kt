@@ -235,6 +235,8 @@ class RollupRunnerIT : RollupRestTestCase() {
     }
 
     fun `test metadata stats contains correct info`() {
+        // TODO: we are setting these jobs serially since we know concurrently running jobs can cause failures to update metadata sometimes.
+
         generateNYCTaxiData("source")
 
         val rollup = Rollup(
@@ -301,8 +303,6 @@ class RollupRunnerIT : RollupRestTestCase() {
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)
-        updateRollupStartTime(secondRollup)
-        updateRollupStartTime(thirdRollup)
 
         waitFor { assertTrue("Target rollup index was not created", indexExists(rollup.targetIndex)) }
 
@@ -314,6 +314,8 @@ class RollupRunnerIT : RollupRestTestCase() {
             rollupJob
         }
 
+        updateRollupStartTime(secondRollup)
+
         val secondFinishedRollup = waitFor {
             val rollupJob = getRollup(rollupId = secondRollup.id)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
@@ -321,6 +323,8 @@ class RollupRunnerIT : RollupRestTestCase() {
             assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
             rollupJob
         }
+
+        updateRollupStartTime(thirdRollup)
 
         val thirdFinishedRollup = waitFor {
             val rollupJob = getRollup(rollupId = thirdRollup.id)

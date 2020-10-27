@@ -254,8 +254,8 @@ object RollupRunner : ScheduledJobRunner,
                 }
             }
 
-            when(val result = rollupMapperService.init(updatableJob)) {
-                is RollupJobValidationResult.Failure ->  {
+            when (val result = rollupMapperService.init(updatableJob)) {
+                is RollupJobValidationResult.Failure -> {
                     setFailedMetadataAndDisableJob(updatableJob, result.message, metadata)
                     return
                 }
@@ -369,7 +369,7 @@ object RollupRunner : ScheduledJobRunner,
 
     // TODO: Source index could be a pattern but it's used at runtime so it could match new indices which weren't matched before
     //  which means we always need to validate the source index on every execution?
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "ComplexMethod")
     private suspend fun isJobValid(job: Rollup): RollupJobValidationResult {
         var metadata: RollupMetadata? = null
         if (job.metadataID != null) {

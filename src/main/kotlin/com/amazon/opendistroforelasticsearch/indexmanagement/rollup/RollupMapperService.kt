@@ -117,6 +117,7 @@ class RollupMapperService(
     // Source index can be a pattern so will need to resolve the index to concrete indices and check:
     // 1. If there are any indices resolving to the given source index
     // 2. That each concrete index is valid (in terms of mappings, etc.)
+    @Suppress("ReturnCount")
     suspend fun isSourceIndexValid(rollup: Rollup): RollupJobValidationResult {
         // TODO: Add some entry in metadata that will store index -> indexUUID for validated indices
         //  That way, we only need to validate indices that aren't in the metadata (covers cases where new index with same name was made)
@@ -138,6 +139,7 @@ class RollupMapperService(
         return RollupJobValidationResult.Valid
     }
 
+    @Suppress("ReturnCount")
     private suspend fun isSourceIndexMappingsValid(index: String, rollup: Rollup): RollupJobValidationResult {
         try {
             val req = GetMappingsRequest().indices(index)
@@ -225,7 +227,7 @@ class RollupMapperService(
     //   same target index. There is a small time window after get mapping and put mappings
     //   where they can both get the same mapping state and only add their own job, meaning one
     //   of the jobs won't be added to the target index _meta
-    @Suppress("BlockingMethodInNonBlockingContext")
+    @Suppress("BlockingMethodInNonBlockingContext", "ReturnCount")
     private suspend fun updateRollupIndexMappings(rollup: Rollup): RollupJobValidationResult {
         val errorMessage = "Failed to update mappings of target index [${rollup.targetIndex}] with rollup job"
         try {

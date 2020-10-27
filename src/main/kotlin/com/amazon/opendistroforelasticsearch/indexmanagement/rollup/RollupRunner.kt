@@ -365,14 +365,26 @@ object RollupRunner : ScheduledJobRunner,
     //  which means we always need to validate the source index on every execution?
     @Suppress("ReturnCount")
     private suspend fun isJobValid(job: Rollup): RollupJobValidationResult {
-        // TODO: Handle exceptions
-        val metadata = if (job.metadataID != null) {
-            rollupMetadataService.getExistingMetadata(job)
-        } else null
+        var metadata: RollupMetadata? = null
+        if (job.metadataID != null) {
+            metadata = when (val getMetadataResult = rollupMetadataService.getExistingMetadata(job)) {
+                is MetadataResult.Success -> getMetadataResult.metadata
+                is MetadataResult.NoMetadata -> null
+                is MetadataResult.Failure ->
+                    throw RollupMetadataException("Failed to get existing rollup metadata [${job.metadataID}]", getMetadataResult.cause)
+            }
+        }
 
-        // TODO: get the failure message from the isSourceIndexValid
-        if (!rollupMapperService.isSourceIndexValid(job)) {
-           return RollupJobValidationResult.Failure("Source index [${job.sourceIndex}] is not valid")
+        when (val sourceIndexValidResult = rollupMapperService.isSourceIndexValid(job)) {
+            is RollupMapperService.SourceIndexValidationResult.Valid -> {} // No action taken when valid
+            is RollupMapperService.SourceIndexValidationResult.Invalid -> {
+                return RollupJobValidationResult.Failure(sourceIndexValidResult.reason)
+            }
+            is RollupMapperService.SourceIndexValidationResult.Failure -> {
+                val errorMessage = "Error when attempting to validate source index [${job.sourceIndex}] for rollup job [${job.id}]"
+                logger.error(errorMessage, sourceIndexValidResult.e)
+                return RollupJobValidationResult.Failure(errorMessage)
+            }
         }
 
         // rollupMetadataService.init() will handle the cases where metadata is null

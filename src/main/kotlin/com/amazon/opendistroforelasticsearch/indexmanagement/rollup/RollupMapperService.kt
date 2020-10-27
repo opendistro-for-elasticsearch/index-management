@@ -86,6 +86,7 @@ class RollupMapperService(
     // TODO: error handling
     @Suppress("ReturnCount")
     suspend fun createRollupTargetIndex(job: Rollup): Boolean {
+        // TODO: In this case, after checking isRollupIndex, need to check if job is present and add it if it's not
         if (indexExists(job.targetIndex)) return isRollupIndex(job.targetIndex)
         try {
             val request = CreateIndexRequest(job.targetIndex)
@@ -123,28 +124,29 @@ class RollupMapperService(
         // Rolling up on closed indices will not be caught here
         val concreteIndices =
             indexNameExpressionResolver.concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpand(), rollup.sourceIndex)
-        if (concreteIndices.isEmpty()) return SourceIndexValidationResult.Invalid("No indices found for [$rollup.sourceIndex]")
+        if (concreteIndices.isEmpty()) return SourceIndexValidationResult.Invalid("No indices found for [${rollup.sourceIndex}]")
 
         // Validate mappings for each concrete index resolved from the rollup source index
         concreteIndices.forEach { index ->
             when (val sourceIndexMappingResult = isSourceIndexMappingsValid(index, rollup)) {
-                is SourceIndexMappingsValidationResult.Valid -> {} // no-op if valid
-                is SourceIndexMappingsValidationResult.Invalid -> return SourceIndexValidationResult.Invalid(sourceIndexMappingResult.reason)
-                is SourceIndexMappingsValidationResult.Failure -> return SourceIndexValidationResult.Failure(sourceIndexMappingResult.e)
+                is SourceIndexValidationResult.Valid -> {} // no-op if valid
+                is SourceIndexValidationResult.Invalid -> return sourceIndexMappingResult
+                is SourceIndexValidationResult.Failure -> return sourceIndexMappingResult
             }
         }
 
         return SourceIndexValidationResult.Valid
     }
 
-    private suspend fun isSourceIndexMappingsValid(index: String, rollup: Rollup): SourceIndexMappingsValidationResult {
+    private suspend fun isSourceIndexMappingsValid(index: String, rollup: Rollup): SourceIndexValidationResult {
         try {
-            val req = GetMappingsRequest().indices(rollup.sourceIndex)
+            val req = GetMappingsRequest().indices(index)
             val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
 
-            val indexMapping: MappingMetadata = res.mappings[rollup.targetIndex][_DOC]
+            logger.info("Source mappings: ${res.mappings}")
+            val indexMapping: MappingMetadata = res.mappings[index][_DOC]
             val indexProperties = indexMapping.sourceAsMap?.get(PROPERTIES) as Map<*, *>?
-                ?: return SourceIndexMappingsValidationResult.Invalid("No mappings found for index [${rollup.sourceIndex}")
+                ?: return SourceIndexValidationResult.Invalid("No mappings found for index [$index]")
 
             val issues = mutableSetOf<String>()
             // Validate source fields in dimensions
@@ -175,12 +177,12 @@ class RollupMapperService(
             }
 
             return if (issues.isEmpty()) {
-                SourceIndexMappingsValidationResult.Valid
+                SourceIndexValidationResult.Valid
             } else {
-                SourceIndexMappingsValidationResult.Invalid("Invalid mappings for index [$index] because $issues")
+                SourceIndexValidationResult.Invalid("Invalid mappings for index [$index] because $issues")
             }
         } catch (e: Exception) {
-            return SourceIndexMappingsValidationResult.Failure(e)
+            return SourceIndexValidationResult.Failure(e)
         }
     }
 
@@ -237,15 +239,11 @@ class RollupMapperService(
         const val ROLLUPS = "rollups"
     }
 
+    // TODO: Create a RollupIndexResult for createRollupTargetIndex/initExistingRollupIndex
+
     sealed class SourceIndexValidationResult {
         object Valid : SourceIndexValidationResult()
         data class Invalid(val reason: String) : SourceIndexValidationResult()
         data class Failure(val e: Exception) : SourceIndexValidationResult()
-    }
-
-    sealed class SourceIndexMappingsValidationResult {
-        object Valid : SourceIndexMappingsValidationResult()
-        data class Invalid(val reason: String) : SourceIndexMappingsValidationResult()
-        data class Failure(val e: Exception) : SourceIndexMappingsValidationResult()
     }
 }

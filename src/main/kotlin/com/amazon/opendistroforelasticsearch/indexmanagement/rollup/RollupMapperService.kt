@@ -55,18 +55,10 @@ class RollupMapperService(
 
     private val logger = LogManager.getLogger(javaClass)
 
-    suspend fun init(rollup: Rollup): RollupJobValidationResult {
-        return if (indexExists(rollup.targetIndex)) {
-            initExistingRollupIndex(rollup)
-        } else {
-            createRollupTargetIndex(rollup)
-        }
-    }
-
     // If the index already exists we need to verify it's a rollup index,
     // confirm it does not conflict with existing jobs and is a valid job
     @Suppress("ReturnCount")
-    private suspend fun initExistingRollupIndex(rollup: Rollup): RollupJobValidationResult {
+    private suspend fun validateAndAttemptToUpdateTargetIndex(rollup: Rollup): RollupJobValidationResult {
         if (!isRollupIndex(rollup.targetIndex)) {
             return RollupJobValidationResult.Invalid("Target index [${rollup.targetIndex}] is a non rollup index")
         }
@@ -78,40 +70,42 @@ class RollupMapperService(
         return RollupJobValidationResult.Valid
     }
 
-    // This creates the target index if it doesn't already exist
-    // Should reject if the target index exists and is not a rolled up index
+    // This creates the target index if it doesn't already else validate the target index is rollup index
+    // If the target index mappings doesn't contain rollup job attempts to update the mappings.
     // TODO: error handling
     @Suppress("ReturnCount")
-    suspend fun createRollupTargetIndex(job: Rollup): RollupJobValidationResult {
+    suspend fun attemptCreateRollupTargetIndex(job: Rollup): RollupJobValidationResult {
         if (indexExists(job.targetIndex)) {
-            return initExistingRollupIndex(job)
+            return validateAndAttemptToUpdateTargetIndex(job)
         } else {
             val errorMessage = "Failed to create target index [${job.targetIndex}]"
-            try {
-                val request = CreateIndexRequest(job.targetIndex)
-                        .settings(Settings.builder().put(RollupSettings.ROLLUP_INDEX.key, true).build())
-                        .mapping(_DOC, IndexManagementIndices.rollupTargetMappings, XContentType.JSON)
-                // TODO: Perhaps we can do better than this for mappings... as it'll be dynamic for rest
-                //  Can we read in the actual mappings from the source index and use that?
-                //  Can it have issues with metrics? i.e. an int mapping with 3, 5, 6 added up and divided by 3 for avg is 14/3 = 4.6666
-                //  What happens if the first indexing is an integer, i.e. 3 + 3 + 3 = 9/3 = 3 and it saves it as int
-                //  and then the next is float and it fails or rounds it up? Does elasticsearch dynamically resolve to int?
-                val response: CreateIndexResponse = client.admin().indices().suspendUntil { create(request, it) }
-                // Test should not be able to put rollup metadata in non rollup index
-
-                return if (response.isAcknowledged) {
-                    initExistingRollupIndex(job)
+            return try {
+                val response = createTargetIndex(job)
+                if (response.isAcknowledged) {
+                    updateRollupIndexMappings(job)
                 } else {
                     RollupJobValidationResult.Failure(errorMessage)
                 }
             } catch (e: RemoteTransportException) {
                 logger.info("$errorMessage because RemoteTransportException")
-                return RollupJobValidationResult.Failure(errorMessage, e)
+                RollupJobValidationResult.Failure(errorMessage, e)
             } catch (e: Exception) {
                 logger.error("$errorMessage because ", e)
-                return RollupJobValidationResult.Failure(errorMessage, e)
+                RollupJobValidationResult.Failure(errorMessage, e)
             }
         }
+    }
+
+    private suspend fun createTargetIndex(job: Rollup): CreateIndexResponse {
+        val request = CreateIndexRequest(job.targetIndex)
+                .settings(Settings.builder().put(RollupSettings.ROLLUP_INDEX.key, true).build())
+                .mapping(_DOC, IndexManagementIndices.rollupTargetMappings, XContentType.JSON)
+        // TODO: Perhaps we can do better than this for mappings... as it'll be dynamic for rest
+        //  Can we read in the actual mappings from the source index and use that?
+        //  Can it have issues with metrics? i.e. an int mapping with 3, 5, 6 added up and divided by 3 for avg is 14/3 = 4.6666
+        //  What happens if the first indexing is an integer, i.e. 3 + 3 + 3 = 9/3 = 3 and it saves it as int
+        //  and then the next is float and it fails or rounds it up? Does elasticsearch dynamically resolve to int?
+        return client.admin().indices().suspendUntil { create(request, it) }
     }
 
     // Source index can be a pattern so will need to resolve the index to concrete indices and check:
@@ -240,12 +234,12 @@ class RollupMapperService(
 
             if (!response) {
                 // TODO: when this happens is it failure or invalid?
-                logger.error("$errorMessage, with no exception")
+                logger.error("$errorMessage with no exception")
                 return RollupJobValidationResult.Failure(errorMessage)
             }
             return RollupJobValidationResult.Valid
         } catch (e: Exception) {
-            logger.error("$errorMessage, because ", e)
+            logger.error("$errorMessage because ", e)
             return RollupJobValidationResult.Failure(errorMessage, e)
         }
     }

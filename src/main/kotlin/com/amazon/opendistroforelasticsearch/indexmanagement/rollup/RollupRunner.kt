@@ -217,9 +217,13 @@ object RollupRunner : ScheduledJobRunner,
         try {
             when (val jobValidity = isJobValid(job)) {
                 is RollupJobValidationResult.Invalid -> {
-                    logger.info("Not a valid job ${job.id} because ${jobValidity.reason}")
+                    logger.error("Invalid job [${job.id}]: [${jobValidity.reason}]")
                     setFailedMetadataAndDisableJob(job, jobValidity.reason)
                     return
+                }
+                is RollupJobValidationResult.Failure -> {
+                    logger.error("Failed to validate [${job.id}]: [${jobValidity.message}]")
+                    setFailedMetadataAndDisableJob(job, jobValidity.message)
                 }
                 else -> {}
             }
@@ -254,7 +258,7 @@ object RollupRunner : ScheduledJobRunner,
                 }
             }
 
-            when (val result = rollupMapperService.init(updatableJob)) {
+            when (val result = rollupMapperService.attemptCreateRollupTargetIndex(updatableJob)) {
                 is RollupJobValidationResult.Failure -> {
                     setFailedMetadataAndDisableJob(updatableJob, result.message, metadata)
                     return
@@ -373,6 +377,7 @@ object RollupRunner : ScheduledJobRunner,
     private suspend fun isJobValid(job: Rollup): RollupJobValidationResult {
         var metadata: RollupMetadata? = null
         if (job.metadataID != null) {
+            logger.debug("Fetching associated metadata for rollup job [${job.id}]")
             metadata = when (val getMetadataResult = rollupMetadataService.getExistingMetadata(job)) {
                 is MetadataResult.Success -> getMetadataResult.metadata
                 is MetadataResult.NoMetadata -> null
@@ -381,20 +386,16 @@ object RollupRunner : ScheduledJobRunner,
             }
         }
 
+        logger.debug("Validating source index [${job.sourceIndex}] for rollup job [${job.id}]")
         when (val sourceIndexValidationResult = rollupMapperService.isSourceIndexValid(job)) {
             is RollupJobValidationResult.Valid -> {} // No action taken when valid
             else -> return sourceIndexValidationResult
         }
 
-        // rollupMetadataService.init() will handle the cases where metadata is null
+        // we validate target index only if there is metadata document in the rollup
         if (metadata != null) {
-            if (!rollupMapperService.indexExists(job.targetIndex) || !rollupMapperService.jobExistsInRollupIndex(job)) {
-                logger.info("trying to create the target index")
-                return rollupMapperService.createRollupTargetIndex(job)
-            }
-            if (!rollupMapperService.isRollupIndex(job.targetIndex)) {
-                return RollupJobValidationResult.Invalid("The target index [${job.targetIndex}] is not a rollup index")
-            }
+            logger.debug("Attempting to create/validate target index [${job.targetIndex}] for rollup job [${job.id}]")
+            return rollupMapperService.attemptCreateRollupTargetIndex(job)
         }
 
         return RollupJobValidationResult.Valid

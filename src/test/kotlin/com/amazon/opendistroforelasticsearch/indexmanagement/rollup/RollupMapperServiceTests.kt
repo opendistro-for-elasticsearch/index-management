@@ -108,7 +108,8 @@ class RollupMapperServiceTests : ESTestCase() {
         val rollup = randomRollup().copy(
             enabled = true,
             jobEnabledTime = Instant.now(),
-            dimensions = dimensions
+            dimensions = dimensions,
+            metrics = emptyList()
         )
 
         val client = getClient(getAdminClient(getIndicesAdminClient(

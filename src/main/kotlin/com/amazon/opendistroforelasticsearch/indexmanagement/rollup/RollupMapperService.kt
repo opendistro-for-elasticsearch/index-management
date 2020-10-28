@@ -88,8 +88,9 @@ class RollupMapperService(
                     RollupJobValidationResult.Failure(errorMessage)
                 }
             } catch (e: RemoteTransportException) {
-                logger.info("$errorMessage because RemoteTransportException")
-                RollupJobValidationResult.Failure(errorMessage, e)
+                val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
+                logger.error(errorMessage, unwrappedException)
+                RollupJobValidationResult.Failure(errorMessage, unwrappedException)
             } catch (e: Exception) {
                 logger.error("$errorMessage because ", e)
                 RollupJobValidationResult.Failure(errorMessage, e)

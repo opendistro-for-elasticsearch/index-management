@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.DocWriteResponse
 import org.elasticsearch.action.get.GetRequest
@@ -48,6 +49,7 @@ import org.elasticsearch.search.aggregations.bucket.composite.InternalComposite
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortOrder
+import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
 import java.time.ZonedDateTime
 
@@ -194,6 +196,10 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             val firstSource = response.hits.hits.first().sourceAsMap[dateHistogram.sourceField] as String
 
             return StartingTimeResult.Success(getRoundedTime(firstSource, dateHistogram))
+        } catch (e: RemoteTransportException) {
+            val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
+            logger.debug("Error when getting initial start time for rollup [${rollup.id}]: $unwrappedException")
+            return StartingTimeResult.Failure(unwrappedException)
         } catch (e: Exception) {
             // TODO: Catching general exceptions for now, can make more granular
             logger.debug("Error when getting initial start time for rollup [${rollup.id}]: $e")
@@ -274,6 +280,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
 
     @Suppress("BlockingMethodInNonBlockingContext", "ReturnCount")
     suspend fun getExistingMetadata(rollup: Rollup): MetadataResult {
+        val errorMessage = "Error when getting rollup metadata [${rollup.metadataID}]"
         try {
             var rollupMetadata: RollupMetadata? = null
             val getRequest = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, rollup.metadataID).routing(rollup.id)
@@ -292,10 +299,14 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
             return if (rollupMetadata != null) {
                 MetadataResult.Success(rollupMetadata!!)
             } else MetadataResult.NoMetadata
+        } catch (e: RemoteTransportException) {
+            val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
+            logger.debug("$errorMessage: $unwrappedException")
+            return MetadataResult.Failure(errorMessage, unwrappedException)
         } catch (e: Exception) {
             // TODO: Catching general exceptions for now, can make more granular
-            logger.debug("Error when getting rollup metadata [${rollup.metadataID}]")
-            return MetadataResult.Failure("Error when getting rollup metadata [${rollup.metadataID}]", e)
+            logger.debug("$errorMessage: $e")
+            return MetadataResult.Failure(errorMessage, e)
         }
     }
 
@@ -348,8 +359,9 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
     }
 
     // TODO: error handling, make sure to handle RTE for pretty much everything..
-    suspend fun submitMetadataUpdate(metadata: RollupMetadata, updating: Boolean): MetadataResult {
+    private suspend fun submitMetadataUpdate(metadata: RollupMetadata, updating: Boolean): MetadataResult {
         @Suppress("BlockingMethodInNonBlockingContext")
+        val errorMessage = "An error occurred when ${if (updating) "updating" else "creating"} rollup metadata"
         try {
             val builder = XContentFactory.jsonBuilder().startObject()
                 .field(RollupMetadata.ROLLUP_METADATA_TYPE, metadata)
@@ -383,10 +395,12 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                     failureReason = failureReason
                 )
             )
+        } catch (e: RemoteTransportException) {
+            val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
+            return MetadataResult.Failure(errorMessage, unwrappedException)
         } catch (e: Exception) {
             // TODO: Catching general exceptions for now, can make more granular
-            val message = "An error occurred when ${if (updating) "updating" else "creating"} rollup metadata"
-            return MetadataResult.Failure(message, e)
+            return MetadataResult.Failure(errorMessage, e)
         }
     }
 }

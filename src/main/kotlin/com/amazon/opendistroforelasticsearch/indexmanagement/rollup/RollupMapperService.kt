@@ -31,6 +31,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest
@@ -45,8 +46,8 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.transport.RemoteTransportException
 
-// TODO: Handle existing rollup indices, validation of fields across source and target indices
-//  overwriting existing rollup data, using mappings from source index
+// TODO: Validation of fields across source and target indices overwriting existing rollup data
+//  and type validation using mappings from source index
 class RollupMapperService(
     val client: Client,
     val clusterService: ClusterService,
@@ -63,11 +64,11 @@ class RollupMapperService(
             return RollupJobValidationResult.Invalid("Target index [${rollup.targetIndex}] is a non rollup index")
         }
 
-        if (!jobExistsInRollupIndex(rollup)) {
-            return updateRollupIndexMappings(rollup)
+        return when (val jobExistsResult = jobExistsInRollupIndex(rollup)) {
+            is RollupJobValidationResult.Valid -> jobExistsResult
+            is RollupJobValidationResult.Invalid -> updateRollupIndexMappings(rollup)
+            is RollupJobValidationResult.Failure -> jobExistsResult
         }
-
-        return RollupJobValidationResult.Valid
     }
 
     // This creates the target index if it doesn't already else validate the target index is rollup index
@@ -136,8 +137,11 @@ class RollupMapperService(
     @Suppress("ReturnCount")
     private suspend fun isSourceIndexMappingsValid(index: String, rollup: Rollup): RollupJobValidationResult {
         try {
-            val req = GetMappingsRequest().indices(index)
-            val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
+            val res = when (val getMappingsResult = getMappings(index)) {
+                is GetMappingsResult.Success -> getMappingsResult.response
+                is GetMappingsResult.Failure ->
+                    return RollupJobValidationResult.Failure(getMappingsResult.message, getMappingsResult.cause)
+            }
 
             val indexMapping: MappingMetadata = res.mappings[index][_DOC]
             val indexMappingSource = indexMapping.sourceAsMap
@@ -166,7 +170,7 @@ class RollupMapperService(
                 if (!isFieldInMappings(metric.sourceField, indexMappingSource))
                     issues.add("missing field ${metric.sourceField}")
 
-                // TODO: Validate field type for metrics
+                // TODO: Validate field type for metrics,
                 //  are all Numeric field types valid?
             }
 
@@ -197,15 +201,40 @@ class RollupMapperService(
         return true
     }
 
-    // TODO: error handling
-    // TODO: nulls, ie index response is null
-    suspend fun jobExistsInRollupIndex(rollup: Rollup): Boolean {
-        val req = GetMappingsRequest().indices(rollup.targetIndex)
-        val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
+    private suspend fun jobExistsInRollupIndex(rollup: Rollup): RollupJobValidationResult {
+        val res = when (val getMappingsResult = getMappings(rollup.targetIndex)) {
+            is GetMappingsResult.Success -> getMappingsResult.response
+            is GetMappingsResult.Failure ->
+                return RollupJobValidationResult.Failure(getMappingsResult.message, getMappingsResult.cause)
+        }
 
         val indexMapping: MappingMetadata = res.mappings[rollup.targetIndex][_DOC]
 
-        return ((indexMapping.sourceAsMap?.get(_META) as Map<*, *>?)?.get(ROLLUPS) as Map<*, *>?)?.containsKey(rollup.id) == true
+        return if (((indexMapping.sourceAsMap?.get(_META) as Map<*, *>?)?.get(ROLLUPS) as Map<*, *>?)?.containsKey(rollup.id) == true) {
+            RollupJobValidationResult.Valid
+        } else {
+            RollupJobValidationResult.Invalid("Rollup job [${rollup.id}] does not exist in rollup index [${rollup.targetIndex}]")
+        }
+    }
+
+    private suspend fun getMappings(index: String): GetMappingsResult {
+        val errorMessage = "Failed to get mappings for index [$index]"
+        try {
+            val req = GetMappingsRequest().indices(index)
+            val res: GetMappingsResponse? = client.admin().indices().suspendUntil { getMappings(req, it) }
+            return if (res == null) {
+                GetMappingsResult.Failure(cause = IllegalStateException("GetMappingsResponse for index [$index] was null"))
+            } else {
+                GetMappingsResult.Success(res)
+            }
+        } catch (e: RemoteTransportException) {
+            val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
+            logger.error(errorMessage, unwrappedException)
+            return GetMappingsResult.Failure(errorMessage, unwrappedException)
+        } catch (e: Exception) {
+            logger.error(errorMessage, e)
+            return GetMappingsResult.Failure(errorMessage, e)
+        }
     }
 
     fun isRollupIndex(index: String): Boolean = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(index).settings)
@@ -244,5 +273,10 @@ class RollupMapperService(
 
     companion object {
         const val ROLLUPS = "rollups"
+    }
+
+    sealed class GetMappingsResult {
+        data class Success(val response: GetMappingsResponse) : GetMappingsResult()
+        data class Failure(val message: String = "An error occurred when getting mappings", val cause: Exception) : GetMappingsResult()
     }
 }

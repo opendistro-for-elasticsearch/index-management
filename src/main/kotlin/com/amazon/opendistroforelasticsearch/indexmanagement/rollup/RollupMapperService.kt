@@ -139,15 +139,13 @@ class RollupMapperService(
             val req = GetMappingsRequest().indices(index)
             val res: GetMappingsResponse = client.admin().indices().suspendUntil { getMappings(req, it) }
 
-            logger.info("Source mappings: ${res.mappings}")
             val indexMapping: MappingMetadata = res.mappings[index][_DOC]
-            val indexProperties = indexMapping.sourceAsMap?.get(PROPERTIES) as Map<*, *>?
-                ?: return RollupJobValidationResult.Invalid("No mappings found for index [$index]")
+            val indexMappingSource = indexMapping.sourceAsMap
 
             val issues = mutableSetOf<String>()
             // Validate source fields in dimensions
             rollup.dimensions.forEach { dimension ->
-                if (!isFieldInMappings(dimension.sourceField, indexProperties))
+                if (!isFieldInMappings(dimension.sourceField, indexMappingSource))
                     issues.add("missing field ${dimension.sourceField}")
 
                 when (dimension) {
@@ -165,7 +163,7 @@ class RollupMapperService(
 
             // Validate source fields in metrics
             rollup.metrics.forEach { metric ->
-                if (!isFieldInMappings(metric.sourceField, indexProperties))
+                if (!isFieldInMappings(metric.sourceField, indexMappingSource))
                     issues.add("missing field ${metric.sourceField}")
 
                 // TODO: Validate field type for metrics
@@ -192,7 +190,7 @@ class RollupMapperService(
     private fun isFieldInMappings(fieldName: String, mappings: Map<*, *>): Boolean {
         var currMap = mappings
         fieldName.split(".").forEach { field ->
-            val nextMap = currMap[field] ?: return false
+            val nextMap = (currMap[PROPERTIES] as Map<*, *>?)?.get(field) ?: return false
             currMap = nextMap as Map<*, *>
         }
 

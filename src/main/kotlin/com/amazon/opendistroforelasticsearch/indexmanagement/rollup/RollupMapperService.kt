@@ -48,6 +48,7 @@ import org.elasticsearch.transport.RemoteTransportException
 
 // TODO: Validation of fields across source and target indices overwriting existing rollup data
 //  and type validation using mappings from source index
+// TODO: Wrap client calls in retry for transient failures
 class RollupMapperService(
     val client: Client,
     val clusterService: ClusterService,

@@ -53,6 +53,7 @@ import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
 import java.time.ZonedDateTime
 
+// TODO: Wrap client calls in retry for transient failures
 // Service that handles CRUD operations for rollup metadata
 @Suppress("TooManyFunctions")
 class RollupMetadataService(val client: Client, val xContentRegistry: NamedXContentRegistry) {
@@ -133,7 +134,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
 
     // This updates the metadata for a non-continuous rollup after an execution of the composite search and ingestion of rollup data
     private fun getUpdatedNonContinuousMetadata(
-        rollup: Rollup,
         metadata: RollupMetadata,
         internalComposite: InternalComposite
     ): RollupMetadata {
@@ -192,7 +192,6 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                 return StartingTimeResult.NoDocumentsFound
             }
 
-            // TODO: Empty result case has been checked for, are there any other cases where this can fail (such as failing cast)?
             val firstSource = response.hits.hits.first().sourceAsMap[dateHistogram.sourceField] as String
 
             return StartingTimeResult.Success(getRoundedTime(firstSource, dateHistogram))
@@ -314,7 +313,7 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         val updatedMetadata = if (rollup.continuous) {
             getUpdatedContinuousMetadata(rollup, metadata, internalComposite)
         } else {
-            getUpdatedNonContinuousMetadata(rollup, metadata, internalComposite)
+            getUpdatedNonContinuousMetadata(metadata, internalComposite)
         }
 
         return updateMetadata(updatedMetadata)
@@ -358,11 +357,10 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
         return submitMetadataUpdate(updatedMetadata, updatedMetadata.id != NO_ID)
     }
 
-    // TODO: error handling, make sure to handle RTE for pretty much everything..
     private suspend fun submitMetadataUpdate(metadata: RollupMetadata, updating: Boolean): MetadataResult {
-        @Suppress("BlockingMethodInNonBlockingContext")
         val errorMessage = "An error occurred when ${if (updating) "updating" else "creating"} rollup metadata"
         try {
+            @Suppress("BlockingMethodInNonBlockingContext")
             val builder = XContentFactory.jsonBuilder().startObject()
                 .field(RollupMetadata.ROLLUP_METADATA_TYPE, metadata)
                 .endObject()

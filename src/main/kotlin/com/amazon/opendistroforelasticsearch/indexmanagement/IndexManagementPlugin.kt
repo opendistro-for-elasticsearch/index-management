@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices.Companion.HISTORY_INDEX_BASE
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
@@ -71,8 +72,10 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
+import org.elasticsearch.indices.SystemIndexDescriptor
 import org.elasticsearch.plugins.ActionPlugin
 import org.elasticsearch.plugins.Plugin
+import org.elasticsearch.plugins.SystemIndexPlugin
 import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
@@ -81,7 +84,7 @@ import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
 
-internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plugin() {
+internal class IndexManagementPlugin : JobSchedulerExtension, SystemIndexPlugin, Plugin() {
 
     private val logger = LogManager.getLogger(javaClass)
     lateinit var indexManagementIndices: IndexManagementIndices
@@ -124,6 +127,13 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
             }
             return@ScheduledJobParser null
         }
+    }
+
+    override fun getSystemIndexDescriptors(settings: Settings): Collection<SystemIndexDescriptor> {
+        return listOf(
+            SystemIndexDescriptor(INDEX_MANAGEMENT_INDEX, "Open Distro Index Management Config Index"),
+            SystemIndexDescriptor("$HISTORY_INDEX_BASE-*", "Open Distro Index State Management History Indices")
+        )
     }
 
     override fun getRestHandlers(

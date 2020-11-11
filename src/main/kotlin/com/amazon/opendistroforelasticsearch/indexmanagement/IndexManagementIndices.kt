@@ -118,7 +118,8 @@ class IndexManagementIndices(
 
         val request = CreateIndexRequest(index)
                 .mapping(_DOC, indexStateManagementHistoryMappings, XContentType.JSON)
-                .settings(Settings.builder().put("index.hidden", true).build())
+                .settings(Settings.builder().put("index.hidden", true)
+                    .put("index.number_of_shards", 1).put("index.number_of_replicas", 1).build())
         if (alias != null) request.alias(Alias(alias))
         return try {
             val createIndexResponse: CreateIndexResponse = client.suspendUntil { client.create(request, it) }

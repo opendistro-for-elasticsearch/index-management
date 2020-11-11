@@ -120,8 +120,8 @@ class IndexStateManagementHistory(
         // We have to pass null for newIndexName in order to get Elastic to increment the index count.
         val request = RolloverRequest(IndexManagementIndices.HISTORY_WRITE_INDEX_ALIAS, null)
         request.createIndexRequest.index(IndexManagementIndices.HISTORY_INDEX_PATTERN)
-            .mapping(_DOC,
-                IndexManagementIndices.indexStateManagementHistoryMappings, XContentType.JSON)
+            .mapping(_DOC, IndexManagementIndices.indexStateManagementHistoryMappings, XContentType.JSON)
+            .settings(Settings.builder().put("index.hidden", true).put("index.number_of_shards", 1).put("index.number_of_replicas", 1))
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
         val response = client.admin().indices().rolloverIndex(request).actionGet()

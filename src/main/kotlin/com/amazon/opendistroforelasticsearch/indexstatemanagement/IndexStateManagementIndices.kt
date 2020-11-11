@@ -32,6 +32,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 
 @OpenForTesting
@@ -104,6 +105,7 @@ class IndexStateManagementIndices(
         if (existsResponse.isExists) return true
 
         val request = CreateIndexRequest(index).mapping(_DOC, indexStateManagementHistoryMappings, XContentType.JSON)
+            .settings(Settings.builder().put("index.number_of_shards", 1).put("index.number_of_replicas", 1).build())
         if (alias != null) request.alias(Alias(alias))
         return try {
             val createIndexResponse: CreateIndexResponse = client.suspendUntil { client.create(request, it) }

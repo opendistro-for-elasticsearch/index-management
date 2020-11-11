@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.util
 
 const val _DOC = "_doc"
 const val _ID = "_id"
+const val NO_ID = ""
 const val _VERSION = "_version"
 const val _SEQ_NO = "_seq_no"
 const val IF_SEQ_NO = "if_seq_no"

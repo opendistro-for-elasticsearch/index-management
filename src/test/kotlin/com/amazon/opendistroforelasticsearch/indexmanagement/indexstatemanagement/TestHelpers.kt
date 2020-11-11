@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.string
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Conditions
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ErrorNotification

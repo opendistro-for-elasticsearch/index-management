@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.string
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput

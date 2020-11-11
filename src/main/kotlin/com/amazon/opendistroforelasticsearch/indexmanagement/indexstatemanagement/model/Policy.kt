@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.instant
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
 import org.elasticsearch.common.io.stream.StreamInput

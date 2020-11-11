@@ -30,16 +30,11 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.DefaultShardOperationFailedException
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.cluster.metadata.IndexMetadata
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.transport.RemoteTransportException
-import java.time.Instant
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -48,24 +43,6 @@ import kotlin.coroutines.suspendCoroutine
 fun ToXContent.convertToMap(): Map<String, Any> {
     val bytesReference = XContentHelper.toXContent(this, XContentType.JSON, false)
     return XContentHelper.convertToMap(bytesReference, false, XContentType.JSON).v2()
-}
-
-fun XContentParser.instant(): Instant? {
-    return when {
-        currentToken() == XContentParser.Token.VALUE_NULL -> null
-        currentToken().isValue -> Instant.ofEpochMilli(longValue())
-        else -> {
-            XContentParserUtils.throwUnknownToken(currentToken(), tokenLocation)
-            null // unreachable
-        }
-    }
-}
-
-fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContentBuilder {
-    if (instant == null) {
-        return nullField(name)
-    }
-    return this.timeField(name, name, instant.toEpochMilli())
 }
 
 /**
@@ -108,11 +85,6 @@ suspend fun <T> BackoffPolicy.retry(
 fun ElasticsearchException.isRetryable(): Boolean {
     return (status() in listOf(RestStatus.BAD_GATEWAY, RestStatus.SERVICE_UNAVAILABLE, RestStatus.GATEWAY_TIMEOUT))
 }
-
-/**
- * Extension function for ES 6.3 and above that duplicates the ES 6.2 XContentBuilder.string() method.
- */
-fun XContentBuilder.string(): String = BytesReference.bytes(this).utf8ToString()
 
 /**
  * Converts [ElasticsearchClient] methods that take a callback into a kotlin suspending function.

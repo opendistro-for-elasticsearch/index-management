@@ -7,14 +7,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndi
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestChangePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.waitFor
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
 import org.elasticsearch.common.settings.Settings
@@ -53,14 +51,14 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         val policyId = ESTestCase.randomAlphaOfLength(10)
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 4)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 5)
     }
 
     fun `test update management index mapping with new schema version`() {
         assertIndexDoesNotExist(INDEX_MANAGEMENT_INDEX)
 
         val mapping = indexManagementMappings.trim().trimStart('{').trimEnd('}')
-            .replace("\"schema_version\": 4", "\"schema_version\": 0")
+            .replace("\"schema_version\": 5", "\"schema_version\": 0")
 
         createIndex(INDEX_MANAGEMENT_INDEX, Settings.builder().put("index.hidden", true).build(), mapping)
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
@@ -71,7 +69,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
 
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 4)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 5)
     }
 
     fun `test update management index history mappings with new schema version`() {
@@ -115,7 +113,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         assertEquals("Policy id does not match", policy.id, managedIndexConfig.policyID)
 
         val mapping = "{" + indexManagementMappings.trimStart('{').trimEnd('}')
-            .replace("\"schema_version\": 4", "\"schema_version\": 0")
+            .replace("\"schema_version\": 5", "\"schema_version\": 0")
 
         val entity = StringEntity(mapping, ContentType.APPLICATION_JSON)
         client().makeRequest(RestRequest.Method.PUT.toString(),
@@ -129,7 +127,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
             RestRequest.Method.POST.toString(),
             "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
 
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 4)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 5)
 
         assertAffectedIndicesResponseIsEqual(mapOf(FAILURES to false, FAILED_INDICES to emptyList<Any>(), UPDATED_INDICES to 1), response.asMap())
 

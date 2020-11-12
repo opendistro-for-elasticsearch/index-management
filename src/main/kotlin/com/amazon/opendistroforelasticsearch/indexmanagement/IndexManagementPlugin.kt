@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices.Companion.HISTORY_INDEX_BASE
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
@@ -51,6 +50,30 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.TransportRefreshSearchAnalyzerAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete.DeleteRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete.TransportDeleteRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.TransportGetRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.TransportIndexRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start.StartRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start.TransportStartRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.stop.StopRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.stop.TransportStopRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain.ExplainRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain.TransportExplainRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.TransportGetRollupsAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.TransportUpdateRollupMappingAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestDeleteRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestExplainRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestGetRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestIndexRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestStartRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestStopRollupAction
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
@@ -72,10 +95,9 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.env.Environment
 import org.elasticsearch.env.NodeEnvironment
-import org.elasticsearch.indices.SystemIndexDescriptor
 import org.elasticsearch.plugins.ActionPlugin
+import org.elasticsearch.plugins.NetworkPlugin
 import org.elasticsearch.plugins.Plugin
-import org.elasticsearch.plugins.SystemIndexPlugin
 import org.elasticsearch.repositories.RepositoriesService
 import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
@@ -84,7 +106,7 @@ import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
 
-internal class IndexManagementPlugin : JobSchedulerExtension, SystemIndexPlugin, Plugin() {
+internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, ActionPlugin, Plugin() {
 
     private val logger = LogManager.getLogger(javaClass)
     lateinit var indexManagementIndices: IndexManagementIndices
@@ -94,7 +116,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, SystemIndexPlugin,
         const val PLUGIN_NAME = "opendistro-im"
         const val OPEN_DISTRO_BASE_URI = "/_opendistro"
         const val ISM_BASE_URI = "$OPEN_DISTRO_BASE_URI/_ism"
+        const val ROLLUP_BASE_URI = "$OPEN_DISTRO_BASE_URI/_rollup"
         const val POLICY_BASE_URI = "$ISM_BASE_URI/policies"
+        const val ROLLUP_JOBS_BASE_URI = "$ROLLUP_BASE_URI/jobs"
         const val INDEX_MANAGEMENT_INDEX = ".opendistro-ism-config"
         const val INDEX_MANAGEMENT_JOB_TYPE = "opendistro-index-management"
         const val INDEX_STATE_MANAGEMENT_HISTORY_TYPE = "managed_index_meta_data"
@@ -120,20 +144,20 @@ internal class IndexManagementPlugin : JobSchedulerExtension, SystemIndexPlugin,
                     Policy.POLICY_TYPE -> {
                         return@ScheduledJobParser null
                     }
+                    Rollup.ROLLUP_TYPE -> {
+                        return@ScheduledJobParser Rollup.parse(xcp, id, jobDocVersion.seqNo, jobDocVersion.primaryTerm)
+                    }
+                    RollupMetadata.ROLLUP_METADATA_TYPE -> {
+                        return@ScheduledJobParser null
+                    }
                     else -> {
-                        logger.info("Unsupported document was indexed in $INDEX_MANAGEMENT_INDEX with type: $fieldName")
+                        logger.warn("Unsupported document was indexed in $INDEX_MANAGEMENT_INDEX with type: $fieldName")
+                        xcp.skipChildren()
                     }
                 }
             }
             return@ScheduledJobParser null
         }
-    }
-
-    override fun getSystemIndexDescriptors(settings: Settings): Collection<SystemIndexDescriptor> {
-        return listOf(
-            SystemIndexDescriptor(INDEX_MANAGEMENT_INDEX, "Open Distro Index Management Config Index"),
-            SystemIndexDescriptor("$HISTORY_INDEX_BASE-*", "Open Distro Index State Management History Indices")
-        )
     }
 
     override fun getRestHandlers(
@@ -154,7 +178,13 @@ internal class IndexManagementPlugin : JobSchedulerExtension, SystemIndexPlugin,
             RestRetryFailedManagedIndexAction(),
             RestAddPolicyAction(),
             RestRemovePolicyAction(),
-            RestChangePolicyAction()
+            RestChangePolicyAction(),
+            RestDeleteRollupAction(),
+            RestGetRollupAction(),
+            RestIndexRollupAction(),
+            RestStartRollupAction(),
+            RestStopRollupAction(),
+            RestExplainRollupAction()
         )
     }
 
@@ -226,7 +256,15 @@ internal class IndexManagementPlugin : JobSchedulerExtension, SystemIndexPlugin,
             ActionPlugin.ActionHandler(IndexPolicyAction.INSTANCE, TransportIndexPolicyAction::class.java),
             ActionPlugin.ActionHandler(ExplainAction.INSTANCE, TransportExplainAction::class.java),
             ActionPlugin.ActionHandler(DeletePolicyAction.INSTANCE, TransportDeletePolicyAction::class.java),
-            ActionPlugin.ActionHandler(GetPolicyAction.INSTANCE, TransportGetPolicyAction::class.java)
+            ActionPlugin.ActionHandler(GetPolicyAction.INSTANCE, TransportGetPolicyAction::class.java),
+            ActionPlugin.ActionHandler(DeleteRollupAction.INSTANCE, TransportDeleteRollupAction::class.java),
+            ActionPlugin.ActionHandler(GetRollupAction.INSTANCE, TransportGetRollupAction::class.java),
+            ActionPlugin.ActionHandler(GetRollupsAction.INSTANCE, TransportGetRollupsAction::class.java),
+            ActionPlugin.ActionHandler(IndexRollupAction.INSTANCE, TransportIndexRollupAction::class.java),
+            ActionPlugin.ActionHandler(StartRollupAction.INSTANCE, TransportStartRollupAction::class.java),
+            ActionPlugin.ActionHandler(StopRollupAction.INSTANCE, TransportStopRollupAction::class.java),
+            ActionPlugin.ActionHandler(ExplainRollupAction.INSTANCE, TransportExplainRollupAction::class.java),
+            ActionPlugin.ActionHandler(UpdateRollupMappingAction.INSTANCE, TransportUpdateRollupMappingAction::class.java)
         )
     }
 }

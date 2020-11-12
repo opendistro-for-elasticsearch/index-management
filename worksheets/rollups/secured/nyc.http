@@ -1,0 +1,25 @@
+### Create these mappings first if you want to have the date mapping correctly created for datetime fields
+PUT https://localhost:9200/nyc-taxi-data
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{
+  "mappings": {
+    "properties":{"DOLocationID":{"type":"integer"},"RatecodeID":{"type":"integer"},"fare_amount":{"type":"float"},"tpep_dropoff_datetime":{"type":"date","format":"yyyy-MM-dd HH:mm:ss"},"congestion_surcharge":{"type":"float"},"VendorID":{"type":"integer"},"passenger_count":{"type":"integer"},"tolls_amount":{"type":"float"},"improvement_surcharge":{"type":"float"},"trip_distance":{"type":"float"},"store_and_fwd_flag":{"type":"keyword"},"payment_type":{"type":"integer"},"total_amount":{"type":"float"},"extra":{"type":"float"},"tip_amount":{"type":"float"},"mta_tax":{"type":"float"},"tpep_pickup_datetime":{"type":"date","format":"yyyy-MM-dd HH:mm:ss"},"PULocationID":{"type":"integer"}}
+  }
+}
+
+###
+POST https://localhost:9200/nyc-taxi-data/_bulk?pretty
+Authorization: Basic admin admin
+Content-Type: application/x-ndjson
+
+< ../../src/test/resources/data/nyc_5000.ndjson
+
+###
+DELETE https://localhost:9200/nyc-taxi-data/
+Authorization: Basic admin admin
+
+###
+GET https://localhost:9200/nyc-taxi-data/_mapping
+Authorization: Basic admin admin

@@ -50,6 +50,11 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.RestRefreshSearchAnalyzerAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.TransportRefreshSearchAnalyzerAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupIndexer
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupMapperService
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupMetadataService
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRunner
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupSearchService
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete.DeleteRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete.TransportDeleteRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
@@ -111,6 +116,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     private val logger = LogManager.getLogger(javaClass)
     lateinit var indexManagementIndices: IndexManagementIndices
     lateinit var clusterService: ClusterService
+    lateinit var indexNameExpressionResolver: IndexNameExpressionResolver
 
     companion object {
         const val PLUGIN_NAME = "opendistro-im"
@@ -128,7 +134,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
 
     override fun getJobType(): String = INDEX_MANAGEMENT_JOB_TYPE
 
-    override fun getJobRunner(): ScheduledJobRunner = ManagedIndexRunner
+    override fun getJobRunner(): ScheduledJobRunner = IndexManagementRunner
 
     override fun getJobParser(): ScheduledJobParser {
         return ScheduledJobParser { xcp, id, jobDocVersion ->
@@ -210,7 +216,19 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerScriptService(scriptService)
             .registerSettings(settings)
             .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
-
+        val rollupRunner = RollupRunner
+            .registerClient(client)
+            .registerClusterService(clusterService)
+            .registerNamedXContentRegistry(xContentRegistry)
+            .registerScriptService(scriptService)
+            .registerSettings(settings)
+            .registerThreadPool(threadPool)
+            .registerMapperService(RollupMapperService(client, clusterService, indexNameExpressionResolver))
+            .registerIndexer(RollupIndexer(settings, clusterService, client))
+            .registerSearcher(RollupSearchService(settings, clusterService, client))
+            .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
+            .registerConsumers()
+        this.indexNameExpressionResolver = indexNameExpressionResolver
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =
             IndexStateManagementHistory(
@@ -224,7 +242,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
             client, clusterService, threadPool, indexManagementIndices)
 
-        return listOf(managedIndexRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
+        return listOf(managedIndexRunner, rollupRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
     }
 
     override fun getSettings(): List<Setting<*>> {

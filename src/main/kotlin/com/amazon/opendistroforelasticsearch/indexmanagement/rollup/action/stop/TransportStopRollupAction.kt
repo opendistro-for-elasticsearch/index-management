@@ -55,7 +55,7 @@ class TransportStopRollupAction @Inject constructor(
                 val rollup = response.rollup
                 if (rollup == null) {
                     return actionListener.onFailure(
-                        ElasticsearchStatusException("Could not find find rollup [${request.id()}]", RestStatus.NOT_FOUND)
+                        ElasticsearchStatusException("Could not find rollup [${request.id()}]", RestStatus.NOT_FOUND)
                     )
                 }
 

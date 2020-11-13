@@ -119,6 +119,7 @@ class IndexStateManagementHistory(
         val request = RolloverRequest(IndexStateManagementIndices.HISTORY_WRITE_INDEX_ALIAS, null)
         request.createIndexRequest.index(IndexStateManagementIndices.HISTORY_INDEX_PATTERN)
             .mapping(_DOC, IndexStateManagementIndices.indexStateManagementHistoryMappings, XContentType.JSON)
+            .settings(Settings.builder().put("index.number_of_shards", 1).put("index.number_of_replicas", 1))
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
         val response = client.admin().indices().rolloversIndex(request).actionGet()

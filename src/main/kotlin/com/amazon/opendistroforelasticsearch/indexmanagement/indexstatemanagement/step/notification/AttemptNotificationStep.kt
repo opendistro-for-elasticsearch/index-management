@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.notification
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.convertToMap
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.NotificationActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StepMetaData

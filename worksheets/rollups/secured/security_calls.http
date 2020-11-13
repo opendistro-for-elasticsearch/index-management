@@ -1,0 +1,82 @@
+###
+PUT https://localhost:9200/_opendistro/_rollup/jobs/bob
+Authorization: Basic bob bob
+Content-Type: application/json
+
+{
+  "rollup": {
+    "enabled": true,
+    "schedule": {
+      "interval": {
+        "period": 1,
+        "unit": "Minutes",
+        "start_time": {{$timestamp}}
+      }
+    },
+    "last_updated_time": {{$timestamp}},
+    "description": "An example policy that rolls up the sample ecommerce data",
+    "source_index": "nyc-taxi-data",
+    "target_index": "example-rollup-index",
+    "page_size": 5,
+    "delay": 0,
+    "roles": ["rollup_all", "nyc_taxi_all", "example_rollup_index_all"],
+    "continuous": false,
+    "dimensions": [
+      {
+        "date_histogram": {
+          "source_field": "tpep_pickup_datetime",
+          "fixed_interval": "30m",
+          "timezone": "America/Los_Angeles"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "PULocationID"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "DOLocationID"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "passenger_count"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "VendorID"
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "source_field": "passenger_count",
+        "metrics": [{ "avg": {} },{ "sum":  {} }, { "max":  {} }, { "min":  {} }, { "value_count":  {} }]
+      },
+      {
+        "source_field": "trip_distance",
+        "metrics": [{ "avg": {} },{ "sum":  {} }, { "max":  {} }, { "min":  {} }, { "value_count":  {} }]
+      },
+      {
+        "source_field": "total_amount",
+        "metrics": [{ "avg": {} },{ "sum":  {} }, { "max":  {} }, { "min":  {} }, { "value_count":  {} }]
+      }
+    ]
+  }
+}
+
+###
+POST https://localhost:9200/_opendistro/_rollup/jobs/bob/_start
+Authorization: Basic bob bob
+
+###
+POST https://localhost:9200/_opendistro/_rollup/jobs/bob/_stop
+Authorization: Basic bob_startstop bob_startstop
+
+###
+
+GET https://localhost:9200/_search
+Authorization: Basic admin admins
+Content-Type: application/json

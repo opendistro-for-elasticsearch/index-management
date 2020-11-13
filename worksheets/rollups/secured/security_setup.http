@@ -1,0 +1,204 @@
+###
+PUT https://localhost:9200/_opendistro/_security/api/actiongroups/rollup_all
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{
+  "allowed_actions": [
+    "cluster:admin/opendistro/rollup/index",
+    "cluster:admin/opendistro/rollup/delete",
+    "cluster:admin/opendistro/rollup/explain",
+    "cluster:admin/opendistro/rollup/get",
+    "cluster:admin/opendistro/rollup/start",
+    "cluster:admin/opendistro/rollup/stop"
+  ]
+}
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/actiongroups/rollup_read
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{
+  "allowed_actions": [
+    "cluster:admin/opendistro/rollup/explain",
+    "cluster:admin/opendistro/rollup/get"
+  ]
+}
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/actiongroups/rollup_write
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{
+  "allowed_actions": [
+    "cluster:admin/opendistro/rollup/index",
+    "cluster:admin/opendistro/rollup/start",
+    "cluster:admin/opendistro/rollup/stop"
+  ]
+}
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/actiongroups/rollup_startstop
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{
+  "allowed_actions": [
+    "cluster:admin/opendistro/rollup/start",
+    "cluster:admin/opendistro/rollup/stop"
+  ]
+}
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/internalusers/bob
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "password": "bob", "backend_roles": ["doesnt_exist"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/internalusers/bob_read
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "password": "bob_read" }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/internalusers/bob_write
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "password": "bob_write" }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/internalusers/bob_startstop
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "password": "bob_startstop" }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/internalusers/bob_rollupall_nycall_readexample
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "password": "bob_rollupall_nycall_readexample" }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/roles/rollup_all
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "cluster_permissions": ["rollup_all"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/roles/rollup_read
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "cluster_permissions": ["rollup_read"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/roles/rollup_write
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "cluster_permissions": ["rollup_write"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/roles/rollup_startstop
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "cluster_permissions": ["rollup_startstop"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/roles/nyc_taxi_all
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "index_permissions": [{ "index_patterns": ["nyc-taxi-data"], "allowed_actions": ["indices_all"] }] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/roles/example_rollup_index_all
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "index_permissions": [{ "index_patterns": ["example-rollup-index"], "allowed_actions": ["indices_all", "indices:data/write/bulk"] }] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/roles/example_rollup_index_read
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "index_permissions": [{ "index_patterns": ["example-rollup-index"], "allowed_actions": ["read"] }] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/roles/fake
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "cluster_permissions": [] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/rolesmapping/rollup_all
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "users": ["bob"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/rolesmapping/fake
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "backend_roles": ["doesnt_exist"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/rolesmapping/rollup_read
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "users": ["bob_read"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/rolesmapping/rollup_write
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "users": ["bob_write"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/rolesmapping/rollup_startstop
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "users": ["bob_startstop"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/rolesmapping/nyc_taxi_all
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "users": ["bob", "bob_rollupall_nycall_readexample"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/rolesmapping/example_rollup_index_all
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "users": ["bob"] }
+
+###
+PUT https://localhost:9200/_opendistro/_security/api/rolesmapping/example_rollup_index_read
+Authorization: Basic admin admin
+Content-Type: application/json
+
+{ "users": ["bob", "bob_rollupall_nycall_readexample"] }
+
+###
+GET https://localhost:9200/_opendistro/_security/api/internalusers
+Authorization: Basic admin admin
+Content-Type: application/json

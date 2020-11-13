@@ -1,0 +1,222 @@
+DELETE localhost:9200/_opendistro/_rollup/jobs/example
+###
+PUT localhost:9200/_opendistro/_rollup/jobs/example
+Content-Type: application/json
+
+{
+  "rollup": {
+    "enabled": true,
+    "schedule": {
+      "interval": {
+        "period": 1,
+        "unit": "Minutes",
+        "start_time": {{$timestamp}}
+      }
+    },
+    "last_updated_time": {{$timestamp}},
+    "description": "An example policy that rolls up the sample ecommerce data",
+    "source_index": "kibana_sample_data_ecommerce",
+    "target_index": "rollup-test-index",
+    "page_size": 100,
+    "delay": 0,
+    "continuous": false,
+    "dimensions": [
+      {
+        "date_histogram": {
+          "source_field": "order_date",
+          "fixed_interval": "1h",
+          "timezone": "America/Los_Angeles"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "geoip.city_name"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "customer_id"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "day_of_week"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "customer_gender"
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "source_field": "taxless_total_price",
+        "metrics": [{ "avg": {} },{ "sum":  {} }, { "max":  {} }, { "min":  {} }, { "value_count":  {} }]
+      },
+      {
+        "source_field": "total_quantity",
+        "metrics": [{ "avg": {} },{ "sum":  {} }, { "max":  {} }, { "min":  {} }, { "value_count":  {} }]
+      }
+    ]
+  }
+}
+
+###
+POST localhost:9200/rollup-test-index/_search
+###
+GET localhost:9200/_cat/indices
+###
+GET localhost:9200/kibana_sample*/_search
+###
+PUT localhost:9200/kibana_sample_dummy
+###
+POST localhost:9200/kibana_sample_*/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "city": {
+      "terms": {
+        "field": "geoip.city_name",
+        "size": 5,
+        "order": {"total_sales": "desc"}
+      },
+      "aggs": {
+        "total_sales": {
+          "sum": {
+            "field": "taxless_total_price"
+          }
+        }
+      }
+    }
+  }
+}
+###
+POST localhost:9200/rollup*/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "city": {
+      "terms": {
+        "field": "customer_gender",
+        "size": 5,
+        "order": {"max_quantity": "desc"}
+      },
+      "aggs": {
+        "max_quantity": {
+          "max": {
+            "field": "total_quantity"
+          }
+        }
+      }
+    }
+  }
+}
+###
+PUT localhost:9200/_cluster/settings
+Content-Type: application/json
+
+{
+  "persistent": {
+    "opendistro.rollup.search.enabled": false
+  }
+}
+###
+POST localhost:9200/rollup-test-index/_search
+Content-Type: application/json
+
+{
+  "size": 10,
+  "query": { "match_all":  {} }
+}
+###
+POST localhost:9200/rollup-test-index/_search
+Content-Type: application/json
+
+{
+  "_source": { "includes": "total_quantity"},
+  "size": 10,
+  "query": { "bool": { "filter":  [
+    {"term": { "customer_gender.terms":  "MALE" } },
+    {"term": { "customer_gender.terms":  "MALE" } }
+    ]}},
+  "sort": {"total_quantity.max":  "desc" }
+}
+###
+POST localhost:9200/kibana*/_search
+Content-Type: application/json
+
+{
+  "size": 10,
+  "query": { "term": { "customer_gender":  "MALE" } },
+  "sort": {"total_quantity":  "desc" }
+}
+###
+GET localhost:9200/rollup-test-index/_mappings?pretty
+###
+POST localhost:9200/rollup-test-inde*/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "city": {
+      "terms": {
+        "field": "geoip.city_name",
+        "size": 5,
+        "order": {"total_sales": "desc"}
+      },
+      "aggs": {
+        "total_sales": {
+          "max": {
+            "field": "taxless_total_price"
+          }
+        }
+      }
+    }
+  }
+}
+###
+DELETE localhost:9200/rollup-test-index
+###
+PUT localhost:9200/rollup-test-index
+Content-Type: application/json
+
+{
+  "mappings": {
+    "_meta" : {
+      "schema_version": 1,
+      "rollups": {
+        "something": {}
+      }
+    },
+    "dynamic_templates" : [
+      {
+        "strings" : {
+          "match_mapping_type" : "string",
+          "mapping" : {
+            "type" : "keyword"
+          }
+        }
+      },
+      {
+        "date_histograms" : {
+          "path_match" : "*.date_histogram.*",
+          "mapping" : {
+            "type" : "date"
+          }
+        }
+      }
+    ]
+  },
+  "settings": {
+    "index.opendistro.rollup_index": true
+  }
+}
+
+###
+GET localhost:9200/.opendistro-ism-config/_search?pretty

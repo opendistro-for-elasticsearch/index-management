@@ -1,0 +1,198 @@
+###
+
+#21, 14, 3, 11, 24, 1, 1, 41, 14, 13
+#POST localhost:9200/nyc-taxi-data/_search
+POST localhost:9200/rollup-test-index/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "pickup_areas": {
+      "terms": { "field": "PULocationID", "size": 10, "order": { "_key": "asc" } },
+      "aggs": {
+        "sum": { "sum": { "field": "passenger_count" } }
+      }
+    }
+  }
+}
+
+
+###
+POST localhost:9200/rollup-test-index/_search
+#POST localhost:9200/nyc-taxi-data/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "pickup_areas": {
+      "terms": { "field": "PULocationID", "size": 1000, "order": { "_key":  "asc" } },
+      "aggs": {
+        "sum": { "sum": { "field": "passenger_count" } },
+        "min": { "min": { "field": "passenger_count" } },
+        "max": { "max": { "field": "passenger_count" } },
+        "avg": { "avg": { "field": "passenger_count" } },
+        "value_count": { "value_count": { "field": "passenger_count" } }
+      }
+    }
+  }
+}
+
+###
+POST localhost:9200/kibana_sample_data_ecommerce/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "city": {
+      "terms": {
+        "field": "geoip.city_name",
+        "size": 5,
+        "order": {"total_sales": "desc"}
+      },
+      "aggs": {
+        "total_sales": {
+          "sum": {
+            "field": "taxless_total_price"
+          }
+        }
+      }
+    }
+  }
+}
+
+###
+POST localhost:9200/rollup-test-index/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "city": {
+      "terms": {
+        "field": "geoip.city_name",
+        "size": 5,
+        "order": {"total_sales": "desc"}
+      },
+      "aggs": {
+        "total_sales": {
+          "sum": {
+            "field": "taxless_total_price"
+          }
+        }
+      }
+    }
+  }
+}
+###
+DELETE localhost:9200/rollup-test-index
+###
+PUT localhost:9200/rollup-test-index
+Content-Type: application/json
+
+{
+  "mappings": {
+    "_meta" : {
+      "schema_version": 1,
+      "rollups": {
+        "something": {}
+      }
+    },
+    "dynamic_templates" : [
+      {
+        "strings" : {
+          "match_mapping_type" : "string",
+          "mapping" : {
+            "type" : "keyword"
+          }
+        }
+      },
+      {
+        "date_histograms" : {
+          "path_match" : "*.date_histogram.*",
+          "mapping" : {
+            "type" : "date"
+          }
+        }
+      }
+    ]
+  },
+  "settings": {
+    "index.opendistro.rollup_index": true
+  }
+}
+###
+POST localhost:9200/kibana_sample_data_ecommerce/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "city": {
+      "terms": {
+        "field": "geoip.city_name",
+        "size": 5,
+        "order": {"avg_sale_price": "desc"}
+      },
+      "aggs": {
+        "avg_sale_price": {
+          "avg": {
+            "field": "taxless_total_price"
+          }
+        }
+      }
+    }
+  }
+}
+
+###
+POST localhost:9200/rollup-test-index/_search
+Content-Type: application/json
+
+{
+  "size": 0,
+  "aggs": {
+    "city": {
+      "terms": {
+        "field": "geoip.city_name",
+        "size": 5,
+        "order": {"avg_sale_price": "desc"}
+      },
+      "aggs": {
+        "avg_sale_price": {
+          "avg": {
+            "field": "taxless_total_price"
+          }
+        }
+      }
+    }
+  }
+}
+###
+
+POST localhost:9200/rollup-test-index/_search?pretty
+Content-Type: application/json
+
+{
+  "size": 10,
+  "sort": { "rollup.doc_count":  "desc" },
+  "query": {
+    "exists": {
+      "field": "taxless_total_price.sum"
+    }
+  }
+}
+###
+POST localhost:9200/kibana_*/_search?pretty
+Content-Type: application/json
+
+{
+  "size": 0,
+  "query": {
+    "match_all": {}
+  },
+  "aggs": {"RollupCompositeAggs":{"composite":{"size":10,"sources":[{"order_date":{"date_histogram":{"field":"order_date","missing_bucket":false,"value_type":"date","order":"asc","fixed_interval":"1h","time_zone":"America/Los_Angeles"}}},{"geoip.city_name":{"terms":{"field":"geoip.city_name","missing_bucket":false,"order":"asc"}}},{"customer_id":{"terms":{"field":"customer_id","missing_bucket":false,"order":"asc"}}},{"day_of_week":{"terms":{"field":"day_of_week","missing_bucket":false,"order":"asc"}}}]},"aggregations":{"taxless_total_price.avg":{"avg":{"field":"taxless_total_price"}},"taxless_total_price.sum":{"sum":{"field":"taxless_total_price"}},"taxless_total_price.max":{"max":{"field":"taxless_total_price"}},"taxless_total_price.min":{"min":{"field":"taxless_total_price"}},"taxless_total_price.value_count":{"value_count":{"field":"taxless_total_price"}}}}}
+}
+###

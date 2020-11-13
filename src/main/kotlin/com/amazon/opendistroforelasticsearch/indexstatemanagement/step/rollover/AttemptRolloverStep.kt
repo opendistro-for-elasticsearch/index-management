@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexstatemanagement.model.managedi
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexstatemanagement.util.evaluateConditions
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest
 import org.elasticsearch.action.admin.indices.rollover.RolloverResponse
 import org.elasticsearch.action.admin.indices.stats.IndicesStatsRequest
@@ -33,6 +34,7 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
 
 @Suppress("ReturnCount", "TooGenericExceptionCaught")
@@ -138,6 +140,8 @@ class AttemptRolloverStep(
                     if (conditions.isEmpty()) null else "conditions" to conditions // don't show empty conditions object if no conditions specified
                 ).toMap()
             }
+        } catch (e: RemoteTransportException) {
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
             handleException(e)
         }
@@ -173,21 +177,16 @@ class AttemptRolloverStep(
                 "message" to message,
                 "shard_failures" to statsResponse.shardFailures.map { it.getUsefulCauseString() }
             )
+        } catch (e: RemoteTransportException) {
+            handleException(ExceptionsHelper.unwrapCause(e) as Exception)
         } catch (e: Exception) {
-            val message = getFailedEvaluateMessage(indexName)
-            logger.error(message, e)
-            stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to message)
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            handleException(e, getFailedEvaluateMessage(indexName))
         }
 
         return null
     }
 
-    private fun handleException(e: Exception) {
-        val message = getFailedMessage(indexName)
+    private fun handleException(e: Exception, message: String = getFailedMessage(indexName)) {
         logger.error(message, e)
         stepStatus = StepStatus.FAILED
         val mutableInfo = mutableMapOf("message" to message)

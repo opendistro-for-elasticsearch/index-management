@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination.Destination
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination.DestinationType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptType
@@ -35,7 +36,8 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     // cannot test chime/slack in integ tests, but can test a custom webhook by
-    // using the POST call to write to the local integTest cluster and verify that index exists
+    // using the POST call to write to the local integTest cluster and verify that index has 1 doc
+    @Suppress("UNCHECKED_CAST")
     fun `test custom webhook notification`() {
         val indexName = "${testIndexName}_index"
         val policyID = "${testIndexName}_testPolicyName"
@@ -72,6 +74,7 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
 
         createPolicy(policy, policyID)
         createIndex(indexName, policyID)
+        createIndex(notificationIndex)
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
 
@@ -80,14 +83,18 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
 
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
 
-        // verify index does not exist
-        assertFalse("Notification index exists before notification has been sent", indexExists(notificationIndex))
+        // verify index does not have any docs
+        assertEquals("Notification index has docs before notification has been sent", 0, (client().makeRequest("GET", "$notificationIndex/_search")
+            .asMap() as Map<String, Map<String, Map<String, Any>>>)["hits"]!!["total"]!!["value"])
 
         // Speed up to second execution where it will trigger the first execution of the action which
         // should call notification custom webhook and create the doc in notification_index
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        // verify index does exist
-        waitFor { assertTrue("Notification index does not exist", indexExists(notificationIndex)) }
+        // verify index gets a doc
+        waitFor {
+            assertEquals("Notification index does not have a doc", 1, (client().makeRequest("GET", "$notificationIndex/_search")
+                .asMap() as Map<String, Map<String, Map<String, Any>>>)["hits"]!!["total"]!!["value"])
+        }
     }
 }

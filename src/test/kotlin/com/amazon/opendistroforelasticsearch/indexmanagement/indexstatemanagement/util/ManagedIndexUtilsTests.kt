@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Conditions
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Transition
@@ -49,7 +50,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertEquals("Incorrect uuid used as document id on request", uuid, createRequest.id())
 
         val source = createRequest.source()
-        val managedIndexConfig = ManagedIndexConfig.parseWithType(contentParser(source))
+        val managedIndexConfig = contentParser(source).parseWithType(parse = ManagedIndexConfig.Companion::parse)
         assertEquals("Incorrect index on ManagedIndexConfig source", index, managedIndexConfig.index)
         assertEquals("Incorrect name on ManagedIndexConfig source", index, managedIndexConfig.name)
         assertEquals("Incorrect index uuid on ManagedIndexConfig source", uuid, managedIndexConfig.indexUuid)
@@ -123,7 +124,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertEquals("Incorrect uuid used as document id on request", clusterConfigToCreate.uuid, request.id())
         assertTrue("Incorrect request type", request is IndexRequest)
         val source = (request as IndexRequest).source()
-        val managedIndexConfig = ManagedIndexConfig.parseWithType(contentParser(source))
+        val managedIndexConfig = contentParser(source).parseWithType(parse = ManagedIndexConfig.Companion::parse)
 
         assertEquals("Incorrect index on ManagedIndexConfig source", clusterConfigToCreate.index, managedIndexConfig.index)
         assertEquals("Incorrect name on ManagedIndexConfig source", clusterConfigToCreate.index, managedIndexConfig.name)

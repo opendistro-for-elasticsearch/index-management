@@ -17,14 +17,15 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.retry
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldDeleteManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldDeleteManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -46,6 +47,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isPolicyCompleted
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateEnableManagedIndexRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -354,8 +356,8 @@ class ManagedIndexCoordinator(
         val managedIndexSearchRequest = getSweptManagedIndexSearchRequest()
         val response: SearchResponse = client.suspendUntil { search(managedIndexSearchRequest, it) }
         return response.hits.map {
-            it.id to SweptManagedIndexConfig.parseWithType(contentParser(it.sourceRef),
-                    it.seqNo, it.primaryTerm)
+            it.id to contentParser(it.sourceRef).parseWithType(NO_ID, it.seqNo,
+                it.primaryTerm, SweptManagedIndexConfig.Companion::parse)
         }.toMap()
     }
 

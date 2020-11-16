@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -43,7 +44,7 @@ data class SweptManagedIndexConfig(
         @Suppress("ComplexMethod")
         @JvmStatic
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndexConfig {
+        fun parse(xcp: XContentParser, id: String = NO_ID, seqNo: Long, primaryTerm: Long): SweptManagedIndexConfig {
             lateinit var index: String
             lateinit var uuid: String
             lateinit var policyID: String
@@ -77,17 +78,6 @@ data class SweptManagedIndexConfig(
                 policy,
                 changePolicy
             )
-        }
-
-        @JvmStatic
-        @Throws(IOException::class)
-        fun parseWithType(xcp: XContentParser, seqNo: Long, primaryTerm: Long): SweptManagedIndexConfig {
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            val sweptManagedIndex = parse(xcp, seqNo, primaryTerm)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
-            return sweptManagedIndex
         }
     }
 }

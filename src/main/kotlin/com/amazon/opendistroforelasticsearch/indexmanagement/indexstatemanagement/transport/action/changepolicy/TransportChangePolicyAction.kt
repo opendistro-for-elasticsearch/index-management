@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.changepolicy
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
@@ -27,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -117,7 +119,7 @@ class TransportChangePolicyAction @Inject constructor(
                 LoggingDeprecationHandler.INSTANCE,
                 response.sourceAsBytesRef,
                 XContentType.JSON
-            ).use { Policy.parseWithType(it, response.id, response.seqNo, response.primaryTerm) }
+            ).use { it.parseWithType(response.id, response.seqNo, response.primaryTerm, Policy.Companion::parse) }
 
             getClusterState()
         }
@@ -181,7 +183,8 @@ class TransportChangePolicyAction @Inject constructor(
                 // The id is the index uuid
                 if (!it.isFailed && it.response != null) {
                     foundManagedIndices.add(it.response.id)
-                    SweptManagedIndexConfig.parseWithType(contentParser(it.response.sourceAsBytesRef), it.response.seqNo, it.response.primaryTerm)
+                    contentParser(it.response.sourceAsBytesRef).parseWithType(NO_ID, it.response.seqNo,
+                        it.response.primaryTerm, SweptManagedIndexConfig.Companion::parse)
                 } else {
                     null
                 }

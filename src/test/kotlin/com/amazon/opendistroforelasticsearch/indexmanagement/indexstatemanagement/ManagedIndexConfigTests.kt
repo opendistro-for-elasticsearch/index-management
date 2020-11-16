@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser
@@ -34,22 +35,22 @@ class ManagedIndexConfigTests : ESTestCase() {
         val missingPolicyID = """{"managed_index":{"name":"edpNNwdVXG","enabled":false,"index":"DcdVHfmQUI","index_uuid":"SdcNvtdyAZYyrVkFMoQr","schedule":{"interval":{"start_time":1560402722674,"period":5,"unit":"Minutes"}},"last_updated_time":1560402722676,"enabled_time":null,"policy_seq_no":5,"policy_primary_term":17,"policy":{"name":"KumaJGCWPi","last_updated_time":1560402722676,"schema_version":348392,"error_notification":null,"default_state":"EpbLVqVhtL","states":[{"name":"EpbLVqVhtL","action":[],"transitions":[]},{"name":"IIJxQdcenu","action":[],"transitions":[]},{"name":"zSXlbLUBqG","action":[],"transitions":[]},{"name":"nYRPBojBiy","action":[],"transitions":[]}]},"change_policy":{"policy_id":"BtrDpcCBeT","state":"obxAkRuhvq"}}}"""
 
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for missing indexUuid") {
-            ManagedIndexConfig.parseWithType(parserWithType(missingIndexUuid))
+            parserWithType(missingIndexUuid).parseWithType(parse = ManagedIndexConfig.Companion::parse)
         }
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for missing index") {
-            ManagedIndexConfig.parseWithType(parserWithType(missingIndex))
+            parserWithType(missingIndex).parseWithType(parse = ManagedIndexConfig.Companion::parse)
         }
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for missing name") {
-            ManagedIndexConfig.parseWithType(parserWithType(missingName))
+            parserWithType(missingName).parseWithType(parse = ManagedIndexConfig.Companion::parse)
         }
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for missing schedule") {
-            ManagedIndexConfig.parseWithType(parserWithType(missingSchedule))
+            parserWithType(missingSchedule).parseWithType(parse = ManagedIndexConfig.Companion::parse)
         }
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for missing lastUpdatedTime") {
-            ManagedIndexConfig.parseWithType(parserWithType(missingLastUpdatedTime))
+            parserWithType(missingLastUpdatedTime).parseWithType(parse = ManagedIndexConfig.Companion::parse)
         }
         assertFailsWith(IllegalArgumentException::class, "Expected IllegalArgumentException for missing policyID") {
-            ManagedIndexConfig.parseWithType(parserWithType(missingPolicyID))
+            parserWithType(missingPolicyID).parseWithType(parse = ManagedIndexConfig.Companion::parse)
         }
     }
 

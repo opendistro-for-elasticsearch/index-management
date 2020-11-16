@@ -15,8 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.transition
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getUsefulCauseString
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.getUsefulCauseString
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.TransitionsActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StepMetaData

@@ -18,6 +18,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
@@ -127,3 +128,10 @@ fun Rollup.getDateHistogram(): DateHistogram {
     require(dimension is DateHistogram) { "The first dimension in rollup must be a date histogram" }
     return dimension
 }
+
+fun Rollup.getInitialDocValues(docCount: Long): MutableMap<String, Any?> =
+    mutableMapOf(
+        Rollup.ROLLUP_DOC_ID_FIELD to this.id,
+        Rollup.ROLLUP_DOC_COUNT_FIELD to docCount,
+        Rollup.ROLLUP_DOC_SCHEMA_VERSION_FIELD to this.schemaVersion
+    )

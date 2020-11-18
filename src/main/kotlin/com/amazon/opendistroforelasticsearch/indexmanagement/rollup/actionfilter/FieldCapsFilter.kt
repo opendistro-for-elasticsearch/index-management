@@ -245,8 +245,9 @@ class FieldCapsFilter(
         val name = fc1.name
         val type = fc1.type
         val indices = fc1.indices() + fc2. indices()
-        val nonAggregatableIndices = arrayOf<String>() // t1.nonAggregatableIndices() + t2.nonAggregatableIndices()
-        val nonSearchableIndices = arrayOf<String>() // t1.nonSearchableIndices() + t2.nonSearchableIndices()
+        // TODO: use isSearchable and isAggregatable to populate nonAgg and nonSearchable indices
+        val nonAggregatableIndices = arrayOf<String>()
+        val nonSearchableIndices = arrayOf<String>()
         val meta = (fc1.meta().keys + fc2.meta().keys)
                 .associateWith{
                     val data = mutableSetOf<String>()

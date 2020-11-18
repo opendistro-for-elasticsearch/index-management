@@ -260,27 +260,27 @@ class FieldCapsFilter(
     }
 
     private fun mergeNonAggregatableIndices(fc1: FieldCapabilities, fc2: FieldCapabilities): Array<String>? {
+        val response = mutableSetOf<String>()
         if (fc1.isAggregatable || fc2.isAggregatable) {
-            val response = mutableSetOf<String>()
-            if (!fc1.isAggregatable) response.addAll(fc1.indices()) else response.addAll(fc2.indices())
+            if (!fc1.isAggregatable) response.addAll(fc1.indices())
+            if (!fc2.isAggregatable) response.addAll(fc2.indices())
             if (fc1.nonAggregatableIndices() != null) response.addAll(fc1.nonAggregatableIndices())
             if (fc2.nonAggregatableIndices() != null) response.addAll(fc2.nonAggregatableIndices())
-            return response.toTypedArray()
         }
 
-        return null
+        return if (response.isEmpty()) null else response.toTypedArray()
     }
 
     private fun mergeNonSearchableIndices(fc1: FieldCapabilities, fc2: FieldCapabilities): Array<String>? {
+        val response = mutableSetOf<String>()
         if (fc1.isSearchable || fc2.isSearchable) {
-            val response = mutableSetOf<String>()
-            if (!fc1.isSearchable) response.addAll(fc1.indices()) else response.addAll(fc2.indices())
+            if (!fc1.isSearchable) response.addAll(fc1.indices())
+            if (!fc2.isSearchable) response.addAll(fc2.indices())
             if (fc1.nonSearchableIndices() != null) response.addAll(fc1.nonSearchableIndices())
             if (fc2.nonSearchableIndices() != null) response.addAll(fc2.nonSearchableIndices())
-            return response.toTypedArray()
         }
 
-        return null
+        return if (response.isEmpty()) null else response.toTypedArray()
     }
 
     override fun order(): Int {

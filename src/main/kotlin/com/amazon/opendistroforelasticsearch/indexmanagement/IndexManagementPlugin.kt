@@ -305,7 +305,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         return listOf(rollupInterceptor)
     }
 
-    override fun getActionFilters(): MutableList<ActionFilter> {
-        return mutableListOf(FieldCapsFilter(clusterService, indexNameExpressionResolver))
+    override fun getActionFilters(): List<ActionFilter> {
+        return listOf(FieldCapsFilter(clusterService, indexNameExpressionResolver))
     }
 }

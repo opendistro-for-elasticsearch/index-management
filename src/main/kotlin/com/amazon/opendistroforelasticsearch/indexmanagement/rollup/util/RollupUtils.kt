@@ -244,8 +244,9 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
             ScriptedMetricAggregationBuilder(aggregationBuilder.name)
                     .initScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, "state.sums = 0; state.counts = 0;", emptyMap()))
                     .mapScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
-                            "state.sums += doc[\"${this.findMatchingMetricField<Average>(aggregationBuilder.field()) + ".sum"}\"].value; state.counts" +
-                                    " += doc[\"${this.findMatchingMetricField<Average>(aggregationBuilder.field()) + ".value_count"}\"].value", emptyMap()))
+                            "state.sums += doc[\"${this.findMatchingMetricField<Average>(aggregationBuilder.field()) + ".sum"}\"].value; " +
+                                    "state.counts += doc[\"${this.findMatchingMetricField<Average>(aggregationBuilder.field()) + ".value_count"}\"" +
+                                    "].value", emptyMap()))
                     .combineScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
                             "def d = new long[2]; d[0] = state.sums; d[1] = state.counts; return d", emptyMap()))
                     .reduceScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
@@ -270,7 +271,8 @@ fun Rollup.rewriteAggregationBuilder(aggregationBuilder: AggregationBuilder): Ag
             ScriptedMetricAggregationBuilder(aggregationBuilder.name)
                     .initScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, "state.valueCounts = []", emptyMap()))
                     .mapScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
-                            "state.valueCounts.add(doc[\"${this.findMatchingMetricField<ValueCount>(aggregationBuilder.field())}\"].value)", emptyMap()))
+                            "state.valueCounts.add(doc[\"${this.findMatchingMetricField<ValueCount>(aggregationBuilder.field())}\"].value)",
+                            emptyMap()))
                     .combineScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,
                             "long valueCount = 0; for (vc in state.valueCounts) { valueCount += vc } return valueCount", emptyMap()))
                     .reduceScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG,

@@ -85,7 +85,6 @@ class FieldCapsFilter(
         } else {
             chain.proceed(task, action, request, listener)
         }
-
     }
 
     private fun rewriteResponse(
@@ -151,7 +150,7 @@ class FieldCapsFilter(
     private fun populateSourceFieldMappingsForRollupIndex(rollupIndex: String): Map<String, Set<RollupFieldMapping>> {
         val fieldMappings = mutableMapOf<String, MutableSet<RollupFieldMapping>>()
         val rollupJobs = clusterService.state().metadata.index(rollupIndex).getRollupJobs() ?: return fieldMappings
-        rollupJobs.forEach {rollup ->
+        rollupJobs.forEach { rollup ->
             if (fieldMappings[rollup.targetIndex] == null) {
                 fieldMappings[rollup.targetIndex] = mutableSetOf()
             }
@@ -160,7 +159,7 @@ class FieldCapsFilter(
         return fieldMappings
     }
 
-    private fun populateSourceFieldMappingsForRollupIndices(rollupIndices: Set<String>) : MutableMap<RollupFieldMapping, MutableSet<String>> {
+    private fun populateSourceFieldMappingsForRollupIndices(rollupIndices: Set<String>): MutableMap<RollupFieldMapping, MutableSet<String>> {
         val fieldMappingsMap = mutableMapOf<RollupFieldMapping, MutableSet<String>>()
 
         rollupIndices.forEach { rollupIndex ->
@@ -189,7 +188,9 @@ class FieldCapsFilter(
     }
 
     private fun expandIndicesInFields(
-        indices: Array<String>, fields: Map<String, Map<String, FieldCapabilities>>): Map<String, Map<String, FieldCapabilities>> {
+        indices: Array<String>,
+        fields: Map<String, Map<String, FieldCapabilities>>
+    ): Map<String, Map<String, FieldCapabilities>> {
         val expandedResponse = mutableMapOf<String, MutableMap<String, FieldCapabilities>>()
         fields.keys.forEach { field ->
             fields.getValue(field).keys.forEach { type ->
@@ -247,11 +248,11 @@ class FieldCapsFilter(
         val isAggregatable = fc1.isAggregatable || fc2.isAggregatable
         val name = fc1.name
         val type = fc1.type
-        val indices = fc1.indices() + fc2. indices()
+        val indices = fc1.indices() + fc2.indices()
         val nonAggregatableIndices = mergeNonAggregatableIndices(fc1, fc2)
         val nonSearchableIndices = mergeNonSearchableIndices(fc1, fc2)
         val meta = (fc1.meta().keys + fc2.meta().keys)
-                .associateWith{
+                .associateWith {
                     val data = mutableSetOf<String>()
                     data.addAll(fc1.meta().getOrDefault(it, mutableSetOf()))
                     data.addAll(fc2.meta().getOrDefault(it, mutableSetOf()))

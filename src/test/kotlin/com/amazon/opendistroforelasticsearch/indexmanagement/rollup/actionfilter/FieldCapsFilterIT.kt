@@ -46,8 +46,7 @@ class FieldCapsFilterIT : RollupRestTestCase() {
         try {
             client().makeRequest("GET", "/unknown/_field_caps?fields=*")
             fail("Expected 404 not_found exception")
-        }
-        catch (e: ResponseException) {
+        } catch (e: ResponseException) {
             assertTrue(e.response.restStatus() == RestStatus.NOT_FOUND)
             val error = e.response.asMap()["error"] as Map<String, *>
             assertEquals("index_not_found_exception", error["type"])

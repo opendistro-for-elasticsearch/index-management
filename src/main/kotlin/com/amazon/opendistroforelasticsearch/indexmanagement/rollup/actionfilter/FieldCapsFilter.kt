@@ -5,7 +5,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getRollupJobs
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.populateFieldMappings
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.PROPERTIES
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.ActionRequest
@@ -125,7 +125,7 @@ class FieldCapsFilter(
             }
             val isSearchable = fieldMapping.fieldType == RollupFieldMapping.Companion.FieldType.DIMENSION
             response[fieldName]!![type] = FieldCapabilities(fieldName, type, isSearchable, true, fieldMappingIndexMap.getValue(fieldMapping)
-                    .toTypedArray(), arrayOf<String>(), arrayOf<String>(), mapOf<String, Set<String>>())
+                    .toTypedArray(), null, null, mapOf<String, Set<String>>())
         }
 
         return response
@@ -180,7 +180,7 @@ class FieldCapsFilter(
     private fun getFieldType(fieldName: String, mappings: Map<*, *>): String? {
         var currMap = mappings
         fieldName.split(".").forEach { field ->
-            val nextMap = (currMap[IndexUtils.PROPERTIES] as Map<*, *>?)?.get(field) ?: return null
+            val nextMap = (currMap[PROPERTIES] as Map<*, *>?)?.get(field) ?: return null
             currMap = nextMap as Map<*, *>
         }
 
@@ -245,9 +245,8 @@ class FieldCapsFilter(
         val name = fc1.name
         val type = fc1.type
         val indices = fc1.indices() + fc2. indices()
-        // TODO: use isSearchable and isAggregatable to populate nonAgg and nonSearchable indices
-        val nonAggregatableIndices = arrayOf<String>()
-        val nonSearchableIndices = arrayOf<String>()
+        val nonAggregatableIndices = mergeNonAggregatableIndices(fc1, fc2)
+        val nonSearchableIndices = mergeNonSearchableIndices(fc1, fc2)
         val meta = (fc1.meta().keys + fc2.meta().keys)
                 .associateWith{
                     val data = mutableSetOf<String>()
@@ -257,6 +256,30 @@ class FieldCapsFilter(
                 }
 
         return FieldCapabilities(name, type, isSearchable, isAggregatable, indices, nonSearchableIndices, nonAggregatableIndices, meta)
+    }
+
+    private fun mergeNonAggregatableIndices(fc1: FieldCapabilities, fc2: FieldCapabilities): Array<String>? {
+        if (fc1.isAggregatable || fc2.isAggregatable) {
+            val response = mutableSetOf<String>()
+            if (!fc1.isAggregatable) response.addAll(fc1.indices()) else response.addAll(fc2.indices())
+            if (fc1.nonAggregatableIndices() != null) response.addAll(fc1.nonAggregatableIndices())
+            if (fc2.nonAggregatableIndices() != null) response.addAll(fc2.nonAggregatableIndices())
+            return response.toTypedArray()
+        }
+
+        return null
+    }
+
+    private fun mergeNonSearchableIndices(fc1: FieldCapabilities, fc2: FieldCapabilities): Array<String>? {
+        if (fc1.isSearchable || fc2.isSearchable) {
+            val response = mutableSetOf<String>()
+            if (!fc1.isSearchable) response.addAll(fc1.indices()) else response.addAll(fc2.indices())
+            if (fc1.nonSearchableIndices() != null) response.addAll(fc1.nonSearchableIndices())
+            if (fc2.nonSearchableIndices() != null) response.addAll(fc2.nonSearchableIndices())
+            return response.toTypedArray()
+        }
+
+        return null
     }
 
     override fun order(): Int {

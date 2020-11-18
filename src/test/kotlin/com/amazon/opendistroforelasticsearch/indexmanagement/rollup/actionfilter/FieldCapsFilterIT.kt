@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.actionfilte
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 
@@ -18,9 +19,7 @@ class FieldCapsFilterIT : RollupRestTestCase() {
         assertTrue(response.restStatus() == RestStatus.OK)
         var data = response.asMap()
         var indices = data["indices"] as List<String>
-        var fields = data["fields"] as Map<Any, Any>
         assertTrue(indices.containsAll(listOf("raw-data", "rollup-data")))
-        assertEquals(fields, "")
 
         // Request for all indices
         response = client().makeRequest("GET", "//_field_caps?fields=*")
@@ -42,5 +41,16 @@ class FieldCapsFilterIT : RollupRestTestCase() {
         data = response.asMap()
         indices = data["indices"] as List<String>
         assertTrue(indices.containsAll(listOf("raw-data")))
+
+        // Unknown index
+        try {
+            client().makeRequest("GET", "/unknown/_field_caps?fields=*")
+            fail("Expected 404 not_found exception")
+        }
+        catch (e: ResponseException) {
+            assertTrue(e.response.restStatus() == RestStatus.NOT_FOUND)
+            val error = e.response.asMap()["error"] as Map<String, *>
+            assertEquals("index_not_found_exception", error["type"])
+        }
     }
 }

@@ -47,6 +47,8 @@ import java.time.Instant
 
 abstract class RollupRestTestCase : IndexManagementRestTestCase() {
 
+    override fun preserveIndicesUponCompletion(): Boolean = true
+
     protected fun createRollup(
         rollup: Rollup,
         rollupId: String = ESTestCase.randomAlphaOfLength(10),

@@ -41,7 +41,7 @@ import java.time.temporal.ChronoUnit
 class RollupRunnerIT : RollupRestTestCase() {
 
     fun `test metadata is created for rollup job when none exists`() {
-        val indexName = "test_index"
+        val indexName = "test_index_runner_first"
 
         // Define rollup
         var rollup = randomRollup().copy(
@@ -77,7 +77,7 @@ class RollupRunnerIT : RollupRestTestCase() {
     }
 
     fun `test metadata set to failed when rollup job has a metadata id but metadata doc doesn't exist`() {
-        val indexName = "test_index"
+        val indexName = "test_index_runner_second"
 
         // Define rollup
         var rollup = randomRollup().copy(
@@ -140,7 +140,7 @@ class RollupRunnerIT : RollupRestTestCase() {
     // which could result in this test failing.
     // Setting the interval to something large to minimize this scenario.
     fun `test no-op execution when a full window of time to rollup is not available`() {
-        val indexName = "test_index"
+        val indexName = "test_index_runner_third"
 
         // Define rollup
         var rollup = randomRollup().copy(
@@ -198,7 +198,7 @@ class RollupRunnerIT : RollupRestTestCase() {
     }
 
     fun `test running job with no source index fails`() {
-        val indexName = "test_index"
+        val indexName = "test_index_runner_fourth"
 
         // Define rollup
         var rollup = randomRollup().copy(
@@ -237,18 +237,18 @@ class RollupRunnerIT : RollupRestTestCase() {
     fun `test metadata stats contains correct info`() {
         // TODO: we are setting these jobs serially since we know concurrently running jobs can cause failures to update metadata sometimes.
 
-        generateNYCTaxiData("source")
+        generateNYCTaxiData("source_runner_fifth")
 
         val rollup = Rollup(
-            id = "basic_stats_check",
+            id = "basic_stats_check_runner_fifth",
             schemaVersion = 1L,
             enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
             description = "basic stats test",
-            sourceIndex = "source",
-            targetIndex = "target",
+            sourceIndex = "source_runner_fifth",
+            targetIndex = "target_runner_fifth",
             metadataID = null,
             roles = emptyList(),
             pageSize = 100,
@@ -261,15 +261,15 @@ class RollupRunnerIT : RollupRestTestCase() {
         ).let { createRollup(it, it.id) }
 
         val secondRollup = Rollup(
-            id = "all_inclusive_intervals",
+            id = "all_inclusive_intervals_runner_fifth",
             schemaVersion = 1L,
             enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
             description = "basic stats test",
-            sourceIndex = "source",
-            targetIndex = "target",
+            sourceIndex = "source_runner_fifth",
+            targetIndex = "target_runner_fifth",
             metadataID = null,
             roles = emptyList(),
             pageSize = 100,
@@ -282,15 +282,15 @@ class RollupRunnerIT : RollupRestTestCase() {
         ).let { createRollup(it, it.id) }
 
         val thirdRollup = Rollup(
-            id = "second_interval",
+            id = "second_interval_runner_fifth",
             schemaVersion = 1L,
             enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
             description = "basic 1s test",
-            sourceIndex = "source",
-            targetIndex = "target",
+            sourceIndex = "source_runner_fifth",
+            targetIndex = "target_runner_fifth",
             metadataID = null,
             roles = emptyList(),
             pageSize = 100,
@@ -380,18 +380,18 @@ class RollupRunnerIT : RollupRestTestCase() {
     fun `test changing page size during execution`() {
         // The idea with this test is we set the original pageSize=1 and fixedInterval to 1s to take a long time
         // to rollup a single document per execution which gives us enough time to change the pageSize to something large
-        generateNYCTaxiData("source")
+        generateNYCTaxiData("source_runner_sixth")
 
         val rollup = Rollup(
-            id = "page_size",
+            id = "page_size_runner_sixth",
             schemaVersion = 1L,
             enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
             description = "basic change of page size",
-            sourceIndex = "source",
-            targetIndex = "target",
+            sourceIndex = "source_runner_sixth",
+            targetIndex = "target_runner_sixth",
             metadataID = null,
             roles = emptyList(),
             pageSize = 1,
@@ -435,20 +435,20 @@ class RollupRunnerIT : RollupRestTestCase() {
     }
 
     fun `test search max buckets breaker`() {
-        generateNYCTaxiData("source")
+        generateNYCTaxiData("source_runner_seventh")
         // Set the search max buckets to 50 and rollup search retry count to 0 so it won't retry on failure. This is to confirm first that yes we do get an error and moved into failed state.
         client().makeRequest("PUT", "/_cluster/settings", StringEntity("""{"persistent":{"search.max_buckets":"50", "opendistro.rollup.search.backoff_count": 0 }}""", ContentType.APPLICATION_JSON))
 
         val rollup = Rollup(
-            id = "page_size_no_retry",
+            id = "page_size_no_retry_first_runner_seventh",
             schemaVersion = 1L,
             enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
             description = "basic page size",
-            sourceIndex = "source",
-            targetIndex = "target",
+            sourceIndex = "source_runner_seventh",
+            targetIndex = "target_runner_seventh",
             metadataID = null,
             roles = emptyList(),
             pageSize = 100,
@@ -475,15 +475,15 @@ class RollupRunnerIT : RollupRestTestCase() {
         client().makeRequest("PUT", "/_cluster/settings", StringEntity("""{"persistent":{"search.max_buckets":"50", "opendistro.rollup.search.backoff_count": 5 }}""", ContentType.APPLICATION_JSON))
 
         val secondRollup = Rollup(
-            id = "page_size_with_retry",
+            id = "page_size_with_retry_second_runner_seventh",
             schemaVersion = 1L,
             enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
             description = "basic page size",
-            sourceIndex = "source",
-            targetIndex = "new_target",
+            sourceIndex = "source_runner_seventh",
+            targetIndex = "new_target_runner_seventh",
             metadataID = null,
             roles = emptyList(),
             pageSize = 100,

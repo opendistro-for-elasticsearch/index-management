@@ -5,6 +5,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getRollupJobs
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.populateFieldMappings
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.FIELDS
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.PROPERTIES
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
@@ -180,7 +181,7 @@ class FieldCapsFilter(
     private fun getFieldType(fieldName: String, mappings: Map<*, *>): String? {
         var currMap = mappings
         fieldName.split(".").forEach { field ->
-            val nextMap = (currMap[PROPERTIES] as Map<*, *>?)?.get(field) ?: return null
+            val nextMap = (currMap[PROPERTIES] as Map<*, *>? ?: currMap[FIELDS] as Map<*, *>?)?.get(field) ?: return null
             currMap = nextMap as Map<*, *>
         }
 

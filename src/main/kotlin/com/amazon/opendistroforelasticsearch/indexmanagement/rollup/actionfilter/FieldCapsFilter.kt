@@ -28,7 +28,7 @@ import org.elasticsearch.tasks.Task
 
 private val logger = LogManager.getLogger(FieldCapsFilter::class.java)
 
-@Suppress("UNCHECKED_CAST")
+@Suppress("UNCHECKED_CAST", "SpreadOperator", "TooManyFunctions")
 class FieldCapsFilter(
     val clusterService: ClusterService,
     val indexNameExpressionResolver: IndexNameExpressionResolver
@@ -159,6 +159,7 @@ class FieldCapsFilter(
         return fieldMappings
     }
 
+    @Suppress("NestedBlockDepth")
     private fun populateSourceFieldMappingsForRollupIndices(rollupIndices: Set<String>): MutableMap<RollupFieldMapping, MutableSet<String>> {
         val fieldMappingsMap = mutableMapOf<RollupFieldMapping, MutableSet<String>>()
 

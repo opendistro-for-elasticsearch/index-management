@@ -220,6 +220,7 @@ class FieldCapsFilter(
         return mergedResponses
     }
 
+    @Suppress("ReturnCount")
     private fun mergeTypes(t1: Map<String, FieldCapabilities>?, t2: Map<String, FieldCapabilities>?): Map<String, FieldCapabilities>? {
         if (t1 == null) return t2
         if (t2 == null) return t1
@@ -233,6 +234,7 @@ class FieldCapsFilter(
         return mergedFields
     }
 
+    @Suppress("ReturnCount")
     private fun mergeFieldCaps(fc1: FieldCapabilities?, fc2: FieldCapabilities?): FieldCapabilities? {
         if (fc1 == null) return fc2
         if (fc2 == null) return fc1

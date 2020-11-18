@@ -18,14 +18,15 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService.Companion.findMatchingISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldDeleteManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldDeleteManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -46,6 +47,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getSweptManagedIndexSearchRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isPolicyCompleted
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismTemplates
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateEnableManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import kotlinx.coroutines.CoroutineName
@@ -261,8 +263,36 @@ class ManagedIndexCoordinator(
             if (it.value.shouldDeleteManagedIndexMetaData()) indicesToRemoveManagedIndexMetaDataFrom.add(it.value.index)
         }
 
-        updateManagedIndices(updateManagedIndicesRequests + indicesDeletedRequests, hasCreateRequests)
+        // check newly created indices matching any ISM templates
+        val updateMatchingIndexReqs = getMatchingIndicesUpdateReqs(event.state(), event.indicesCreated())
+        if (updateMatchingIndexReqs.isNotEmpty()) hasCreateRequests = true
+
+        updateManagedIndices(updateManagedIndicesRequests + updateMatchingIndexReqs + indicesDeletedRequests, hasCreateRequests)
         clearManagedIndexMetaData(indicesToRemoveManagedIndexMetaDataFrom)
+    }
+
+    /**
+     * Get update requests for indices matching any ISM templates
+     */
+    fun getMatchingIndicesUpdateReqs(clusterState: ClusterState, indexNames: List<String>): List<DocWriteRequest<*>> {
+        val indexMetadatas = clusterState.metadata.indices
+        val templates = clusterState.metadata.ismTemplates()
+
+        val matchingTemplates = indexNames.map { indexName ->
+            indexName to findMatchingISMTemplate(templates, indexMetadatas[indexName])
+        }.toMap()
+
+        val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
+        matchingTemplates.filter { (_, template) -> template != null }.forEach { (index, template) ->
+            val indexUuids = indexMetadatas[index].indexUUID
+            val policyID = templates[template]?.policyID
+            if (indexUuids != null && policyID != null) {
+                logger.info("create request for index $index matching template $template")
+                updateManagedIndexReqs.add(managedIndexConfigIndexRequest(index, indexUuids, policyID, jobInterval))
+            }
+        }
+
+        return updateManagedIndexReqs
     }
 
     /**
@@ -317,6 +347,13 @@ class ManagedIndexCoordinator(
     @OpenForTesting
     suspend fun sweep() {
         val currentManagedIndices = sweepManagedIndexJobs(client, ismIndices.indexManagementIndexExists())
+
+        // check all un-managed indices, if its name matches any template and older than that template
+        val unManagedIndices = clusterService.state().metadata.indices.values().filterNotNull()
+                .filter { it.value.indexUUID !in currentManagedIndices.keys }.map { it.value.index.name }
+        val updateMatchingIndicesReqs = getMatchingIndicesUpdateReqs(clusterService.state(), unManagedIndices)
+        updateManagedIndices(updateMatchingIndicesReqs, updateMatchingIndicesReqs.isNotEmpty())
+
         val clusterStateManagedIndices = sweepClusterState(clusterService.state())
 
         val createManagedIndexRequests =
@@ -330,6 +367,7 @@ class ManagedIndexCoordinator(
         val requests = createManagedIndexRequests + deleteManagedIndexRequests
         updateManagedIndices(requests, createManagedIndexRequests.isNotEmpty())
         clearManagedIndexMetaData(indicesToDeleteManagedIndexMetaDataFrom)
+
         lastFullSweepTimeNano = System.nanoTime()
     }
 

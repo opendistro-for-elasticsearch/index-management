@@ -18,14 +18,53 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
 class RestExplainRollupActionIT : RollupRestTestCase() {
+
+    @Throws(Exception::class)
+    fun `test explain rollup`() {
+        val rollup = createRollup(
+            randomRollup()
+                .copy(
+                    continuous = false,
+                    jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                    enabled = true,
+                    jobEnabledTime = Instant.now(),
+                    metadataID = null
+                )
+        )
+        createRollupSourceIndex(rollup)
+        updateRollupStartTime(rollup)
+
+        // Add it in a waitFor because the metadata is not immediately available and it starts off in INIT for a very brief time
+        waitFor {
+            val updatedRollup = getRollup(rollupId = rollup.id)
+            assertNotNull("MetadataID on rollup was null", updatedRollup.metadataID)
+            val response = client().makeRequest("GET", "$ROLLUP_JOBS_BASE_URI/${updatedRollup.id}/_explain")
+            assertEquals(RestStatus.OK, response.restStatus())
+            val responseMap = response.asMap()
+            assertNotNull("Response is null", responseMap)
+            assertTrue("Response does not have metadata", responseMap.keys.isNotEmpty())
+            val explainMetadata = responseMap[updatedRollup.id] as Map<String, Any>
+            assertNotNull("Did not have key for rollup ID", explainMetadata)
+            assertEquals("Did not have metadata_id in explain response", updatedRollup.metadataID, explainMetadata["metadata_id"])
+            val metadata = explainMetadata["rollup_metadata"] as Map<String, Any>
+            assertNotNull("Did not have metadata in explain response", metadata)
+            // It should be finished because we have no docs and it's not continuous so it should finish immediately upon execution
+            assertEquals("Status should be finished", RollupMetadata.Status.FINISHED.type, metadata["status"])
+        }
+    }
 
     @Throws(Exception::class)
     fun `test explain a rollup with no id fails`() {

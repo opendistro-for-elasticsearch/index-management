@@ -60,34 +60,33 @@ class RestGetRollupActionIT : RollupRestTestCase() {
         val totalRollups = map["total_rollups"] as Int
         val resRollups = map["rollups"] as List<Map<String, Any?>>
 
-        assertEquals("Total rollups was not the same", rollups.size, totalRollups)
-        assertEquals("Rollups response has different size", rollups.size, resRollups.size)
-        // Rollups in response will default to sorting my ID so first sort original rollups before comparing
-        rollups.sortBy { it.id }
-        for (i in 0 until rollups.size) {
-            val resRollup = resRollups[i]
-            val innerRollup = resRollup["rollup"] as Map<String, Any?>
-            val rollup = rollups[i]
-            assertEquals(rollup.id, resRollup["_id"] as String)
-            assertEquals(rollup.seqNo, (resRollup["_seq_no"] as Int).toLong())
-            assertEquals(rollup.primaryTerm, (resRollup["_primary_term"] as Int).toLong())
-            assertEquals(rollup.id, innerRollup["rollup_id"] as String)
+        // There can be leftover rollups from previous tests, so we will have at least rollups.size or more
+        assertTrue("Total rollups was not the same", rollups.size <= totalRollups)
+        assertTrue("Rollups response has different size", rollups.size <= resRollups.size)
+        for (testRollup in rollups) {
+            val foundRollup = resRollups.find { testRollup.id == it["_id"] as String }
+            assertNotNull("Did not find matching rollup that should exist", foundRollup)
+            val innerRollup = foundRollup!!["rollup"] as Map<String, Any?>
+            assertEquals(testRollup.id, foundRollup["_id"] as String)
+            assertEquals(testRollup.seqNo, (foundRollup["_seq_no"] as Int).toLong())
+            assertEquals(testRollup.primaryTerm, (foundRollup["_primary_term"] as Int).toLong())
+            assertEquals(testRollup.id, innerRollup["rollup_id"] as String)
             // Doesn't matter what rollup sets, current system is at schema version 5
             assertEquals(5, (innerRollup["schema_version"] as Int).toLong())
-            assertEquals(rollup.enabled, innerRollup["enabled"] as Boolean)
-            assertEquals(rollup.enabledTime?.toEpochMilli(), innerRollup["enabled_time"] as Long?)
+            assertEquals(testRollup.enabled, innerRollup["enabled"] as Boolean)
+            assertEquals(testRollup.enabledTime?.toEpochMilli(), innerRollup["enabled_time"] as Long?)
             // Last updated time will never be correct as it gets updated in the API call
-            // assertEquals(rollup.lastUpdateTime.toEpochMilli(), innerRollup["last_updated_time"] as Long)
-            assertEquals(rollup.continuous, innerRollup["continuous"] as Boolean)
-            assertEquals(rollup.targetIndex, innerRollup["target_index"] as String)
-            assertEquals(rollup.sourceIndex, innerRollup["source_index"] as String)
-            assertEquals(rollup.metadataID, innerRollup["metadata_id"] as String?)
-            assertEquals(rollup.roles, innerRollup["roles"] as List<String>)
-            assertEquals(rollup.pageSize, innerRollup["page_size"] as Int)
-            assertEquals(rollup.description, innerRollup["description"] as String)
-            assertEquals(rollup.delay, (innerRollup["delay"] as Number?)?.toLong())
-            assertEquals(rollup.metrics.size, (innerRollup["metrics"] as List<Map<String, Any?>>).size)
-            assertEquals(rollup.dimensions.size, (innerRollup["dimensions"] as List<Map<String, Any?>>).size)
+            // assertEquals(testRollup.lastUpdateTime.toEpochMilli(), innerRollup["last_updated_time"] as Long)
+            assertEquals(testRollup.continuous, innerRollup["continuous"] as Boolean)
+            assertEquals(testRollup.targetIndex, innerRollup["target_index"] as String)
+            assertEquals(testRollup.sourceIndex, innerRollup["source_index"] as String)
+            assertEquals(testRollup.metadataID, innerRollup["metadata_id"] as String?)
+            assertEquals(testRollup.roles, innerRollup["roles"] as List<String>)
+            assertEquals(testRollup.pageSize, innerRollup["page_size"] as Int)
+            assertEquals(testRollup.description, innerRollup["description"] as String)
+            assertEquals(testRollup.delay, (innerRollup["delay"] as Number?)?.toLong())
+            assertEquals(testRollup.metrics.size, (innerRollup["metrics"] as List<Map<String, Any?>>).size)
+            assertEquals(testRollup.dimensions.size, (innerRollup["dimensions"] as List<Map<String, Any?>>).size)
         }
     }
 

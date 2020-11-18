@@ -35,7 +35,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollupDimensions
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollupMetrics
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.XContentType
@@ -54,12 +53,8 @@ class RestIndexRollupActionIT : RollupRestTestCase() {
         assertEquals("Create rollup failed", RestStatus.CREATED, response.restStatus())
         val responseBody = response.asMap()
         val createdId = responseBody["_id"] as String
-        val createdSeqNo = responseBody[_SEQ_NO] as Int
-        val createdPrimaryTerm = responseBody[_PRIMARY_TERM] as Int
         assertNotEquals("Response is missing Id", Rollup.NO_ID, createdId)
         assertEquals("Not same id", rollup.id, createdId)
-        assertEquals("Incorrect seqNo", 0, createdSeqNo)
-        assertEquals("Incorrect primaryTerm", 1, createdPrimaryTerm)
         assertEquals("Incorrect Location header", "$ROLLUP_JOBS_BASE_URI/$createdId", response.getHeader("Location"))
     }
 

@@ -35,6 +35,7 @@ class IndexUtils {
         @Suppress("ObjectPropertyNaming")
         const val _META = "_meta"
         const val PROPERTIES = "properties"
+        const val FIELDS = "fields"
         const val SCHEMA_VERSION = "schema_version"
         const val DEFAULT_SCHEMA_VERSION = 1L
         val logger = LogManager.getLogger(IndexUtils::class.java)

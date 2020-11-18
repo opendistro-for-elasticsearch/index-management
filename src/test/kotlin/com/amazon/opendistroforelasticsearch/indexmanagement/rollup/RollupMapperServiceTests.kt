@@ -69,6 +69,36 @@ class RollupMapperServiceTests : ESTestCase() {
         }
     }
 
+    fun `test source index validation with subfield`() {
+        val sourceIndex = "test-index"
+
+        val dimensions = listOf(randomDateHistogram().copy(
+            sourceField = "category.keyword"
+        ))
+        val metrics = listOf(randomRollupMetrics().copy(
+            sourceField = "total_quantity"
+        ))
+        val rollup = randomRollup().copy(
+            enabled = true,
+            jobEnabledTime = Instant.now(),
+            dimensions = dimensions,
+            metrics = metrics
+        )
+
+        val client = getClient(getAdminClient(getIndicesAdminClient(
+            getMappingsResponse = getKibanaSampleDataMappingResponse(sourceIndex),
+            getMappingsException = null
+        )))
+        val clusterService = getClusterService()
+        val indexNameExpressionResolver = getIndexNameExpressionResolver(listOf(sourceIndex))
+        val mapperService = RollupMapperService(client, clusterService, indexNameExpressionResolver)
+
+        runBlocking {
+            val sourceIndexValidationResult = mapperService.isSourceIndexValid(rollup)
+            require(sourceIndexValidationResult is RollupJobValidationResult.Valid) { "Source index validation returned unexpected results" }
+        }
+    }
+
     fun `test source index validation with nested field`() {
         val sourceIndex = "test-index"
 

@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimens
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.PROPERTIES
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion._META
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
@@ -197,7 +198,8 @@ class RollupMapperService(
     private fun isFieldInMappings(fieldName: String, mappings: Map<*, *>): Boolean {
         var currMap = mappings
         fieldName.split(".").forEach { field ->
-            val nextMap = (currMap[PROPERTIES] as Map<*, *>?)?.get(field) ?: return false
+            // Looks for a properties field to continue searching or if there is none checks if there is a subfield
+            val nextMap = (currMap[PROPERTIES] as Map<*, *>? ?: currMap[IndexUtils.FIELDS] as Map<*, *>?)?.get(field) ?: return false
             currMap = nextMap as Map<*, *>
         }
 

@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
@@ -37,9 +38,17 @@ class RestDeleteRollupActionIT : RollupRestTestCase() {
     }
 
     @Throws(Exception::class)
-    fun `test deleting a rollup that doesn't exist`() {
+    fun `test deleting a rollup that doesn't exist in existing config index`() {
+        createRandomRollup()
+        val res = client().makeRequest("DELETE", "$ROLLUP_JOBS_BASE_URI/foobarbaz")
+        assertEquals("Was not not_found response", "not_found", res.asMap()["result"])
+    }
+
+    @Throws(Exception::class)
+    fun `test deleting a rollup that doesn't exist and config index doesnt exist`() {
         try {
-            client().makeRequest("DELETE", "$ROLLUP_JOBS_BASE_URI/foobarbaz")
+            deleteIndex(INDEX_MANAGEMENT_INDEX)
+            val res = client().makeRequest("DELETE", "$ROLLUP_JOBS_BASE_URI/foobarbaz")
             fail("expected 404 ResponseException")
         } catch (e: ResponseException) {
             assertEquals(RestStatus.NOT_FOUND, e.response.restStatus())

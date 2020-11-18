@@ -85,7 +85,6 @@ class TransportUpdateRollupMappingAction @Inject constructor(
             log.debug("Could not find source for index mapping [$index]")
             return listener.onFailure(IllegalStateException("Could not find source for index mapping [$index]"))
         }
-        log.info("source is $source")
 
         val rollup = XContentHelper.convertToMap(
             BytesReference.bytes(request.rollup.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITHOUT_TYPE)),
@@ -102,7 +101,6 @@ class TransportUpdateRollupMappingAction @Inject constructor(
             val rollups = mapOf<String, Any>("rollups" to rollupJobEntries)
             metaMappings[_META] = rollups
         } else {
-            log.info("meta is $meta")
             val rollups = (meta as Map<*, *>)["rollups"]
             if (rollups == null) {
                 log.debug("Could not find meta rollup mappings for index [$index], creating meta rollup mappings")

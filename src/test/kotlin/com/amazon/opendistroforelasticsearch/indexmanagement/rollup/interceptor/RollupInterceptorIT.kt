@@ -40,17 +40,17 @@ import java.time.temporal.ChronoUnit
 class RollupInterceptorIT : RollupRestTestCase() {
 
     fun `test roll up search`() {
-        generateNYCTaxiData("source")
+        generateNYCTaxiData("source_rollup_search")
         val rollup = Rollup(
-                id = "basic_term_query",
+                id = "basic_term_query_rollup_search",
                 schemaVersion = 1L,
                 enabled = true,
                 jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
                 jobLastUpdatedTime = Instant.now(),
                 jobEnabledTime = Instant.now(),
                 description = "basic search test",
-                sourceIndex = "source",
-                targetIndex = "target",
+                sourceIndex = "source_rollup_search",
+                targetIndex = "target_rollup_search",
                 metadataID = null,
                 roles = emptyList(),
                 pageSize = 10,
@@ -97,9 +97,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        var rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        var rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        var rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        var rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         var rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         var rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
@@ -127,9 +127,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
@@ -157,9 +157,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
@@ -190,9 +190,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
@@ -222,9 +222,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
@@ -253,9 +253,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
@@ -287,9 +287,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
@@ -318,7 +318,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
             }
         """.trimIndent()
         try {
-            client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+            client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals(
@@ -349,7 +349,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
             }
         """.trimIndent()
         try {
-            client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+            client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals(
@@ -394,9 +394,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
@@ -414,7 +414,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
             }
         """.trimIndent()
         try {
-            client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+            client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals(
@@ -428,7 +428,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
         // Invalid size in search - missing size
         req = """{ "aggs": { "sum": { "sum": { "field": "passenger_count" } } } }"""
         try {
-            client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+            client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals(
@@ -441,17 +441,17 @@ class RollupInterceptorIT : RollupRestTestCase() {
     }
 
     fun `test bucket and sub aggregations have correct values`() {
-        generateNYCTaxiData("source")
+        generateNYCTaxiData("source_rollup_bucket_and_sub")
         val rollup = Rollup(
-                id = "basic_term_query",
+                id = "basic_term_query_rollup_bucket_and_sub",
                 schemaVersion = 1L,
                 enabled = true,
                 jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
                 jobLastUpdatedTime = Instant.now(),
                 jobEnabledTime = Instant.now(),
                 description = "basic search test",
-                sourceIndex = "source",
-                targetIndex = "target",
+                sourceIndex = "source_rollup_bucket_and_sub",
+                targetIndex = "target_rollup_bucket_and_sub",
                 metadataID = null,
                 roles = emptyList(),
                 pageSize = 10,
@@ -498,9 +498,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 }
             }
         """.trimIndent()
-        val rawRes = client().makeRequest("POST", "/source/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        val rawRes = client().makeRequest("POST", "/source_rollup_bucket_and_sub/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rawRes.restStatus() == RestStatus.OK)
-        val rollupRes = client().makeRequest("POST", "/target/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        val rollupRes = client().makeRequest("POST", "/target_rollup_bucket_and_sub/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
         assertTrue(rollupRes.restStatus() == RestStatus.OK)
         val rawAggBuckets = (rawRes.asMap()["aggregations"] as Map<String, Map<String, List<Map<String, Map<String, Any>>>>>)["pickup_areas"]!!["buckets"]!!
         val rollupAggBuckets = (rollupRes.asMap()["aggregations"] as Map<String, Map<String, List<Map<String, Map<String, Any>>>>>)["pickup_areas"]!!["buckets"]!!

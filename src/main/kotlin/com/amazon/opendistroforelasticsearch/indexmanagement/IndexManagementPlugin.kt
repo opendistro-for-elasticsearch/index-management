@@ -71,6 +71,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.G
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.TransportGetRollupsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.TransportUpdateRollupMappingAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.actionfilter.FieldCapsFilter
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.interceptor.RollupInterceptor
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
@@ -87,6 +88,7 @@ import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
+import org.elasticsearch.action.support.ActionFilter
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.node.DiscoveryNodes
@@ -301,5 +303,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
 
     override fun getTransportInterceptors(namedWriteableRegistry: NamedWriteableRegistry, threadContext: ThreadContext): List<TransportInterceptor> {
         return listOf(rollupInterceptor)
+    }
+
+    override fun getActionFilters(): MutableList<ActionFilter> {
+        return mutableListOf(FieldCapsFilter(clusterService, indexNameExpressionResolver))
     }
 }

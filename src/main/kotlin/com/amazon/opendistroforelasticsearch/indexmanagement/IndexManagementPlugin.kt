@@ -71,6 +71,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.G
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.TransportGetRollupsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.TransportUpdateRollupMappingAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.interceptor.RollupInterceptor
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestDeleteRollupAction
@@ -96,6 +97,7 @@ import org.elasticsearch.common.settings.IndexScopedSettings
 import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
+import org.elasticsearch.common.util.concurrent.ThreadContext
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -109,6 +111,7 @@ import org.elasticsearch.rest.RestController
 import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.threadpool.ThreadPool
+import org.elasticsearch.transport.TransportInterceptor
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
 
@@ -118,6 +121,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     lateinit var indexManagementIndices: IndexManagementIndices
     lateinit var clusterService: ClusterService
     lateinit var indexNameExpressionResolver: IndexNameExpressionResolver
+    lateinit var rollupInterceptor: RollupInterceptor
 
     companion object {
         const val PLUGIN_NAME = "opendistro-im"
@@ -229,6 +233,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerSearcher(RollupSearchService(settings, clusterService, client))
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
+        rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
         this.indexNameExpressionResolver = indexNameExpressionResolver
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =
@@ -292,5 +297,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ActionPlugin.ActionHandler(ExplainRollupAction.INSTANCE, TransportExplainRollupAction::class.java),
             ActionPlugin.ActionHandler(UpdateRollupMappingAction.INSTANCE, TransportUpdateRollupMappingAction::class.java)
         )
+    }
+
+    override fun getTransportInterceptors(namedWriteableRegistry: NamedWriteableRegistry, threadContext: ThreadContext): List<TransportInterceptor> {
+        return listOf(rollupInterceptor)
     }
 }

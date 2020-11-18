@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -31,6 +32,8 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.index.seqno.SequenceNumbers
 import java.io.IOException
 import java.time.Instant
+
+private val log = LogManager.getLogger(Policy::class.java)
 
 data class Policy(
     val id: String = NO_ID,

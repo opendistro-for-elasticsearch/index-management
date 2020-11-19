@@ -305,7 +305,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 "size": 0,
                 "query": {
                     "match_phrase": {
-                        "RateCodeID": 1
+                        "RatecodeID": 1
                     }
                 },
                 "aggs": {

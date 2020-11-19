@@ -153,17 +153,12 @@ object RollupRunner : ScheduledJobRunner,
             // Check if rollup should be processed before acquiring the lock
             // If metadata does not exist, it will either be initialized for the first time or it will be recreated to communicate the failed state
             if (rollupSearchService.shouldProcessRollup(job, metadata)) {
-                // Attempt to acquire lock
                 val lock = acquireLockForRollupJob(job, context)
                 if (lock == null) {
                     logger.debug("Could not acquire lock for ${job.id}")
                 } else {
                     runRollupJob(job, context, lock)
-                    // Release lock
-                    val released: Boolean = releaseLockForRollupJob(context, lock)
-                    if (!released) {
-                        logger.debug("Could not release lock for ${job.id}")
-                    }
+                    releaseLockForRollupJob(context, lock)
                 }
             } else if (job.isEnabled) {
                 // We are doing this outside of ShouldProcess as schedule job interval can be more frequent than rollup and we want to fail
@@ -202,7 +197,16 @@ object RollupRunner : ScheduledJobRunner,
     }
 
     private suspend fun releaseLockForRollupJob(context: JobExecutionContext, lock: LockModel): Boolean {
-        return context.lockService.suspendUntil { release(lock, it) }
+        var released = false
+        try {
+            released = context.lockService.suspendUntil { release(lock, it) }
+            if (!released) {
+                logger.warn("Could not release lock for ${lock.jobId}")
+            }
+        } catch (e: Exception) {
+            logger.error("Failed to release lock", e)
+        }
+        return released
     }
 
     // TODO: Clean up runner
@@ -214,6 +218,7 @@ object RollupRunner : ScheduledJobRunner,
     * */
     @Suppress("ReturnCount", "NestedBlockDepth", "ComplexMethod", "LongMethod", "ThrowsCount")
     private suspend fun runRollupJob(job: Rollup, context: JobExecutionContext, lock: LockModel) {
+        var updatableLock = lock
         try {
             when (val jobValidity = isJobValid(job)) {
                 is RollupJobValidationResult.Invalid -> {
@@ -238,7 +243,6 @@ object RollupRunner : ScheduledJobRunner,
                 is MetadataResult.Failure ->
                     throw RollupMetadataException("Failed to initialize rollup metadata", initMetadataResult.cause)
             }
-
             if (metadata.status == RollupMetadata.Status.FAILED) {
                 logger.info("Metadata status is FAILED, disabling job $metadata")
                 disableJob(job, metadata)
@@ -270,7 +274,6 @@ object RollupRunner : ScheduledJobRunner,
                 else -> {}
             }
 
-            var updatableLock = lock
             while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
                 do {
                     try {
@@ -312,6 +315,7 @@ object RollupRunner : ScheduledJobRunner,
                             logger.warn("Failed trying to renew lock on $updatableLock", e)
                             // If we fail to renew the lock it doesn't mean we need to perm fail the job, we can just return early
                             // and let the next execution try to process the data from where this one left off
+                            releaseLockForRollupJob(context, updatableLock)
                             return
                         }
                     } catch (e: RollupMetadataException) {
@@ -321,6 +325,7 @@ object RollupRunner : ScheduledJobRunner,
                     } catch (e: Exception) {
                         // TODO: Should update metadata and disable job here instead of allowing the rollup to keep going
                         logger.error("Failed to rollup ", e)
+                        releaseLockForRollupJob(context, updatableLock)
                         return
                     }
                 } while (metadata.afterKey != null)
@@ -329,14 +334,19 @@ object RollupRunner : ScheduledJobRunner,
             if (!updatableJob.continuous) {
                 if (listOf(RollupMetadata.Status.STOPPED, RollupMetadata.Status.FINISHED, RollupMetadata.Status.FAILED).contains(metadata.status)) {
                     disableJob(updatableJob, metadata)
-                    return
                 }
             }
+
+            // If we have been constantly renewing the lock then the seqNo/primaryTerm will have changed
+            // and the releaseLock call outside of runRollupJob will fail, so release here with updatableLock
+            // and outside just in case we returned early at a different point (attempting to release twice won't hurt)
+            releaseLockForRollupJob(context, updatableLock)
         } catch (e: RollupMetadataException) {
             // In most scenarios in the runner, the metadata will be used to communicate the result to the user
             // If change to the metadata itself fails, there is nothing else to relay state change
             // In these cases, the cause of the metadata operation will be logged here and the runner execution will exit
             logger.error(e.message, e.cause)
+            releaseLockForRollupJob(context, updatableLock)
         }
     }
 

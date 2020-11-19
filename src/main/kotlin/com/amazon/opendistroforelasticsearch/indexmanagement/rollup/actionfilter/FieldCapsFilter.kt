@@ -20,8 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getRollupJobs
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.populateFieldMappings
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.FIELDS
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.PROPERTIES
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.getFieldFromMappings
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.ActionRequest
@@ -60,43 +59,38 @@ class FieldCapsFilter(
             val indices = request.indices().map { it.toString() }.toTypedArray()
             val concreteIndices = indexNameExpressionResolver.concreteIndexNames(clusterService.state(), request.indicesOptions(), *indices)
             val rollupIndices = mutableSetOf<String>()
-            val filteredIndices = mutableSetOf<String>()
+            val nonRollupIndices = mutableSetOf<String>()
             for (index in concreteIndices) {
                 val isRollupIndex = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(index).settings)
                 if (isRollupIndex) {
                     rollupIndices.add(index)
                 } else {
-                    filteredIndices.add(index)
+                    nonRollupIndices.add(index)
                 }
             }
 
-            val hasRollupIndices = rollupIndices.size > 0
-            if (hasRollupIndices) {
-                request.indices(*filteredIndices.toTypedArray())
+            if (rollupIndices.isEmpty()) {
+                return chain.proceed(task, action, request, listener)
             }
 
-            val shouldShortCircuit = rollupIndices.size > 0 && filteredIndices.size == 0
-            if (shouldShortCircuit) {
+            if (nonRollupIndices.isEmpty()) {
                 val rewrittenResponse = rewriteResponse(mapOf(), arrayOf(), rollupIndices)
-                listener.onResponse(rewrittenResponse as Response)
-            } else {
-                chain.proceed(task, action, request, object : ActionListener<Response> {
-                    override fun onResponse(response: Response) {
-                        if (hasRollupIndices) {
-                            logger.info("Has rollup indices will rewrite field caps response")
-                            response as FieldCapabilitiesResponse
-                            val reWrittenResponse = rewriteResponse(response.get(), response.indices, rollupIndices)
-                            listener.onResponse(reWrittenResponse as Response)
-                        } else {
-                            listener.onResponse(response)
-                        }
-                    }
-
-                    override fun onFailure(e: Exception) {
-                        listener.onFailure(e)
-                    }
-                })
+                return listener.onResponse(rewrittenResponse as Response)
             }
+
+            request.indices(*nonRollupIndices.toTypedArray())
+            chain.proceed(task, action, request, object : ActionListener<Response> {
+                override fun onResponse(response: Response) {
+                    logger.info("Has rollup indices will rewrite field caps response")
+                    response as FieldCapabilitiesResponse
+                    val rewrittenResponse = rewriteResponse(response.get(), response.indices, rollupIndices)
+                    listener.onResponse(rewrittenResponse as Response)
+                }
+
+                override fun onFailure(e: Exception) {
+                    listener.onFailure(e)
+                }
+            })
         } else {
             chain.proceed(task, action, request, listener)
         }
@@ -194,13 +188,8 @@ class FieldCapsFilter(
     }
 
     private fun getFieldType(fieldName: String, mappings: Map<*, *>): String? {
-        var currMap = mappings
-        fieldName.split(".").forEach { field ->
-            val nextMap = (currMap[PROPERTIES] as Map<*, *>? ?: currMap[FIELDS] as Map<*, *>?)?.get(field) ?: return null
-            currMap = nextMap as Map<*, *>
-        }
-
-        return currMap["type"]?.toString()
+        val field = getFieldFromMappings(fieldName, mappings)
+        return if (field != null) field["type"]?.toString() else null
     }
 
     private fun expandIndicesInFields(

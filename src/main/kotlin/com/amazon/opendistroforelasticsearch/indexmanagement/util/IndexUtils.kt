@@ -175,5 +175,15 @@ class IndexUtils {
                 }
             }
         }
+
+        fun getFieldFromMappings(fieldName: String, mappings: Map<*, *>): Map<*, *>? {
+            var currMap = mappings
+            fieldName.split(".").forEach { field ->
+                val nextMap = (currMap[PROPERTIES] as Map<*, *>? ?: currMap[FIELDS] as Map<*, *>?)?.get(field) ?: return null
+                currMap = nextMap as Map<*, *>
+            }
+
+            return currMap
+        }
     }
 }

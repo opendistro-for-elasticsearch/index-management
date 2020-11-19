@@ -299,6 +299,36 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
+        // Match phrase query
+        req = """
+            {
+                "size": 0,
+                "query": {
+                    "match_phrase": {
+                        "RatecodeID": 1
+                    }
+                },
+                "aggs": {
+                    "min_passenger_count": {
+                        "sum": {
+                            "field": "passenger_count"
+                        }
+                    }
+                }
+            }
+        """.trimIndent()
+        rawRes = client().makeRequest("POST", "/source_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rawRes.restStatus() == RestStatus.OK)
+        rollupRes = client().makeRequest("POST", "/target_rollup_search/_search", emptyMap(), StringEntity(req, ContentType.APPLICATION_JSON))
+        assertTrue(rollupRes.restStatus() == RestStatus.OK)
+        rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
+        rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
+        assertEquals(
+                "Source and rollup index did not return same min results",
+                rawAggRes.getValue("min_passenger_count")["value"],
+                rollupAggRes.getValue("min_passenger_count")["value"]
+        )
+
         // Unsupported query
         req = """
             {

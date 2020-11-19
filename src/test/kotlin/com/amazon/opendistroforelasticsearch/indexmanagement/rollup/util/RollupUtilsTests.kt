@@ -22,9 +22,11 @@ import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.ConstantScoreQueryBuilder
 import org.elasticsearch.index.query.DisMaxQueryBuilder
 import org.elasticsearch.index.query.MatchAllQueryBuilder
+import org.elasticsearch.index.query.MatchPhraseQueryBuilder
 import org.elasticsearch.index.query.RangeQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.index.query.TermsQueryBuilder
+import org.elasticsearch.index.search.MatchQuery
 import org.elasticsearch.test.ESTestCase
 
 class RollupUtilsTests : ESTestCase() {
@@ -165,5 +167,20 @@ class RollupUtilsTests : ESTestCase() {
         assertEquals(rollup.rewriteQueryBuilder(queryBuilder, mapOf()), actual.must().first())
         assertEquals(1, actual.filter().size)
         assertEquals(expectedFilter, actual.filter().first())
+    }
+
+    fun `test rewriteQueryBuilder match phrase query`() {
+        val matchPhraseQuery = MatchPhraseQueryBuilder("dummy-field", "dummy-value")
+        matchPhraseQuery.queryName("dummy-name")
+        matchPhraseQuery.boost(0.1f)
+        val rollup = randomRollup()
+        val actual = rollup.rewriteQueryBuilder(matchPhraseQuery, mapOf()) as MatchPhraseQueryBuilder
+        assertEquals(matchPhraseQuery.queryName(), actual.queryName())
+        assertEquals(matchPhraseQuery.boost(), actual.boost())
+        assertEquals(MatchQuery.DEFAULT_ZERO_TERMS_QUERY, actual.zeroTermsQuery())
+        assertEquals(MatchQuery.DEFAULT_PHRASE_SLOP, actual.slop())
+        assertEquals(matchPhraseQuery.fieldName() + ".terms", actual.fieldName())
+        assertEquals(matchPhraseQuery.value(), actual.value())
+        assertNull(actual.analyzer())
     }
 }

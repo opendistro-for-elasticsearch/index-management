@@ -45,6 +45,7 @@ import org.elasticsearch.index.query.BoostingQueryBuilder
 import org.elasticsearch.index.query.ConstantScoreQueryBuilder
 import org.elasticsearch.index.query.DisMaxQueryBuilder
 import org.elasticsearch.index.query.MatchAllQueryBuilder
+import org.elasticsearch.index.query.MatchPhraseQueryBuilder
 import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.index.query.RangeQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
@@ -354,6 +355,12 @@ fun Rollup.rewriteQueryBuilder(queryBuilder: QueryBuilder, fieldNameMappingTypeM
             newDisMaxQueryBuilder.tieBreaker(queryBuilder.tieBreaker())
             newDisMaxQueryBuilder.queryName(queryBuilder.queryName())
             newDisMaxQueryBuilder.boost(queryBuilder.boost())
+        }
+        is MatchPhraseQueryBuilder -> {
+            val newFieldName = queryBuilder.fieldName() + "." + Dimension.Type.TERMS.type
+            val newMatchPhraseQueryBuilder = MatchPhraseQueryBuilder(newFieldName, queryBuilder.value())
+            newMatchPhraseQueryBuilder.queryName(queryBuilder.queryName())
+            newMatchPhraseQueryBuilder.boost(queryBuilder.boost())
         }
         // We do nothing otherwise, the validation logic should have already verified so not throwing an exception
         else -> queryBuilder

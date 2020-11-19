@@ -33,10 +33,12 @@ import org.elasticsearch.index.query.BoostingQueryBuilder
 import org.elasticsearch.index.query.ConstantScoreQueryBuilder
 import org.elasticsearch.index.query.DisMaxQueryBuilder
 import org.elasticsearch.index.query.MatchAllQueryBuilder
+import org.elasticsearch.index.query.MatchPhraseQueryBuilder
 import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.index.query.RangeQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.index.query.TermsQueryBuilder
+import org.elasticsearch.index.search.MatchQuery
 import org.elasticsearch.search.aggregations.AggregationBuilder
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval
@@ -201,6 +203,14 @@ class RollupInterceptor(
             }
             is DisMaxQueryBuilder -> {
                 query.innerQueries().forEach { this.getQueryMetadata(it, fieldMappings) }
+            }
+            is MatchPhraseQueryBuilder -> {
+                if (!query.analyzer().isNullOrEmpty() || query.slop() != MatchQuery.DEFAULT_PHRASE_SLOP ||
+                        query.zeroTermsQuery() != MatchQuery.DEFAULT_ZERO_TERMS_QUERY) {
+                    throw IllegalArgumentException("The ${query.name} query is currently not supported with analyzer/slop/zero_terms_query in " +
+                            "rollups")
+                }
+                fieldMappings.add(RollupFieldMapping(RollupFieldMapping.Companion.FieldType.DIMENSION, query.fieldName(), Dimension.Type.TERMS.type))
             }
             else -> {
                 throw IllegalArgumentException("The ${query.name} query is currently not supported in rollups")

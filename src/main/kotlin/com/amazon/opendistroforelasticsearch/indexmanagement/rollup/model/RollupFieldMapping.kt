@@ -18,7 +18,11 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup.Companion.DIMENSIONS_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup.Companion.METRICS_FIELD
 
-data class RollupFieldMapping(val fieldType: FieldType, val fieldName: String, val mappingType: String) {
+data class RollupFieldMapping(val fieldType: FieldType, val fieldName: String, val mappingType: String, var sourceType: String? = null) {
+
+    fun sourceType(type: String?) {
+        this.sourceType = type
+    }
 
     override fun toString(): String {
         return "$fieldName.$mappingType"

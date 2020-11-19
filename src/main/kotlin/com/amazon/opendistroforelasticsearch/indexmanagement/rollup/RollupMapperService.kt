@@ -25,9 +25,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimens
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.FIELDS
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.PROPERTIES
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion._META
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.getFieldFromMappings
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -196,14 +195,8 @@ class RollupMapperService(
      * in which case true is returned. If at any point any of the fields is not in the map, false is returned.
      */
     private fun isFieldInMappings(fieldName: String, mappings: Map<*, *>): Boolean {
-        var currMap = mappings
-        fieldName.split(".").forEach { field ->
-            // Looks for a properties field to continue searching or if there is none checks if there is a subfield
-            val nextMap = (currMap[PROPERTIES] as Map<*, *>? ?: currMap[FIELDS] as Map<*, *>?)?.get(field) ?: return false
-            currMap = nextMap as Map<*, *>
-        }
-
-        return true
+        val field = getFieldFromMappings(fieldName, mappings)
+        return field != null
     }
 
     private suspend fun jobExistsInRollupIndex(rollup: Rollup): RollupJobValidationResult {

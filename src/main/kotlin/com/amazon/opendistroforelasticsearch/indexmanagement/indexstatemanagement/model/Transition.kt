@@ -64,7 +64,7 @@ data class Transition(
             var name: String? = null
             var conditions: Conditions? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -141,7 +141,7 @@ data class Conditions(
             var size: ByteSizeValue? = null
             var cron: CronSchedule? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()

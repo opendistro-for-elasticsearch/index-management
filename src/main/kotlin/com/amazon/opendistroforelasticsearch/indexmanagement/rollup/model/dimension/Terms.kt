@@ -100,7 +100,7 @@ data class Terms(
             ensureExpectedToken(
                 Token.START_OBJECT,
                 xcp.currentToken(),
-                xcp::getTokenLocation
+                xcp
             )
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()

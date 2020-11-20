@@ -59,8 +59,6 @@ abstract class IndexManagementRestTestCase : ESRestTestCase() {
 
     protected fun Response.restStatus(): RestStatus = RestStatus.fromCode(this.statusLine.statusCode)
 
-    protected fun getRepoPath(): String = System.getProperty("tests.path.repo")
-
     protected fun assertIndexExists(index: String) {
         val response = client().makeRequest("HEAD", index)
         assertEquals("Index $index does not exist.", RestStatus.OK, response.restStatus())

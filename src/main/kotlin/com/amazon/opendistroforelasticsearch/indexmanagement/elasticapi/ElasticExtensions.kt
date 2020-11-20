@@ -67,7 +67,7 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
     if (instant == null) {
         return nullField(name)
     }
-    return this.timeField(name, name, instant.toEpochMilli())
+    return this.timeField(name, "${name}_in_millis", instant.toEpochMilli())
 }
 
 /**
@@ -163,10 +163,10 @@ fun <T> XContentParser.parseWithType(
     primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     parse: (xcp: XContentParser, id: String, seqNo: Long, primaryTerm: Long) -> T
 ): T {
-    ensureExpectedToken(Token.START_OBJECT, nextToken(), this::getTokenLocation)
-    ensureExpectedToken(Token.FIELD_NAME, nextToken(), this::getTokenLocation)
-    ensureExpectedToken(Token.START_OBJECT, nextToken(), this::getTokenLocation)
+    ensureExpectedToken(Token.START_OBJECT, nextToken(), this)
+    ensureExpectedToken(Token.FIELD_NAME, nextToken(), this)
+    ensureExpectedToken(Token.START_OBJECT, nextToken(), this)
     val parsed = parse(this, id, seqNo, primaryTerm)
-    ensureExpectedToken(Token.END_OBJECT, this.nextToken(), this::getTokenLocation)
+    ensureExpectedToken(Token.END_OBJECT, this.nextToken(), this)
     return parsed
 }

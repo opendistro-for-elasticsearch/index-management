@@ -35,8 +35,8 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
@@ -133,18 +133,14 @@ abstract class RollupRestTestCase : IndexManagementRestTestCase() {
         assertEquals("Unable to get rollup $rollupId", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(
-            XContentParser.Token.START_OBJECT,
-            parser.nextToken(),
-            parser::getTokenLocation
-        )
+        ensureExpectedToken(Token.START_OBJECT, parser.nextToken(), parser)
 
         lateinit var id: String
         var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
         var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
         lateinit var rollup: Rollup
 
-        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+        while (parser.nextToken() != Token.END_OBJECT) {
             parser.nextToken()
 
             when (parser.currentName()) {
@@ -165,18 +161,14 @@ abstract class RollupRestTestCase : IndexManagementRestTestCase() {
         assertEquals("Unable to get rollup metadata $metadataId", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(
-            XContentParser.Token.START_OBJECT,
-            parser.nextToken(),
-            parser::getTokenLocation
-        )
+        ensureExpectedToken(Token.START_OBJECT, parser.nextToken(), parser)
 
         lateinit var id: String
         var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
         var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
         lateinit var metadata: RollupMetadata
 
-        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+        while (parser.nextToken() != Token.END_OBJECT) {
             parser.nextToken()
 
             when (parser.currentName()) {

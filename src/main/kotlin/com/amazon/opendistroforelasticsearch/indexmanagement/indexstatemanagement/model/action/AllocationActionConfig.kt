@@ -26,7 +26,8 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.script.ScriptService
 import java.io.IOException
 
@@ -101,8 +102,8 @@ data class AllocationActionConfig(
             val exclude: MutableMap<String, String> = mutableMapOf()
             var waitFor = false
 
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
                 when (fieldName) {
@@ -117,8 +118,8 @@ data class AllocationActionConfig(
         }
 
         private fun assignObject(xcp: XContentParser, objectMap: MutableMap<String, String>) {
-            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
                 objectMap[fieldName] = xcp.text()

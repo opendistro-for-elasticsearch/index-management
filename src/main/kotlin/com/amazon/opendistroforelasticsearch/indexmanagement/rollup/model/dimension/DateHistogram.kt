@@ -107,7 +107,7 @@ data class DateHistogram(
             var calendarInterval: String? = null
             var timezone = ZoneId.of(UTC)
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()

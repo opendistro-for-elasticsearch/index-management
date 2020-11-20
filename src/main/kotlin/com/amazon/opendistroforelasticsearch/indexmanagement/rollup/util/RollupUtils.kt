@@ -37,8 +37,8 @@ import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
+import org.elasticsearch.common.xcontent.XContentParser.Token
+import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.BoostingQueryBuilder
@@ -181,24 +181,24 @@ fun IndexMetadata.getRollupJobs(): List<Rollup>? {
     val source = this.mapping()?.source() ?: return null
     val xcp = XContentHelper
             .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, source.compressedReference(), XContentType.JSON)
-    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation) // start of block
-    XContentParserUtils.ensureExpectedToken(XContentParser.Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation) // _doc
-    XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation) // start of _doc block
-    while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp) // start of block
+    ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp) // _doc
+    ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp) // start of _doc block
+    while (xcp.nextToken() != Token.END_OBJECT) {
         val fieldName = xcp.currentName()
         xcp.nextToken()
 
         when (fieldName) {
             IndexUtils._META -> {
-                XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-                while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+                ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+                while (xcp.nextToken() != Token.END_OBJECT) {
                     val metaField = xcp.currentName()
                     xcp.nextToken()
 
                     when (metaField) {
                         RollupMapperService.ROLLUPS -> {
-                            XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-                            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+                            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+                            while (xcp.nextToken() != Token.END_OBJECT) {
                                 val rollupID = xcp.currentName()
                                 xcp.nextToken()
                                 rollupJobs.add(Rollup.parse(xcp, rollupID))

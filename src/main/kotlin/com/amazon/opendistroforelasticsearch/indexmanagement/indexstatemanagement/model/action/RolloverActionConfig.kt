@@ -94,7 +94,7 @@ data class RolloverActionConfig(
             var minDocs: Long? = null
             var minAge: TimeValue? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()

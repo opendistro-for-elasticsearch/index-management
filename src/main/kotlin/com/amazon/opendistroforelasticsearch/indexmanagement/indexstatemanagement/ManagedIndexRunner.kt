@@ -709,9 +709,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
         return withContext(Dispatchers.IO) {
             val intervalJsonString = managedIndexConfig.schedule.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
             val xcp = XContentType.JSON.xContent().createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, intervalJsonString)
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation) // start of schedule block
-            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp::getTokenLocation) // "interval"
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation) // start of interval block
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp) // start of schedule block
+            ensureExpectedToken(Token.FIELD_NAME, xcp.nextToken(), xcp) // "interval"
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp) // start of interval block
             var startTime: Long? = null
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()

@@ -46,8 +46,8 @@ data class ContinuousMetadata(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
-            .timeField(NEXT_WINDOW_START_TIME_FIELD, NEXT_WINDOW_START_TIME_FIELD, nextWindowStartTime.toEpochMilli())
-            .timeField(NEXT_WINDOW_END_TIME_FIELD, NEXT_WINDOW_END_TIME_FIELD, nextWindowEndTime.toEpochMilli())
+            .timeField(NEXT_WINDOW_START_TIME_FIELD, NEXT_WINDOW_START_TIME_FIELD_IN_MILLIS, nextWindowStartTime.toEpochMilli())
+            .timeField(NEXT_WINDOW_END_TIME_FIELD, NEXT_WINDOW_END_TIME_FIELD_IN_MILLIS, nextWindowEndTime.toEpochMilli())
             .endObject()
     }
 
@@ -58,7 +58,9 @@ data class ContinuousMetadata(
 
     companion object {
         private const val NEXT_WINDOW_START_TIME_FIELD = "next_window_start_time"
+        private const val NEXT_WINDOW_START_TIME_FIELD_IN_MILLIS = "next_window_start_time_in_millis"
         private const val NEXT_WINDOW_END_TIME_FIELD = "next_window_end_time"
+        private const val NEXT_WINDOW_END_TIME_FIELD_IN_MILLIS = "next_window_end_time_in_millis"
 
         @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic
@@ -67,7 +69,7 @@ data class ContinuousMetadata(
             var windowStartTime: Instant? = null
             var windowEndTime: Instant? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -138,7 +140,7 @@ data class RollupStats(
             var indexTimeInMillis: Long? = null
             var searchTimeInMillis: Long? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -209,7 +211,7 @@ data class RollupMetadata(
 
         builder.field(ROLLUP_ID_FIELD, rollupID)
         if (afterKey != null) builder.field(AFTER_KEY_FIELD, afterKey)
-        builder.timeField(LAST_UPDATED_FIELD, LAST_UPDATED_FIELD, lastUpdatedTime.toEpochMilli())
+        builder.timeField(LAST_UPDATED_FIELD, LAST_UPDATED_FIELD_IN_MILLIS, lastUpdatedTime.toEpochMilli())
         if (continuous != null) builder.field(CONTINUOUS_FIELD, continuous)
         builder.field(STATUS_FIELD, status.type)
         builder.field(FAILURE_REASON, failureReason)
@@ -240,6 +242,7 @@ data class RollupMetadata(
         const val ROLLUP_ID_FIELD = "rollup_id"
         const val AFTER_KEY_FIELD = "after_key"
         const val LAST_UPDATED_FIELD = "last_updated_time"
+        const val LAST_UPDATED_FIELD_IN_MILLIS = "last_updated_time_in_millis"
         const val CONTINUOUS_FIELD = "continuous"
         const val STATUS_FIELD = "status"
         const val FAILURE_REASON = "failure_reason"
@@ -262,7 +265,7 @@ data class RollupMetadata(
             var failureReason: String? = null
             var stats: RollupStats? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()

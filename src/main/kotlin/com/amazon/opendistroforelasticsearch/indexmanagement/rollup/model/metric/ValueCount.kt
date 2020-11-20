@@ -44,8 +44,8 @@ class ValueCount() : Metric(Type.VALUE_COUNT) {
 
     companion object {
         fun parse(xcp: XContentParser): ValueCount {
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
             return ValueCount()
         }
     }

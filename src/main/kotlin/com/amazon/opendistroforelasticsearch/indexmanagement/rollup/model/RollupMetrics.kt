@@ -119,7 +119,7 @@ data class RollupMetrics(
             var targetField: String? = null
             val metrics = mutableListOf<Metric>()
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -128,7 +128,7 @@ data class RollupMetrics(
                     SOURCE_FIELD_FIELD -> sourceField = xcp.text()
                     TARGET_FIELD_FIELD -> targetField = xcp.text()
                     METRICS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             metrics.add(Metric.parse(xcp))
                         }

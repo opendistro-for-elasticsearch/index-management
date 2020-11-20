@@ -44,8 +44,8 @@ class Sum() : Metric(Type.SUM) {
 
     companion object {
         fun parse(xcp: XContentParser): Sum {
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
             return Sum()
         }
     }

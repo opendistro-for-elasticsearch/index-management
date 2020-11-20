@@ -53,8 +53,8 @@ data class ReadOnlyActionConfig(
         @JvmStatic
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): ReadOnlyActionConfig {
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
 
             return ReadOnlyActionConfig(index)
         }

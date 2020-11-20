@@ -73,6 +73,130 @@ class RestStopRollupActionIT : RollupRestTestCase() {
     }
 
     @Throws(Exception::class)
+    fun `test stopping a finished rollup`() {
+        // Create a rollup that finishes
+        val rollup = createRollup(
+            randomRollup()
+                .copy(
+                    continuous = false,
+                    jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                    enabled = true,
+                    jobEnabledTime = Instant.now(),
+                    metadataID = null
+                )
+        )
+        createRollupSourceIndex(rollup)
+        updateRollupStartTime(rollup)
+
+        // Assert it finished
+        waitFor {
+            val updatedRollup = getRollup(rollup.id)
+            val metadata = getRollupMetadata(updatedRollup.metadataID!!)
+            assertEquals("Rollup never finished", RollupMetadata.Status.FINISHED, metadata.status)
+        }
+
+        // Try to stop a finished rollup
+        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
+        assertEquals("Stop rollup failed", RestStatus.OK, response.restStatus())
+        val expectedResponse = mapOf("acknowledged" to true)
+        assertEquals(expectedResponse, response.asMap())
+
+        // Assert it is still in finished status
+        waitFor {
+            val updatedRollup = getRollup(rollup.id)
+            val metadata = getRollupMetadata(updatedRollup.metadataID!!)
+            assertEquals("Rollup should have stayed finished", RollupMetadata.Status.FINISHED, metadata.status)
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test stopping a failed rollup`() {
+        // Create a rollup that will fail because no source index
+        val rollup = createRollup(
+            randomRollup()
+                .copy(
+                    continuous = false,
+                    jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                    enabled = true,
+                    jobEnabledTime = Instant.now(),
+                    metadataID = null
+                )
+        )
+        updateRollupStartTime(rollup)
+
+        // Assert its in failed
+        waitFor {
+            val updatedRollup = getRollup(rollup.id)
+            val metadata = getRollupMetadata(updatedRollup.metadataID!!)
+            assertEquals("Rollup never failed", RollupMetadata.Status.FAILED, metadata.status)
+        }
+
+        // Stop rollup
+        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
+        assertEquals("Stop rollup failed", RestStatus.OK, response.restStatus())
+        val expectedResponse = mapOf("acknowledged" to true)
+        assertEquals(expectedResponse, response.asMap())
+
+        // Assert rollup still failed status
+        waitFor {
+            val updatedRollup = getRollup(rollup.id)
+            val metadata = getRollupMetadata(updatedRollup.metadataID!!)
+            assertEquals("Rollup should have stayed failed", RollupMetadata.Status.FAILED, metadata.status)
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test stopping a retry rollup`() {
+        // Create a rollup job
+        val rollup = createRollup(
+            randomRollup()
+                .copy(
+                    continuous = false,
+                    jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                    enabled = true,
+                    jobEnabledTime = Instant.now(),
+                    metadataID = null
+                )
+        )
+
+        // Force rollup to execute which should fail as we did not create a source index
+        updateRollupStartTime(rollup)
+
+        // Assert rollup is in failed status
+        waitFor {
+            val updatedRollup = getRollup(rollup.id)
+            val metadata = getRollupMetadata(updatedRollup.metadataID!!)
+            assertEquals("Rollup never failed (no source index)", RollupMetadata.Status.FAILED, metadata.status)
+        }
+
+        // Start job to set it into retry status
+        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_start")
+        assertEquals("Start rollup failed", RestStatus.OK, response.restStatus())
+        val expectedResponse = mapOf("acknowledged" to true)
+        assertEquals(expectedResponse, response.asMap())
+
+        // Assert the job is in retry status
+        waitFor {
+            val updatedRollup = getRollup(rollup.id)
+            val metadata = getRollupMetadata(updatedRollup.metadataID!!)
+            assertEquals("Rollup is not in RETRY", RollupMetadata.Status.RETRY, metadata.status)
+        }
+
+        // Stop the job which is currently in retry status
+        val responseTwo = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
+        assertEquals("Stop rollup failed", RestStatus.OK, responseTwo.restStatus())
+        val expectedResponseTwo = mapOf("acknowledged" to true)
+        assertEquals(expectedResponseTwo, responseTwo.asMap())
+
+        // Assert the job correctly went back to failed and not stopped
+        waitFor {
+            val updatedRollup = getRollup(rollup.id)
+            val metadata = getRollupMetadata(updatedRollup.metadataID!!)
+            assertEquals("Rollup should have stayed finished", RollupMetadata.Status.FAILED, metadata.status)
+        }
+    }
+
+    @Throws(Exception::class)
     fun `test stopping rollup with metadata`() {
         generateNYCTaxiData("source")
         val rollup = Rollup(

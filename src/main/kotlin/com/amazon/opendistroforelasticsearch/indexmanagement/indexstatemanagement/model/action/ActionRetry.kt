@@ -77,7 +77,7 @@ data class ActionRetry(
             var backoff: Backoff = Backoff.EXPONENTIAL
             var delay: TimeValue = TimeValue.timeValueMinutes(1)
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()

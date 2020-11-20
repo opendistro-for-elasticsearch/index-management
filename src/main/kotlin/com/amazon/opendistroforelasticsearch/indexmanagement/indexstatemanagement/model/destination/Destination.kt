@@ -30,6 +30,7 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import java.io.IOException
 
@@ -84,8 +85,8 @@ data class Destination(
             var chime: Chime? = null
             var customWebhook: CustomWebhook? = null
 
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 

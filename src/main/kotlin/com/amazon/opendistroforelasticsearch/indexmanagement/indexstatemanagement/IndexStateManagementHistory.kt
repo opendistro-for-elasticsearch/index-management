@@ -85,7 +85,8 @@ class IndexStateManagementHistory(
             // try to rollover immediately as we might be restarting the cluster
             rolloverHistoryIndex()
             // schedule the next rollover for approx MAX_AGE later
-            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverAndDeleteHistoryIndex() }, historyRolloverCheckPeriod, executorName())
+            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverAndDeleteHistoryIndex() },
+                historyRolloverCheckPeriod, ThreadPool.Names.MANAGEMENT)
         } catch (e: Exception) {
             // This should be run on cluster startup
             logger.error("Error creating ISM history index.", e)
@@ -96,14 +97,11 @@ class IndexStateManagementHistory(
         scheduledRollover?.cancel()
     }
 
-    override fun executorName(): String {
-        return ThreadPool.Names.MANAGEMENT
-    }
-
     private fun rescheduleRollover() {
         if (clusterService.state().nodes.isLocalNodeElectedMaster) {
             scheduledRollover?.cancel()
-            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverAndDeleteHistoryIndex() }, historyRolloverCheckPeriod, executorName())
+            scheduledRollover = threadPool.scheduleWithFixedDelay({ rolloverAndDeleteHistoryIndex() },
+                historyRolloverCheckPeriod, ThreadPool.Names.MANAGEMENT)
         }
     }
 

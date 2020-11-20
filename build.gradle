@@ -20,7 +20,7 @@ import java.util.function.Predicate
 
 buildscript {
     ext {
-        es_version = System.getProperty("es.version", "7.9.1")
+        es_version = System.getProperty("es.version", "7.10.0")
         kotlin_version = System.getProperty("kotlin.version", "1.3.72")
     }
 
@@ -50,6 +50,7 @@ apply plugin: 'jacoco'
 apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
 apply plugin: 'elasticsearch.testclusters'
+apply plugin: 'elasticsearch.rest-test'
 apply plugin: 'io.gitlab.arturbosch.detekt'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
@@ -67,6 +68,10 @@ esplugin {
     description 'Open Distro Index Management Plugin'
     classname 'com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin'
     extendedPlugins = ['opendistro-job-scheduler']
+}
+
+tasks.named("integTest").configure {
+    it.dependsOn(project.tasks.named("bundlePlugin"))
 }
 
 allOpen {
@@ -96,12 +101,12 @@ configurations.all {
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.11.0.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.12.0.0"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7'
     compile "org.jetbrains:annotations:13.0"
-    compile "com.amazon.opendistroforelasticsearch:notification:1.11.0.0"
+    compile "com.amazon.opendistroforelasticsearch:notification:1.12.0.0"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
@@ -143,6 +148,7 @@ javadoc.enabled = false // turn off javadoc as it barfs on Kotlin code
 licenseHeaders.enabled = true
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
+loggerUsageCheck.enabled = false
 validateNebulaPom.enabled = false
 
 def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
@@ -187,6 +193,7 @@ test {
 File repo = file("$buildDir/testclusters/repo")
 def _numNodes = findProperty('numNodes') as Integer ?: 1
 testClusters.integTest {
+    plugin(project.tasks.bundlePlugin.archiveFile)
     testDistribution = "OSS"
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
@@ -200,18 +207,27 @@ testClusters.integTest {
             debugPort += 1
         }
     }
-    plugin(fileTree("src/test/resources/job-scheduler").getSingleFile())
+    plugin(provider({
+        new RegularFile() {
+            @Override
+            File getAsFile() { fileTree("src/test/resources/job-scheduler").getSingleFile() }
+        }
+    }))
     if (securityEnabled) {
-        plugin(fileTree("src/test/resources/security") { include "opendistro_security*" }.getSingleFile())
+        // TODO: Update the actual zip to 1.12
+        plugin(provider({
+            new RegularFile() {
+                @Override
+                File getAsFile() { fileTree("src/test/resources/security") { include "opendistro_security*" }.getSingleFile() }
+            }
+        }))
     }
     setting 'path.repo', repo.absolutePath
 }
-
-integTest.runner {
+integTest {
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
-    systemProperty 'tests.path.repo', repo.absolutePath
-    systemProperty 'buildDir', buildDir
+    systemProperty 'buildDir', buildDir.path
     systemProperty "https", System.getProperty("https", securityEnabled.toString())
     systemProperty "user", System.getProperty("user", "admin")
     systemProperty "password", System.getProperty("password", "admin")
@@ -235,6 +251,7 @@ integTest.runner {
 }
 
 run {
+    useCluster project.testClusters.integTest
     doFirst {
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
         // not being written, the waitForAllConditions ensures it's written

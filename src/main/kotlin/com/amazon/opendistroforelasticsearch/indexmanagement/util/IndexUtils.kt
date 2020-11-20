@@ -27,7 +27,7 @@ import org.elasticsearch.cluster.metadata.IndexAbstraction
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentParser
+import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentType
 
 class IndexUtils {
@@ -57,12 +57,12 @@ class IndexUtils {
 
             while (!xcp.isClosed) {
                 val token = xcp.currentToken()
-                if (token != null && token != XContentParser.Token.END_OBJECT && token != XContentParser.Token.START_OBJECT) {
+                if (token != null && token != Token.END_OBJECT && token != Token.START_OBJECT) {
                     if (xcp.currentName() != _META) {
                         xcp.nextToken()
                         xcp.skipChildren()
                     } else {
-                        while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+                        while (xcp.nextToken() != Token.END_OBJECT) {
                             when (xcp.currentName()) {
                                 SCHEMA_VERSION -> {
                                     val version = xcp.longValue()

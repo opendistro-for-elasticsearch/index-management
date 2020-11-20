@@ -254,7 +254,7 @@ data class Rollup(
             val dimensions = mutableListOf<Dimension>()
             val metrics = mutableListOf<RollupMetrics>()
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
 
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
@@ -272,7 +272,7 @@ data class Rollup(
                     TARGET_INDEX_FIELD -> targetIndex = xcp.text()
                     METADATA_ID_FIELD -> metadataID = xcp.textOrNull()
                     ROLES_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             roles.add(xcp.text())
                         }
@@ -281,13 +281,13 @@ data class Rollup(
                     DELAY_FIELD -> delay = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
                     CONTINUOUS_FIELD -> continuous = xcp.booleanValue()
                     DIMENSIONS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             dimensions.add(Dimension.parse(xcp))
                         }
                     }
                     METRICS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             metrics.add(RollupMetrics.parse(xcp))
                         }

@@ -67,7 +67,6 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterState
-import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.LocalNodeMasterListener
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.bytes.BytesReference
@@ -107,7 +106,7 @@ class ManagedIndexCoordinator(
     private val clusterService: ClusterService,
     private val threadPool: ThreadPool,
     indexManagementIndices: IndexManagementIndices
-) : LocalNodeMasterListener, ClusterStateListener,
+) : LocalNodeMasterListener,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexCoordinator")),
     LifecycleListener() {
 
@@ -151,10 +150,6 @@ class ManagedIndexCoordinator(
     override fun offMaster() {
         // Cancel background sweep when demoted from being master
         scheduledFullSweep?.cancel()
-    }
-
-    override fun executorName(): String {
-        return ThreadPool.Names.MANAGEMENT
     }
 
     @Suppress("ReturnCount")

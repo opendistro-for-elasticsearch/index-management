@@ -44,8 +44,8 @@ class Min() : Metric(Type.MIN) {
 
     companion object {
         fun parse(xcp: XContentParser): Min {
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            ensureExpectedToken(Token.END_OBJECT, xcp.nextToken(), xcp)
             return Min()
         }
     }

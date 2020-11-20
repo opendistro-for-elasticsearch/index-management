@@ -88,8 +88,8 @@ data class NotificationActionConfig(
             var destination: Destination? = null
             var messageTemplate: Script? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
-            while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 

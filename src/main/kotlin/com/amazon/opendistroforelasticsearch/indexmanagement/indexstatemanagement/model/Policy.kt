@@ -130,7 +130,7 @@ data class Policy(
             var schemaVersion: Long = IndexUtils.DEFAULT_SCHEMA_VERSION
             val states: MutableList<State> = mutableListOf()
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -143,7 +143,7 @@ data class Policy(
                     ERROR_NOTIFICATION_FIELD -> errorNotification = if (xcp.currentToken() == Token.VALUE_NULL) null else ErrorNotification.parse(xcp)
                     DEFAULT_STATE_FIELD -> defaultState = xcp.text()
                     STATES_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             states.add(State.parse(xcp))
                         }

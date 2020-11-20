@@ -125,7 +125,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         assertEquals("Unable to get policy $policyId", RestStatus.OK, response.restStatus())
 
         val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
-        ensureExpectedToken(Token.START_OBJECT, parser.nextToken(), parser::getTokenLocation)
+        ensureExpectedToken(Token.START_OBJECT, parser.nextToken(), parser)
 
         lateinit var id: String
         var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
@@ -462,7 +462,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
         lateinit var metadata: ManagedIndexMetaData
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
-        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
         while (xcp.nextToken() != Token.END_OBJECT) {
             xcp.currentName()
             xcp.nextToken()

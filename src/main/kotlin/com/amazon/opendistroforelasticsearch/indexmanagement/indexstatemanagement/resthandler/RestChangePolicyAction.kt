@@ -53,7 +53,7 @@ class RestChangePolicyAction : BaseRestHandler() {
         }
 
         val xcp = request.contentParser()
-        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
         val changePolicy = ChangePolicy.parse(xcp)
 
         val changePolicyRequest = ChangePolicyRequest(indices.toList(), changePolicy)

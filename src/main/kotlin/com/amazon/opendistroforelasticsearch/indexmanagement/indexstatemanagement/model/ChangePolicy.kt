@@ -84,7 +84,7 @@ data class ChangePolicy(
             var isSafe: Boolean = false
             val include = mutableListOf<StateFilter>()
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -93,7 +93,7 @@ data class ChangePolicy(
                     POLICY_ID_FIELD -> policyID = xcp.text()
                     STATE_FIELD -> state = xcp.textOrNull()
                     INCLUDE_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             include.add(StateFilter.parse(xcp))
                         }

@@ -82,7 +82,7 @@ data class State(
             val actions: MutableList<ActionConfig> = mutableListOf()
             val transitions: MutableList<Transition> = mutableListOf()
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -90,13 +90,13 @@ data class State(
                 when (fieldName) {
                     NAME_FIELD -> name = xcp.text()
                     ACTIONS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             actions.add(ActionConfig.parse(xcp, actions.size))
                         }
                     }
                     TRANSITIONS_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             transitions.add(Transition.parse(xcp))
                         }

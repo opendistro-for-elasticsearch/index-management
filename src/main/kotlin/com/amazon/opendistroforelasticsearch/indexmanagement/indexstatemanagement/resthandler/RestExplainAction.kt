@@ -56,9 +56,10 @@ class RestExplainAction : BaseRestHandler() {
 
     @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        log.debug("${request.method()} ${request.path()}")
-
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
+
+        log.debug("${request.method()} ${request.path()}")
+        log.info("explain for ${indices.toList()}")
 
         val size = request.paramAsInt("size", DEFAULT_PAGINATION_SIZE)
         val from = request.paramAsInt("from", DEFAULT_PAGINATION_FROM)

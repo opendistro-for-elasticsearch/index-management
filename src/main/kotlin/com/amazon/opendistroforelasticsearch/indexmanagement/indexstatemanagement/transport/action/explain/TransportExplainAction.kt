@@ -53,9 +53,9 @@ class TransportExplainAction @Inject constructor(
     }
 
     /**
-     * do search request first to find out the managed indices
+     * first search config index to find out managed indices
      * then retrieve metadata of these managed indices
-     * special case is when user explicitly query for an un-managed index
+     * special case: when user explicitly query for an un-managed index
      * return this index with its policy id shown 'null' meaning it's not managed
      */
     inner class ExplainHandler(
@@ -64,13 +64,14 @@ class TransportExplainAction @Inject constructor(
         private val request: ExplainRequest
     ) {
         private val indices = request.indices
+        private val explainAll = indices.isEmpty()
         private val wildcard = indices.size == 1 && indices[0].contains("*")
 
         // map of (index : index metadata map)
         private val managedIndicesMetaDataMap = mutableMapOf<String, Map<String, String?>>()
         private val managedIndices = mutableListOf<String>()
 
-        private val indexNames = mutableListOf<String>()
+        private val indexNames = mutableListOf<String>() // shouldn't include wildcard
         private var totalManagedIndices = 0
 
         @Suppress("SpreadOperator")
@@ -88,7 +89,7 @@ class TransportExplainAction @Inject constructor(
             val queryBuilder = QueryBuilders.boolQuery()
                 .must(queryStringQuery)
 
-            if (indices.isNotEmpty()) {
+            if (!explainAll) {
                 if (wildcard) { // explain/index*
                     queryBuilder.filter(QueryBuilders.wildcardQuery("managed_index.index", indices[0]))
                 } else { // explain/{index}
@@ -131,8 +132,10 @@ class TransportExplainAction @Inject constructor(
                     }
 
                     if (managedIndices.size > 0) {
+                        log.info("managed indices $managedIndices")
                         if (managedIndices.size < indices.size) {
                             // explain/{index} but has not managed index
+                            // still return all indices responses
                             indexNames.addAll(indices)
                             getMetadata(indices)
                             return
@@ -141,23 +144,38 @@ class TransportExplainAction @Inject constructor(
                         getMetadata(managedIndices)
                         return
                     }
-                    // getAll (after filtered, no managed indices match happened when using searchBox on frontend)
-                    actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList(), 0))
+
+                    // no managed indices match happened when using searchBox on frontend
+                    emptyResponse()
                 }
 
                 override fun onFailure(t: Exception) {
-                    if (t is IndexNotFoundException) { // config index hasn't been initialized
+                    if (t is IndexNotFoundException) {
+                        // config index hasn't been initialized
                         if (indices.isNotEmpty()) {
+                            // wildcard doesn't work here
+                            if (wildcard) {
+                                actionListener.onFailure(t)
+                                return
+                            }
                             indexNames.addAll(indices)
                             getMetadata(indices)
                             return
                         }
-                        actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList(), 0))
+                        emptyResponse()
                         return
                     }
                     actionListener.onFailure(t)
                 }
             })
+        }
+
+        fun emptyResponse() {
+            if (explainAll) {
+                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), 0))
+                return
+            }
+            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList()))
         }
 
         @Suppress("SpreadOperator")
@@ -210,7 +228,11 @@ class TransportExplainAction @Inject constructor(
 
             managedIndicesMetaDataMap.clear()
 
-            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices))
+            if (explainAll) {
+                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices))
+                return
+            }
+            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
         }
     }
 }

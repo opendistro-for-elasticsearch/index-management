@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -25,40 +25,31 @@ import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import java.io.IOException
 
-open class ExplainResponse : ActionResponse, ToXContentObject {
+class ExplainAllResponse : ExplainResponse, ToXContentObject {
 
-    // TODO refactor these lists usage to map
-    val indexNames: List<String>
-    val indexPolicyIDs: List<String?>
-    val indexMetadatas: List<ManagedIndexMetaData?>
-    // val totalManagedIndices: Int
+    val totalManagedIndices: Int
 
     constructor(
         indexNames: List<String>,
         indexPolicyIDs: List<String?>,
-        indexMetadatas: List<ManagedIndexMetaData?>
-        // totalManagedIndices: Int
-    ) : super() {
-        this.indexNames = indexNames
-        this.indexPolicyIDs = indexPolicyIDs
-        this.indexMetadatas = indexMetadatas
-        // this.totalManagedIndices = totalManagedIndices
+        indexMetadatas: List<ManagedIndexMetaData?>,
+        totalManagedIndices: Int
+    ) : super(indexNames, indexPolicyIDs, indexMetadatas) {
+        this.totalManagedIndices = totalManagedIndices
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         indexNames = sin.readStringList(),
         indexPolicyIDs = sin.readStringList(),
-        indexMetadatas = sin.readList { ManagedIndexMetaData.fromStreamInput(it) }
-        // totalManagedIndices = sin.readInt()
+        indexMetadatas = sin.readList { ManagedIndexMetaData.fromStreamInput(it) },
+        totalManagedIndices = sin.readInt()
     )
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeStringCollection(indexNames)
-        out.writeStringCollection(indexPolicyIDs)
-        out.writeCollection(indexMetadatas)
-        // out.writeInt(totalManagedIndices)
+        super.writeTo(out)
+        out.writeInt(totalManagedIndices)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -69,7 +60,7 @@ open class ExplainResponse : ActionResponse, ToXContentObject {
             indexMetadatas[ind]?.toXContent(builder, ToXContent.EMPTY_PARAMS)
             builder.endObject()
         }
-        // builder.field("totalManagedIndices", totalManagedIndices)
+        builder.field("totalManagedIndices", totalManagedIndices)
         return builder.endObject()
     }
 }

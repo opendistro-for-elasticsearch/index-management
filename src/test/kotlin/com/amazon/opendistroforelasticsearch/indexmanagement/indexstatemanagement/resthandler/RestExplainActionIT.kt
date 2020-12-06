@@ -38,10 +38,18 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val expected = mapOf(
             indexName to mapOf<String, String?>(
                 ManagedIndexSettings.POLICY_ID.key to null
-            ),
-            "totalManagedIndices" to 0
+            )
         )
         assertResponseMap(expected, getExplainMap(indexName))
+    }
+
+    fun `test single index explain all`() {
+        val indexName = "${testIndexName}_movies"
+        createIndex(indexName, null)
+        val expected = mapOf(
+            "totalManagedIndices" to 0
+        )
+        assertResponseMap(expected, getExplainMap(null))
     }
 
     fun `test explain all`() {
@@ -85,8 +93,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
             ),
             indexName2 to mapOf<String, Any?>(
                 ManagedIndexSettings.POLICY_ID.key to null
-            ),
-            "totalManagedIndices" to 1
+            )
         )
         waitFor {
             assertResponseMap(expected, getExplainMap("$indexName1,$indexName2"))
@@ -123,8 +130,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                 "index_uuid" to getUuid(indexName3),
                 "policy_id" to policy.id,
                 "enabled" to true
-            ),
-            "totalManagedIndices" to 3
+            )
         )
         waitFor {
             assertResponseMap(expected, getExplainMap("$indexName1*"))
@@ -192,6 +198,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     @Suppress("UNCHECKED_CAST") // Do assertion of the response map here so we don't have many places to do suppression.
     private fun assertResponseMap(expected: Map<String, Any>, actual: Map<String, Any>) {
+        log.info("explain response $actual")
         assertEquals("Explain Map does not match", expected.size, actual.size)
         for (metaDataEntry in expected) {
             if (metaDataEntry.key == "totalManagedIndices") {

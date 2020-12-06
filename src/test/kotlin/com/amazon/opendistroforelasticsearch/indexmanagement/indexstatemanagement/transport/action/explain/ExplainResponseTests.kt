@@ -42,13 +42,44 @@ class ExplainResponseTests : ESTestCase() {
             enabled = true
         )
         val indexMetadatas = listOf(metadata)
-        val totalManagedIndices = 1
-        val res = ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices)
+        val res = ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas)
 
         val out = BytesStreamOutput()
         res.writeTo(out)
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val newRes = ExplainResponse(sin)
+        assertEquals(indexNames, newRes.indexNames)
+        assertEquals(indexPolicyIDs, newRes.indexPolicyIDs)
+        assertEquals(indexMetadatas, newRes.indexMetadatas)
+    }
+
+    fun `test explain all response`() {
+        val indexNames = listOf("index1")
+        val indexPolicyIDs = listOf("policyID1")
+        val metadata = ManagedIndexMetaData(
+            index = "index1",
+            indexUuid = randomAlphaOfLength(10),
+            policyID = "policyID1",
+            policySeqNo = randomNonNegativeLong(),
+            policyPrimaryTerm = randomNonNegativeLong(),
+            policyCompleted = null,
+            rolledOver = null,
+            transitionTo = randomAlphaOfLength(10),
+            stateMetaData = null,
+            actionMetaData = null,
+            stepMetaData = null,
+            policyRetryInfo = null,
+            info = null,
+            enabled = true
+        )
+        val indexMetadatas = listOf(metadata)
+        val totalManagedIndices = 1
+        val res = ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices)
+
+        val out = BytesStreamOutput()
+        res.writeTo(out)
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val newRes = ExplainAllResponse(sin)
         assertEquals(indexNames, newRes.indexNames)
         assertEquals(indexPolicyIDs, newRes.indexPolicyIDs)
         assertEquals(indexMetadatas, newRes.indexMetadatas)

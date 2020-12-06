@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.index.IndexNotFoundException
@@ -65,9 +64,10 @@ class TransportExplainAction @Inject constructor(
     ) {
         private val indices = request.indices
         private val explainAll = indices.isEmpty()
-        private val wildcard = indices.size == 1 && indices[0].contains("*")
+        // if exist wildcard,
+        private val wildcard = indices.any {it.contains("*")}
 
-        // map of (index : index metadata map)
+        // map of (index : index metadata got from config index job)
         private val managedIndicesMetaDataMap = mutableMapOf<String, Map<String, String?>>()
         private val managedIndices = mutableListOf<String>()
 
@@ -91,7 +91,13 @@ class TransportExplainAction @Inject constructor(
 
             if (!explainAll) {
                 if (wildcard) { // explain/index*
-                    queryBuilder.filter(QueryBuilders.wildcardQuery("managed_index.index", indices[0]))
+                    indices.forEach {
+                        if (it.contains("*")) {
+                            queryBuilder.should(QueryBuilders.wildcardQuery("managed_index.index", it))
+                        } else {
+                            queryBuilder.should(QueryBuilders.termsQuery("managed_index.index", it))
+                        }
+                    }
                 } else { // explain/{index}
                     queryBuilder.filter(QueryBuilders.termsQuery("managed_index.index", indices))
                 }
@@ -153,11 +159,6 @@ class TransportExplainAction @Inject constructor(
                     if (t is IndexNotFoundException) {
                         // config index hasn't been initialized
                         if (indices.isNotEmpty()) {
-                            // wildcard doesn't work here
-                            if (wildcard) {
-                                actionListener.onFailure(t)
-                                return
-                            }
                             indexNames.addAll(indices)
                             getMetadata(indices)
                             return
@@ -206,20 +207,28 @@ class TransportExplainAction @Inject constructor(
             val indexPolicyIDs = mutableListOf<String?>()
             val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
 
+            if (wildcard) {
+                indexNames.clear()
+                state.metadata.indices.forEach { indexNames.add(it.key) }
+                log.info("index names $indexNames")
+            }
+
             // cluster state response won't resist the sort order
             for (indexName in indexNames) {
                 val indexMetadata = state.metadata.indices[indexName]
-                indexPolicyIDs.add(indexMetadata.getPolicyID())
+
+                var managedIndexMetadataMap = managedIndicesMetaDataMap[indexName]
+                indexPolicyIDs.add(managedIndexMetadataMap?.get("policy_id")) // use policyID from metadata
+                log.info("index policy id $indexPolicyIDs")
 
                 var managedIndexMetadata: ManagedIndexMetaData? = null
-                var managedIndexMetadataMap = managedIndicesMetaDataMap[indexName]
-                val savedMetadata = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+                val clusterStateMetadata = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
                 if (managedIndexMetadataMap != null) {
-                    if (savedMetadata != null) { // if has metadata saved, use that
-                        managedIndexMetadataMap = savedMetadata
+                    if (clusterStateMetadata != null) { // if has metadata saved, use that
+                        managedIndexMetadataMap = clusterStateMetadata
                     }
                     if (managedIndexMetadataMap.isNotEmpty()) {
-                        // empty because of index not managed
+                        // empty if index not managed
                         managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetadataMap)
                     }
                 }

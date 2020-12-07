@@ -82,12 +82,11 @@ class TransportExplainAction @Inject constructor(
                 .fieldSort(params.sortField)
                 .order(SortOrder.fromString(params.sortOrder))
 
-            val queryStringQuery = QueryBuilders
-                .queryStringQuery(params.queryString)
-                .defaultField("managed_index.name")
-                .defaultOperator(Operator.AND)
             val queryBuilder = QueryBuilders.boolQuery()
-                .must(queryStringQuery)
+                .must(QueryBuilders
+                    .queryStringQuery(params.queryString)
+                    .defaultField("managed_index.name")
+                    .defaultOperator(Operator.AND))
 
             if (!explainAll) {
                 if (wildcard) { // explain/index*

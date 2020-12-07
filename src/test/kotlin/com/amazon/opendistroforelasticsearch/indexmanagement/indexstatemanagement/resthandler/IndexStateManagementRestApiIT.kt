@@ -34,6 +34,7 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
+import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
@@ -265,5 +266,69 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
         val searchResponse = SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
         assertTrue("Did not find policy using fuzzy search", searchResponse.hits.hits.size == 1)
+    }
+
+    fun `test get policies for missing indices`() {
+        try {
+            client().makeRequest(RestRequest.Method.GET.toString(), POLICY_BASE_URI)
+            fail("Expected a failure")
+        } catch (e: ResponseException) {
+            val actualMessage = e.response.asMap()
+            val expectedErrorMessage = mapOf(
+                "error" to mapOf(
+                    "reason" to "no such index [.opendistro-ism-config]",
+                    "index_uuid" to "_na_",
+                    "index" to ".opendistro-ism-config",
+                    "resource.type" to "index_or_alias",
+                    "type" to "index_not_found_exception",
+                    "root_cause" to listOf<Map<String, Any>>(
+                        mapOf(
+                            "reason" to "no such index [.opendistro-ism-config]",
+                            "index_uuid" to "_na_",
+                            "index" to ".opendistro-ism-config",
+                            "resource.type" to "index_or_alias",
+                            "type" to "index_not_found_exception",
+                            "resource.id" to ".opendistro-ism-config"
+                        )
+                    ),
+                    "resource.id" to ".opendistro-ism-config"
+                ),
+                "status" to 404
+            )
+            assertEquals(expectedErrorMessage, actualMessage)
+        }
+    }
+
+    fun `test get policies with actual policy`() {
+        val policy = createRandomPolicy()
+
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), POLICY_BASE_URI)
+
+        val actualMessage = response.asMap()
+        val expectedMessage = mapOf(
+            "policies" to listOf(mapOf(
+                _SEQ_NO to policy.seqNo,
+                _ID to policy.id,
+                _PRIMARY_TERM to policy.primaryTerm,
+                Policy.POLICY_TYPE to mapOf(
+                    "schema_version" to policy.schemaVersion,
+                    "policy_id" to policy.id,
+                    "last_updated_time" to policy.lastUpdatedTime.toEpochMilli(),
+                    "default_state" to policy.defaultState,
+                    "description" to policy.description,
+                    "error_notification" to policy.errorNotification,
+                    "states" to policy.states.map {
+                        mapOf(
+                            "name" to it.name,
+                            "transitions" to it.transitions,
+                            "actions" to it.actions
+                        )
+                    }
+                )
+            )),
+            "totalPolicies" to 1
+        )
+
+        assertEquals(expectedMessage.toString(), actualMessage.toString())
     }
 }

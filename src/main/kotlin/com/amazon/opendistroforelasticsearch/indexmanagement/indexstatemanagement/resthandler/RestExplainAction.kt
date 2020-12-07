@@ -19,10 +19,10 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_JOB_SORT_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_FROM
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_SIZE
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_QUERY_STRING
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_SORT_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_SORT_ORDER
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.master.MasterNodeRequest
@@ -56,14 +56,15 @@ class RestExplainAction : BaseRestHandler() {
 
     @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.debug("${request.method()} ${request.path()}")
+
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
 
-        log.debug("${request.method()} ${request.path()}")
         log.info("explain for ${indices.toList()}")
 
         val size = request.paramAsInt("size", DEFAULT_PAGINATION_SIZE)
         val from = request.paramAsInt("from", DEFAULT_PAGINATION_FROM)
-        val sortField = request.param("sortField", DEFAULT_SORT_FIELD)
+        val sortField = request.param("sortField", DEFAULT_JOB_SORT_FIELD)
         val sortOrder = request.param("sortOrder", DEFAULT_SORT_ORDER)
         val queryString = request.param("queryString", DEFAULT_QUERY_STRING)
 

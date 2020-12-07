@@ -37,7 +37,8 @@ const val UPDATED_INDICES = "updated_indices"
 
 const val DEFAULT_PAGINATION_SIZE = 20
 const val DEFAULT_PAGINATION_FROM = 0
-const val DEFAULT_SORT_FIELD = "managed_index.index"
+const val DEFAULT_JOB_SORT_FIELD = "managed_index.index"
+const val DEFAULT_POLICY_SORT_FIELD = "policy.policy_id.keyword"
 const val DEFAULT_SORT_ORDER = "asc"
 const val DEFAULT_QUERY_STRING = "*"
 

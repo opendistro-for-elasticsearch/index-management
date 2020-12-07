@@ -15,9 +15,19 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPoliciesAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPoliciesRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_FROM
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_SIZE
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_POLICY_SORT_FIELD
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_QUERY_STRING
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_SORT_ORDER
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BaseRestHandler.RestChannelConsumer
@@ -29,10 +39,13 @@ import org.elasticsearch.rest.action.RestActions
 import org.elasticsearch.rest.action.RestToXContentListener
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 
+private val log = LogManager.getLogger(RestGetPolicyAction::class.java)
+
 class RestGetPolicyAction : BaseRestHandler() {
 
     override fun routes(): List<Route> {
         return listOf(
+            Route(GET, POLICY_BASE_URI),
             Route(GET, "$POLICY_BASE_URI/{policyID}"),
             Route(HEAD, "$POLICY_BASE_URI/{policyID}")
         )
@@ -43,20 +56,32 @@ class RestGetPolicyAction : BaseRestHandler() {
     }
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val policyId = request.param("policyID")
+        log.debug("${request.method()} ${request.path()}")
 
-        if (policyId == null || policyId.isEmpty()) {
-            throw IllegalArgumentException("Missing policy ID")
-        }
+        val policyId = request.param("policyID")
 
         var fetchSrcContext: FetchSourceContext = FetchSourceContext.FETCH_SOURCE
         if (request.method() == HEAD) {
             fetchSrcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         }
-        val getPolicyRequest = GetPolicyRequest(policyId, RestActions.parseVersion(request), fetchSrcContext)
+
+        val size = request.paramAsInt("size", DEFAULT_PAGINATION_SIZE)
+        val from = request.paramAsInt("from", DEFAULT_PAGINATION_FROM)
+        val sortField = request.param("sortField", DEFAULT_POLICY_SORT_FIELD)
+        val sortOrder = request.param("sortOrder", DEFAULT_SORT_ORDER)
+        val queryString = request.param("queryString", DEFAULT_QUERY_STRING)
+        val index = request.param("index", INDEX_MANAGEMENT_INDEX)
 
         return RestChannelConsumer { channel ->
-            client.execute(GetPolicyAction.INSTANCE, getPolicyRequest, RestToXContentListener(channel))
+            if (policyId == null || policyId.isEmpty()) {
+                log.info("get all policies")
+                val getPoliciesRequest = GetPoliciesRequest(SearchParams(size, from, sortField, sortOrder, queryString), index)
+                client.execute(GetPoliciesAction.INSTANCE, getPoliciesRequest, RestToXContentListener(channel))
+            } else {
+                val getPolicyRequest = GetPolicyRequest(policyId, RestActions.parseVersion(request), fetchSrcContext)
+                client.execute(GetPolicyAction.INSTANCE, getPolicyRequest, RestToXContentListener(channel))
+
+            }
         }
     }
 }

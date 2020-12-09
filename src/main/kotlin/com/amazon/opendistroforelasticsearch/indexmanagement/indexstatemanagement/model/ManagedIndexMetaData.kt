@@ -51,6 +51,7 @@ data class ManagedIndexMetaData(
     val enabled: Boolean?
 ) : Writeable, ToXContentFragment {
 
+    @Suppress("ComplexMethod")
     fun toMap(): Map<String, String> {
         val resultMap = mutableMapOf<String, String> ()
         resultMap[INDEX] = index

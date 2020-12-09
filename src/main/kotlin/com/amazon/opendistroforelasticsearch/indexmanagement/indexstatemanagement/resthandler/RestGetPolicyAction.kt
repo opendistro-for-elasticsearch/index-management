@@ -74,13 +74,11 @@ class RestGetPolicyAction : BaseRestHandler() {
 
         return RestChannelConsumer { channel ->
             if (policyId == null || policyId.isEmpty()) {
-                log.info("get all policies")
                 val getPoliciesRequest = GetPoliciesRequest(SearchParams(size, from, sortField, sortOrder, queryString), index)
                 client.execute(GetPoliciesAction.INSTANCE, getPoliciesRequest, RestToXContentListener(channel))
             } else {
                 val getPolicyRequest = GetPolicyRequest(policyId, RestActions.parseVersion(request), fetchSrcContext)
                 client.execute(GetPolicyAction.INSTANCE, getPolicyRequest, RestToXContentListener(channel))
-
             }
         }
     }

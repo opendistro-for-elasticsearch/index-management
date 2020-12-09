@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
@@ -54,11 +53,6 @@ class GetPoliciesResponse : ActionResponse, ToXContentObject {
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        // builder.startObject()
-        //     .field("policies", policies)
-        //     .field("totalPolicies", totalPolicies)
-        //
-        // return builder.endObject()
         return builder.startObject()
             .startArray("policies")
             .apply {

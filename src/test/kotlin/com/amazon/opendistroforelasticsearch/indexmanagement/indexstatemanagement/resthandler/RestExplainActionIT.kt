@@ -16,15 +16,11 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
-import org.elasticsearch.client.ResponseException
-import org.elasticsearch.rest.RestRequest
-import org.elasticsearch.rest.RestStatus
 import java.time.Instant
 import java.util.Locale
 
@@ -52,29 +48,6 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         assertResponseMap(expected, getExplainMap(null))
     }
 
-    fun `test explain all`() {
-        // explain all returns only managed indices
-        val indexName1 = "${testIndexName}_managed"
-        val indexName2 = "${testIndexName}_not_managed"
-        val policy = createRandomPolicy()
-        createIndex(indexName1, policy.id)
-        createIndex(indexName2, null)
-
-        val expected = mapOf(
-            indexName1 to mapOf<String, Any>(
-                ManagedIndexSettings.POLICY_ID.key to policy.id,
-                "index" to indexName1,
-                "index_uuid" to getUuid(indexName1),
-                "policy_id" to policy.id,
-                "enabled" to true
-            ),
-            "totalManagedIndices" to 1
-        )
-        waitFor {
-            assertResponseMap(expected, getExplainMap(null))
-        }
-    }
-
     fun `test two indices, one managed one not managed`() {
         // explicitly asks for un-managed index, will return policy_id as null
         val indexName1 = "${testIndexName}_managed"
@@ -100,15 +73,37 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         }
     }
 
+    fun `test two indices, one managed one not managed explain all`() {
+        // explain all returns only managed indices
+        val indexName1 = "${testIndexName}_managed"
+        val indexName2 = "${testIndexName}_not_managed"
+        val policy = createRandomPolicy()
+        createIndex(indexName1, policy.id)
+        createIndex(indexName2, null)
+
+        val expected = mapOf(
+                indexName1 to mapOf<String, Any>(
+                        ManagedIndexSettings.POLICY_ID.key to policy.id,
+                        "index" to indexName1,
+                        "index_uuid" to getUuid(indexName1),
+                        "policy_id" to policy.id,
+                        "enabled" to true
+                ),
+                "totalManagedIndices" to 1
+        )
+        waitFor {
+            assertResponseMap(expected, getExplainMap(null))
+        }
+    }
+
     fun `test index pattern`() {
-        // only return managed indices
         val indexName1 = "${testIndexName}_pattern"
         val indexName2 = "${indexName1}_2"
         val indexName3 = "${indexName1}_3"
         val policy = createRandomPolicy()
         createIndex(indexName1, policyID = policy.id)
         createIndex(indexName2, policyID = policy.id)
-        createIndex(indexName3, policyID = policy.id)
+        createIndex(indexName3, null)
         val expected = mapOf(
             indexName1 to mapOf<String, Any>(
                 ManagedIndexSettings.POLICY_ID.key to policy.id,
@@ -124,12 +119,8 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                 "policy_id" to policy.id,
                 "enabled" to true
             ),
-            indexName3 to mapOf<String, Any>(
-                ManagedIndexSettings.POLICY_ID.key to policy.id,
-                "index" to indexName3,
-                "index_uuid" to getUuid(indexName3),
-                "policy_id" to policy.id,
-                "enabled" to true
+            indexName3 to mapOf<String, Any?>(
+                ManagedIndexSettings.POLICY_ID.key to null
             )
         )
         waitFor {
@@ -198,7 +189,6 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
 
     @Suppress("UNCHECKED_CAST") // Do assertion of the response map here so we don't have many places to do suppression.
     private fun assertResponseMap(expected: Map<String, Any>, actual: Map<String, Any>) {
-        log.info("explain response $actual")
         assertEquals("Explain Map does not match", expected.size, actual.size)
         for (metaDataEntry in expected) {
             if (metaDataEntry.key == "totalManagedIndices") {

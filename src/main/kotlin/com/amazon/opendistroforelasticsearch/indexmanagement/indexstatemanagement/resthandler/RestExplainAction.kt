@@ -60,8 +60,6 @@ class RestExplainAction : BaseRestHandler() {
 
         val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
 
-        log.info("explain for ${indices.toList()}")
-
         val size = request.paramAsInt("size", DEFAULT_PAGINATION_SIZE)
         val from = request.paramAsInt("from", DEFAULT_PAGINATION_FROM)
         val sortField = request.param("sortField", DEFAULT_JOB_SORT_FIELD)

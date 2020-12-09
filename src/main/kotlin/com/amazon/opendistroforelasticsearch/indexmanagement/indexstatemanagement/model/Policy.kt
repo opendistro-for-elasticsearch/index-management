@@ -66,8 +66,6 @@ data class Policy(
         builder.startObject()
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(POLICY_TYPE)
         builder.field(POLICY_ID_FIELD, id)
-            // .field(SEQ_NO_FIELD, seqNo)
-            // .field(PRIMARY_TERM_FIELD, primaryTerm)
             .field(DESCRIPTION_FIELD, description)
             .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
             .field(SCHEMA_VERSION_FIELD, schemaVersion)
@@ -107,8 +105,6 @@ data class Policy(
     companion object {
         const val POLICY_TYPE = "policy"
         const val POLICY_ID_FIELD = "policy_id"
-        // const val SEQ_NO_FIELD = "seq_no"
-        // const val PRIMARY_TERM_FIELD = "primary_term"
         const val DESCRIPTION_FIELD = "description"
         const val NO_ID = ""
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"

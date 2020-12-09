@@ -64,8 +64,7 @@ class TransportExplainAction @Inject constructor(
     ) {
         private val indices = request.indices
         private val explainAll = indices.isEmpty()
-        // if exist wildcard,
-        private val wildcard = indices.any {it.contains("*")}
+        private val wildcard = indices.any { it.contains("*") }
 
         // map of (index : index metadata got from config index job)
         private val managedIndicesMetaDataMap = mutableMapOf<String, Map<String, String?>>()
@@ -79,14 +78,14 @@ class TransportExplainAction @Inject constructor(
             val params = request.searchParams
 
             val sortBuilder = SortBuilders
-                .fieldSort(params.sortField)
-                .order(SortOrder.fromString(params.sortOrder))
+                    .fieldSort(params.sortField)
+                    .order(SortOrder.fromString(params.sortOrder))
 
             val queryBuilder = QueryBuilders.boolQuery()
-                .must(QueryBuilders
-                    .queryStringQuery(params.queryString)
-                    .defaultField("managed_index.name")
-                    .defaultOperator(Operator.AND))
+                    .must(QueryBuilders
+                            .queryStringQuery(params.queryString)
+                            .defaultField("managed_index.name")
+                            .defaultOperator(Operator.AND))
 
             if (!explainAll) {
                 if (wildcard) { // explain/index*
@@ -105,17 +104,17 @@ class TransportExplainAction @Inject constructor(
             }
 
             val searchSourceBuilder = SearchSourceBuilder()
-                .sort(sortBuilder)
-                .from(params.from)
-                .size(params.size)
-                .fetchSource(FETCH_SOURCE)
-                .seqNoAndPrimaryTerm(true)
-                .version(true)
-                .query(queryBuilder)
+                    .sort(sortBuilder)
+                    .from(params.from)
+                    .size(params.size)
+                    .fetchSource(FETCH_SOURCE)
+                    .seqNoAndPrimaryTerm(true)
+                    .version(true)
+                    .query(queryBuilder)
 
             val searchRequest = SearchRequest()
-                .indices(INDEX_MANAGEMENT_INDEX)
-                .source(searchSourceBuilder)
+                    .indices(INDEX_MANAGEMENT_INDEX)
+                    .source(searchSourceBuilder)
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
@@ -136,27 +135,26 @@ class TransportExplainAction @Inject constructor(
                         )
                     }
 
-                    if (managedIndices.size > 0) {
-                        log.info("managed indices $managedIndices")
-                        if (managedIndices.size < indices.size) {
-                            // explain/{index} but has not managed index
-                            // still return all indices responses
-                            indexNames.addAll(indices)
-                            getMetadata(indices)
+                    // explain all only return managed indices
+                    if (explainAll) {
+                        if (managedIndices.size == 0) {
+                            emptyResponse()
+                            return
+                        } else {
+                            indexNames.addAll(managedIndices)
+                            getMetadata(managedIndices)
                             return
                         }
-                        indexNames.addAll(managedIndices)
-                        getMetadata(managedIndices)
-                        return
                     }
 
-                    // no managed indices match happened when using searchBox on frontend
-                    emptyResponse()
+                    indexNames.addAll(indices)
+                    getMetadata(indices)
                 }
 
                 override fun onFailure(t: Exception) {
                     if (t is IndexNotFoundException) {
                         // config index hasn't been initialized
+                        // trying to show requested indices not managed
                         if (indices.isNotEmpty()) {
                             indexNames.addAll(indices)
                             getMetadata(indices)
@@ -209,16 +207,14 @@ class TransportExplainAction @Inject constructor(
             if (wildcard) {
                 indexNames.clear()
                 state.metadata.indices.forEach { indexNames.add(it.key) }
-                log.info("index names $indexNames")
             }
 
-            // cluster state response won't resist the sort order
+            // cluster state response not resisting the sort order when explain all
             for (indexName in indexNames) {
                 val indexMetadata = state.metadata.indices[indexName]
 
                 var managedIndexMetadataMap = managedIndicesMetaDataMap[indexName]
                 indexPolicyIDs.add(managedIndexMetadataMap?.get("policy_id")) // use policyID from metadata
-                log.info("index policy id $indexPolicyIDs")
 
                 var managedIndexMetadata: ManagedIndexMetaData? = null
                 val clusterStateMetadata = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)

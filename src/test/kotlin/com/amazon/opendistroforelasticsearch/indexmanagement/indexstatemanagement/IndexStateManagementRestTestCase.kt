@@ -706,8 +706,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         name: String,
         template: ISMTemplate
     ): Response {
-        val response = createISMTemplateJson(name, template.toJsonString())
-        return response
+        return createISMTemplateJson(name, template.toJsonString())
     }
 
     protected fun createISMTemplateJson(
@@ -719,11 +718,16 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             "$ISM_TEMPLATE_BASE_URI/$name",
             StringEntity(templateString, APPLICATION_JSON)
         )
-        assertEquals("Unable to create new ISM template", RestStatus.OK, response.restStatus())
         return response
     }
 
-    protected fun getISMTemplate(name: String): Map<String, ISMTemplate> {
+    protected fun getISMTemplatesMap(name: String): Map<String, Any> {
+        val response = client().makeRequest("GET", "$ISM_TEMPLATE_BASE_URI/$name")
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+        return response.asMap()
+    }
+
+    protected fun getISMTemplates(name: String): Map<String, ISMTemplate> {
         val response = client().makeRequest("GET", "$ISM_TEMPLATE_BASE_URI/$name")
         assertEquals("Unable to get template $name", RestStatus.OK, response.restStatus())
 
@@ -769,4 +773,30 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
         return ismTemplates
     }
+
+    protected fun assertPredicatesOnISMTemplates(
+        templatePredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, // name: predicate
+        response: Map<String, Any?>,
+        strict: Boolean = true
+    ) {
+        val templates = response["ism_templates"] as ArrayList<*>
+
+        templatePredicates.forEach { (name, predicates) ->
+            // assertTrue("The template: $name was not found in the response: $response", templates.containsKey(name))
+            val singleRes = templates[0] as Map<String, Any?>
+            predicates.forEach { (fieldName, predicate) ->
+                assertTrue("The key: $fieldName was not found in the response: $singleRes", singleRes.containsKey(fieldName))
+                assertTrue("Failed predicate assertion for $fieldName response=($singleRes) predicates=$predicates", predicate(singleRes[fieldName]))
+            }
+        }
+    }
+
+    protected fun assertISMTemplateEquals(expectedISMTemplateMap: ISMTemplate, actualISMTemplateMap: Any?): Boolean {
+        actualISMTemplateMap as Map<String, Any>
+        assertEquals(expectedISMTemplateMap.indexPatterns, actualISMTemplateMap[ISMTemplate.INDEX_PATTERN])
+        assertEquals(expectedISMTemplateMap.policyID, actualISMTemplateMap[ISMTemplate.POLICY_ID])
+        return true
+    }
+
+
 }

@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import org.elasticsearch.action.ActionType
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 
-class PutISMTemplateAction : ActionType<AcknowledgedResponse>(NAME, ::AcknowledgedResponse) {
+class PutISMTemplateAction : ActionType<PutISMTemplateResponse>(NAME, ::PutISMTemplateResponse) {
     companion object {
         val NAME = "cluster:admin/opendistro/ism/templates/add"
         val INSTANCE = PutISMTemplateAction()

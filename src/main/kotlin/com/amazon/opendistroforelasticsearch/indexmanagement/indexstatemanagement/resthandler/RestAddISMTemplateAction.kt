@@ -15,18 +15,26 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_TEMPLATE_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy.IndexPolicyResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put.PutISMTemplateAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put.PutISMTemplateRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put.PutISMTemplateResponse
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.master.MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.rest.BaseRestHandler
+import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.PUT
+import org.elasticsearch.rest.RestResponse
+import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.rest.action.RestResponseListener
 import org.elasticsearch.rest.action.RestToXContentListener
 import java.lang.IllegalArgumentException
 import java.time.Instant
@@ -61,7 +69,16 @@ class RestAddISMTemplateAction : BaseRestHandler() {
         val addISMTemplateRequest = PutISMTemplateRequest(templateName, ismTemplate).masterNodeTimeout(masterTimeout)
 
         return RestChannelConsumer { channel ->
-            client.execute(PutISMTemplateAction.INSTANCE, addISMTemplateRequest, RestToXContentListener(channel))
+            client.execute(PutISMTemplateAction.INSTANCE, addISMTemplateRequest, object : RestResponseListener<PutISMTemplateResponse>(channel) {
+                override fun buildResponse(response: PutISMTemplateResponse): RestResponse {
+                    val restResponse = BytesRestResponse(response.status, response.toXContent(channel.newBuilder(), ToXContent.EMPTY_PARAMS))
+                    if (response.status == RestStatus.CREATED) {
+                        val location = "$ISM_TEMPLATE_BASE_URI/${response.id}"
+                        restResponse.addHeader("Location", location)
+                    }
+                    return restResponse
+                }
+            })
         }
     }
 }

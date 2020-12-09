@@ -74,6 +74,7 @@ import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
+import org.junit.Assert
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
@@ -478,6 +479,8 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
             metadata = ManagedIndexMetaData.parse(xcp)
         }
+
+        println("get back metadata is $metadata")
         return metadata
     }
 
@@ -721,14 +724,16 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         return response
     }
 
-    protected fun getISMTemplatesMap(name: String): Map<String, Any> {
+    protected fun getISMTemplatesAsMap(name: String): Map<String, Any> {
         val response = client().makeRequest("GET", "$ISM_TEMPLATE_BASE_URI/$name")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         return response.asMap()
     }
 
-    protected fun getISMTemplates(name: String): Map<String, ISMTemplate> {
-        val response = client().makeRequest("GET", "$ISM_TEMPLATE_BASE_URI/$name")
+    protected fun getISMTemplatesAsObject(name: String?): Map<String, ISMTemplate> {
+        var endpoint = ISM_TEMPLATE_BASE_URI
+        if (name != null) endpoint += "/$name"
+        val response = client().makeRequest("GET", endpoint)
         assertEquals("Unable to get template $name", RestStatus.OK, response.restStatus())
 
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
@@ -774,29 +779,37 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         return ismTemplates
     }
 
-    protected fun assertPredicatesOnISMTemplates(
-        templatePredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, // name: predicate
-        response: Map<String, Any?>,
-        strict: Boolean = true
+    protected fun assertPredicatesOnISMTemplatesMap(
+        templatePredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, // response map name: predicate
+        response: Map<String, Any?>
     ) {
-        val templates = response["ism_templates"] as ArrayList<*>
+        val templates = response["ism_templates"] as ArrayList<Map<String, Any?>>
 
-        templatePredicates.forEach { (name, predicates) ->
+        templatePredicates.forEachIndexed { ind, (_, predicates) ->
             // assertTrue("The template: $name was not found in the response: $response", templates.containsKey(name))
-            val singleRes = templates[0] as Map<String, Any?>
+            val template = templates[ind]
             predicates.forEach { (fieldName, predicate) ->
-                assertTrue("The key: $fieldName was not found in the response: $singleRes", singleRes.containsKey(fieldName))
-                assertTrue("Failed predicate assertion for $fieldName response=($singleRes) predicates=$predicates", predicate(singleRes[fieldName]))
+                assertTrue("The key: $fieldName was not found in the response: $template", template.containsKey(fieldName))
+                assertTrue("Failed predicate assertion for $fieldName in response=($template) predicate=$predicate", predicate(template[fieldName]))
             }
         }
     }
 
-    protected fun assertISMTemplateEquals(expectedISMTemplateMap: ISMTemplate, actualISMTemplateMap: Any?): Boolean {
+    protected fun assertISMTemplateEquals(expected: ISMTemplate, actualISMTemplateMap: Any?): Boolean {
         actualISMTemplateMap as Map<String, Any>
-        assertEquals(expectedISMTemplateMap.indexPatterns, actualISMTemplateMap[ISMTemplate.INDEX_PATTERN])
-        assertEquals(expectedISMTemplateMap.policyID, actualISMTemplateMap[ISMTemplate.POLICY_ID])
+        assertEquals(expected.indexPatterns, actualISMTemplateMap[ISMTemplate.INDEX_PATTERN])
+        assertEquals(expected.policyID, actualISMTemplateMap[ISMTemplate.POLICY_ID])
+        assertEquals(expected.priority, actualISMTemplateMap[ISMTemplate.PRIORITY])
         return true
     }
 
-
+    protected fun assertISMTemplateEquals(expected: ISMTemplate, actual: ISMTemplate?): Boolean {
+        assertNotNull(actual)
+        if (actual != null) {
+            assertEquals(expected.indexPatterns, actual.indexPatterns)
+            assertEquals(expected.policyID, actual.policyID)
+            assertEquals(expected.priority, actual.priority)
+        }
+        return true
+    }
 }

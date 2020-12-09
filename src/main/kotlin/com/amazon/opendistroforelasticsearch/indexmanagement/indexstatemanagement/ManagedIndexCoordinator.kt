@@ -284,11 +284,14 @@ class ManagedIndexCoordinator(
 
         val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
         matchingTemplates.filter { (_, template) -> template != null }.forEach { (index, template) ->
-            val indexUuids = indexMetadatas[index].indexUUID
+            val indexUuid = indexMetadatas[index].indexUUID
             val policyID = templates[template]?.policyID
-            if (indexUuids != null && policyID != null) {
+            if (indexUuid != null && policyID != null) {
                 logger.info("create request for index $index matching template $template")
-                updateManagedIndexReqs.add(managedIndexConfigIndexRequest(index, indexUuids, policyID, jobInterval))
+                logger.info("index name is $index")
+                logger.info("index uuid is $indexUuid")
+                logger.info("policy id is $policyID")
+                updateManagedIndexReqs.add(managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval))
             }
         }
 

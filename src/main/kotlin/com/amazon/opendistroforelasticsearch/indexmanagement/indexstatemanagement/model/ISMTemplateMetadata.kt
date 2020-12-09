@@ -123,7 +123,7 @@ class ISMTemplateMetadata(val ismTemplates: Map<String, ISMTemplate>): Metadata.
         fun parse(xcp: XContentParser): ISMTemplateMetadata {
             val ismTemplates = mutableMapOf<String, ISMTemplate>()
             log.info("ism template metadata parse, first token ${xcp.currentToken()}")
-            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 log.info("current field name $fieldName")

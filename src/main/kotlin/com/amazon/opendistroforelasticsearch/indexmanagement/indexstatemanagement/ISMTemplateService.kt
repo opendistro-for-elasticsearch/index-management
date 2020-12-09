@@ -83,7 +83,9 @@ class ISMTemplateService @Inject constructor(
         val overlaps = findConflictingISMTemplates(templateName, template.indexPatterns, template.priority, existingTemplates)
         log.info("find overlapping templates $overlaps")
         if (overlaps.isNotEmpty()) {
-            val esg = "new ism template $templateName has index pattern ${template.indexPatterns} matching existing templates ${overlaps.entries.stream().map { "${it.key} => ${it.value}" }.collect(Collectors.joining(","))}, please use a different priority than ${template.priority}"
+            val esg = "new ism template $templateName has index pattern ${template.indexPatterns} " +
+                "matching existing templates ${overlaps.entries.stream().map { "${it.key} => ${it.value}" }.collect(Collectors.joining(","))}," +
+                " please use a different priority than ${template.priority}"
             throw IllegalArgumentException(esg)
         }
 
@@ -105,7 +107,8 @@ class ISMTemplateService @Inject constructor(
                     override fun execute(currentState: ClusterState): ClusterState {
                         log.info("service remove template $templateName")
                         val existingTemplates = currentState.metadata.ismTemplates()
-                        return ClusterState.builder(currentState).metadata(Metadata.builder(currentState.metadata).removeISMTemplate(templateName, existingTemplates)).build()
+                        return ClusterState.builder(currentState).metadata(Metadata.builder(currentState.metadata)
+                                .removeISMTemplate(templateName, existingTemplates)).build()
                     }
 
                     override fun onFailure(source: String, e: Exception) {
@@ -129,6 +132,7 @@ class ISMTemplateService @Inject constructor(
          * filter out older index than template lastUpdateTime
          */
         // findV2Template
+        @Suppress("ReturnCount")
         fun findMatchingISMTemplate(ismTemplates: Map<String, ISMTemplate>, indexMetadata: IndexMetadata): String? {
             val indexName = indexMetadata.index.name
 
@@ -161,6 +165,7 @@ class ISMTemplateService @Inject constructor(
             return matchedTemplates[winner]
         }
 
+        @Suppress("ComplexMethod")
         fun validateFormat(templateName: String, indexPatterns: List<String>) {
             val validationErrors = mutableListOf<String>()
             if (templateName.contains(" ")) {
@@ -216,7 +221,13 @@ class ISMTemplateService @Inject constructor(
          * @return map of overlapping template name to its index patterns
          */
         // addIndexTemplateV2 findConflictingV2Templates
-        fun findConflictingISMTemplates(candidate: String, indexPatterns: List<String>, priority: Int, ismTemplates: Map<String, ISMTemplate>): Map<String, List<String>> {
+        @Suppress("SpreadOperator")
+        fun findConflictingISMTemplates(
+            candidate: String,
+            indexPatterns: List<String>,
+            priority: Int,
+            ismTemplates: Map<String, ISMTemplate>
+        ): Map<String, List<String>> {
             // focus on template with same priority
             val ismTemplates = ismTemplates.filter { it.value.priority == priority }
             val automaton1 = Regex.simpleMatchToAutomaton(*indexPatterns.toTypedArray())

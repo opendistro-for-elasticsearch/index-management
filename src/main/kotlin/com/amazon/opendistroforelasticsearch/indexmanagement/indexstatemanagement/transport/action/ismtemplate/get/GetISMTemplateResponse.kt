@@ -37,14 +37,14 @@ class GetISMTemplateResponse : ActionResponse, ToXContentObject {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject().startArray(ISM_TEMPLATES)
         ismTemplates.forEach { (k, v) ->
-            builder.startObject().field(NAME, k).field(ISM_TEMPLATE, v).endObject()
+            builder.startObject().field(TEMPLATE_NAME, k).field(ISM_TEMPLATE, v).endObject()
         }
         return builder.endArray().endObject()
     }
 
     companion object {
         val ISM_TEMPLATES = "ism_templates"
-        val NAME = "name"
+        val TEMPLATE_NAME = "template_name"
         val ISM_TEMPLATE = "ism_template"
     }
 }

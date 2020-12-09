@@ -15,7 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.instant
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.cluster.AbstractDiffable
 import org.elasticsearch.cluster.Diff
@@ -51,7 +52,7 @@ data class ISMTemplate(
             .field(INDEX_PATTERN, indexPatterns)
             .field(POLICY_ID, policyID)
             .field(PRIORITY, priority)
-            .field(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
+            .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
             .endObject()
     }
 
@@ -77,6 +78,7 @@ data class ISMTemplate(
         const val PRIORITY = "priority"
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
 
+        @Suppress("ComplexMethod")
         fun parse(xcp: XContentParser): ISMTemplate {
             val indexPatterns: MutableList<String> = mutableListOf()
             var policyID: String? = null
@@ -84,7 +86,7 @@ data class ISMTemplate(
             var lastUpdatedTime: Instant? = null
 
             log.info("current token ${xcp.currentToken()}")
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 log.info("parse field name $fieldName")
@@ -92,7 +94,7 @@ data class ISMTemplate(
 
                 when (fieldName) {
                     INDEX_PATTERN -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp::getTokenLocation)
+                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             indexPatterns.add(xcp.text())
                             log.info("field $indexPatterns")

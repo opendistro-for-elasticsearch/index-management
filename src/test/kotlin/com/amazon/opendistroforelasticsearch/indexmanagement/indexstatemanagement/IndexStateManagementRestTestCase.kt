@@ -21,9 +21,11 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_TEMPLATE_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
@@ -34,6 +36,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.GetISMTemplateResponse.Companion.ISM_TEMPLATE
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.GetISMTemplateResponse.Companion.ISM_TEMPLATES
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.GetISMTemplateResponse.Companion.TEMPLATE_NAME
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
@@ -695,5 +700,73 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         }
         return true
+    }
+
+    protected fun createISMTemplate(
+        name: String,
+        template: ISMTemplate
+    ): Response {
+        val response = createISMTemplateJson(name, template.toJsonString())
+        return response
+    }
+
+    protected fun createISMTemplateJson(
+        name: String,
+        templateString: String
+    ): Response {
+        val response = client().makeRequest(
+            "PUT",
+            "$ISM_TEMPLATE_BASE_URI/$name",
+            StringEntity(templateString, APPLICATION_JSON)
+        )
+        assertEquals("Unable to create new ISM template", RestStatus.OK, response.restStatus())
+        return response
+    }
+
+    protected fun getISMTemplate(name: String): Map<String, ISMTemplate> {
+        val response = client().makeRequest("GET", "$ISM_TEMPLATE_BASE_URI/$name")
+        assertEquals("Unable to get template $name", RestStatus.OK, response.restStatus())
+
+        val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
+        val ismTemplates = mutableMapOf<String, ISMTemplate>()
+
+        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
+
+        while (xcp.nextToken() != Token.END_OBJECT) {
+            val fieldName = xcp.currentName()
+            xcp.nextToken()
+
+            when (fieldName) {
+                ISM_TEMPLATES -> {
+                    ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
+
+                    var templateName: String? = null
+                    var template: ISMTemplate? = null
+
+                    while (xcp.nextToken() != Token.END_ARRAY) {
+                        println("t current name: ${xcp.currentName()}")
+                        println("t current token: ${xcp.currentToken()}")
+                        when (xcp.currentName()) {
+                            TEMPLATE_NAME -> {
+                                xcp.nextToken()
+                                templateName = xcp.text()
+                                println("template name $templateName")
+                            }
+                            ISM_TEMPLATE -> {
+                                // xcp.nextToken()
+                                template = ISMTemplate.parse(xcp)
+                            }
+                        }
+                        if (templateName != null && template != null) {
+                            ismTemplates[templateName] = template
+                            templateName = null
+                            template = null
+                        }
+                    }
+                }
+            }
+        }
+
+        return ismTemplates
     }
 }

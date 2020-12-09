@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Conditions
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
@@ -59,6 +60,7 @@ import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import java.util.regex.Pattern
 
 fun randomPolicy(
     id: String = ESRestTestCase.randomAlphaOfLength(10),
@@ -314,6 +316,20 @@ fun randomSweptManagedIndexConfig(
     )
 }
 
+fun randomISMTemplate(
+    indexPatterns: List<String> = listOf(ESRestTestCase.randomAlphaOfLength(10) + "*"),
+    policyID: String = ESRestTestCase.randomAlphaOfLength(10),
+    priority: Int = ESRestTestCase.randomIntBetween(0, 200),
+    lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+): ISMTemplate {
+    return ISMTemplate(
+        indexPatterns = indexPatterns,
+        policyID = policyID,
+        priority = priority,
+        lastUpdatedTime = lastUpdatedTime
+    )
+}
+
 fun Policy.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder).string()
@@ -402,4 +418,9 @@ fun SnapshotActionConfig.toJsonString(): String {
 fun RollupActionConfig.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun ISMTemplate.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return  this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

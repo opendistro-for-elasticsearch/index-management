@@ -58,8 +58,9 @@ class TransportGetISMTemplateAction @Inject constructor(
         }
 
         val results = mutableMapOf<String, ISMTemplate>()
-        val templateNames = request.templateNames
-        templateNames.forEach { name ->
+        val reqTemplates = request.templateNames
+        if (allTemplates.isEmpty()) throw ResourceNotFoundException("index template matching ${reqTemplates.toList()} not found")
+        reqTemplates.forEach { name ->
             allTemplates.forEach { (templateName, template) ->
                 when {
                     Regex.simpleMatch(name, templateName) -> results[templateName] = template

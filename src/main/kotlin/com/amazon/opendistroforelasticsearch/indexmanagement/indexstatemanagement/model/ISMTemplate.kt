@@ -73,6 +73,8 @@ data class ISMTemplate(
     }
 
     companion object {
+        const val ISM_TEMPLATE_ID = "template_name"
+        const val ISM_TEMPLATE_TYPE = "ism_template"
         const val INDEX_PATTERN = "index_patterns"
         const val POLICY_ID = "policy_id"
         const val PRIORITY = "priority"

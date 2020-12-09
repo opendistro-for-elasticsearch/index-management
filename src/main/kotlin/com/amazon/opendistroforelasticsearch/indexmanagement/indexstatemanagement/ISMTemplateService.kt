@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put.PutISMTemplateResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismTemplates
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.putISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.removeISMTemplate
@@ -36,6 +37,7 @@ import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.regex.Regex
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.indices.InvalidIndexTemplateException
+import org.elasticsearch.rest.RestStatus
 import java.util.*
 import java.util.stream.Collectors
 
@@ -49,7 +51,7 @@ class ISMTemplateService @Inject constructor(
      * save ISM template to cluster state metadata
      */
     fun putISMTemplate(templateName: String, template: ISMTemplate, masterTimeout: TimeValue,
-                       listener: ActionListener<AcknowledgedResponse>) {
+                       listener: ActionListener<PutISMTemplateResponse>) {
         clusterService.submitStateUpdateTask(
                 IndexManagementPlugin.PLUGIN_NAME,
                 object : ClusterStateUpdateTask(Priority.NORMAL) {
@@ -64,7 +66,15 @@ class ISMTemplateService @Inject constructor(
                     override fun timeout(): TimeValue = masterTimeout
 
                     override fun clusterStateProcessed(source: String, oldState: ClusterState, newState: ClusterState) {
-                        listener.onResponse(AcknowledgedResponse(true))
+                        log.info("cluster state processed $source")
+                        var status = RestStatus.CREATED
+                        val oldTemplate = oldState.metadata.ismTemplates()[templateName]
+                        if (oldTemplate != null) {
+                            log.info("old template $oldTemplate")
+                            status = RestStatus.OK
+                        }
+                        // oldTemplate != null ?: { status = RestStatus.OK }
+                        listener.onResponse(PutISMTemplateResponse(templateName, template, status))
                     }
                 }
         )

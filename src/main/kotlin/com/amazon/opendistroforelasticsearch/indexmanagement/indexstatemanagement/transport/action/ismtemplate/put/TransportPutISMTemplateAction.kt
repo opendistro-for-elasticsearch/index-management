@@ -43,7 +43,7 @@ class TransportPutISMTemplateAction @Inject constructor(
         indexNameExpressionResolver: IndexNameExpressionResolver,
         val client: Client,
         val ismTemplateService: ISMTemplateService
-) : TransportMasterNodeAction<PutISMTemplateRequest, AcknowledgedResponse>(
+) : TransportMasterNodeAction<PutISMTemplateRequest, PutISMTemplateResponse>(
         PutISMTemplateAction.NAME,
         transportService,
         clusterService,
@@ -61,11 +61,11 @@ class TransportPutISMTemplateAction @Inject constructor(
         return ThreadPool.Names.SAME
     }
 
-    override fun read(sin: StreamInput): AcknowledgedResponse {
-        return AcknowledgedResponse(sin)
+    override fun read(sin: StreamInput): PutISMTemplateResponse {
+        return PutISMTemplateResponse(sin)
     }
 
-    override fun masterOperation(request: PutISMTemplateRequest, state: ClusterState, listener: ActionListener<AcknowledgedResponse>) {
+    override fun masterOperation(request: PutISMTemplateRequest, state: ClusterState, listener: ActionListener<PutISMTemplateResponse>) {
         ismTemplateService.putISMTemplate(request.templateName, request.ismTemplate, request.masterNodeTimeout(), listener)
     }
 

@@ -20,4 +20,3 @@ Compatible with Elasticsearch 7.10.0
 ### Bug fixes
 
 * Correctly handles remote transport exceptions in rollover ([#325](https://github.com/opendistro-for-elasticsearch/index-management/pull/325))
-* Accept request parameters in RestGetRollupAction and fix flakey tests ([#353](https://github.com/opendistro-for-elasticsearch/index-management/pull/353))

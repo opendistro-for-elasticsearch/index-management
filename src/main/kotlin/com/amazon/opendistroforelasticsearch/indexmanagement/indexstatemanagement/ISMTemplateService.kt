@@ -57,30 +57,27 @@ class ISMTemplateService @Inject constructor(
         listener: ActionListener<PutISMTemplateResponse>
     ) {
         clusterService.submitStateUpdateTask(
-                IndexManagementPlugin.PLUGIN_NAME,
-                object : ClusterStateUpdateTask(Priority.NORMAL) {
-                    override fun execute(currentState: ClusterState): ClusterState {
-                        return addISMTemplate(currentState, templateName, template)
-                    }
-
-                    override fun onFailure(source: String, e: Exception) {
-                        listener.onFailure(e)
-                    }
-
-                    override fun timeout(): TimeValue = masterTimeout
-
-                    override fun clusterStateProcessed(source: String, oldState: ClusterState, newState: ClusterState) {
-                        log.info("cluster state processed $source")
-                        var status = RestStatus.CREATED
-                        val oldTemplate = oldState.metadata.ismTemplates()[templateName]
-                        if (oldTemplate != null) {
-                            log.info("old template $oldTemplate")
-                            status = RestStatus.OK
-                        }
-                        // oldTemplate != null ?: { status = RestStatus.OK }
-                        listener.onResponse(PutISMTemplateResponse(templateName, template, status))
-                    }
+            IndexManagementPlugin.PLUGIN_NAME,
+            object : ClusterStateUpdateTask(Priority.NORMAL) {
+                override fun execute(currentState: ClusterState): ClusterState {
+                    return addISMTemplate(currentState, templateName, template)
                 }
+
+                override fun onFailure(source: String, e: Exception) {
+                    listener.onFailure(e)
+                }
+
+                override fun timeout(): TimeValue = masterTimeout
+
+                override fun clusterStateProcessed(source: String, oldState: ClusterState, newState: ClusterState) {
+                    var status = RestStatus.CREATED
+                    val oldTemplate = oldState.metadata.ismTemplates()[templateName]
+                    if (oldTemplate != null) {
+                        status = RestStatus.OK
+                    }
+                    listener.onResponse(PutISMTemplateResponse(templateName, template, status))
+                }
+            }
         )
     }
 
@@ -88,14 +85,10 @@ class ISMTemplateService @Inject constructor(
         val existingTemplates = currentState.metadata.ismTemplates()
         val existingTemplate = existingTemplates[templateName]
 
-        log.info("existing matching template $existingTemplate")
-        log.info("input template $template")
-
         if (template == existingTemplate) return currentState
 
         // find templates with overlapping index pattern
         val overlaps = findConflictingISMTemplates(templateName, template.indexPatterns, template.priority, existingTemplates)
-        log.info("find overlapping templates $overlaps")
         if (overlaps.isNotEmpty()) {
             val esg = "new ism template $templateName has index pattern ${template.indexPatterns} " +
                 "matching existing templates ${overlaps.entries.stream().map { "${it.key} => ${it.value}" }.collect(Collectors.joining(","))}," +
@@ -105,7 +98,6 @@ class ISMTemplateService @Inject constructor(
 
         validateFormat(templateName, template.indexPatterns)
 
-        log.info("updating ISM template $templateName")
         return ClusterState.builder(currentState).metadata(Metadata.builder(currentState.metadata())
                 .putISMTemplate(templateName, template, existingTemplates)).build()
     }
@@ -114,27 +106,25 @@ class ISMTemplateService @Inject constructor(
      * remove ISM template from cluster state metadata
      */
     fun deleteISMTemplate(templateName: String, masterTimeout: TimeValue, listener: ActionListener<AcknowledgedResponse>) {
-        log.info("service remove template")
         clusterService.submitStateUpdateTask(
-                IndexManagementPlugin.PLUGIN_NAME,
-                object : ClusterStateUpdateTask(Priority.NORMAL) {
-                    override fun execute(currentState: ClusterState): ClusterState {
-                        log.info("service remove template $templateName")
-                        val existingTemplates = currentState.metadata.ismTemplates()
-                        return ClusterState.builder(currentState).metadata(Metadata.builder(currentState.metadata)
-                                .removeISMTemplate(templateName, existingTemplates)).build()
-                    }
-
-                    override fun onFailure(source: String, e: Exception) {
-                        listener.onFailure(e)
-                    }
-
-                    override fun timeout(): TimeValue = masterTimeout
-
-                    override fun clusterStateProcessed(source: String, oldState: ClusterState, newState: ClusterState) {
-                        listener.onResponse(AcknowledgedResponse(true))
-                    }
+            IndexManagementPlugin.PLUGIN_NAME,
+            object : ClusterStateUpdateTask(Priority.NORMAL) {
+                override fun execute(currentState: ClusterState): ClusterState {
+                    val existingTemplates = currentState.metadata.ismTemplates()
+                    return ClusterState.builder(currentState).metadata(Metadata.builder(currentState.metadata)
+                            .removeISMTemplate(templateName, existingTemplates)).build()
                 }
+
+                override fun onFailure(source: String, e: Exception) {
+                    listener.onFailure(e)
+                }
+
+                override fun timeout(): TimeValue = masterTimeout
+
+                override fun clusterStateProcessed(source: String, oldState: ClusterState, newState: ClusterState) {
+                    listener.onResponse(AcknowledgedResponse(true))
+                }
+            }
         )
     }
 
@@ -155,21 +145,19 @@ class ISMTemplateService @Inject constructor(
             log.info("index $indexName is hidden $isHidden")
             if (isHidden) return null
 
-            val ismTemplates = ismTemplates.filter { (_, template) ->
-                log.info("index create after template? ${template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate}")
-                template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate
-            }
-
+            // only process indices created after template
             // traverse all ism templates for matching ones
             val patternMatchPredicate = { pattern: String -> Regex.simpleMatch(pattern, indexName) }
             val matchedTemplates = mutableMapOf<ISMTemplate, String>()
-            ismTemplates.forEach { (templateName, template) ->
+            ismTemplates.filter { (_, template) ->
+                log.info("index create after template? ${template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate}")
+                template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate
+            }.forEach { (templateName, template) ->
                 val matched = template.indexPatterns.stream().anyMatch(patternMatchPredicate)
                 if (matched) matchedTemplates[template] = templateName
             }
 
             if (matchedTemplates.isEmpty()) return null
-            log.info("all matching templates $matchedTemplates")
 
             // sort by template priority
             val winner = matchedTemplates.keys.maxBy { it.priority }
@@ -240,11 +228,10 @@ class ISMTemplateService @Inject constructor(
             priority: Int,
             ismTemplates: Map<String, ISMTemplate>
         ): Map<String, List<String>> {
-            // focus on template with same priority
-            val ismTemplates = ismTemplates.filter { it.value.priority == priority }
             val automaton1 = Regex.simpleMatchToAutomaton(*indexPatterns.toTypedArray())
             val overlappingTemplates = mutableMapOf<String, List<String>>()
-            ismTemplates.forEach { (templateName, template) ->
+            // focus on template with same priority
+            ismTemplates.filter { it.value.priority == priority }.forEach { (templateName, template) ->
                 val automaton2 = Regex.simpleMatchToAutomaton(*template.indexPatterns.toTypedArray())
                 if (!Operations.isEmpty(Operations.intersection(automaton1, automaton2))) {
                     log.info("existing template $templateName overlaps candidate $candidate")

@@ -19,6 +19,7 @@ import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.support.master.MasterNodeRequest
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import java.io.IOException
 
 class DeleteISMTemplateRequest : MasterNodeRequest<DeleteISMTemplateRequest> {
 
@@ -30,10 +31,12 @@ class DeleteISMTemplateRequest : MasterNodeRequest<DeleteISMTemplateRequest> {
         this.templateName = templateName
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : super(sin) {
         templateName = sin.readString()
     }
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeString(templateName)

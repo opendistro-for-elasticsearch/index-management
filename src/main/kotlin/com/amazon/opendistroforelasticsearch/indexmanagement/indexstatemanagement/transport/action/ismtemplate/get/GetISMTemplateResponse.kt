@@ -7,6 +7,7 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
+import java.io.IOException
 
 // GetComposableIndexTemplateAction.Response
 class GetISMTemplateResponse : ActionResponse, ToXContentObject {
@@ -17,6 +18,7 @@ class GetISMTemplateResponse : ActionResponse, ToXContentObject {
         this.ismTemplates = ismTemplates
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : super(sin) {
         val size = sin.readVInt()
         ismTemplates = mutableMapOf()
@@ -25,6 +27,7 @@ class GetISMTemplateResponse : ActionResponse, ToXContentObject {
         }
     }
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeVInt(ismTemplates.size)
         ismTemplates.forEach { (k, v) ->

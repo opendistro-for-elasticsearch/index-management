@@ -87,11 +87,9 @@ data class ISMTemplate(
             var priority = 0
             var lastUpdatedTime: Instant? = null
 
-            log.info("current token ${xcp.currentToken()}")
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
-                log.info("parse field name $fieldName")
                 xcp.nextToken()
 
                 when (fieldName) {
@@ -99,34 +97,21 @@ data class ISMTemplate(
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             indexPatterns.add(xcp.text())
-                            log.info("field $indexPatterns")
                         }
                     }
-                    POLICY_ID -> {
-                        policyID = xcp.text()
-                        log.info("field $policyID")
-                    }
-                    PRIORITY -> {
-                        priority = if (xcp.currentToken() == Token.VALUE_NULL) 0 else xcp.intValue()
-                    }
-                    LAST_UPDATED_TIME_FIELD -> {
-                        lastUpdatedTime = xcp.instant()
-                        log.info("field last update time $lastUpdatedTime")
-                    }
+                    POLICY_ID -> policyID = xcp.text()
+                    PRIORITY -> priority = if (xcp.currentToken() == Token.VALUE_NULL) 0 else xcp.intValue()
+                    LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ISMTemplate.")
                 }
             }
 
-            val result = ISMTemplate(
+            return ISMTemplate(
                 indexPatterns,
                 requireNotNull(policyID) { "policy id is null" },
                 priority,
                 lastUpdatedTime ?: Instant.now()
             )
-
-            log.info("ism template parse result $result")
-            // TODO check index pattern is empty or not
-            return result
         }
 
         fun readISMTemplateDiffFrom(sin: StreamInput): Diff<ISMTemplate> = AbstractDiffable.readDiffFrom(::ISMTemplate, sin)

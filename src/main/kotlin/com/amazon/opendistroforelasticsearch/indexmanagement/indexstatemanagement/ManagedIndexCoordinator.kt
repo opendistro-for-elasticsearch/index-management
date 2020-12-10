@@ -69,7 +69,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterState
-import org.elasticsearch.cluster.LocalNodeMasterListener
+import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.LifecycleListener
@@ -108,7 +108,7 @@ class ManagedIndexCoordinator(
     private val clusterService: ClusterService,
     private val threadPool: ThreadPool,
     indexManagementIndices: IndexManagementIndices
-) : LocalNodeMasterListener,
+) : ClusterStateListener,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexCoordinator")),
     LifecycleListener() {
 
@@ -124,10 +124,12 @@ class ManagedIndexCoordinator(
             BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings), COORDINATOR_BACKOFF_COUNT.get(settings))
     @Volatile private var jobInterval = JOB_INTERVAL.get(settings)
 
+    @Volatile private var isMaster = false
+
     init {
         clusterService.addListener(this)
         clusterService.addLifecycleListener(this)
-        clusterService.addLocalNodeMasterListener(this)
+        // clusterService.addLocalNodeMasterListener(this)
         clusterService.clusterSettings.addSettingsUpdateConsumer(SWEEP_PERIOD) {
             sweepPeriod = it
             initBackgroundSweep()
@@ -144,18 +146,34 @@ class ManagedIndexCoordinator(
         }
     }
 
-    override fun onMaster() {
+    private fun executorName(): String {
+        return ThreadPool.Names.MANAGEMENT
+    }
+
+    fun onMaster() {
         // Init background sweep when promoted to being master
         initBackgroundSweep()
     }
 
-    override fun offMaster() {
+    fun offMaster() {
         // Cancel background sweep when demoted from being master
         scheduledFullSweep?.cancel()
     }
 
     @Suppress("ReturnCount")
     override fun clusterChanged(event: ClusterChangedEvent) {
+        // Instead of using a LocalNodeMasterListener to track master changes, this service will
+        // track them here to avoid conditions where master listener events run after other
+        // listeners that depend on what happened in the master listener
+        if (this.isMaster != event.localNodeMaster()) {
+            this.isMaster = event.localNodeMaster()
+            if (this.isMaster) {
+                onMaster()
+            } else {
+                offMaster()
+            }
+        }
+
         if (!isIndexStateManagementEnabled()) return
 
         if (!event.localNodeMaster()) return
@@ -230,7 +248,6 @@ class ManagedIndexCoordinator(
 
     @OpenForTesting
     suspend fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
-        logger.info("start sweep cluster changed event")
         val indicesDeletedRequests = event.indicesDeleted()
                     .filter { event.previousState().metadata().index(it)?.getPolicyID() != null }
                     .map { deleteManagedIndexRequest(it.uuid) }
@@ -288,14 +305,9 @@ class ManagedIndexCoordinator(
             val indexUuid = indexMetadatas[index].indexUUID
             val policyID = templates[template]?.policyID
             if (indexUuid != null && policyID != null) {
-                logger.info("create request for index $index matching template $template")
-                logger.info("index name is $index")
-                logger.info("index uuid is $indexUuid")
-                logger.info("policy id is $policyID")
                 updateManagedIndexReqs.add(managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval))
             }
         }
-        logger.info("size of matching template req ${updateManagedIndexReqs.size}")
 
         return updateManagedIndexReqs
     }
@@ -337,7 +349,7 @@ class ManagedIndexCoordinator(
             }
         }
 
-        scheduledFullSweep = threadPool.scheduleWithFixedDelay(scheduledSweep, sweepPeriod, ThreadPool.Names.SAME)
+        scheduledFullSweep = threadPool.scheduleWithFixedDelay(scheduledSweep, sweepPeriod, executorName())
     }
 
     private fun getFullSweepElapsedTime(): TimeValue =

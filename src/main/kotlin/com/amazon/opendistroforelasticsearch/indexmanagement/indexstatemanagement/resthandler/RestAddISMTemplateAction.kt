@@ -24,7 +24,6 @@ import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.master.MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.BytesRestResponse
 import org.elasticsearch.rest.RestHandler.Route
@@ -38,7 +37,6 @@ import java.time.Instant
 
 private val log = LogManager.getLogger(RestAddISMTemplateAction::class.java)
 
-// RestIndexPolicyAction
 class RestAddISMTemplateAction : BaseRestHandler() {
     override fun routes(): List<Route> {
         return listOf(
@@ -55,13 +53,8 @@ class RestAddISMTemplateAction : BaseRestHandler() {
         val templateName = request.param("templateID", "")
         if (templateName == "") { throw IllegalArgumentException("Missing template name") }
 
-        log.info("request content ${XContentHelper.convertToMap(request.requiredContent(), false, request.xContentType).v2()}")
-
         val xcp = request.contentParser()
-        // ISMTemplate.show(xcp)
         val ismTemplate = ISMTemplate.parse(xcp).copy(lastUpdatedTime = Instant.now())
-        log.info("rest template $ismTemplate")
-
         val masterTimeout = request.paramAsTime("master_timeout", DEFAULT_MASTER_NODE_TIMEOUT)
         val addISMTemplateRequest = PutISMTemplateRequest(templateName, ismTemplate).masterNodeTimeout(masterTimeout)
 

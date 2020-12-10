@@ -1,6 +1,5 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismTemplates
 import org.apache.logging.log4j.LogManager
@@ -8,7 +7,6 @@ import org.elasticsearch.ResourceNotFoundException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.master.TransportMasterNodeAction
-import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.block.ClusterBlockLevel
@@ -29,9 +27,7 @@ class TransportGetISMTemplateAction @Inject constructor(
     clusterService: ClusterService,
     threadPool: ThreadPool,
     actionFilters: ActionFilters,
-    indexNameExpressionResolver: IndexNameExpressionResolver,
-    val client: Client,
-    val ismTemplateService: ISMTemplateService
+    indexNameExpressionResolver: IndexNameExpressionResolver
 ) : TransportMasterNodeAction<GetISMTemplateRequest, GetISMTemplateResponse>(
     GetISMTemplateAction.NAME,
     transportService,

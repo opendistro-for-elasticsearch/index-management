@@ -31,6 +31,7 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import java.io.IOException
 import java.util.EnumSet
 
 private val log = LogManager.getLogger(ISMTemplateMetadata::class.java)
@@ -42,10 +43,12 @@ private val log = LogManager.getLogger(ISMTemplateMetadata::class.java)
 // EnrichMetadata
 class ISMTemplateMetadata(val ismTemplates: Map<String, ISMTemplate>) : Metadata.Custom {
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         sin.readMap(StreamInput::readString, ::ISMTemplate)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeMap(ismTemplates, StreamOutput::writeString) { stream, `val` -> `val`.writeTo(stream) }
     }
@@ -78,11 +81,13 @@ class ISMTemplateMetadata(val ismTemplates: Map<String, ISMTemplate>) : Metadata
             this.ismTemplateDiff = DiffableUtils.diff(before.ismTemplates, after.ismTemplates, DiffableUtils.getStringKeySerializer())
         }
 
+        @Throws(IOException::class)
         constructor(sin: StreamInput) {
             this.ismTemplateDiff = DiffableUtils.readJdkMapDiff(sin, DiffableUtils.getStringKeySerializer(),
             ::ISMTemplate, ISMTemplate.Companion::readISMTemplateDiffFrom)
         }
 
+        @Throws(IOException::class)
         override fun writeTo(out: StreamOutput) {
             ismTemplateDiff.writeTo(out)
         }

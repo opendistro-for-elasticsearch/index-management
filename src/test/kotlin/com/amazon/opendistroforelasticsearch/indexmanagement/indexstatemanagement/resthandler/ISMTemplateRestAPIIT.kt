@@ -13,6 +13,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.junit.Assert
@@ -122,9 +123,11 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
     fun `test ism template managing index`() {
         val indexName1 = "log-000001"
         val indexName2 = "log-000002"
+        val indexName3 = "log-000003"
         val policyID = "${testIndexName}_testPolicyName_1"
 
-        createIndex(indexName1)
+        // need to specify policyID null, can remove after policyID deprecated
+        createIndex(indexName1, null)
         val templateName = "t1"
         val ismTemp = ISMTemplate(listOf("log*"), policyID, 100, randomInstant())
         createISMTemplate(templateName, ismTemp)
@@ -145,24 +148,29 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
             states = states
         )
         createPolicy(policy, policyID)
-        createIndex(indexName2)
+        createIndex(indexName2, null)
+        createIndex(indexName3, Settings.builder().put("index.hidden", true).build())
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName2)
-        println("job doc is $managedIndexConfig")
-        // updateManagedIndexConfigStartTime(managedIndexConfig)
-        //
-        // // TODO problem for policyID value
-        // waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName2).policyID) }
-        //
-        // // only index create after template can be managed
-        // assertPredicatesOnMetaData(
-        //     listOf(indexName1 to listOf(ManagedIndexSettings.POLICY_ID.key to fun(policyID: Any?): Boolean = policyID == null)),
-        //     getExplainMap(indexName1),
-        //     true
-        // )
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName2).policyID) }
+
+        // only index create after template can be managed
+        assertPredicatesOnMetaData(
+            listOf(indexName1 to listOf(ManagedIndexSettings.POLICY_ID.key to fun(policyID: Any?): Boolean = policyID == null)),
+            getExplainMap(indexName1),
+            true
+        )
+        assertNull(getManagedIndexConfig(indexName1))
+
 
         // hidden index will not be manage
-
+        assertPredicatesOnMetaData(
+            listOf(indexName1 to listOf(ManagedIndexSettings.POLICY_ID.key to fun(policyID: Any?): Boolean = policyID == null)),
+            getExplainMap(indexName1),
+            true
+        )
+        assertNull(getManagedIndexConfig(indexName3))
     }
 
 }

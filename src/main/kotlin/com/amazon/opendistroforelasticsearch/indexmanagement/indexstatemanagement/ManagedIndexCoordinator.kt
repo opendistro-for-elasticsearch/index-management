@@ -230,6 +230,7 @@ class ManagedIndexCoordinator(
 
     @OpenForTesting
     suspend fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
+        logger.info("start sweep cluster changed event")
         val indicesDeletedRequests = event.indicesDeleted()
                     .filter { event.previousState().metadata().index(it)?.getPolicyID() != null }
                     .map { deleteManagedIndexRequest(it.uuid) }
@@ -294,6 +295,7 @@ class ManagedIndexCoordinator(
                 updateManagedIndexReqs.add(managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval))
             }
         }
+        logger.info("size of matching template req ${updateManagedIndexReqs.size}")
 
         return updateManagedIndexReqs
     }

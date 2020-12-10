@@ -20,6 +20,11 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.G
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest.Companion.DEFAULT_FROM
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest.Companion.DEFAULT_SEARCH_STRING
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest.Companion.DEFAULT_SIZE
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest.Companion.DEFAULT_SORT_DIRECTION
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest.Companion.DEFAULT_SORT_FIELD
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
 import org.elasticsearch.rest.RestHandler.Route
@@ -45,9 +50,21 @@ class RestGetRollupAction : BaseRestHandler() {
 
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val rollupID = request.param("rollupID")
+        val searchString = request.param("search", DEFAULT_SEARCH_STRING)
+        val from = request.paramAsInt("from", DEFAULT_FROM)
+        val size = request.paramAsInt("size", DEFAULT_SIZE)
+        val sortField = request.param("sortField", DEFAULT_SORT_FIELD)
+        val sortDirection = request.param("sortDirection", DEFAULT_SORT_DIRECTION)
         return RestChannelConsumer { channel ->
             if (rollupID == null || rollupID.isEmpty()) {
-                client.execute(GetRollupsAction.INSTANCE, GetRollupsRequest(), RestToXContentListener(channel))
+                val req = GetRollupsRequest(
+                    searchString,
+                    from,
+                    size,
+                    sortField,
+                    sortDirection
+                )
+                client.execute(GetRollupsAction.INSTANCE, req, RestToXContentListener(channel))
             } else {
                 val req = GetRollupRequest(rollupID, if (request.method() == HEAD) FetchSourceContext.DO_NOT_FETCH_SOURCE else null)
                 client.execute(GetRollupAction.INSTANCE, req, RestToXContentListener(channel))

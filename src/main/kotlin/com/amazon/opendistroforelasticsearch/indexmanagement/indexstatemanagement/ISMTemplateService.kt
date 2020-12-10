@@ -152,9 +152,7 @@ class ISMTemplateService @Inject constructor(
             if (isHidden) return null
 
             val ismTemplates = ismTemplates.filter { (_, template) ->
-                log.info("template last update time: ${template.lastUpdatedTime.toEpochMilli()}")
-                log.info("index create time: ${indexMetadata.creationDate}")
-                log.info("is template older? ${template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate}")
+                log.info("index create after template? ${template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate}")
                 template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate
             }
 

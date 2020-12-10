@@ -21,26 +21,25 @@ import org.elasticsearch.common.regex.Regex
 import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportService
 
-
 private val log = LogManager.getLogger(TransportGetISMTemplateAction::class.java)
 
 // TransportGetComposableIndexTemplateAction
 class TransportGetISMTemplateAction @Inject constructor(
-        transportService: TransportService,
-        clusterService: ClusterService,
-        threadPool: ThreadPool,
-        actionFilters: ActionFilters,
-        indexNameExpressionResolver: IndexNameExpressionResolver,
-        val client: Client,
-        val ismTemplateService: ISMTemplateService
+    transportService: TransportService,
+    clusterService: ClusterService,
+    threadPool: ThreadPool,
+    actionFilters: ActionFilters,
+    indexNameExpressionResolver: IndexNameExpressionResolver,
+    val client: Client,
+    val ismTemplateService: ISMTemplateService
 ) : TransportMasterNodeAction<GetISMTemplateRequest, GetISMTemplateResponse>(
-        GetISMTemplateAction.NAME,
-        transportService,
-        clusterService,
-        threadPool,
-        actionFilters,
-        Writeable.Reader { GetISMTemplateRequest(it) },
-        indexNameExpressionResolver
+    GetISMTemplateAction.NAME,
+    transportService,
+    clusterService,
+    threadPool,
+    actionFilters,
+    Writeable.Reader { GetISMTemplateRequest(it) },
+    indexNameExpressionResolver
 ) {
     override fun executor(): String {
         return ThreadPool.Names.SAME
@@ -76,5 +75,4 @@ class TransportGetISMTemplateAction @Inject constructor(
     override fun checkBlock(request: GetISMTemplateRequest, state: ClusterState): ClusterBlockException? {
         return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_WRITE)
     }
-
 }

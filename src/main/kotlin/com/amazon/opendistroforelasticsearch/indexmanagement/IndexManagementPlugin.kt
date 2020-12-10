@@ -112,7 +112,6 @@ import org.elasticsearch.common.settings.IndexScopedSettings
 import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.settings.SettingsFilter
-import org.elasticsearch.common.xcontent.ContextParser
 import org.elasticsearch.common.util.concurrent.ThreadContext
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -339,12 +338,12 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         val ismTemplateEntry = NamedWriteableRegistry.Entry(
             Metadata.Custom::class.java,
             ISMTemplateMetadata.TYPE,
-            Writeable.Reader{ sin -> ISMTemplateMetadata(sin) }
+            Writeable.Reader { sin -> ISMTemplateMetadata(sin) }
         )
         val ismTemplateEntry2 = NamedWriteableRegistry.Entry(
             NamedDiff::class.java,
             ISMTemplateMetadata.TYPE,
-            Writeable.Reader{ sin -> ISMTemplateMetadata.readDiffFrom(sin) }
+            Writeable.Reader { sin -> ISMTemplateMetadata.readDiffFrom(sin) }
         )
         entries.add(ismTemplateEntry)
         entries.add(ismTemplateEntry2)

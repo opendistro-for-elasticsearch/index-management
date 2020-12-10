@@ -58,7 +58,6 @@ import org.elasticsearch.test.rest.ESRestTestCase
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import java.util.regex.Pattern
 
 fun randomPolicy(
     id: String = ESRestTestCase.randomAlphaOfLength(10),
@@ -411,5 +410,5 @@ fun SnapshotActionConfig.toJsonString(): String {
 
 fun ISMTemplate.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
-    return  this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

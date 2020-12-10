@@ -60,5 +60,4 @@ class PutISMTemplateResponse : ActionResponse, ToXContentObject {
             .field(ISM_TEMPLATE_TYPE, template)
             .endObject()
     }
-
 }

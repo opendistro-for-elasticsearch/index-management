@@ -45,13 +45,17 @@ private val log = LogManager.getLogger(ISMTemplateService::class.java)
 
 // MetadataIndexTemplateService
 class ISMTemplateService @Inject constructor(
-        val clusterService: ClusterService
+    val clusterService: ClusterService
 ) {
     /**
      * save ISM template to cluster state metadata
      */
-    fun putISMTemplate(templateName: String, template: ISMTemplate, masterTimeout: TimeValue,
-                       listener: ActionListener<PutISMTemplateResponse>) {
+    fun putISMTemplate(
+        templateName: String,
+        template: ISMTemplate,
+        masterTimeout: TimeValue,
+        listener: ActionListener<PutISMTemplateResponse>
+    ) {
         clusterService.submitStateUpdateTask(
                 IndexManagementPlugin.PLUGIN_NAME,
                 object : ClusterStateUpdateTask(Priority.NORMAL) {
@@ -248,7 +252,7 @@ class ISMTemplateService @Inject constructor(
                 }
             }
             overlappingTemplates.remove(candidate)
-            return  overlappingTemplates
+            return overlappingTemplates
         }
     }
 }

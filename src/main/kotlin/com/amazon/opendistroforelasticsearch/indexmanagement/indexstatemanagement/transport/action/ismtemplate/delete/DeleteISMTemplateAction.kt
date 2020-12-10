@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import org.elasticsearch.action.ActionType
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 
-class DeleteISMTemplateAction: ActionType<AcknowledgedResponse>(NAME, ::AcknowledgedResponse) {
+class DeleteISMTemplateAction : ActionType<AcknowledgedResponse>(NAME, ::AcknowledgedResponse) {
     companion object {
         val NAME = "cluster:admin/opendistro/ism/templates/remove"
         val INSTANCE = DeleteISMTemplateAction()

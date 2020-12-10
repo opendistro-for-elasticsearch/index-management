@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
-import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.DELETE
@@ -33,7 +32,7 @@ private val log = LogManager.getLogger(RestDeleteISMTemplateAction::class.java)
 class RestDeleteISMTemplateAction : BaseRestHandler() {
     override fun routes(): List<Route> {
         return listOf(
-            Route(DELETE, "${ISM_TEMPLATE_BASE_URI}/{templateID}")
+            Route(DELETE, "$ISM_TEMPLATE_BASE_URI/{templateID}")
         )
     }
 

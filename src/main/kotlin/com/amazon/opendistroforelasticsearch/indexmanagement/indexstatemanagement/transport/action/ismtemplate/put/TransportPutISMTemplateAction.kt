@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.support.ActionFilters
-import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.action.support.master.TransportMasterNodeAction
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterState
@@ -36,21 +35,21 @@ import org.elasticsearch.transport.TransportService
 private val log = LogManager.getLogger(TransportPutISMTemplateAction::class.java)
 
 class TransportPutISMTemplateAction @Inject constructor(
-        transportService: TransportService,
-        clusterService: ClusterService,
-        threadPool: ThreadPool,
-        actionFilters: ActionFilters,
-        indexNameExpressionResolver: IndexNameExpressionResolver,
-        val client: Client,
-        val ismTemplateService: ISMTemplateService
+    transportService: TransportService,
+    clusterService: ClusterService,
+    threadPool: ThreadPool,
+    actionFilters: ActionFilters,
+    indexNameExpressionResolver: IndexNameExpressionResolver,
+    val client: Client,
+    val ismTemplateService: ISMTemplateService
 ) : TransportMasterNodeAction<PutISMTemplateRequest, PutISMTemplateResponse>(
-        PutISMTemplateAction.NAME,
-        transportService,
-        clusterService,
-        threadPool,
-        actionFilters,
-        Writeable.Reader { PutISMTemplateRequest(it) },
-        indexNameExpressionResolver
+    PutISMTemplateAction.NAME,
+    transportService,
+    clusterService,
+    threadPool,
+    actionFilters,
+    Writeable.Reader { PutISMTemplateRequest(it) },
+    indexNameExpressionResolver
 ) {
     /**
      * callbacks is inexpensive, this value may be
@@ -72,5 +71,4 @@ class TransportPutISMTemplateAction @Inject constructor(
     override fun checkBlock(request: PutISMTemplateRequest, state: ClusterState): ClusterBlockException? {
         return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_WRITE)
     }
-
 }

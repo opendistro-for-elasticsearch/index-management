@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupsRequest.Companion.DEFAULT_SIZE
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestStatus
@@ -55,7 +56,8 @@ class RestGetRollupActionIT : RollupRestTestCase() {
     fun `test getting all rollups`() {
         val rollups = randomList(1, 15) { createRollup(randomRollup()) }
 
-        val res = client().makeRequest("GET", ROLLUP_JOBS_BASE_URI)
+        // Using a larger response size than the default in case leftover rollups prevent the ones created in this test from being returned
+        val res = client().makeRequest("GET", "$ROLLUP_JOBS_BASE_URI?size=100")
         val map = res.asMap()
         val totalRollups = map["total_rollups"] as Int
         val resRollups = map["rollups"] as List<Map<String, Any?>>
@@ -88,6 +90,28 @@ class RestGetRollupActionIT : RollupRestTestCase() {
             assertEquals(testRollup.metrics.size, (innerRollup["metrics"] as List<Map<String, Any?>>).size)
             assertEquals(testRollup.dimensions.size, (innerRollup["dimensions"] as List<Map<String, Any?>>).size)
         }
+    }
+
+    @Throws(Exception::class)
+    fun `test changing response size when getting rollups`() {
+        // Ensure at least more rollup jobs than the default (20) exists
+        val rollupCount = 25
+        repeat(rollupCount) { createRollup(randomRollup()) }
+
+        // The default response size is 20, so even though 25 rollup jobs were made, at most 20 will be returned
+        var res = client().makeRequest("GET", ROLLUP_JOBS_BASE_URI)
+        var map = res.asMap()
+        var resRollups = map["rollups"] as List<Map<String, Any?>>
+
+        assertEquals("Get rollups response returned an unexpected number of jobs", DEFAULT_SIZE, resRollups.size)
+
+        // Get rollups with a larger response size
+        res = client().makeRequest("GET", "$ROLLUP_JOBS_BASE_URI?size=$rollupCount")
+        map = res.asMap()
+        resRollups = map["rollups"] as List<Map<String, Any?>>
+
+        // There can be leftover rollups from previous tests, so we will have at least rollupCount or more
+        assertEquals("Total rollups was not the same", rollupCount, resRollups.size)
     }
 
     @Throws(Exception::class)

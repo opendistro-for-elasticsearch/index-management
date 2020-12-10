@@ -29,12 +29,13 @@ class GetRollupsRequest : ActionRequest {
     val size: Int
     val sortField: String
     val sortDirection: String
+
     constructor(
-        searchString: String = "",
-        from: Int = 0,
-        size: Int = 20,
-        sortField: String = "${Rollup.ROLLUP_TYPE}.${Rollup.ROLLUP_ID_FIELD}.keyword",
-        sortDirection: String = "asc"
+        searchString: String = DEFAULT_SEARCH_STRING,
+        from: Int = DEFAULT_FROM,
+        size: Int = DEFAULT_SIZE,
+        sortField: String = DEFAULT_SORT_FIELD,
+        sortDirection: String = DEFAULT_SORT_DIRECTION
     ) : super() {
         this.searchString = searchString
         this.from = from
@@ -61,5 +62,13 @@ class GetRollupsRequest : ActionRequest {
         out.writeInt(size)
         out.writeString(sortField)
         out.writeString(sortDirection)
+    }
+
+    companion object {
+        const val DEFAULT_SEARCH_STRING = ""
+        const val DEFAULT_FROM = 0
+        const val DEFAULT_SIZE = 20
+        const val DEFAULT_SORT_FIELD = "${Rollup.ROLLUP_TYPE}.${Rollup.ROLLUP_ID_FIELD}.keyword"
+        const val DEFAULT_SORT_DIRECTION = "asc"
     }
 }

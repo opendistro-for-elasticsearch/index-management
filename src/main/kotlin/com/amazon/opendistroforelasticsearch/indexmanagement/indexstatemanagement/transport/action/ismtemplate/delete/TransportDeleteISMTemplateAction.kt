@@ -36,21 +36,21 @@ import org.elasticsearch.transport.TransportService
 private val log = LogManager.getLogger(TransportDeleteISMTemplateAction::class.java)
 
 class TransportDeleteISMTemplateAction @Inject constructor(
-        transportService: TransportService,
-        clusterService: ClusterService,
-        threadPool: ThreadPool,
-        actionFilters: ActionFilters,
-        indexNameExpressionResolver: IndexNameExpressionResolver,
-        val client: Client,
-        val ismTemplateService: ISMTemplateService
+    transportService: TransportService,
+    clusterService: ClusterService,
+    threadPool: ThreadPool,
+    actionFilters: ActionFilters,
+    indexNameExpressionResolver: IndexNameExpressionResolver,
+    val client: Client,
+    val ismTemplateService: ISMTemplateService
 ) : TransportMasterNodeAction<DeleteISMTemplateRequest, AcknowledgedResponse>(
-        DeleteISMTemplateAction.NAME,
-        transportService,
-        clusterService,
-        threadPool,
-        actionFilters,
-        Writeable.Reader { DeleteISMTemplateRequest(it) },
-        indexNameExpressionResolver
+    DeleteISMTemplateAction.NAME,
+    transportService,
+    clusterService,
+    threadPool,
+    actionFilters,
+    Writeable.Reader { DeleteISMTemplateRequest(it) },
+    indexNameExpressionResolver
 ) {
     override fun executor(): String {
         return ThreadPool.Names.SAME
@@ -67,5 +67,4 @@ class TransportDeleteISMTemplateAction @Inject constructor(
     override fun checkBlock(request: DeleteISMTemplateRequest, state: ClusterState): ClusterBlockException? {
         return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_WRITE)
     }
-
 }

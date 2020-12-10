@@ -23,7 +23,6 @@ import org.elasticsearch.action.support.master.MasterNodeRequest.DEFAULT_MASTER_
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
 import org.elasticsearch.rest.BaseRestHandler
-import org.elasticsearch.rest.RestHandler
 import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET

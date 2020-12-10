@@ -1,6 +1,5 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_TEMPLATE_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
@@ -16,10 +15,9 @@ import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.RestRequest.Method.GET
-import org.junit.Assert
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.Locale
 
 class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
 
@@ -46,13 +44,12 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         assertEquals(getRes, getRes2)
         assertISMTemplateEquals(ismTemp, getRes[templateName])
         assertISMTemplateEquals(ismTemp2, getRes[templateName2])
-
     }
 
     fun `test get not exist template`() {
         val tn = "t1"
         try {
-            client().makeRequest(GET.toString(), "${ISM_TEMPLATE_BASE_URI}/$tn")
+            client().makeRequest(GET.toString(), "$ISM_TEMPLATE_BASE_URI/$tn")
             fail("Expect a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.NOT_FOUND, e.response.restStatus())
@@ -163,7 +160,6 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         )
         assertNull(getManagedIndexConfig(indexName1))
 
-
         // hidden index will not be manage
         assertPredicatesOnMetaData(
             listOf(indexName1 to listOf(ManagedIndexSettings.POLICY_ID.key to fun(policyID: Any?): Boolean = policyID == null)),
@@ -172,5 +168,4 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         )
         assertNull(getManagedIndexConfig(indexName3))
     }
-
 }

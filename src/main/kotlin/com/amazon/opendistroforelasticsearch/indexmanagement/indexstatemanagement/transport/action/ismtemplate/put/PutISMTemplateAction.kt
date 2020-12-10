@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put
 
 import org.elasticsearch.action.ActionType
-import org.elasticsearch.action.support.master.AcknowledgedResponse
 
 class PutISMTemplateAction : ActionType<PutISMTemplateResponse>(NAME, ::PutISMTemplateResponse) {
     companion object {

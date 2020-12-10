@@ -74,7 +74,6 @@ import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
-import org.junit.Assert
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant

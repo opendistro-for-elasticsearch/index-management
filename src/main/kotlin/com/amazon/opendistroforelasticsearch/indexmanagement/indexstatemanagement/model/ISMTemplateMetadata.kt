@@ -17,11 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.Version
-import org.elasticsearch.cluster.AbstractNamedDiffable
 import org.elasticsearch.cluster.Diff
 import org.elasticsearch.cluster.DiffableUtils
 import org.elasticsearch.cluster.NamedDiff
-import org.elasticsearch.cluster.metadata.ComponentTemplate
 import org.elasticsearch.cluster.metadata.Metadata
 import org.elasticsearch.common.ParseField
 import org.elasticsearch.common.io.stream.StreamInput
@@ -32,10 +30,8 @@ import org.elasticsearch.common.xcontent.ContextParser
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentParserUtils
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
-import java.util.*
-import java.util.stream.Stream
+import java.util.EnumSet
 
 private val log = LogManager.getLogger(ISMTemplateMetadata::class.java)
 
@@ -44,7 +40,7 @@ private val log = LogManager.getLogger(ISMTemplateMetadata::class.java)
  */
 // ComponentTemplateMetadata
 // EnrichMetadata
-class ISMTemplateMetadata(val ismTemplates: Map<String, ISMTemplate>): Metadata.Custom {
+class ISMTemplateMetadata(val ismTemplates: Map<String, ISMTemplate>) : Metadata.Custom {
 
     constructor(sin: StreamInput) : this(
         sin.readMap(StreamInput::readString, ::ISMTemplate)
@@ -74,7 +70,7 @@ class ISMTemplateMetadata(val ismTemplates: Map<String, ISMTemplate>): Metadata.
 
     override fun context(): EnumSet<Metadata.XContentContext> = Metadata.ALL_CONTEXTS
 
-    class ISMTemplateMetadataDiff: NamedDiff<Metadata.Custom> {
+    class ISMTemplateMetadataDiff : NamedDiff<Metadata.Custom> {
 
         val ismTemplateDiff: Diff<Map<String, ISMTemplate>>
 
@@ -96,7 +92,6 @@ class ISMTemplateMetadata(val ismTemplates: Map<String, ISMTemplate>): Metadata.
         override fun apply(part: Metadata.Custom): Metadata.Custom {
             return ISMTemplateMetadata(ismTemplateDiff.apply((part as ISMTemplateMetadata).ismTemplates))
         }
-
     }
 
     companion object {

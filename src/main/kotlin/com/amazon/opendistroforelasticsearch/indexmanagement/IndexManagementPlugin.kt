@@ -322,33 +322,19 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         )
     }
 
-    // override fun getNamedXContent(): MutableList<NamedXContentRegistry.Entry> {
-    //     val entries = mutableListOf<NamedXContentRegistry.Entry>()
-    //     val ismTemplateEntry = NamedXContentRegistry.Entry(
-    //         Metadata.Custom::class.java,
-    //         ISMTemplateMetadata.ISM_TEMPLATE,
-    //         ContextParser{ p, _ ->  ISMTemplateMetadata.parse(p) }
-    //     )
-    //     entries.add(ismTemplateEntry)
-    //     return entries
-    // }
-
-    override fun getNamedWriteables(): MutableList<NamedWriteableRegistry.Entry> {
-        // ClusterModule 139
-        val entries = mutableListOf<NamedWriteableRegistry.Entry>()
-        val ismTemplateEntry = NamedWriteableRegistry.Entry(
-            Metadata.Custom::class.java,
-            ISMTemplateMetadata.TYPE,
-            Writeable.Reader { sin -> ISMTemplateMetadata(sin) }
+    override fun getNamedWriteables(): List<NamedWriteableRegistry.Entry> {
+        return listOf(
+            NamedWriteableRegistry.Entry(
+                Metadata.Custom::class.java,
+                ISMTemplateMetadata.TYPE,
+                Writeable.Reader { sin -> ISMTemplateMetadata(sin) }
+            ),
+            NamedWriteableRegistry.Entry(
+                NamedDiff::class.java,
+                ISMTemplateMetadata.TYPE,
+                Writeable.Reader { sin -> ISMTemplateMetadata.readDiffFrom(sin) }
+            )
         )
-        val ismTemplateEntry2 = NamedWriteableRegistry.Entry(
-            NamedDiff::class.java,
-            ISMTemplateMetadata.TYPE,
-            Writeable.Reader { sin -> ISMTemplateMetadata.readDiffFrom(sin) }
-        )
-        entries.add(ismTemplateEntry)
-        entries.add(ismTemplateEntry2)
-        return entries
     }
 
     override fun getTransportInterceptors(namedWriteableRegistry: NamedWriteableRegistry, threadContext: ThreadContext): List<TransportInterceptor> {

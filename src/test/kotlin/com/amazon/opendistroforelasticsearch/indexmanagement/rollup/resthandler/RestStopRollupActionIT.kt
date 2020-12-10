@@ -93,6 +93,8 @@ class RestStopRollupActionIT : RollupRestTestCase() {
             val updatedRollup = getRollup(rollup.id)
             val metadata = getRollupMetadata(updatedRollup.metadataID!!)
             assertEquals("Rollup never finished", RollupMetadata.Status.FINISHED, metadata.status)
+            // Waiting for job to be disabled here to avoid version conflict exceptions later on
+            assertFalse("Job was not disabled", updatedRollup.enabled)
         }
 
         // Try to stop a finished rollup

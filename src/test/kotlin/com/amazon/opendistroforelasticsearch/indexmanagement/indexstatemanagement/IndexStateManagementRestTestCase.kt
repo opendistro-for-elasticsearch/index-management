@@ -654,12 +654,11 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         name: String,
         templateString: String
     ): Response {
-        val response = client().makeRequest(
+        return client().makeRequest(
             "PUT",
             "$ISM_TEMPLATE_BASE_URI/$name",
             StringEntity(templateString, APPLICATION_JSON)
         )
-        return response
     }
 
     protected fun getISMTemplatesAsMap(name: String): Map<String, Any> {
@@ -749,5 +748,9 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             assertEquals(expected.priority, actual.priority)
         }
         return true
+    }
+
+    protected fun deleteISMTemplate(name: String): Response {
+        return client().makeRequest("DELETE", "$ISM_TEMPLATE_BASE_URI/$name")
     }
 }

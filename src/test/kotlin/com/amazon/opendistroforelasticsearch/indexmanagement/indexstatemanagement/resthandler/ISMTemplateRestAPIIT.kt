@@ -15,6 +15,7 @@ import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.rest.RestRequest.Method.GET
+import org.junit.Assert
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -44,6 +45,11 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         assertEquals(getRes, getRes2)
         assertISMTemplateEquals(ismTemp, getRes[templateName])
         assertISMTemplateEquals(ismTemp2, getRes[templateName2])
+
+        // good to clean up ism template after test
+        val delRes = deleteISMTemplate(templateName)
+        deleteISMTemplate(templateName2)
+        assertEquals(true, delRes.asMap()["acknowledged"])
     }
 
     fun `test get not exist template`() {
@@ -167,5 +173,8 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
             true
         )
         assertNull(getManagedIndexConfig(indexName3))
+
+        // good to clean up ism template after test
+        deleteISMTemplate(templateName)
     }
 }

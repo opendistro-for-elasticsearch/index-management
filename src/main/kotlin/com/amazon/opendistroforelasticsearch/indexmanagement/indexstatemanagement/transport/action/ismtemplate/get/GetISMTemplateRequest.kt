@@ -19,23 +19,26 @@ import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.support.master.MasterNodeRequest
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import java.io.IOException
 
-// GetIndexTemplatesResponse
 class GetISMTemplateRequest : MasterNodeRequest<GetISMTemplateRequest> {
 
+    // TODO not sure array is the right choice
     val templateNames: Array<String>
 
+    constructor(templateName: Array<String>) : super() {
+        this.templateNames = templateName
+    }
+
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : super(sin) {
         templateNames = sin.readStringArray()
     }
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeStringArray(templateNames)
-    }
-
-    constructor(templateName: Array<String>) : super() {
-        this.templateNames = templateName
     }
 
     override fun validate(): ActionRequestValidationException? {

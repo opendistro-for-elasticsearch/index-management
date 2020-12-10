@@ -24,7 +24,7 @@ import java.util.function.Function
 class ManagedIndexSettings {
     companion object {
         const val DEFAULT_ISM_ENABLED = true
-        const val DEFAULT_JOB_INTERVAL = 1
+        const val DEFAULT_JOB_INTERVAL = 5
         private val ALLOW_LIST_ALL = ActionConfig.ActionType.values().toList().map { it.type }
         val ALLOW_LIST_NONE = emptyList<String>()
 

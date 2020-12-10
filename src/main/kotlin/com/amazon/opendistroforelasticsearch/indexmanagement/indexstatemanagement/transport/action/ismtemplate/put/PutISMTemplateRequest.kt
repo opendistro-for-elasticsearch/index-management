@@ -20,23 +20,12 @@ import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.support.master.MasterNodeRequest
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import java.io.IOException
 
-// PutComponentTemplateAction
 class PutISMTemplateRequest : MasterNodeRequest<PutISMTemplateRequest> {
 
     val templateName: String
     val ismTemplate: ISMTemplate
-
-    constructor(sin: StreamInput) : super(sin) {
-        templateName = sin.readString()
-        ismTemplate = ISMTemplate(sin)
-    }
-
-    override fun writeTo(out: StreamOutput) {
-        super.writeTo(out)
-        out.writeString(templateName)
-        ismTemplate.writeTo(out)
-    }
 
     constructor(
         templateName: String,
@@ -44,6 +33,19 @@ class PutISMTemplateRequest : MasterNodeRequest<PutISMTemplateRequest> {
     ) : super() {
         this.templateName = templateName
         this.ismTemplate = ismTemplate
+    }
+
+    @Throws(IOException::class)
+    constructor(sin: StreamInput) : super(sin) {
+        templateName = sin.readString()
+        ismTemplate = ISMTemplate(sin)
+    }
+
+    @Throws(IOException::class)
+    override fun writeTo(out: StreamOutput) {
+        super.writeTo(out)
+        out.writeString(templateName)
+        ismTemplate.writeTo(out)
     }
 
     override fun validate(): ActionRequestValidationException? {

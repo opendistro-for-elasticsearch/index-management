@@ -475,7 +475,6 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             metadata = ManagedIndexMetaData.parse(xcp)
         }
 
-        println("get back metadata is $metadata")
         return metadata
     }
 
@@ -690,13 +689,10 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
                     var template: ISMTemplate? = null
 
                     while (xcp.nextToken() != Token.END_ARRAY) {
-                        println("t current name: ${xcp.currentName()}")
-                        println("t current token: ${xcp.currentToken()}")
                         when (xcp.currentName()) {
                             TEMPLATE_NAME -> {
                                 xcp.nextToken()
                                 templateName = xcp.text()
-                                println("template name $templateName")
                             }
                             ISM_TEMPLATE -> {
                                 // xcp.nextToken()

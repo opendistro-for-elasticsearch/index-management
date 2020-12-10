@@ -25,6 +25,7 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.rest.RestStatus
+import java.io.IOException
 
 class PutISMTemplateResponse : ActionResponse, ToXContentObject {
 
@@ -42,12 +43,14 @@ class PutISMTemplateResponse : ActionResponse, ToXContentObject {
         this.status = status
     }
 
+    @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         id = sin.readString(),
         template = ISMTemplate(sin),
         status = sin.readEnum(RestStatus::class.java)
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(id)
         template.writeTo(out)

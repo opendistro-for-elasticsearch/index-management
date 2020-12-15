@@ -29,6 +29,7 @@ import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -81,7 +82,6 @@ class TransportGetPoliciesAction @Inject constructor(
         client.search(searchRequest, object : ActionListener<SearchResponse> {
             override fun onResponse(response: SearchResponse) {
                 val totalPolicies = response.hits.totalHits?.value ?: 0
-                log.info("search response hits $totalPolicies")
                 val policies = response.hits.hits.map {
                     val id = it.id
                     val seqNo = it.seqNo
@@ -96,6 +96,11 @@ class TransportGetPoliciesAction @Inject constructor(
             }
 
             override fun onFailure(t: Exception) {
+                if (t is IndexNotFoundException) {
+                    // config index hasn't been initialized
+                    actionListener.onResponse(GetPoliciesResponse(emptyList(), 0))
+                    return
+                }
                 actionListener.onFailure(t)
             }
         })

@@ -129,7 +129,6 @@ class ManagedIndexCoordinator(
     init {
         clusterService.addListener(this)
         clusterService.addLifecycleListener(this)
-        // clusterService.addLocalNodeMasterListener(this)
         clusterService.clusterSettings.addSettingsUpdateConsumer(SWEEP_PERIOD) {
             sweepPeriod = it
             initBackgroundSweep()
@@ -281,7 +280,7 @@ class ManagedIndexCoordinator(
             if (it.value.shouldDeleteManagedIndexMetaData()) indicesToRemoveManagedIndexMetaDataFrom.add(it.value.index)
         }
 
-        // check newly created indices matching any ISM templates
+        // check if newly created indices matching any ISM templates
         val updateMatchingIndexReqs = getMatchingIndicesUpdateReqs(event.state(), event.indicesCreated())
         if (updateMatchingIndexReqs.isNotEmpty()) hasCreateRequests = true
 
@@ -290,18 +289,18 @@ class ManagedIndexCoordinator(
     }
 
     /**
-     * Get update requests for indices matching any ISM templates
+     * build requests to create jobs for indices matching ISM templates
      */
     fun getMatchingIndicesUpdateReqs(clusterState: ClusterState, indexNames: List<String>): List<DocWriteRequest<*>> {
         val indexMetadatas = clusterState.metadata.indices
         val templates = clusterState.metadata.ismTemplates()
 
-        val matchingTemplates = indexNames.map { indexName ->
+        val indexToMatchMap = indexNames.map { indexName ->
             indexName to findMatchingISMTemplate(templates, indexMetadatas[indexName])
         }.toMap()
 
         val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
-        matchingTemplates.filter { (_, template) -> template != null }.forEach { (index, template) ->
+        indexToMatchMap.filter { (_, template) -> template != null }.forEach { (index, template) ->
             val indexUuid = indexMetadatas[index].indexUUID
             val policyID = templates[template]?.policyID
             if (indexUuid != null && policyID != null) {
@@ -365,7 +364,7 @@ class ManagedIndexCoordinator(
     suspend fun sweep() {
         val currentManagedIndices = sweepManagedIndexJobs(client, ismIndices.indexManagementIndexExists())
 
-        // check all un-managed indices, if its name matches any template and older than that template
+        // check all un-managed indices, if matches any ism template
         val unManagedIndices = clusterService.state().metadata.indices.values().filterNotNull()
                 .filter { it.value.indexUUID !in currentManagedIndices.keys }.map { it.value.index.name }
         val updateMatchingIndicesReqs = getMatchingIndicesUpdateReqs(clusterService.state(), unManagedIndices)

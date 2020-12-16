@@ -25,20 +25,16 @@ import java.io.IOException
 class GetPoliciesRequest : ActionRequest {
 
     val searchParams: SearchParams
-    val index: String
 
     constructor(
-        searchParams: SearchParams,
-        index: String
+        searchParams: SearchParams
     ) : super() {
         this.searchParams = searchParams
-        this.index = index
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        searchParams = SearchParams(sin),
-        index = sin.readString()
+        searchParams = SearchParams(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -48,6 +44,5 @@ class GetPoliciesRequest : ActionRequest {
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         searchParams.writeTo(out)
-        out.writeString(index)
     }
 }

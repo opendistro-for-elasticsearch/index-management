@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPoliciesAction
@@ -70,11 +69,10 @@ class RestGetPolicyAction : BaseRestHandler() {
         val sortField = request.param("sortField", DEFAULT_POLICY_SORT_FIELD)
         val sortOrder = request.param("sortOrder", DEFAULT_SORT_ORDER)
         val queryString = request.param("queryString", DEFAULT_QUERY_STRING)
-        val index = request.param("index", INDEX_MANAGEMENT_INDEX)
 
         return RestChannelConsumer { channel ->
             if (policyId == null || policyId.isEmpty()) {
-                val getPoliciesRequest = GetPoliciesRequest(SearchParams(size, from, sortField, sortOrder, queryString), index)
+                val getPoliciesRequest = GetPoliciesRequest(SearchParams(size, from, sortField, sortOrder, queryString))
                 client.execute(GetPoliciesAction.INSTANCE, getPoliciesRequest, RestToXContentListener(channel))
             } else {
                 val getPolicyRequest = GetPolicyRequest(policyId, RestActions.parseVersion(request), fetchSrcContext)

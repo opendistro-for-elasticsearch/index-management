@@ -62,15 +62,15 @@ class TransportExplainAction @Inject constructor(
         private val actionListener: ActionListener<ExplainResponse>,
         private val request: ExplainRequest
     ) {
-        private val indices = request.indices
-        private val explainAll = indices.isEmpty()
-        private val wildcard = indices.any { it.contains("*") }
+        private val indices: List<String> = request.indices
+        private val explainAll: Boolean = indices.isEmpty()
+        private val wildcard: Boolean = indices.any { it.contains("*") }
 
-        // map of (index : index metadata got from config index job)
-        private val managedIndicesMetaDataMap = mutableMapOf<String, Map<String, String?>>()
-        private val managedIndices = mutableListOf<String>()
+        // map of index to index metadata got from config index job
+        private val managedIndicesMetaDataMap: MutableMap<String, Map<String, String?>> = mutableMapOf()
+        private val managedIndices: MutableList<String> = mutableListOf()
 
-        private val indexNames = mutableListOf<String>() // shouldn't include wildcard
+        private val indexNames: MutableList<String> = mutableListOf()
         private var totalManagedIndices = 0
 
         @Suppress("SpreadOperator")
@@ -78,14 +78,14 @@ class TransportExplainAction @Inject constructor(
             val params = request.searchParams
 
             val sortBuilder = SortBuilders
-                    .fieldSort(params.sortField)
-                    .order(SortOrder.fromString(params.sortOrder))
+                .fieldSort(params.sortField)
+                .order(SortOrder.fromString(params.sortOrder))
 
             val queryBuilder = QueryBuilders.boolQuery()
-                    .must(QueryBuilders
-                            .queryStringQuery(params.queryString)
-                            .defaultField("managed_index.name")
-                            .defaultOperator(Operator.AND))
+                .must(QueryBuilders
+                    .queryStringQuery(params.queryString)
+                    .defaultField("managed_index.name")
+                    .defaultOperator(Operator.AND))
 
             if (!explainAll) {
                 if (wildcard) { // explain/index*
@@ -104,17 +104,17 @@ class TransportExplainAction @Inject constructor(
             }
 
             val searchSourceBuilder = SearchSourceBuilder()
-                    .sort(sortBuilder)
-                    .from(params.from)
-                    .size(params.size)
-                    .fetchSource(FETCH_SOURCE)
-                    .seqNoAndPrimaryTerm(true)
-                    .version(true)
-                    .query(queryBuilder)
+                .from(params.from)
+                .size(params.size)
+                .fetchSource(FETCH_SOURCE)
+                .seqNoAndPrimaryTerm(true)
+                .version(true)
+                .sort(sortBuilder)
+                .query(queryBuilder)
 
             val searchRequest = SearchRequest()
-                    .indices(INDEX_MANAGEMENT_INDEX)
-                    .source(searchSourceBuilder)
+                .indices(INDEX_MANAGEMENT_INDEX)
+                .source(searchSourceBuilder)
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
@@ -147,6 +147,7 @@ class TransportExplainAction @Inject constructor(
                         }
                     }
 
+                    // explain/{index} return results for all indices
                     indexNames.addAll(indices)
                     getMetadata(indices)
                 }
@@ -154,7 +155,7 @@ class TransportExplainAction @Inject constructor(
                 override fun onFailure(t: Exception) {
                     if (t is IndexNotFoundException) {
                         // config index hasn't been initialized
-                        // trying to show requested indices not managed
+                        // show all requested indices not managed
                         if (indices.isNotEmpty()) {
                             indexNames.addAll(indices)
                             getMetadata(indices)
@@ -166,14 +167,6 @@ class TransportExplainAction @Inject constructor(
                     actionListener.onFailure(t)
                 }
             })
-        }
-
-        fun emptyResponse() {
-            if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), 0))
-                return
-            }
-            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList()))
         }
 
         @Suppress("SpreadOperator")
@@ -190,7 +183,7 @@ class TransportExplainAction @Inject constructor(
 
             client.admin().cluster().state(clusterStateRequest, object : ActionListener<ClusterStateResponse> {
                 override fun onResponse(response: ClusterStateResponse) {
-                    processResponse(response)
+                    onClusterStateResponse(response)
                 }
 
                 override fun onFailure(t: Exception) {
@@ -199,17 +192,18 @@ class TransportExplainAction @Inject constructor(
             })
         }
 
-        fun processResponse(clusterStateResponse: ClusterStateResponse) {
+        fun onClusterStateResponse(clusterStateResponse: ClusterStateResponse) {
             val state = clusterStateResponse.state
             val indexPolicyIDs = mutableListOf<String?>()
             val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
 
             if (wildcard) {
-                indexNames.clear()
+                indexNames.clear() // clear wildcard (index*) from indexNames
                 state.metadata.indices.forEach { indexNames.add(it.key) }
             }
 
-            // cluster state response not resisting the sort order when explain all
+            // cluster state response will not resisting the sort order
+            // so use the order from previous search result saved in indexNames
             for (indexName in indexNames) {
                 val indexMetadata = state.metadata.indices[indexName]
 
@@ -223,7 +217,6 @@ class TransportExplainAction @Inject constructor(
                         managedIndexMetadataMap = clusterStateMetadata
                     }
                     if (managedIndexMetadataMap.isNotEmpty()) {
-                        // empty if index not managed
                         managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetadataMap)
                     }
                 }
@@ -237,6 +230,14 @@ class TransportExplainAction @Inject constructor(
                 return
             }
             actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
+        }
+
+        fun emptyResponse() {
+            if (explainAll) {
+                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), 0))
+                return
+            }
+            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList()))
         }
     }
 }

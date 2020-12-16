@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import org.apache.logging.log4j.LogManager
@@ -77,7 +78,7 @@ class TransportGetPoliciesAction @Inject constructor(
 
         val searchRequest = SearchRequest()
             .source(searchSourceBuilder)
-            .indices(getPoliciesRequest.index)
+            .indices(INDEX_MANAGEMENT_INDEX)
 
         client.search(searchRequest, object : ActionListener<SearchResponse> {
             override fun onResponse(response: SearchResponse) {
@@ -97,7 +98,7 @@ class TransportGetPoliciesAction @Inject constructor(
 
             override fun onFailure(t: Exception) {
                 if (t is IndexNotFoundException) {
-                    // config index hasn't been initialized
+                    // config index hasn't been initialized, catch this here and show empty result on Kibana
                     actionListener.onResponse(GetPoliciesResponse(emptyList(), 0))
                     return
                 }

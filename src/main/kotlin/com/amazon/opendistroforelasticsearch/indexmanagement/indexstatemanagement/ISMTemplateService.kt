@@ -38,12 +38,11 @@ import org.elasticsearch.common.regex.Regex
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.indices.InvalidIndexTemplateException
 import org.elasticsearch.rest.RestStatus
-import java.util.*
 import java.util.stream.Collectors
+import java.util.Locale
 
 private val log = LogManager.getLogger(ISMTemplateService::class.java)
 
-// MetadataIndexTemplateService
 class ISMTemplateService @Inject constructor(
     val clusterService: ClusterService
 ) {
@@ -130,12 +129,15 @@ class ISMTemplateService @Inject constructor(
 
     companion object {
         /**
-         * find the matching template name for the given index name
+         * find the matching template for the index
          *
          * filter out hidden index
          * filter out older index than template lastUpdateTime
+         *
+         * @param ismTemplates current ISM templates saved in metadata
+         * @param indexMetadata cluster state index metadata
+         * @return template name matching with given index
          */
-        // findV2Template
         @Suppress("ReturnCount")
         fun findMatchingISMTemplate(ismTemplates: Map<String, ISMTemplate>, indexMetadata: IndexMetadata): String? {
             val indexName = indexMetadata.index.name
@@ -165,6 +167,10 @@ class ISMTemplateService @Inject constructor(
             return matchedTemplates[winner]
         }
 
+        /**
+         * validate the template Name and indexPattern provided in the template
+         * reusing ES validate function in MetadataIndexTemplateService
+         */
         @Suppress("ComplexMethod")
         fun validateFormat(templateName: String, indexPatterns: List<String>) {
             val validationErrors = mutableListOf<String>()
@@ -220,7 +226,6 @@ class ISMTemplateService @Inject constructor(
          *
          * @return map of overlapping template name to its index patterns
          */
-        // addIndexTemplateV2 findConflictingV2Templates
         @Suppress("SpreadOperator")
         fun findConflictingISMTemplates(
             candidate: String,
@@ -230,6 +235,7 @@ class ISMTemplateService @Inject constructor(
         ): Map<String, List<String>> {
             val automaton1 = Regex.simpleMatchToAutomaton(*indexPatterns.toTypedArray())
             val overlappingTemplates = mutableMapOf<String, List<String>>()
+
             // focus on template with same priority
             ismTemplates.filter { it.value.priority == priority }.forEach { (templateName, template) ->
                 val automaton2 = Regex.simpleMatchToAutomaton(*template.indexPatterns.toTypedArray())
@@ -239,6 +245,7 @@ class ISMTemplateService @Inject constructor(
                 }
             }
             overlappingTemplates.remove(candidate)
+
             return overlappingTemplates
         }
     }

@@ -127,7 +127,6 @@ class TransportExplainAction @Inject constructor(
                     response.hits.hits.map {
                         val hitMap = it.sourceAsMap["managed_index"] as Map<String, Any>
                         val managedIndex = hitMap["index"] as String
-                        log.info("what is in hitmap $hitMap")
                         managedIndices.add(managedIndex)
                         enabledState[managedIndex] = hitMap["enabled"] as Boolean
                         managedIndicesMetaDataMap[managedIndex] = mapOf(
@@ -137,8 +136,6 @@ class TransportExplainAction @Inject constructor(
                             "enabled" to hitMap["enabled"]?.toString()
                         )
                     }
-
-                    log.info("enabled state for managed index: $enabledState")
 
                     // explain all only return managed indices
                     if (explainAll) {

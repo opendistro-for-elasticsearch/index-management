@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class GetPoliciesAction private constructor() : ActionType<GetPoliciesResponse>(NAME, ::GetPoliciesResponse) {
     companion object {
         val INSTANCE = GetPoliciesAction()
-        val NAME = "cluster:admin/opendistro/ism/policy/read_all"
+        val NAME = "cluster:admin/opendistro/ism/policy/search"
     }
 }

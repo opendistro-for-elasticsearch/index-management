@@ -159,7 +159,6 @@ data class ManagedIndexMetaData(
         const val ROLLED_OVER = "rolled_over"
         const val TRANSITION_TO = "transition_to"
         const val INFO = "info"
-        const val ENABLED = "enabled"
 
         fun fromStreamInput(si: StreamInput): ManagedIndexMetaData {
             val index: String? = si.readString()

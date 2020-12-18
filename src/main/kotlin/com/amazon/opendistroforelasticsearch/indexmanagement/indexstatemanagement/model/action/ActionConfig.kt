@@ -51,7 +51,8 @@ abstract class ActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData
+        managedIndexMetaData: ManagedIndexMetaData,
+        settings: Map<String, Any>
     ): Action
 
     enum class ActionType(val type: String) {

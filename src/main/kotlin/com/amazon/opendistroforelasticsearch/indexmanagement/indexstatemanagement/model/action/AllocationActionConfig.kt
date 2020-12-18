@@ -49,7 +49,8 @@ data class AllocationActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData
+        managedIndexMetaData: ManagedIndexMetaData,
+        settings: Map<String, Any>
     ): Action = AllocationAction(clusterService, client, managedIndexMetaData, this)
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

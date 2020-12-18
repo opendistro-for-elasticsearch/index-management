@@ -35,10 +35,13 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.delete.AttemptDeleteStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -56,6 +59,8 @@ import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+
+private val log = LogManager.getLogger("ManagedIndexUtils")
 
 fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String, jobInterval: Int): IndexRequest {
     val managedIndexConfig = ManagedIndexConfig(
@@ -256,8 +261,11 @@ fun State.getActionToExecute(
     clusterService: ClusterService,
     scriptService: ScriptService,
     client: Client,
-    managedIndexMetaData: ManagedIndexMetaData
+    managedIndexMetaData: ManagedIndexMetaData,
+    settings: Map<String, Any>
 ): Action? {
+    log.info("deny list: ${settings[SNAPSHOT_DENY_LIST.key]}")
+
     var actionConfig: ActionConfig?
 
     // If we are transitioning to this state get the first action in the state
@@ -277,14 +285,14 @@ fun State.getActionToExecute(
         // TODO: Refactor so we can get isLastStep from somewhere besides an instantiated Action class so we can simplify this to a when block
         // If stepCompleted is true and this is the last step of the action then we should get the next action
         if (managedIndexMetaData.stepMetaData != null && managedIndexMetaData.stepMetaData.stepStatus == Step.StepStatus.COMPLETED) {
-            val action = actionConfig.toAction(clusterService, scriptService, client, managedIndexMetaData)
+            val action = actionConfig.toAction(clusterService, scriptService, client, managedIndexMetaData, settings)
             if (action.isLastStep(managedIndexMetaData.stepMetaData.name)) {
                 actionConfig = this.actions.getOrNull(managedIndexMetaData.actionMetaData.index + 1) ?: TransitionsActionConfig(this.transitions)
             }
         }
     }
 
-    return actionConfig.toAction(clusterService, scriptService, client, managedIndexMetaData)
+    return actionConfig.toAction(clusterService, scriptService, client, managedIndexMetaData, settings)
 }
 
 fun State.getUpdatedStateMetaData(managedIndexMetaData: ManagedIndexMetaData): StateMetaData {

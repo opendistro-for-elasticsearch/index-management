@@ -112,6 +112,8 @@ dependencies {
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
     testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0"
     testCompile "org.mockito:mockito-core:2.23.0"
+    // testCompile "org.mockito:mockito-core:3.0.0"
+    // testImplementation 'org.mockito:mockito-inline:2.8.47'
 
     ktlint "com.pinterest:ktlint:0.33.0"
 }
@@ -161,6 +163,7 @@ afterEvaluate {
         def firstPlugin = plugins.get(0)
         plugins.remove(0)
         plugins.add(firstPlugin)
+        node.setting("path.repo", "[\"/Users/bowenlan/workplace/ODFE/backup\"]")
         if (securityEnabled) {
             node.extraConfigFile("kirk.pem", file("src/test/resources/security/kirk.pem"))
             node.extraConfigFile("kirk-key.pem", file("src/test/resources/security/kirk-key.pem"))

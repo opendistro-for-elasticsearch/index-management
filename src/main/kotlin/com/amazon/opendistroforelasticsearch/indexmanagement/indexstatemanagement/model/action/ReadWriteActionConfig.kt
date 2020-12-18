@@ -47,7 +47,8 @@ data class ReadWriteActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData
+        managedIndexMetaData: ManagedIndexMetaData,
+        settings: Map<String, Any>
     ): Action = ReadWriteAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {

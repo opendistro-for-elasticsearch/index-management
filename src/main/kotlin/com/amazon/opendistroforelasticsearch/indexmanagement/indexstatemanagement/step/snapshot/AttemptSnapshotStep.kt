@@ -20,8 +20,10 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionProperties
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StepMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.common.regex.Regex
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.cluster.snapshots.create.CreateSnapshotRequest
 import org.elasticsearch.action.admin.cluster.snapshots.create.CreateSnapshotResponse
@@ -39,33 +41,48 @@ class AttemptSnapshotStep(
     val clusterService: ClusterService,
     val client: Client,
     val config: SnapshotActionConfig,
-    managedIndexMetaData: ManagedIndexMetaData
+    managedIndexMetaData: ManagedIndexMetaData,
+    settings: Map<String, Any>
 ) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
     private var snapshotName: String? = null
+    private var denyList: List<String> = if (settings[SNAPSHOT_DENY_LIST.key] == null) {
+        emptyList()
+    } else {
+        settings[SNAPSHOT_DENY_LIST.key] as List<String>
+    }
 
     override fun isIdempotent() = false
 
     @Suppress("TooGenericExceptionCaught", "ComplexMethod")
     override suspend fun execute(): AttemptSnapshotStep {
         try {
-            snapshotName = config
-                    .snapshot
-                    .plus("-")
-                    .plus(LocalDateTime
-                            .now(ZoneId.of("UTC"))
-                            .format(DateTimeFormatter.ofPattern("uuuu.MM.dd-HH:mm:ss.SSS", Locale.ROOT)))
             val mutableInfo = mutableMapOf<String, String>()
 
+            if (isDenied(denyList, config.repository)) {
+                logger.info("repository ${config.repository} denied")
+                stepStatus = StepStatus.FAILED
+                mutableInfo["message"] = getBlockedMessage(denyList, config.repository)
+                info = mutableInfo.toMap()
+                return this
+            }
+
+            snapshotName = config
+                .snapshot
+                .plus("-")
+                .plus(LocalDateTime
+                    .now(ZoneId.of("UTC"))
+                    .format(DateTimeFormatter.ofPattern("uuuu.MM.dd-HH:mm:ss.SSS", Locale.ROOT)))
+
             val createSnapshotRequest = CreateSnapshotRequest()
-                    .userMetadata(mapOf("snapshot_created" to "Open Distro for Elasticsearch Index Management"))
-                    .indices(indexName)
-                    .snapshot(snapshotName)
-                    .repository(config.repository)
-                    .waitForCompletion(false)
+                .userMetadata(mapOf("snapshot_created" to "Open Distro for Elasticsearch Index Management"))
+                .indices(indexName)
+                .snapshot(snapshotName)
+                .repository(config.repository)
+                .waitForCompletion(false)
 
             val response: CreateSnapshotResponse = client.admin().cluster().suspendUntil { createSnapshot(createSnapshotRequest, it) }
             when (response.status()) {
@@ -102,6 +119,12 @@ class AttemptSnapshotStep(
         return this
     }
 
+    private fun isDenied(denyList: List<String>, repoName: String): Boolean {
+        logger.info("attempt step snapshot deny list: $denyList, repoName: $repoName")
+        val predicate = { pattern: String -> Regex.simpleMatch(pattern, repoName) }
+        return denyList.stream().anyMatch(predicate)
+    }
+
     private fun handleSnapshotException(e: ConcurrentSnapshotExecutionException) {
         val message = getFailedConcurrentSnapshotMessage(indexName)
         logger.debug(message, e)
@@ -122,15 +145,16 @@ class AttemptSnapshotStep(
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         val currentActionMetaData = currentMetaData.actionMetaData
         return currentMetaData.copy(
-                actionMetaData = currentActionMetaData?.copy(actionProperties = ActionProperties(snapshotName = snapshotName)),
-                stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
-                transitionTo = null,
-                info = info
+            actionMetaData = currentActionMetaData?.copy(actionProperties = ActionProperties(snapshotName = snapshotName)),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
+            transitionTo = null,
+            info = info
         )
     }
 
     companion object {
         const val name = "attempt_snapshot"
+        fun getBlockedMessage(denyList: List<String>, repoName: String) = "snapshot repository [$repoName] is blocked in $denyList"
         fun getFailedMessage(index: String) = "Failed to create snapshot [index=$index]"
         fun getFailedConcurrentSnapshotMessage(index: String) = "Concurrent snapshot in progress, retrying next execution [index=$index]"
         fun getSuccessMessage(index: String) = "Successfully started snapshot [index=$index]"

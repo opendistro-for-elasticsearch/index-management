@@ -18,25 +18,31 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.SnapshotActionConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.AttemptSnapshotStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.WaitForSnapshotStep
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+
+private val log = LogManager.getLogger(SnapshotAction::class.java)
 
 class SnapshotAction(
     clusterService: ClusterService,
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
+    val settings: Map<String, Any>,
     config: SnapshotActionConfig
 ) : Action(ActionType.SNAPSHOT, config, managedIndexMetaData) {
-    private val attemptSnapshotStep = AttemptSnapshotStep(clusterService, client, config, managedIndexMetaData)
+    private val attemptSnapshotStep = AttemptSnapshotStep(clusterService, client, config, managedIndexMetaData, settings)
     private val waitForSnapshotStep = WaitForSnapshotStep(clusterService, client, config, managedIndexMetaData)
 
     override fun getSteps(): List<Step> = listOf(attemptSnapshotStep, waitForSnapshotStep)
 
     @Suppress("ReturnCount")
     override fun getStepToExecute(): Step {
+        log.info("get step deny list: ${settings[SNAPSHOT_DENY_LIST.key]}")
         // If stepMetaData is null, return the first step
         val stepMetaData = managedIndexMetaData.stepMetaData ?: return attemptSnapshotStep
 

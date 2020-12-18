@@ -31,6 +31,7 @@ data class TransitionsActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData
+        managedIndexMetaData: ManagedIndexMetaData,
+        settings: Map<String, Any>
     ): Action = TransitionsAction(clusterService, client, managedIndexMetaData, this)
 }

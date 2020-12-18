@@ -175,7 +175,8 @@ internal class IndexStateManagementPlugin : JobSchedulerExtension, ActionPlugin,
             ManagedIndexSettings.HISTORY_INDEX_MAX_AGE,
             ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD,
             ManagedIndexSettings.HISTORY_RETENTION_PERIOD,
-            ManagedIndexSettings.ALLOW_LIST
+            ManagedIndexSettings.ALLOW_LIST,
+            ManagedIndexSettings.SNAPSHOT_DENY_LIST
         )
     }
 

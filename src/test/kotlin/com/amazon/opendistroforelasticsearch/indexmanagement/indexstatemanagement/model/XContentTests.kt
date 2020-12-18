@@ -211,8 +211,7 @@ class XContentTests : ESTestCase() {
             actionMetaData = null,
             stepMetaData = null,
             policyRetryInfo = null,
-            info = null,
-            enabled = true
+            info = null
         )
         val metadataString = metadata.toJsonString()
         val parsedMetaData = ManagedIndexMetaData.parse(parser(metadataString))

@@ -443,8 +443,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             actionMetaData = null,
             stepMetaData = null,
             policyRetryInfo = PolicyRetryInfoMetaData(failed = true, consumedRetries = 0),
-            info = mapOf("message" to "Fail to load policy: $policyID"),
-            enabled = true
+            info = mapOf("message" to "Fail to load policy: $policyID")
         )
     }
 
@@ -471,8 +470,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
                 actionMetaData = null,
                 stepMetaData = null,
                 policyRetryInfo = PolicyRetryInfoMetaData(failed = false, consumedRetries = 0),
-                info = mapOf("message" to "Successfully initialized policy: ${policy.id}"),
-                enabled = true
+                info = mapOf("message" to "Successfully initialized policy: ${policy.id}")
             )
             managedIndexMetaData.policySeqNo == null || managedIndexMetaData.policyPrimaryTerm == null ->
                 // If there is seqNo and PrimaryTerm it is first time populating Policy.

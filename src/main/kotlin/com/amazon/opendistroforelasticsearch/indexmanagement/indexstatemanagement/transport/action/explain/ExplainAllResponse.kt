@@ -27,14 +27,17 @@ import java.io.IOException
 class ExplainAllResponse : ExplainResponse, ToXContentObject {
 
     val totalManagedIndices: Int
+    val enabledState: Map<String, Boolean>
 
     constructor(
         indexNames: List<String>,
         indexPolicyIDs: List<String?>,
         indexMetadatas: List<ManagedIndexMetaData?>,
-        totalManagedIndices: Int
+        totalManagedIndices: Int,
+        enabledState: Map<String, Boolean>
     ) : super(indexNames, indexPolicyIDs, indexMetadatas) {
         this.totalManagedIndices = totalManagedIndices
+        this.enabledState = enabledState
     }
 
     @Throws(IOException::class)
@@ -42,13 +45,15 @@ class ExplainAllResponse : ExplainResponse, ToXContentObject {
         indexNames = sin.readStringList(),
         indexPolicyIDs = sin.readStringList(),
         indexMetadatas = sin.readList { ManagedIndexMetaData.fromStreamInput(it) },
-        totalManagedIndices = sin.readInt()
+        totalManagedIndices = sin.readInt(),
+        enabledState = sin.readMap() as Map<String, Boolean>
     )
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeInt(totalManagedIndices)
+        out.writeMap(enabledState)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -57,6 +62,7 @@ class ExplainAllResponse : ExplainResponse, ToXContentObject {
             builder.startObject(name)
             builder.field(ManagedIndexSettings.POLICY_ID.key, indexPolicyIDs[ind])
             indexMetadatas[ind]?.toXContent(builder, ToXContent.EMPTY_PARAMS)
+            builder.field("enabled", enabledState[name])
             builder.endObject()
         }
         builder.field("totalManagedIndices", totalManagedIndices)

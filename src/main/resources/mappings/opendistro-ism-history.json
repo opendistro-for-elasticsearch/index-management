@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 3
+    "schema_version": 2
   },
   "dynamic": "strict",
   "properties": {
@@ -125,9 +125,6 @@
         "info": {
           "type": "object",
           "enabled": false
-        },
-        "enabled": {
-          "type": "boolean"
         },
         "history_timestamp": {
           "type": "date",

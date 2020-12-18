@@ -26,7 +26,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
 
     private val clusterService: ClusterService = mock()
     private val config = SnapshotActionConfig("repo", "snapshot-name", 0)
-    private val metadata = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, ActionMetaData(AttemptSnapshotStep.name, 1, 0, false, 0, null, ActionProperties(snapshotName = "snapshot-name")), null, null, null, true)
+    private val metadata = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, ActionMetaData(AttemptSnapshotStep.name, 1, 0, false, 0, null, ActionProperties(snapshotName = "snapshot-name")), null, null, null)
 
     fun `test snapshot response when block`() {
         val response: CreateSnapshotResponse = mock()

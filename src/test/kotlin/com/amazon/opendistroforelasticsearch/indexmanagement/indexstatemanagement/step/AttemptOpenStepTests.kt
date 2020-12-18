@@ -43,7 +43,7 @@ class AttemptOpenStepTests : ESTestCase() {
 
         runBlocking {
             val openActionConfig = OpenActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val attemptOpenStep = AttemptOpenStep(clusterService, client, openActionConfig, managedIndexMetaData)
             attemptOpenStep.execute()
             val updatedManagedIndexMetaData = attemptOpenStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -57,7 +57,7 @@ class AttemptOpenStepTests : ESTestCase() {
 
         runBlocking {
             val openActionConfig = OpenActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val attemptOpenStep = AttemptOpenStep(clusterService, client, openActionConfig, managedIndexMetaData)
             attemptOpenStep.execute()
             val updatedManagedIndexMetaData = attemptOpenStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -71,7 +71,7 @@ class AttemptOpenStepTests : ESTestCase() {
 
         runBlocking {
             val openActionConfig = OpenActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val attemptOpenStep = AttemptOpenStep(clusterService, client, openActionConfig, managedIndexMetaData)
             attemptOpenStep.execute()
             val updatedManagedIndexMetaData = attemptOpenStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)

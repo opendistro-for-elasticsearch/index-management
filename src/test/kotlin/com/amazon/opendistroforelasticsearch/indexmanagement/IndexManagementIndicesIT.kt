@@ -24,7 +24,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
     private val configSchemaVersion = 5
-    private val historySchemaVersion = 3
+    private val historySchemaVersion = 2
 
     /*
     * If this test fails it means you changed the config mappings

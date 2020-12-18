@@ -71,6 +71,7 @@ class TransportExplainAction @Inject constructor(
         private val managedIndices: MutableList<String> = mutableListOf()
 
         private val indexNames: MutableList<String> = mutableListOf()
+        private val enabledState: MutableMap<String, Boolean> = mutableMapOf()
         private var totalManagedIndices = 0
 
         @Suppress("SpreadOperator")
@@ -126,7 +127,9 @@ class TransportExplainAction @Inject constructor(
                     response.hits.hits.map {
                         val hitMap = it.sourceAsMap["managed_index"] as Map<String, Any>
                         val managedIndex = hitMap["index"] as String
+                        log.info("what is in hitmap $hitMap")
                         managedIndices.add(managedIndex)
+                        enabledState[managedIndex] = hitMap["enabled"] as Boolean
                         managedIndicesMetaDataMap[managedIndex] = mapOf(
                             "index" to hitMap["index"] as String?,
                             "index_uuid" to hitMap["index_uuid"] as String?,
@@ -134,6 +137,8 @@ class TransportExplainAction @Inject constructor(
                             "enabled" to hitMap["enabled"]?.toString()
                         )
                     }
+
+                    log.info("enabled state for managed index: $enabledState")
 
                     // explain all only return managed indices
                     if (explainAll) {
@@ -226,7 +231,7 @@ class TransportExplainAction @Inject constructor(
             managedIndicesMetaDataMap.clear()
 
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices))
+                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices, enabledState))
                 return
             }
             actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
@@ -234,7 +239,7 @@ class TransportExplainAction @Inject constructor(
 
         fun emptyResponse() {
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), 0))
+                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), 0, emptyMap()))
                 return
             }
             actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList()))

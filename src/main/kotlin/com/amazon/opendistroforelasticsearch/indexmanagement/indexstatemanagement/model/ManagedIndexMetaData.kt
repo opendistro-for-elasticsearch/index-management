@@ -47,8 +47,7 @@ data class ManagedIndexMetaData(
     val actionMetaData: ActionMetaData?,
     val stepMetaData: StepMetaData?,
     val policyRetryInfo: PolicyRetryInfoMetaData?,
-    val info: Map<String, Any>?,
-    val enabled: Boolean?
+    val info: Map<String, Any>?
 ) : Writeable, ToXContentFragment {
 
     @Suppress("ComplexMethod")
@@ -67,7 +66,6 @@ data class ManagedIndexMetaData(
         if (stepMetaData != null) resultMap[StepMetaData.STEP] = stepMetaData.getMapValueString()
         if (policyRetryInfo != null) resultMap[PolicyRetryInfoMetaData.RETRY_INFO] = policyRetryInfo.getMapValueString()
         if (info != null) resultMap[INFO] = Strings.toString(XContentFactory.jsonBuilder().map(info))
-        if (enabled != null) resultMap[ENABLED] = enabled.toString()
 
         return resultMap
     }
@@ -119,7 +117,6 @@ data class ManagedIndexMetaData(
         }
 
         if (info != null) builder.field(INFO, info)
-        if (enabled != null) builder.field(ENABLED, enabled)
 
         return builder
     }
@@ -145,8 +142,6 @@ data class ManagedIndexMetaData(
             streamOutput.writeBoolean(true)
             streamOutput.writeMap(info)
         }
-
-        streamOutput.writeOptionalBoolean(enabled)
     }
 
     companion object {
@@ -187,8 +182,6 @@ data class ManagedIndexMetaData(
                 null
             }
 
-            val enabled: Boolean? = si.readOptionalBoolean()
-
             return ManagedIndexMetaData(
                 index = requireNotNull(index) { "$INDEX is null" },
                 indexUuid = requireNotNull(indexUuid) { "$INDEX_UUID is null" },
@@ -202,8 +195,7 @@ data class ManagedIndexMetaData(
                 actionMetaData = action,
                 stepMetaData = step,
                 policyRetryInfo = retryInfo,
-                info = info,
-                enabled = enabled
+                info = info
             )
         }
 
@@ -224,7 +216,6 @@ data class ManagedIndexMetaData(
             var retryInfo: PolicyRetryInfoMetaData? = null
 
             var info: Map<String, Any>? = null
-            var enabled: Boolean? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -245,7 +236,6 @@ data class ManagedIndexMetaData(
                     StepMetaData.STEP -> step = StepMetaData.parse(xcp)
                     PolicyRetryInfoMetaData.RETRY_INFO -> retryInfo = PolicyRetryInfoMetaData.parse(xcp)
                     INFO -> info = xcp.map()
-                    ENABLED -> enabled = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.booleanValue()
                 }
             }
 
@@ -262,8 +252,7 @@ data class ManagedIndexMetaData(
                 action,
                 step,
                 retryInfo,
-                info,
-                enabled
+                info
             )
         }
 
@@ -281,8 +270,7 @@ data class ManagedIndexMetaData(
                 actionMetaData = ActionMetaData.fromManagedIndexMetaDataMap(map),
                 stepMetaData = StepMetaData.fromManagedIndexMetaDataMap(map),
                 policyRetryInfo = PolicyRetryInfoMetaData.fromManagedIndexMetaDataMap(map),
-                info = map[INFO]?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) },
-                enabled = map[ENABLED]?.toBoolean()
+                info = map[INFO]?.let { XContentHelper.convertToMap(JsonXContent.jsonXContent, it, false) }
             )
         }
     }

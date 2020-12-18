@@ -61,8 +61,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                 ManagedIndexSettings.POLICY_ID.key to policy.id,
                 "index" to indexName1,
                 "index_uuid" to getUuid(indexName1),
-                "policy_id" to policy.id,
-                "enabled" to true
+                "policy_id" to policy.id
             ),
             indexName2 to mapOf<String, Any?>(
                 ManagedIndexSettings.POLICY_ID.key to null
@@ -109,15 +108,13 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                 ManagedIndexSettings.POLICY_ID.key to policy.id,
                 "index" to indexName1,
                 "index_uuid" to getUuid(indexName1),
-                "policy_id" to policy.id,
-                "enabled" to true
+                "policy_id" to policy.id
             ),
             indexName2 to mapOf<String, Any>(
                 ManagedIndexSettings.POLICY_ID.key to policy.id,
                 "index" to indexName2,
                 "index_uuid" to getUuid(indexName2),
-                "policy_id" to policy.id,
-                "enabled" to true
+                "policy_id" to policy.id
             ),
             indexName3 to mapOf<String, Any?>(
                 ManagedIndexSettings.POLICY_ID.key to null
@@ -153,8 +150,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                                 assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                                 assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
-                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString(),
-                        ManagedIndexMetaData.ENABLED to true::equals
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                     )
                 ), getExplainMap(indexName))
         }
@@ -180,8 +176,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                         ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
                                 assertRetryInfoEquals(PolicyRetryInfoMetaData(true, 0), retryInfoMetaDataMap),
-                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString(),
-                        ManagedIndexMetaData.ENABLED to true::equals
+                        ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                     )
                 ), getExplainMap(indexName))
         }

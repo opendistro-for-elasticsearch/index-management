@@ -43,7 +43,7 @@ class SetReadOnlyStepTests : ESTestCase() {
 
         runBlocking {
             val readOnlyActionConfig = ReadOnlyActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val setReadOnlyStep = SetReadOnlyStep(clusterService, client, readOnlyActionConfig, managedIndexMetaData)
             setReadOnlyStep.execute()
             val updatedManagedIndexMetaData = setReadOnlyStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -57,7 +57,7 @@ class SetReadOnlyStepTests : ESTestCase() {
 
         runBlocking {
             val readOnlyActionConfig = ReadOnlyActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val setReadOnlyStep = SetReadOnlyStep(clusterService, client, readOnlyActionConfig, managedIndexMetaData)
             setReadOnlyStep.execute()
             val updatedManagedIndexMetaData = setReadOnlyStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)
@@ -71,7 +71,7 @@ class SetReadOnlyStepTests : ESTestCase() {
 
         runBlocking {
             val readOnlyActionConfig = ReadOnlyActionConfig(0)
-            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null, true)
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, null, null, null)
             val setReadOnlyStep = SetReadOnlyStep(clusterService, client, readOnlyActionConfig, managedIndexMetaData)
             setReadOnlyStep.execute()
             val updatedManagedIndexMetaData = setReadOnlyStep.getUpdatedManagedIndexMetaData(managedIndexMetaData)

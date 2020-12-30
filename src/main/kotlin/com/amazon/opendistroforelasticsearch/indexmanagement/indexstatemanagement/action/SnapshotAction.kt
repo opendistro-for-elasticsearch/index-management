@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig.ActionType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.SnapshotActionConfig
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.AttemptSnapshotStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.WaitForSnapshotStep
@@ -42,7 +41,6 @@ class SnapshotAction(
 
     @Suppress("ReturnCount")
     override fun getStepToExecute(): Step {
-        log.info("get step deny list: ${settings[SNAPSHOT_DENY_LIST.key]}")
         // If stepMetaData is null, return the first step
         val stepMetaData = managedIndexMetaData.stepMetaData ?: return attemptSnapshotStep
 

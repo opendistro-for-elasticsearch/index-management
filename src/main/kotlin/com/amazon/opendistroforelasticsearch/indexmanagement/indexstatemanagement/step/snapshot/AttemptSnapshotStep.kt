@@ -63,7 +63,6 @@ class AttemptSnapshotStep(
             val mutableInfo = mutableMapOf<String, String>()
 
             if (isDenied(denyList, config.repository)) {
-                logger.info("repository ${config.repository} denied")
                 stepStatus = StepStatus.FAILED
                 mutableInfo["message"] = getBlockedMessage(denyList, config.repository)
                 info = mutableInfo.toMap()
@@ -120,7 +119,6 @@ class AttemptSnapshotStep(
     }
 
     private fun isDenied(denyList: List<String>, repoName: String): Boolean {
-        logger.info("attempt step snapshot deny list: $denyList, repoName: $repoName")
         val predicate = { pattern: String -> Regex.simpleMatch(pattern, repoName) }
         return denyList.stream().anyMatch(predicate)
     }

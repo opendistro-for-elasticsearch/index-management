@@ -169,13 +169,11 @@ object ManagedIndexRunner : ScheduledJobRunner,
         allowList = ALLOW_LIST.get(settings)
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) {
             allowList = it
-            logger.info("register consumer allow list: $allowList")
         }
 
         snapshotDenyList = SNAPSHOT_DENY_LIST.get(settings)
         clusterService.clusterSettings.addSettingsUpdateConsumer(SNAPSHOT_DENY_LIST) {
             snapshotDenyList = it
-            logger.info("register consumer deny list: $snapshotDenyList")
             settingsMap.putIfAbsent(SNAPSHOT_DENY_LIST.key, snapshotDenyList)
         }
         return this
@@ -243,10 +241,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
             if (updated) disableManagedIndexConfig(managedIndexConfig)
             return
         }
-
-        logger.info("runner deny list: ${SNAPSHOT_DENY_LIST.get(settings)}")
-        logger.info("runner deny list: $snapshotDenyList")
-        logger.info("runner allow list: $allowList")
 
         val state = policy.getStateToExecute(managedIndexMetaData)
         val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData, settingsMap)

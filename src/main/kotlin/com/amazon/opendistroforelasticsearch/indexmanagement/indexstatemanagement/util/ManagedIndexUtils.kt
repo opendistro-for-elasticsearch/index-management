@@ -36,7 +36,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.delete.AttemptDeleteStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
@@ -264,8 +263,6 @@ fun State.getActionToExecute(
     managedIndexMetaData: ManagedIndexMetaData,
     settings: Map<String, Any>
 ): Action? {
-    log.info("deny list: ${settings[SNAPSHOT_DENY_LIST.key]}")
-
     var actionConfig: ActionConfig?
 
     // If we are transitioning to this state get the first action in the state

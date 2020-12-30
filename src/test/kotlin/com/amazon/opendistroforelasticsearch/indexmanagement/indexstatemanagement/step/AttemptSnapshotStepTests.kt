@@ -18,7 +18,6 @@ import org.elasticsearch.client.AdminClient
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.ClusterAdminClient
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.snapshots.ConcurrentSnapshotExecutionException
 import org.elasticsearch.test.ESTestCase

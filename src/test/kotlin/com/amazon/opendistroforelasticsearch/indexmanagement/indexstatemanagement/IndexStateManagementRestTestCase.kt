@@ -213,6 +213,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
     protected fun updateClusterSetting(key: String, value: String, escapeValue: Boolean = true) {
         val formattedValue = if (escapeValue) "\"$value\"" else value
+        println("format value: $formattedValue")
         val request = """
             {
                 "persistent": {

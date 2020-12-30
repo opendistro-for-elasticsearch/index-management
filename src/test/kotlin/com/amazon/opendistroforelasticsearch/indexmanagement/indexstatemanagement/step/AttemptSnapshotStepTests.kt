@@ -4,6 +4,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionProperties
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.AttemptSnapshotStep
 import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.doAnswer
@@ -29,7 +30,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
     private val config = SnapshotActionConfig("repo", "snapshot-name", 0)
     private val metadata = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, ActionMetaData(AttemptSnapshotStep.name, 1, 0, false, 0, null, ActionProperties(snapshotName = "snapshot-name")), null, null, null)
 
-    private var settings: Settings = Settings.builder().putList("opendistro.index_state_management.snapshot.deny_list", emptyList()).build()
+    private var settings: Map<String, Any> = mapOf(SNAPSHOT_DENY_LIST.key to emptyList<String>())
 
     fun `test snapshot response when block`() {
         val response: CreateSnapshotResponse = mock()

@@ -65,9 +65,10 @@ abstract class ActionConfig(
         REPLICA_COUNT("replica_count"),
         FORCE_MERGE("force_merge"),
         NOTIFICATION("notification"),
-        SNAPSHOT("snapshot"),
+        SNAPSHOT("snapshots"),
         INDEX_PRIORITY("index_priority"),
-        ALLOCATION("allocation");
+        ALLOCATION("allocation"),
+        ROLLUP("rollup");
 
         override fun toString(): String {
             return type
@@ -105,6 +106,7 @@ abstract class ActionConfig(
                 ActionType.SNAPSHOT.type -> SnapshotActionConfig(sin)
                 ActionType.INDEX_PRIORITY.type -> IndexPriorityActionConfig(sin)
                 ActionType.ALLOCATION.type -> AllocationActionConfig(sin)
+                ActionType.ROLLUP.type -> RollupActionConfig(sin)
                 else -> throw IllegalArgumentException("Invalid field: [${type.type}] found in Action.")
             }
 
@@ -142,6 +144,7 @@ abstract class ActionConfig(
                     ActionType.SNAPSHOT.type -> actionConfig = SnapshotActionConfig.parse(xcp, index)
                     ActionType.INDEX_PRIORITY.type -> actionConfig = IndexPriorityActionConfig.parse(xcp, index)
                     ActionType.ALLOCATION.type -> actionConfig = AllocationActionConfig.parse(xcp, index)
+                    ActionType.ROLLUP.type -> actionConfig = RollupActionConfig.parse(xcp, index)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Action.")
                 }
             }

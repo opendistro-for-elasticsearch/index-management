@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 5
+    "schema_version": 6
   },
   "dynamic": "strict",
   "properties": {
@@ -323,6 +323,104 @@
                     },
                     "wait_for": {
                       "type": "boolean"
+                    }
+                  }
+                },
+                "rollup": {
+                  "properties": {
+                    "ism_rollup": {
+                      "properties": {
+                        "description": {
+                          "type": "text"
+                        },
+                        "target_index": {
+                          "type": "text"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "dimensions": {
+                          "type": "nested",
+                          "properties": {
+                            "date_histogram": {
+                              "type": "object",
+                              "properties": {
+                                "fixed_interval": {
+                                  "type": "text"
+                                },
+                                "calendar_interval": {
+                                  "type": "text"
+                                },
+                                "timezone": {
+                                  "type": "text"
+                                },
+                                "source_field": {
+                                  "type": "text"
+                                },
+                                "target_field": {
+                                  "type": "text"
+                                }
+                              }
+                            },
+                            "terms": {
+                              "type": "object",
+                              "properties": {
+                                "source_field": {
+                                  "type": "text"
+                                },
+                                "target_field": {
+                                  "type": "text"
+                                }
+                              }
+                            },
+                            "histogram": {
+                              "type": "object",
+                              "properties": {
+                                "source_field": {
+                                  "type": "text"
+                                },
+                                "target_field": {
+                                  "type": "text"
+                                },
+                                "interval": {
+                                  "type": "double"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "metrics": {
+                          "type": "nested",
+                          "properties": {
+                            "source_field": {
+                              "type": "text"
+                            },
+                            "target_field": {
+                              "type": "text"
+                            },
+                            "metrics": {
+                              "type": "nested",
+                              "properties": {
+                                "avg": {
+                                  "type": "object"
+                                },
+                                "sum": {
+                                  "type": "object"
+                                },
+                                "max": {
+                                  "type": "object"
+                                },
+                                "min": {
+                                  "type": "object"
+                                },
+                                "value_count": {
+                                  "type": "object"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }

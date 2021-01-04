@@ -40,6 +40,7 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.index.seqno.SequenceNumbers
 import java.io.IOException
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 data class Rollup(
     val id: String = NO_ID,

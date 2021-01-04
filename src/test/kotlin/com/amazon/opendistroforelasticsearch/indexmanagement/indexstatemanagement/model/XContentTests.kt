@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.RollupActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.nonNullRandomConditions
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomAllocationActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomChangePolicy
@@ -36,6 +37,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomTransition
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.toJsonString
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.destination.DestinationType
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomRollupActionConfig
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
@@ -195,6 +197,15 @@ class XContentTests : ESTestCase() {
         assertEquals("Round tripping ManagedIndexConfig doesn't work", config, parsedConfig)
         assertEquals("Round tripping ManagedIndexConfig doesn't work with null change policy", configTwo, parsedConfigTwo)
         assertEquals("Round tripping ManagedIndexConfig doesn't work with id and version", configThree, parsedConfigThree)
+    }
+
+    fun `test rollup action parsing`() {
+        val rollupActionConfig = randomRollupActionConfig()
+        val rollupActionConfigString = rollupActionConfig.toJsonString()
+        val parsedRollupActionConfig = ActionConfig.parse(parser(rollupActionConfigString), 0) as RollupActionConfig
+
+        assertEquals("Round tripping RollupActionConfig doesn't work", rollupActionConfig.index, parsedRollupActionConfig.index)
+        assertEquals("Round tripping RollupActionConfig doesn't work", rollupActionConfig.ismRollup, parsedRollupActionConfig.ismRollup)
     }
 
     fun `test managed index metadata parsing`() {

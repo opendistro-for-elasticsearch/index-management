@@ -535,7 +535,7 @@
               "type": "long"
             },
             "step_status": {
-              "type": "text"
+              "type": "keyword"
             }
           }
         },

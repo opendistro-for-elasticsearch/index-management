@@ -1,10 +1,27 @@
+/*
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ReplicaCountActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
+import com.carrotsearch.randomizedtesting.RandomizedTest.sleep
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
@@ -12,7 +29,8 @@ import org.elasticsearch.index.Index
 import org.junit.Assume
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.Locale
+import kotlin.collections.HashMap
 
 class MetadataRegressionIT : IndexStateManagementITTestCase() {
 
@@ -187,21 +205,20 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         createPolicy(policy, policyID)
         createIndex(indexName)
 
-        val configIndexName = ".opendistro-ism-config"
-
         val settings = Settings.builder()
             .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, "0")
-            .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, "1")
             .build()
-        updateIndexSettings(configIndexName, settings)
+        updateIndexSettings(INDEX_MANAGEMENT_INDEX, settings)
 
         // check config index shard position
-        val shardsResponse = catIndexShard(configIndexName)
+        val shardsResponse = catIndexShard(INDEX_MANAGEMENT_INDEX)
         logger.info("check config index shard: $shardsResponse")
         val shardNode = (shardsResponse[0] as HashMap<*, *>)["node"]
 
+        sleep(3000) // wait some time for cluster to be stable
+
         // move shard on node1 to node0 if exist
-        if (shardNode == "mixedCluster-1") rerouteShard(configIndexName, "mixedCluster-1", "mixedCluster-0")
+        if (shardNode == "mixedCluster-1") rerouteShard(INDEX_MANAGEMENT_INDEX, "mixedCluster-1", "mixedCluster-0")
 
         addPolicyToIndex(indexName, policyID)
 
@@ -212,9 +229,9 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         wait { assertEquals(null, getExistingManagedIndexConfig(indexName).policy) }
 
         // reroute shard to node1
-        rerouteShard(configIndexName, "mixedCluster-0", "mixedCluster-1")
+        rerouteShard(INDEX_MANAGEMENT_INDEX, "mixedCluster-0", "mixedCluster-1")
 
-        val shardsResponse2 = catIndexShard(configIndexName)
+        val shardsResponse2 = catIndexShard(INDEX_MANAGEMENT_INDEX)
         logger.info("check config index shard: $shardsResponse2")
 
         // job can be ran now

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
@@ -19,7 +34,7 @@ class SkipExecution(
 ) : ClusterStateListener {
     private val logger = LogManager.getLogger(javaClass)
 
-    final var flag: Boolean = false
+    @Volatile final var flag: Boolean = false
         private set
 
     init {
@@ -33,25 +48,30 @@ class SkipExecution(
     }
 
     fun sweepISMPluginVersion() {
-        // if old version ISM plugin exits (2 versions ISM in one cluster), set skip flag to true
+        // if old version ISM plugin exists (2 versions ISM in one cluster), set skip flag to true
         val request = NodesInfoRequest().clear().addMetric("plugins")
         client.execute(NodesInfoAction.INSTANCE, request, object : ActionListener<NodesInfoResponse> {
             override fun onResponse(response: NodesInfoResponse) {
                 flag = false
                 val versionSet = mutableSetOf<String>()
-                for (node in response.nodes) {
-                    val pluginsInfo = node.getInfo(PluginsAndModules::class.java).pluginInfos
-                    pluginsInfo.forEach {
-                        if (it.name == "opendistro_index_management") {
-                            versionSet.add(it.version)
-                            if (versionSet.size > 1) flag = true
+
+                response.nodes.map { it.getInfo(PluginsAndModules::class.java).pluginInfos }
+                    .forEach { it.forEach { nodePlugin ->
+                        if (nodePlugin.name == "opendistro_index_management") {
+                            versionSet.add(nodePlugin.version)
                         }
-                    }
+                    } }
+
+                logger.info("plugin versions: $versionSet")
+
+                if (versionSet.size > 1) {
+                    flag = true
+                    logger.info("There are multiple versions in the cluster: $versionSet")
                 }
             }
 
             override fun onFailure(e: Exception) {
-                logger.error("failed when get node info for setting skip flag: $e")
+                logger.error("Failed sweeping nodes for ISM plugin versions: $e")
             }
         })
     }

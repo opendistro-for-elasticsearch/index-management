@@ -46,8 +46,7 @@ data class ReadOnlyActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = ReadOnlyAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {

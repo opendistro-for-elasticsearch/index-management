@@ -46,8 +46,7 @@ data class DeleteActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = DeleteAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {

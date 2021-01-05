@@ -41,19 +41,14 @@ class AttemptSnapshotStep(
     val clusterService: ClusterService,
     val client: Client,
     val config: SnapshotActionConfig,
-    managedIndexMetaData: ManagedIndexMetaData,
-    settings: Map<String, Any>
+    managedIndexMetaData: ManagedIndexMetaData
 ) : Step(name, managedIndexMetaData) {
 
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
     private var snapshotName: String? = null
-    private var denyList: List<String> = if (settings[SNAPSHOT_DENY_LIST.key] == null) {
-        emptyList()
-    } else {
-        settings[SNAPSHOT_DENY_LIST.key] as List<String>
-    }
+    private var denyList: List<String> = clusterService.clusterSettings.get(SNAPSHOT_DENY_LIST)
 
     override fun isIdempotent() = false
 
@@ -64,7 +59,7 @@ class AttemptSnapshotStep(
 
             if (isDenied(denyList, config.repository)) {
                 stepStatus = StepStatus.FAILED
-                mutableInfo["message"] = getBlockedMessage(denyList, config.repository)
+                mutableInfo["message"] = getBlockedMessage(denyList, config.repository, indexName)
                 info = mutableInfo.toMap()
                 return this
             }
@@ -152,7 +147,7 @@ class AttemptSnapshotStep(
 
     companion object {
         const val name = "attempt_snapshot"
-        fun getBlockedMessage(denyList: List<String>, repoName: String) = "snapshot repository [$repoName] is blocked in $denyList"
+        fun getBlockedMessage(denyList: List<String>, repoName: String, index: String) = "Snapshot repository [$repoName] is blocked in $denyList [index=$index]"
         fun getFailedMessage(index: String) = "Failed to create snapshot [index=$index]"
         fun getFailedConcurrentSnapshotMessage(index: String) = "Concurrent snapshot in progress, retrying next execution [index=$index]"
         fun getSuccessMessage(index: String) = "Successfully started snapshot [index=$index]"

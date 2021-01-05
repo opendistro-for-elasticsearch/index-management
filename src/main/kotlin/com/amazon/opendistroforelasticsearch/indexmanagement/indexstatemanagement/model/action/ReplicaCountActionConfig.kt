@@ -53,8 +53,7 @@ data class ReplicaCountActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = ReplicaCountAction(clusterService, client, managedIndexMetaData, this)
 
     @Throws(IOException::class)

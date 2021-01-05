@@ -59,8 +59,7 @@ data class NotificationActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = NotificationAction(clusterService, scriptService, client, managedIndexMetaData, this)
 
     @Throws(IOException::class)

@@ -55,8 +55,7 @@ data class ForceMergeActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = ForceMergeAction(clusterService, client, managedIndexMetaData, this)
 
     @Throws(IOException::class)

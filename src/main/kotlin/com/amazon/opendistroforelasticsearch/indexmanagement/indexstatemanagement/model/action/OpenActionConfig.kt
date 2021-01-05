@@ -46,8 +46,7 @@ data class OpenActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = OpenAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {

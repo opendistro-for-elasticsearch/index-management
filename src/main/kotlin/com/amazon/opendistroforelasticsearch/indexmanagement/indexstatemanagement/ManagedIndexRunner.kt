@@ -40,8 +40,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.DEFAULT_JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST_NONE
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexConfigIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getActionToExecute
@@ -126,8 +124,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private val errorNotificationRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     private var jobInterval: Int = DEFAULT_JOB_INTERVAL
     private var allowList: List<String> = ALLOW_LIST_NONE
-    private var snapshotDenyList: List<String> = SNAPSHOT_DENY_LIST_NONE
-    private val settingsMap: MutableMap<String, Any> = mutableMapOf()
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
         this.clusterService = clusterService
@@ -169,12 +165,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
         allowList = ALLOW_LIST.get(settings)
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) {
             allowList = it
-        }
-
-        snapshotDenyList = SNAPSHOT_DENY_LIST.get(settings)
-        clusterService.clusterSettings.addSettingsUpdateConsumer(SNAPSHOT_DENY_LIST) {
-            snapshotDenyList = it
-            settingsMap.putIfAbsent(SNAPSHOT_DENY_LIST.key, snapshotDenyList)
         }
         return this
     }
@@ -243,7 +233,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
 
         val state = policy.getStateToExecute(managedIndexMetaData)
-        val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData, settingsMap)
+        val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
         val currentActionMetaData = action?.getUpdatedActionMetaData(managedIndexMetaData, state)
 

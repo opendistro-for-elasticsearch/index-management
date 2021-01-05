@@ -62,8 +62,7 @@ data class RolloverActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = RolloverAction(clusterService, client, managedIndexMetaData, this)
 
     @Throws(IOException::class)

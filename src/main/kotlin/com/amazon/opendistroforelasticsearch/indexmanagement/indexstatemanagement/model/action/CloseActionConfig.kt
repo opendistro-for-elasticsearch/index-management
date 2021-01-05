@@ -46,8 +46,7 @@ data class CloseActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = CloseAction(clusterService, client, managedIndexMetaData, this)
 
     companion object {

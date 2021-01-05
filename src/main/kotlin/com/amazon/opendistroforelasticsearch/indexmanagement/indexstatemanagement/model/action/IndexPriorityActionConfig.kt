@@ -53,8 +53,7 @@ data class IndexPriorityActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
-        managedIndexMetaData: ManagedIndexMetaData,
-        settings: Map<String, Any>
+        managedIndexMetaData: ManagedIndexMetaData
     ): Action = IndexPriorityAction(clusterService, client, managedIndexMetaData, this)
 
     @Throws(IOException::class)

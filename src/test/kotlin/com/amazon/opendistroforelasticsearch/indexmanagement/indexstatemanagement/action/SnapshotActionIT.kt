@@ -207,7 +207,7 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
         waitFor {
-            assertEquals(AttemptSnapshotStep.getBlockedMessage(denyList, repository), getExplainManagedIndexMetaData(indexName).info?.get("message"))
+            assertEquals(AttemptSnapshotStep.getBlockedMessage(denyList, repository, indexName), getExplainManagedIndexMetaData(indexName).info?.get("message"))
         }
     }
 }

@@ -54,8 +54,8 @@ data class ActionProperties(
         fun fromStreamInput(si: StreamInput): ActionProperties {
             val maxNumSegments: Int? = si.readOptionalInt()
             val snapshotName: String? = si.readOptionalString()
-            val rollupId: String? = si.readString()
-            val hasRollupFailed: Boolean? = si.readBoolean()
+            val rollupId: String? = si.readOptionalString()
+            val hasRollupFailed: Boolean? = si.readOptionalBoolean()
 
             return ActionProperties(maxNumSegments, snapshotName, rollupId, hasRollupFailed)
         }

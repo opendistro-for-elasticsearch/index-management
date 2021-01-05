@@ -97,7 +97,7 @@ class WaitForRollupCompletionStep(
             RollupMetadata.Status.FAILED -> {
                 stepStatus = StepStatus.FAILED
                 hasRollupFailed = true
-                info = mapOf("message" to getJobFailedMessage(rollupJobId!!))
+                info = mapOf("message" to getJobFailedMessage(rollupJobId!!), "cause" to "${rollupMetadata.failureReason}")
             }
             RollupMetadata.Status.FINISHED -> {
                 stepStatus = StepStatus.COMPLETED
@@ -110,7 +110,7 @@ class WaitForRollupCompletionStep(
             RollupMetadata.Status.STOPPED -> {
                 stepStatus = StepStatus.FAILED
                 hasRollupFailed = true
-                info = mapOf("message" to getJobFailedMessage(rollupJobId!!))
+                info = mapOf("message" to getJobFailedMessage(rollupJobId!!), "cause" to "${rollupMetadata.failureReason}")
             }
         }
     }

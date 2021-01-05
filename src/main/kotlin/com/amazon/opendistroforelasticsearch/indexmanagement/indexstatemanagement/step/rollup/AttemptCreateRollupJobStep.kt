@@ -42,10 +42,15 @@ class AttemptCreateRollupJobStep(
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
     private var rollupId: String? = null
+    private var previousRunRollupId: String? = null
+    private var hasPreviousRollupAttemptFailed: Boolean? = null
 
     override fun isIdempotent() = false
 
     override suspend fun execute(): Step {
+        previousRunRollupId = managedIndexMetaData.actionMetaData?.actionProperties?.rollupId
+        hasPreviousRollupAttemptFailed = managedIndexMetaData.actionMetaData?.actionProperties?.hasRollupFailed
+
         // Creating a rollup job
         val rollup = ismRollup.toRollup(indexName)
         rollupId = rollup.id
@@ -61,8 +66,22 @@ class AttemptCreateRollupJobStep(
 
             stepStatus = StepStatus.COMPLETED
             info = mapOf("message" to getSuccessMessage(rollupId!!, indexName))
+        } catch (e: VersionConflictEngineException) {
+            val message = getFailedJobExistsMessage(rollupId!!, indexName)
+            logger.warn(message)
+            if (rollupId == previousRunRollupId && hasPreviousRollupAttemptFailed != null && hasPreviousRollupAttemptFailed!!) {
+                logger.info("Attempting to start the job $rollupId")
+            }
+            stepStatus = StepStatus.FAILED
+            info = mapOf("message" to message)
         } catch (e: Exception) {
-            processFailure(e)
+            val message = getFailedMessage(rollupId!!, indexName)
+            logger.error(message, e)
+            stepStatus = StepStatus.FAILED
+            val mutableInfo = mutableMapOf("message" to message)
+            val errorMessage = e.message
+            if (errorMessage != null) mutableInfo["cause"] = errorMessage
+            info = mutableInfo.toMap()
         }
 
         return this
@@ -76,22 +95,6 @@ class AttemptCreateRollupJobStep(
                 transitionTo = null,
                 info = info
         )
-    }
-
-    private fun processFailure(e: Exception) {
-        val message: String
-        if (e is VersionConflictEngineException) {
-            message = getFailedJobExistsMessage(rollupId!!, indexName)
-            logger.error(message)
-        } else {
-            message = getFailedMessage(rollupId!!, indexName)
-            logger.error(message, e)
-        }
-        stepStatus = StepStatus.FAILED
-        val mutableInfo = mutableMapOf("message" to message)
-        val errorMessage = e.message
-        if (errorMessage != null) mutableInfo["cause"] = errorMessage
-        info = mutableInfo.toMap()
     }
 
     companion object {

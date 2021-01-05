@@ -65,7 +65,7 @@ abstract class ActionConfig(
         REPLICA_COUNT("replica_count"),
         FORCE_MERGE("force_merge"),
         NOTIFICATION("notification"),
-        SNAPSHOT("snapshots"),
+        SNAPSHOT("snapshot"),
         INDEX_PRIORITY("index_priority"),
         ALLOCATION("allocation"),
         ROLLUP("rollup");

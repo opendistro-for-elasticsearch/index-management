@@ -233,9 +233,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
 
         val state = policy.getStateToExecute(managedIndexMetaData)
-
         val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
-        logger.info("Found action in state $action")
         val step: Step? = action?.getStepToExecute()
         val currentActionMetaData = action?.getUpdatedActionMetaData(managedIndexMetaData, state)
 

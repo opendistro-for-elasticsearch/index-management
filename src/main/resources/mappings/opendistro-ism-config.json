@@ -334,53 +334,56 @@
                           "type": "text"
                         },
                         "target_index": {
-                          "type": "text"
+                          "type": "text",
+                          "fields": {
+                            "keyword": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            }
+                          }
                         },
                         "page_size": {
-                          "type": "integer"
+                          "type": "long"
                         },
                         "dimensions": {
                           "type": "nested",
                           "properties": {
                             "date_histogram": {
-                              "type": "object",
                               "properties": {
                                 "fixed_interval": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 },
                                 "calendar_interval": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 },
                                 "timezone": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 },
                                 "source_field": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 },
                                 "target_field": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 }
                               }
                             },
                             "terms": {
-                              "type": "object",
                               "properties": {
                                 "source_field": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 },
                                 "target_field": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 }
                               }
                             },
                             "histogram": {
-                              "type": "object",
                               "properties": {
                                 "source_field": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 },
                                 "target_field": {
-                                  "type": "text"
+                                  "type": "keyword"
                                 },
                                 "interval": {
                                   "type": "double"
@@ -393,10 +396,10 @@
                           "type": "nested",
                           "properties": {
                             "source_field": {
-                              "type": "text"
+                              "type": "keyword"
                             },
                             "target_field": {
-                              "type": "text"
+                              "type": "keyword"
                             },
                             "metrics": {
                               "type": "nested",

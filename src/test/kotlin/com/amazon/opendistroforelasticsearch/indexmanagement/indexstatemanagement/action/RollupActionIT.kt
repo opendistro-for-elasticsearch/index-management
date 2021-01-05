@@ -83,6 +83,12 @@ class RollupActionIT : IndexStateManagementRestTestCase() {
 
         // Change the start time so wait for rollup step will execute
         updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor {
+            assertEquals(
+                    WaitForRollupCompletionStep.getJobCompletionMessage(rollupId),
+                    getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
 
         waitFor {
             val rollupJob = getRollup(rollupId = rollupId)

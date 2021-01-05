@@ -38,6 +38,7 @@ class WaitForRollupCompletionStep(
     private var info: Map<String, Any>? = null
     private val logger = LogManager.getLogger(javaClass)
     private var rollupJobId: String? = null
+    private var hasRollupFailed: Boolean? = null
 
     override fun isIdempotent() = true
 
@@ -45,8 +46,8 @@ class WaitForRollupCompletionStep(
         rollupJobId = managedIndexMetaData.actionMetaData?.actionProperties?.rollupId
 
         if (rollupJobId == null) {
-            logger.error("There is no rollupJobId")
-            processMightNotHaveBeenProcessed()
+            logger.error("No rollup job id passed down")
+            stepStatus = StepStatus.FAILED
         } else {
             val explainRollupRequest = ExplainRollupRequest(listOf(rollupJobId!!))
             try {
@@ -59,7 +60,7 @@ class WaitForRollupCompletionStep(
                         stepStatus = StepStatus.CONDITION_NOT_MET
                         info = mapOf("message" to RollupMetadata.Status.INIT.type)
                     } else {
-                        logger.info("in else block")
+                        logger.info("Received metadata associated with $rollupJobId")
                         processRollupMetadataStatus(response.getIdsToExplain().getValue(rollupJobId!!)!!.metadata!!)
                     }
                 }
@@ -76,7 +77,7 @@ class WaitForRollupCompletionStep(
         val currentActionProperties = currentActionMetaData?.actionProperties
         return currentMetaData.copy(
                 actionMetaData = currentActionMetaData?.copy(actionProperties = currentActionProperties?.copy(
-                        hasRollupFailed = stepStatus == StepStatus.FAILED)),
+                        hasRollupFailed = hasRollupFailed)),
                 stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
                 transitionTo = null,
                 info = info
@@ -95,6 +96,7 @@ class WaitForRollupCompletionStep(
             }
             RollupMetadata.Status.FAILED -> {
                 stepStatus = StepStatus.FAILED
+                hasRollupFailed = true
                 info = mapOf("message" to getJobFailedMessage(rollupJobId!!))
             }
             RollupMetadata.Status.FINISHED -> {
@@ -107,23 +109,20 @@ class WaitForRollupCompletionStep(
             }
             RollupMetadata.Status.STOPPED -> {
                 stepStatus = StepStatus.FAILED
+                hasRollupFailed = true
                 info = mapOf("message" to getJobFailedMessage(rollupJobId!!))
             }
         }
     }
 
     private fun processFailure(e: Exception) {
-        stepStatus = StepStatus.FAILED
+        stepStatus = StepStatus.CONDITION_NOT_MET
         val message = getFailedMessage(rollupJobId!!, indexName)
         logger.error(message, e)
         val mutableInfo = mutableMapOf("message" to message)
         val errorMessage = e.message
         if (errorMessage != null) mutableInfo["cause"] = errorMessage
         info = mutableInfo.toMap()
-    }
-
-    fun processMightNotHaveBeenProcessed() {
-        stepStatus = StepStatus.STARTING
     }
 
     companion object {

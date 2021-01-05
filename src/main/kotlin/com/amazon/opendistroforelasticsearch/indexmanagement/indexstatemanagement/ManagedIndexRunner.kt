@@ -187,14 +187,13 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     override fun runJob(job: ScheduledJobParameter, context: JobExecutionContext) {
-        logger.info("start running")
         if (job !is ManagedIndexConfig) {
             throw IllegalArgumentException("Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}")
         }
 
         launch {
             if (skipExecFlag.flag) {
-                logger.info("cluster still has node running old ISM plugin, so skip execution on this node until all nodes upgraded")
+                logger.info("cluster still has node running old version ISM plugin, so skip execution on this node until all nodes upgraded")
                 return@launch
             }
 
@@ -628,7 +627,10 @@ object ManagedIndexRunner : ScheduledJobRunner,
     )
 
     /**
-     *  deal with still existing metadata in cluster state
+     *  only if metadata from config index is null and metadata from cluster state is not null
+     *  will try to update metadata from cluster state to config index, and clear metadata in cluster state
+     *  else when we have metadata in config index, we only try to clear metadata in cluster state if we
+     *  haven't cleared it successfully
      */
     @OpenForTesting
     suspend fun handleClusterStateMetadata(input: ManagedIndexMetaData?, metadataFromClusterState: ManagedIndexMetaData?): ManagedIndexMetaData? {

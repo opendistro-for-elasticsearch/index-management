@@ -172,7 +172,6 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                 }
 
                 val updateMetadataRequests = listOfIndexToMetadata.map { (index, metadata) ->
-                    log.info("try to save metadata [$metadata] in retry")
                     val builder = metadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true)
                     UpdateRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, index.uuid + "metadata").doc(builder)
                 }

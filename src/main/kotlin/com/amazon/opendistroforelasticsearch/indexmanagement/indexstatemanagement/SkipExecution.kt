@@ -33,27 +33,26 @@ class SkipExecution(
     }
 
     fun sweepISMPluginVersion() {
-        // if old node exits, set skip flag to true
+        // if old version ISM plugin exits (2 versions ISM in one cluster), set skip flag to true
         val request = NodesInfoRequest().clear().addMetric("plugins")
-        client.execute(NodesInfoAction.INSTANCE, request,
-                object : ActionListener<NodesInfoResponse> {
-                    override fun onResponse(response: NodesInfoResponse) {
-                        flag = false
-                        val versionSet = mutableSetOf<String>()
-                        for (node in response.nodes) {
-                            val pluginsInfo = node.getInfo(PluginsAndModules::class.java).pluginInfos
-                            pluginsInfo.forEach {
-                                if (it.name == "opendistro_index_management") {
-                                    versionSet.add(it.version)
-                                    if (versionSet.size > 1) flag = true
-                                }
-                            }
+        client.execute(NodesInfoAction.INSTANCE, request, object : ActionListener<NodesInfoResponse> {
+            override fun onResponse(response: NodesInfoResponse) {
+                flag = false
+                val versionSet = mutableSetOf<String>()
+                for (node in response.nodes) {
+                    val pluginsInfo = node.getInfo(PluginsAndModules::class.java).pluginInfos
+                    pluginsInfo.forEach {
+                        if (it.name == "opendistro_index_management") {
+                            versionSet.add(it.version)
+                            if (versionSet.size > 1) flag = true
                         }
                     }
+                }
+            }
 
-                    override fun onFailure(e: Exception) {
-                        logger.error("failed when get node info for setting skip flag: $e")
-                    }
-                })
+            override fun onFailure(e: Exception) {
+                logger.error("failed when get node info for setting skip flag: $e")
+            }
+        })
     }
 }

@@ -76,7 +76,7 @@ data class ManagedIndexMetaData(
     }
 
     fun toXContent(builder: XContentBuilder, params: ToXContent.Params, forIndex: Boolean): XContentBuilder {
-        // forIndex means for config index, distinguish for Explain and History
+        // forIndex means for saving to config index, distinguish from Explain and History, which only save meaningful partial metadata
         if (!forIndex) return toXContent(builder, params)
 
         builder

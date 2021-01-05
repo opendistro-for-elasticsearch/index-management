@@ -195,9 +195,10 @@ class ManagedIndexCoordinator(
         /*
          * Iterate through all indices and create update requests to update the ManagedIndexConfig for indices that
          * meet the following conditions:
-         *   1. Is being managed ( has policyID in index settings ), then try to retrieve metadata from config index
-         *   2. Does not have a completed Policy
-         *   3. Does not have a failed Policy
+         *   1. Is being managed? ( has policyID in index settings )
+         *   2. If being managed, then try to retrieve metadata from config index to check
+         *      - Does not have a completed Policy
+         *      - Does not have a failed Policy
          */
 
         val clusterStateRequest = ClusterStateRequest()
@@ -232,19 +233,19 @@ class ManagedIndexCoordinator(
     @OpenForTesting
     fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
         val managedIndicesDeleted = event.indicesDeleted()
-                .filter { event.previousState().metadata().index(it)?.getPolicyID() != null }
+            .filter { event.previousState().metadata().index(it)?.getPolicyID() != null }
 
         launch {
             val indicesDeletedRequests = managedIndicesDeleted.map { deleteManagedIndexRequest(it.uuid) }
 
-            /*
-            * Update existing indices that have added or removed policy_ids
-            * There doesn't seem to be a fast way of finding indices that meet the above conditions without
-            * iterating over every index in cluster state and comparing current policy_id with previous policy_id
-            * If this turns out to be a performance bottle neck we can remove this and enforce
-            * addPolicy/removePolicy API usage for existing indices and let the background sweep pick up
-            * any changes from users that ignore and use the ES settings API
-            * */
+            /**
+             * Update existing indices that have added or removed policy_ids
+             * There doesn't seem to be a fast way of finding indices that meet the above conditions without
+             * iterating over every index in cluster state and comparing current policy_id with previous policy_id
+             * If this turns out to be a performance bottle neck we can remove this and enforce
+             * addPolicy/removePolicy API usage for existing indices and let the background sweep pick up
+             * any changes from users that ignore and use the ES settings API
+             */
             var hasCreateRequests = false
             val updateManagedIndicesRequests = mutableListOf<DocWriteRequest<*>>()
             event.state().metadata().indices().forEach {
@@ -336,7 +337,7 @@ class ManagedIndexCoordinator(
 
         // clear metadata
         val indicesToDeleteMetadata =
-                getIndicesToDeleteMetadataFrom(clusterService.state()) + getDeleteManagedIndices(clusterStateManagedIndices, currentManagedIndices)
+            getIndicesToDeleteMetadataFrom(clusterService.state()) + getDeleteManagedIndices(clusterStateManagedIndices, currentManagedIndices)
         val deleteRequests = indicesToDeleteMetadata.map { deleteManagedIndexMetadataRequest(it.uuid) }
         clearManagedIndexMetaData(deleteRequests)
 
@@ -414,8 +415,7 @@ class ManagedIndexCoordinator(
 
     /**
      * Returns a list of [Index]es that need to have their [ManagedIndexMetaData] removed
-     * This method only consider policyID set to null situation
-     * index deleted situation is dealt in place, concatenate with this method's result
+     * This method only consider policyID equals to null, not index being deleted
      */
     suspend fun getIndicesToDeleteMetadataFrom(clusterState: ClusterState): List<Index> {
         val indicesWithNullPolicyID = mutableListOf<Index>()

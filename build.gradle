@@ -232,7 +232,9 @@ compileKotlin { kotlinOptions.freeCompilerArgs = ['-Xjsr305=strict'] }
 
 apply from: 'build-tools/pkgbuild.gradle'
 
-// setup for rolling upgrade test
+// This IT is to simulate the situation
+// when there are old version (without metadata change)
+// and new version mixed in one cluster
 import org.elasticsearch.gradle.test.RestIntegTestTask
 
 def mixedClusterTest = project.tasks.create('mixedCluster', RestIntegTestTask.class)

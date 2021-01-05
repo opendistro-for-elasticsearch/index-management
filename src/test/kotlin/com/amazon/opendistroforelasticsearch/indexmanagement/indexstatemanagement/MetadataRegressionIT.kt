@@ -12,7 +12,7 @@ import org.elasticsearch.index.Index
 import org.junit.Assume
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Locale
+import java.util.*
 
 class MetadataRegressionIT : IndexStateManagementITTestCase() {
 
@@ -20,6 +20,9 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
 
     fun `test still have metadata saved in cluster state`() {
         /**
+         *  simulate the situation: new version of ISM plugin can handle metadata in cluster state
+         *      when job hasn't started
+         *
          *  create index, manually save metadata into this index's cluster state;
          *  configure and start a job, check if metadata moved from cluster state to config index;
          */
@@ -29,13 +32,13 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         val actionConfig = ReplicaCountActionConfig(10, 0)
         val states = listOf(State(name = "ReplicaCountState", actions = listOf(actionConfig), transitions = listOf()))
         val policy = Policy(
-                id = policyID,
-                description = "$testIndexName description",
-                schemaVersion = 1L,
-                lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-                errorNotification = randomErrorNotification(),
-                defaultState = states[0].name,
-                states = states
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states
         )
 
         createPolicy(policy, policyID)
@@ -44,17 +47,18 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         // put some metadata into cluster state
         var indexMetadata = getIndexMetadata(indexName)
         metadataToClusterState = metadataToClusterState.copy(
-                index = indexName,
-                indexUuid = indexMetadata.indexUUID,
-                policyID = policyID
+            index = indexName,
+            indexUuid = indexMetadata.indexUUID,
+            policyID = policyID
         )
         val request = UpdateManagedIndexMetaDataRequest(
-                indicesToAddManagedIndexMetaDataTo = listOf(
-                        Pair(Index(metadataToClusterState.index, metadataToClusterState.indexUuid), metadataToClusterState)
-                )
+            indicesToAddManagedIndexMetaDataTo = listOf(
+                Pair(Index(metadataToClusterState.index, metadataToClusterState.indexUuid), metadataToClusterState)
+            )
         )
         val response: AcknowledgedResponse = client().execute(
-                UpdateManagedIndexMetaDataAction.INSTANCE, request).get()
+            UpdateManagedIndexMetaDataAction.INSTANCE, request
+        ).get()
 
         logger.info(response.isAcknowledged)
         indexMetadata = getIndexMetadata(indexName)
@@ -70,16 +74,30 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         // cluster state metadata is removed, explain API can get metadata from config index
         waitFor { assertEquals(null, getIndexMetadata(indexName).getCustomData("managed_index_metadata")) }
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
-        waitFor { assertEquals("Successfully initialized policy: ${policy.id}", getExplainManagedIndexMetaData(indexName).info?.get("message")) }
+        waitFor {
+            assertEquals(
+                "Successfully initialized policy: ${policy.id}",
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
 
         updateManagedIndexConfigStartTime(managedIndexConfig)
-        waitFor { assertEquals("Index did not set number_of_replicas to ${actionConfig.numOfReplicas}", actionConfig.numOfReplicas, getNumberOfReplicasSetting(indexName)) }
+        waitFor {
+            assertEquals(
+                "Index did not set number_of_replicas to ${actionConfig.numOfReplicas}",
+                actionConfig.numOfReplicas,
+                getNumberOfReplicasSetting(indexName)
+            )
+        }
     }
 
     fun `test job can continue run from cluster state metadata`() {
         /**
+         *  simulate the situation: new version of ISM plugin can handle metadata in cluster state
+         *      when job already started
+         *
          *  create index, add policy to it
-         *  manually add policy field to managed-index so runner won't initialise
+         *  manually add policy field to managed-index so runner won't do initialisation itself
          *  add metadata into cluster state
          *  then check if we can continue run from this added metadata
          */
@@ -107,7 +125,7 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         updateManagedIndexConfigPolicy(managedIndexConfig, policy)
         logger.info("managed-index: ${getExistingManagedIndexConfig(indexName)}")
 
-        // put some metadata into cluster state
+        // manually save metadata into cluster state
         var indexMetadata = getIndexMetadata(indexName)
         metadataToClusterState = metadataToClusterState.copy(
             index = indexName,
@@ -120,7 +138,8 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
             )
         )
         val response: AcknowledgedResponse = client().execute(
-                UpdateManagedIndexMetaDataAction.INSTANCE, request).get()
+            UpdateManagedIndexMetaDataAction.INSTANCE, request
+        ).get()
 
         logger.info(response.isAcknowledged)
         indexMetadata = getIndexMetadata(indexName)
@@ -129,7 +148,11 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         // start the job run
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
-            assertEquals("Index did not set number_of_replicas to ${actionConfig.numOfReplicas}", actionConfig.numOfReplicas, getNumberOfReplicasSetting(indexName))
+            assertEquals(
+                "Index did not set number_of_replicas to ${actionConfig.numOfReplicas}",
+                actionConfig.numOfReplicas,
+                getNumberOfReplicasSetting(indexName)
+            )
         }
     }
 
@@ -138,6 +161,7 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
 
         /**
          * mixedCluster-0 is new node, mixedCluster-1 is old node
+         *
          * set config index to only have one shard on new node
          * so old node cannot run job because it has no shard
          * new node also cannot run job because there is an old node
@@ -151,13 +175,13 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         val actionConfig = ReplicaCountActionConfig(10, 0)
         val states = listOf(State(name = "ReplicaCountState", actions = listOf(actionConfig), transitions = listOf()))
         val policy = Policy(
-                id = policyID,
-                description = "$testIndexName description",
-                schemaVersion = 1L,
-                lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
-                errorNotification = randomErrorNotification(),
-                defaultState = states[0].name,
-                states = states
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states
         )
 
         createPolicy(policy, policyID)
@@ -166,9 +190,9 @@ class MetadataRegressionIT : IndexStateManagementITTestCase() {
         val configIndexName = ".opendistro-ism-config"
 
         val settings = Settings.builder()
-                .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, "0")
-                .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, "1")
-                .build()
+            .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, "0")
+            .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, "1")
+            .build()
         updateIndexSettings(configIndexName, settings)
 
         // check config index shard position

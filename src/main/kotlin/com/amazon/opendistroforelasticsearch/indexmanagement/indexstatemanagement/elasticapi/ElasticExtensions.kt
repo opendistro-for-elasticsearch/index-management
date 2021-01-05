@@ -87,6 +87,7 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
     return this.timeField(name, name, instant.toEpochMilli())
 }
 
+// forIndex means for saving to config index, distinguish from Explain and History, which only save meaningful partial metadata
 @Suppress("ReturnCount")
 fun XContentBuilder.addObject(name: String, metadata: ToXContentFragment?, params: ToXContent.Params, forIndex: Boolean = false): XContentBuilder {
     if (!forIndex) {
@@ -96,6 +97,7 @@ fun XContentBuilder.addObject(name: String, metadata: ToXContentFragment?, param
             this
         }
     }
+    // else: save to config index
     if (metadata != null) {
         return this.buildMetadata(name, metadata, params)
     }
@@ -273,9 +275,9 @@ suspend fun IndexMetadata.getManagedIndexMetaData(client: Client): ManagedIndexM
 
         return withContext(Dispatchers.IO) {
             val xcp = XContentHelper.createParser(
-                    NamedXContentRegistry.EMPTY,
-                    LoggingDeprecationHandler.INSTANCE,
-                    getResponse.sourceAsBytesRef, XContentType.JSON)
+                NamedXContentRegistry.EMPTY,
+                LoggingDeprecationHandler.INSTANCE,
+                getResponse.sourceAsBytesRef, XContentType.JSON)
             ManagedIndexMetaData.parseWithType(xcp, getResponse.id, getResponse.seqNo, getResponse.primaryTerm)
         }
     } catch (e: Exception) {

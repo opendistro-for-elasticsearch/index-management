@@ -86,7 +86,7 @@ fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): Inde
             .id(managedIndexConfig.indexUuid)
             .setIfPrimaryTerm(managedIndexConfig.primaryTerm)
             .setIfSeqNo(managedIndexConfig.seqNo)
-            .routing(managedIndexConfig.indexUuid)
+            .routing(managedIndexConfig.indexUuid) // we want job doc and its metadata doc be routed to same shard
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 

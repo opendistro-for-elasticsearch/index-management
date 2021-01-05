@@ -67,9 +67,9 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
 
     protected fun getIndexMetadata(indexName: String): IndexMetadata {
         return client().admin().cluster().prepareState()
-                .setIndices(indexName)
-                .setMetadata(true).get()
-                .state.metadata.indices[indexName]
+            .setIndices(indexName)
+            .setMetadata(true).get()
+            .state.metadata.indices[indexName]
     }
 
     // reuse utility fun from RestTestCase
@@ -81,17 +81,17 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
         val response = createPolicyJson(policy.toJsonString(), policyId, refresh)
 
         val policyJson = JsonXContent.jsonXContent
-                .createParser(
-                        NamedXContentRegistry.EMPTY,
-                        LoggingDeprecationHandler.INSTANCE,
-                        response.entity.content
-                ).map()
+            .createParser(
+                NamedXContentRegistry.EMPTY,
+                LoggingDeprecationHandler.INSTANCE,
+                response.entity.content
+            ).map()
         val createdId = policyJson["_id"] as String
         assertEquals("policy ids are not the same", policyId, createdId)
         return policy.copy(
-                id = createdId,
-                seqNo = (policyJson["_seq_no"] as Int).toLong(),
-                primaryTerm = (policyJson["_primary_term"] as Int).toLong()
+            id = createdId,
+            seqNo = (policyJson["_seq_no"] as Int).toLong(),
+            primaryTerm = (policyJson["_primary_term"] as Int).toLong()
         )
     }
 
@@ -101,12 +101,12 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
         refresh: Boolean = true
     ): Response {
         val response = getRestClient()
-                .makeRequest(
-                        "PUT",
-                        "${IndexManagementPlugin.POLICY_BASE_URI}/$policyId?refresh=$refresh",
-                        emptyMap(),
-                        StringEntity(policyString, ContentType.APPLICATION_JSON)
-                )
+            .makeRequest(
+                "PUT",
+                "${IndexManagementPlugin.POLICY_BASE_URI}/$policyId?refresh=$refresh",
+                emptyMap(),
+                StringEntity(policyString, ContentType.APPLICATION_JSON)
+            )
         assertEquals("Unable to create a new policy", RestStatus.CREATED, response.restStatus())
         return response
     }
@@ -142,10 +142,13 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
                 }
             }
         """.trimIndent()
-        val response = getRestClient().makeRequest("POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_search", emptyMap(),
-                StringEntity(request, ContentType.APPLICATION_JSON))
+        val response = getRestClient().makeRequest(
+            "POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_search", emptyMap(),
+            StringEntity(request, ContentType.APPLICATION_JSON)
+        )
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
-        val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.entity.content))
+        val searchResponse =
+            SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.entity.content))
         assertTrue("Found more than one managed index config", searchResponse.hits.hits.size < 2)
         val hit = searchResponse.hits.hits.firstOrNull()
         return hit?.run {
@@ -156,7 +159,8 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
 
     protected fun seeConfigIndex() {
         val response = getRestClient().makeRequest("GET", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_search")
-        val searchResponse = SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.entity.content))
+        val searchResponse =
+            SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.entity.content))
         val hits = searchResponse.hits.hits
         hits.forEach { logger.info("what is inside config index? $it") }
     }
@@ -165,12 +169,14 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
-        val response = getRestClient().makeRequest("POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
-                StringEntity(
-                        "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
-                                "\"$startTimeMillis\"}}}}}",
-                        ContentType.APPLICATION_JSON
-                ))
+        val response = getRestClient().makeRequest(
+            "POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
+            StringEntity(
+                "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
+                    "\"$startTimeMillis\"}}}}}",
+                ContentType.APPLICATION_JSON
+            )
+        )
 
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
@@ -178,19 +184,23 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
     protected fun updateManagedIndexConfigPolicy(update: ManagedIndexConfig, policy: Policy) {
         val policyJsonString = policy.toJsonString()
         logger.info("policy string: $policyJsonString")
-        var response = getRestClient().makeRequest("POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
-                StringEntity(
-                        "{\"doc\":{\"managed_index\": $policyJsonString }}",
-                        ContentType.APPLICATION_JSON
-                ))
+        var response = getRestClient().makeRequest(
+            "POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
+            StringEntity(
+                "{\"doc\":{\"managed_index\": $policyJsonString }}",
+                ContentType.APPLICATION_JSON
+            )
+        )
 
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
 
-        response = getRestClient().makeRequest("POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
-                StringEntity(
-                        "{\"doc\":{\"managed_index\": {\"policy_seq_no\": \"0\", \"policy_primary_term\": \"1\"} }}",
-                        ContentType.APPLICATION_JSON
-                ))
+        response = getRestClient().makeRequest(
+            "POST", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_update/${update.id}",
+            StringEntity(
+                "{\"doc\":{\"managed_index\": {\"policy_seq_no\": \"0\", \"policy_primary_term\": \"1\"} }}",
+                ContentType.APPLICATION_JSON
+            )
+        )
 
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
@@ -206,7 +216,13 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
         val request = Request("GET", "/$index/_settings")
         request.addParameter("flat_settings", "true")
         val response = getRestClient().performRequest(request)
-        response.entity.content.use { `is` -> return XContentHelper.convertToMap(XContentType.JSON.xContent(), `is`, true) }
+        response.entity.content.use { `is` ->
+            return XContentHelper.convertToMap(
+                XContentType.JSON.xContent(),
+                `is`,
+                true
+            )
+        }
     }
 
     protected fun getExplainManagedIndexMetaData(indexName: String): ManagedIndexMetaData {
@@ -214,12 +230,19 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
             throw IllegalArgumentException("This method is only for a single concrete index")
         }
 
-        val response = getRestClient().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
+        val response = getRestClient().makeRequest(
+            RestRequest.Method.GET.toString(),
+            "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName"
+        )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
 
         lateinit var metadata: ManagedIndexMetaData
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
-        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.nextToken(), xcp::getTokenLocation)
+        XContentParserUtils.ensureExpectedToken(
+            XContentParser.Token.START_OBJECT,
+            xcp.nextToken(),
+            xcp::getTokenLocation
+        )
         while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
             xcp.currentName()
             xcp.nextToken()
@@ -249,10 +272,12 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
 
         try {
             return JsonXContent.jsonXContent
-                    .createParser(NamedXContentRegistry.EMPTY,
-                            DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                            response.entity.content)
-                    .use { parser -> parser.list() }
+                .createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    response.entity.content
+                )
+                .use { parser -> parser.list() }
         } catch (e: IOException) {
             throw ElasticsearchParseException("Failed to parse content to list", e)
         }
@@ -264,7 +289,7 @@ abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
         logger.info("Reallocating Shard. From Node: $fromNode To Node: $toNode ")
         val moveCommand = MoveAllocationCommand(configIndexName, 0, fromNode, toNode)
         val rerouteResponse = client().admin().cluster()
-                .reroute(ClusterRerouteRequest().add(moveCommand)).actionGet()
+            .reroute(ClusterRerouteRequest().add(moveCommand)).actionGet()
         logger.info("reroute success? ${rerouteResponse.isAcknowledged}")
     }
 

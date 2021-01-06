@@ -66,7 +66,7 @@ data class ISMRollup(
         return builder
     }
 
-    fun toRollup(sourceIndex: String, roles: List<String> = listOf()) : Rollup {
+    fun toRollup(sourceIndex: String, roles: List<String> = listOf()): Rollup {
         val id = sourceIndex + toString()
         val currentTime = Instant.now()
         return Rollup(

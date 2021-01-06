@@ -105,6 +105,7 @@ class AttemptCreateRollupJobStep(
             val startRollupRequest = StartRollupRequest(rollupId!!)
             client.execute(StartRollupAction.INSTANCE, startRollupRequest).actionGet()
             stepStatus = StepStatus.COMPLETED
+            info = mapOf("message" to getSuccessRestartMessage(rollupId!!))
         } catch (e: Exception) {
             val message = getFailedToStartMessage(rollupId!!)
             logger.error(message, e)
@@ -119,5 +120,6 @@ class AttemptCreateRollupJobStep(
         fun getFailedJobExistsMessage(rollupId: String, index: String) = "Rollup job [$rollupId] already exists for index [$index]"
         fun getFailedToStartMessage(rollupId: String) = "Failed to start the rollup job [$rollupId]"
         fun getSuccessMessage(rollupId: String, index: String) = "Successfully created the rollup job [$rollupId] for index [$index]"
+        fun getSuccessRestartMessage(rollupId: String) = "Successfully restarted the rollup job [$rollupId]"
     }
 }

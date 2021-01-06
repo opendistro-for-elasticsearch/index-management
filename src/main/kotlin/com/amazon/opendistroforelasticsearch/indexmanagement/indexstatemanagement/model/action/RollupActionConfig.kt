@@ -56,7 +56,7 @@ class RollupActionConfig(
     override fun isFragment(): Boolean = super<ToXContentObject>.isFragment()
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(ismRollup = ISMRollup(sin), index = sin.readInt())
+    constructor(sin: StreamInput) : this(ismRollup = ISMRollup(sin), index = sin.readInt())
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {

@@ -97,4 +97,68 @@ class RollupActionIT : IndexStateManagementRestTestCase() {
             assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
         }
     }
+
+    fun `test rollup action failure`() {
+        val indexName = "${testIndexName}_index_failure"
+        val policyID = "${testIndexName}_policy_failure"
+        val rollup = ISMRollup(
+                description = "basic search test",
+                targetIndex = "target_rollup_search",
+                pageSize = 100,
+                dimensions = listOf(
+                        DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
+                        Terms("RatecodeID", "RatecodeID"),
+                        Terms("PULocationID", "PULocationID")
+                ),
+                metrics = listOf(
+                        RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
+                                ValueCount(), Average()))
+                )
+        )
+        val rollupId = rollup.toRollup(indexName).id
+        val actionConfig = RollupActionConfig(rollup, 0)
+        val states = listOf(
+                State("rollup", listOf(actionConfig), listOf())
+        )
+        val sourceIndexMappingString = "\"properties\": {\"tpep_pickup_datetime\": { \"type\": \"date\" }, \"RatecodeID\": { \"type\": " +
+                "\"keyword\" }, \"passenger_count\": { \"type\": \"integer\" }, \"total_amount\": " +
+                "{ \"type\": \"double\" }}"
+        val policy = Policy(
+                id = policyID,
+                description = "$testIndexName description",
+                schemaVersion = 1L,
+                lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+                errorNotification = randomErrorNotification(),
+                defaultState = states[0].name,
+                states = states
+        )
+        createPolicy(policy, policyID)
+        createIndex(indexName, policyID, mapping = sourceIndexMappingString)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        // Change the start time so the job will initialize the policy
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
+
+        // Change the start time so we attempt to create rollup step will execute
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor {
+            assertEquals(
+                    AttemptCreateRollupJobStep.getSuccessMessage(rollupId, indexName),
+                    getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
+
+        Thread.sleep(60000)
+
+        // Change the start time so wait for rollup step will execute
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor {
+            assertEquals(
+                    WaitForRollupCompletionStep.getJobFailedMessage(rollupId),
+                    getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
+    }
 }

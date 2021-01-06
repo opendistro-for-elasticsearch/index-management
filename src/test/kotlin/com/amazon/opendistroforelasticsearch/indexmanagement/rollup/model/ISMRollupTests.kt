@@ -70,7 +70,6 @@ class ISMRollupTests : ESTestCase() {
         val rollup = ismRollup.toRollup(sourceIndex)
         val schedule = rollup.schedule as IntervalSchedule
 
-
         assertEquals(sourceIndex, rollup.sourceIndex)
         assertEquals(ismRollup.targetIndex, rollup.targetIndex)
         assertEquals(ismRollup.pageSize, rollup.pageSize)

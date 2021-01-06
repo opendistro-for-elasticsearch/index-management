@@ -214,6 +214,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     @Suppress("ReturnCount", "ComplexMethod", "LongMethod")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
+        logger.info("try to run job for ${managedIndexConfig.index}")
         // doing a check of local cluster health as we do not want to overload master node with potentially a lot of calls
         if (clusterIsRed()) {
             logger.debug("Skipping current execution of ${managedIndexConfig.index} because of red cluster health")
@@ -352,6 +353,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     private suspend fun initManagedIndex(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData?) {
+        logger.info("init for ${managedIndexConfig.index}, policy ${managedIndexConfig.policyID}")
         var policy: Policy? = managedIndexConfig.policy
         val policyID = managedIndexConfig.changePolicy?.policyID ?: managedIndexConfig.policyID
         // If policy does not currently exist, we need to save the policy on the ManagedIndexConfig for the first time
@@ -361,6 +363,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             policy = getPolicy(policyID)
             // Attempt to save the policy
             if (policy != null) {
+                logger.info("attempt to save policy to config index")
                 val saved = savePolicyToManagedIndexConfig(managedIndexConfig, policy)
                 // If we failed to save the policy, don't initialize ManagedIndexMetaData
                 if (!saved) return
@@ -375,6 +378,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             // Initializing ManagedIndexMetaData for the first time
             getInitializedManagedIndexMetaData(managedIndexMetaData, managedIndexConfig, policy)
         }
+        logger.info("init metadata to update: $updatedManagedIndexMetaData")
 
         updateManagedIndexMetaData(updatedManagedIndexMetaData)
     }

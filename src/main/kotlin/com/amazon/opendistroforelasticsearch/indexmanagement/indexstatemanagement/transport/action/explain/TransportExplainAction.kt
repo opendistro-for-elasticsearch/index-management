@@ -108,6 +108,7 @@ class TransportExplainAction @Inject constructor(
             val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
 
             response.responses.forEach {
+                log.info("explain response: ${it.id}")
                 if (it.response != null) {
                     indexMetadatas.add(getMetadata(it.response))
                 } else {
@@ -119,6 +120,7 @@ class TransportExplainAction @Inject constructor(
         }
 
         private fun getMetadata(response: GetResponse): ManagedIndexMetaData? {
+            log.info("transfer multiget response toXContent for ${response.sourceAsMap}")
             if (response.sourceAsBytesRef == null) return null
 
             val xcp = XContentHelper.createParser(

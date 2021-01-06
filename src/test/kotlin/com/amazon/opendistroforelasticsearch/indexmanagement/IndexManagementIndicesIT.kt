@@ -76,7 +76,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         assertIndexDoesNotExist("$HISTORY_WRITE_INDEX_ALIAS?allow_no_indices=false")
 
         val mapping = indexStateManagementHistoryMappings.trim().trimStart('{').trimEnd('}')
-                .replace("\"schema_version\": 2", "\"schema_version\": 0")
+                .replace("\"schema_version\": 3", "\"schema_version\": 0")
 
         val aliases = "\"$HISTORY_WRITE_INDEX_ALIAS\": { \"is_write_index\": true }"
         createIndex("$HISTORY_INDEX_BASE-1", Settings.builder().put("index.hidden", true).build(), mapping, aliases)
@@ -97,7 +97,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
 
         waitFor {
             assertIndexExists(HISTORY_WRITE_INDEX_ALIAS)
-            verifyIndexSchemaVersion(HISTORY_WRITE_INDEX_ALIAS, 2)
+            verifyIndexSchemaVersion(HISTORY_WRITE_INDEX_ALIAS, 3)
         }
     }
 

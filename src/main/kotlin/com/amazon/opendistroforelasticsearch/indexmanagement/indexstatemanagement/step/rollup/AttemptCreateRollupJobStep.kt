@@ -21,6 +21,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index.IndexRollupRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start.StartRollupAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start.StartRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ISMRollup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,18 +72,18 @@ class AttemptCreateRollupJobStep(
             val message = getFailedJobExistsMessage(rollupId!!, indexName)
             logger.warn(message)
             if (rollupId == previousRunRollupId && hasPreviousRollupAttemptFailed != null && hasPreviousRollupAttemptFailed!!) {
-                logger.info("Attempting to start the job $rollupId")
+                withContext(Dispatchers.IO) {
+                    startRollupJob()
+                }
+            } else {
+                stepStatus = StepStatus.FAILED
+                info = mapOf("message" to message)
             }
-            stepStatus = StepStatus.FAILED
-            info = mapOf("message" to message)
         } catch (e: Exception) {
             val message = getFailedMessage(rollupId!!, indexName)
             logger.error(message, e)
             stepStatus = StepStatus.FAILED
-            val mutableInfo = mutableMapOf("message" to message)
-            val errorMessage = e.message
-            if (errorMessage != null) mutableInfo["cause"] = errorMessage
-            info = mutableInfo.toMap()
+            info = mapOf("message" to message, "cause" to "${e.message}")
         }
 
         return this
@@ -97,10 +99,25 @@ class AttemptCreateRollupJobStep(
         )
     }
 
+    private fun startRollupJob() {
+        logger.info("Attempting to re-start the job $rollupId")
+        try {
+            val startRollupRequest = StartRollupRequest(rollupId!!)
+            client.execute(StartRollupAction.INSTANCE, startRollupRequest).actionGet()
+            stepStatus = StepStatus.COMPLETED
+        } catch (e: Exception) {
+            val message = getFailedToStartMessage(rollupId!!)
+            logger.error(message, e)
+            stepStatus = StepStatus.CONDITION_NOT_MET
+            info = mapOf("message" to message)
+        }
+    }
+
     companion object {
         const val name = "attempt_create_rollup"
         fun getFailedMessage(rollupId: String, index: String) = "Failed to create the rollup job [$rollupId] for index [$index]"
         fun getFailedJobExistsMessage(rollupId: String, index: String) = "Rollup job [$rollupId] already exists for index [$index]"
+        fun getFailedToStartMessage(rollupId: String) = "Failed to start the rollup job [$rollupId]"
         fun getSuccessMessage(rollupId: String, index: String) = "Successfully created the rollup job [$rollupId] for index [$index]"
     }
 }

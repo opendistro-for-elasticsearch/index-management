@@ -58,7 +58,7 @@ class WaitForRollupCompletionStep(
                     if (response.getIdsToExplain()[rollupJobId!!]?.metadata?.status == null) {
                         logger.warn("Job $rollupJobId has not started yet")
                         stepStatus = StepStatus.CONDITION_NOT_MET
-                        info = mapOf("message" to RollupMetadata.Status.INIT.type)
+                        info = mapOf("message" to getJobProcessingMessage(rollupJobId!!))
                     } else {
                         logger.info("Received metadata associated with $rollupJobId")
                         processRollupMetadataStatus(response.getIdsToExplain().getValue(rollupJobId!!)!!.metadata!!)

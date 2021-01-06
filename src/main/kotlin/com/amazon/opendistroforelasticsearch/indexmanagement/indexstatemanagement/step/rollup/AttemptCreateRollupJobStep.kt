@@ -47,7 +47,7 @@ class AttemptCreateRollupJobStep(
     private var previousRunRollupId: String? = null
     private var hasPreviousRollupAttemptFailed: Boolean? = null
 
-    override fun isIdempotent() = false
+    override fun isIdempotent() = true
 
     override suspend fun execute(): Step {
         previousRunRollupId = managedIndexMetaData.actionMetaData?.actionProperties?.rollupId
@@ -70,14 +70,14 @@ class AttemptCreateRollupJobStep(
             info = mapOf("message" to getSuccessMessage(rollupId!!, indexName))
         } catch (e: VersionConflictEngineException) {
             val message = getFailedJobExistsMessage(rollupId!!, indexName)
-            logger.warn(message)
+            logger.info(message)
             if (rollupId == previousRunRollupId && hasPreviousRollupAttemptFailed != null && hasPreviousRollupAttemptFailed!!) {
                 withContext(Dispatchers.IO) {
                     startRollupJob()
                 }
             } else {
-                stepStatus = StepStatus.FAILED
-                info = mapOf("message" to message)
+                stepStatus = StepStatus.COMPLETED
+                info = mapOf("info" to message)
             }
         } catch (e: Exception) {
             val message = getFailedMessage(rollupId!!, indexName)

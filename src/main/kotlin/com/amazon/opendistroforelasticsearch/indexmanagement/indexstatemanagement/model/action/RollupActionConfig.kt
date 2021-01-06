@@ -51,7 +51,7 @@ class RollupActionConfig(
         scriptService: ScriptService,
         client: Client,
         managedIndexMetaData: ManagedIndexMetaData
-    ): Action = RollupAction(clusterService, client, ismRollup, managedIndexMetaData, this)
+    ): Action = RollupAction(clusterService, client, managedIndexMetaData, this)
 
     override fun isFragment(): Boolean = super<ToXContentObject>.isFragment()
 

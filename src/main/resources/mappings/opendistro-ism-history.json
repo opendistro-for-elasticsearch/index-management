@@ -97,7 +97,7 @@
                 "rollup_id": {
                   "type": "text",
                   "fields": {
-                    "raw": {
+                    "keyword": {
                       "type": "keyword"
                     }
                   }

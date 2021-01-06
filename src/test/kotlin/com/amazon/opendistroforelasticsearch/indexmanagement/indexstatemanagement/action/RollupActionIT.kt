@@ -86,13 +86,13 @@ class RollupActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             assertEquals(
-                    WaitForRollupCompletionStep.getJobCompletionMessage(rollupId),
+                    WaitForRollupCompletionStep.getJobCompletionMessage(rollupId, indexName),
                     getExplainManagedIndexMetaData(indexName).info?.get("message")
             )
         }
 
+        val rollupJob = getRollup(rollupId = rollupId)
         waitFor {
-            val rollupJob = getRollup(rollupId = rollupId)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
             assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
@@ -157,7 +157,7 @@ class RollupActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             assertEquals(
-                    WaitForRollupCompletionStep.getJobFailedMessage(rollupId),
+                    WaitForRollupCompletionStep.getJobFailedMessage(rollupId, indexName),
                     getExplainManagedIndexMetaData(indexName).info?.get("message")
             )
         }
@@ -210,7 +210,7 @@ class RollupActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             assertEquals(
-                    WaitForRollupCompletionStep.getJobProcessingMessage(rollupId),
+                    WaitForRollupCompletionStep.getJobProcessingMessage(rollupId, indexName),
                     getExplainManagedIndexMetaData(indexName).info?.get("message")
             )
         }
@@ -220,7 +220,7 @@ class RollupActionIT : IndexStateManagementRestTestCase() {
         updateManagedIndexConfigStartTime(managedIndexConfig)
         waitFor {
             assertEquals(
-                    WaitForRollupCompletionStep.getJobFailedMessage(rollupId),
+                    WaitForRollupCompletionStep.getJobFailedMessage(rollupId, indexName),
                     getExplainManagedIndexMetaData(indexName).info?.get("message")
             )
         }

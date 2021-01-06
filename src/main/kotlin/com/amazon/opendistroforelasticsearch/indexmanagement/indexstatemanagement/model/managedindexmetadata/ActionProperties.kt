@@ -26,6 +26,7 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 
 /** Properties that will persist across steps of a single Action. Will be stored in the [ActionMetaData]. */
+// TODO: Create namespaces to group properties together
 data class ActionProperties(
     val maxNumSegments: Int? = null,
     val snapshotName: String? = null,

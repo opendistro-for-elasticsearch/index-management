@@ -43,6 +43,7 @@ data class ISMRollup(
     val metrics: List<RollupMetrics>
 ) : ToXContentObject, Writeable {
 
+    // TODO: This can be moved to a common place, since this is shared between Rollup and ISMRollup
     init {
         require(pageSize in Rollup.MINIMUM_PAGE_SIZE..Rollup.MAXIMUM_PAGE_SIZE) { "Page size must be between ${Rollup.MINIMUM_PAGE_SIZE} " +
                 "and ${Rollup.MAXIMUM_PAGE_SIZE}" }

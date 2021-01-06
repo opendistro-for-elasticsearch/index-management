@@ -21,19 +21,17 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollup.AttemptCreateRollupJobStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollup.WaitForRollupCompletionStep
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ISMRollup
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 
 class RollupAction(
     clusterService: ClusterService,
     client: Client,
-    ismRollup: ISMRollup,
     managedIndexMetaData: ManagedIndexMetaData,
     config: RollupActionConfig
 ) : Action(ActionConfig.ActionType.ROLLUP, config, managedIndexMetaData) {
 
-    private val attemptCreateRollupJobStep = AttemptCreateRollupJobStep(clusterService, client, ismRollup, managedIndexMetaData)
+    private val attemptCreateRollupJobStep = AttemptCreateRollupJobStep(clusterService, client, config.ismRollup, managedIndexMetaData)
     private val waitForRollupCompletionStep = WaitForRollupCompletionStep(clusterService, client, managedIndexMetaData)
 
     override fun getSteps(): List<Step> = listOf(attemptCreateRollupJobStep, waitForRollupCompletionStep)

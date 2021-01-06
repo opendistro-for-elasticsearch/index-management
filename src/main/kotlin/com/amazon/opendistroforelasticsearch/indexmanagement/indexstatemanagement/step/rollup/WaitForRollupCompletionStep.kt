@@ -51,7 +51,7 @@ class WaitForRollupCompletionStep(
         } else {
             val explainRollupRequest = ExplainRollupRequest(listOf(rollupJobId!!))
             try {
-                val response =  withContext(Dispatchers.IO) { client.execute(ExplainRollupAction.INSTANCE, explainRollupRequest).actionGet() }
+                val response = withContext(Dispatchers.IO) { client.execute(ExplainRollupAction.INSTANCE, explainRollupRequest).actionGet() }
                 logger.info("Received the status for jobs [${response.getIdsToExplain().keys}]")
 
                 if (response.getIdsToExplain()[rollupJobId!!]?.metadata?.status == null) {

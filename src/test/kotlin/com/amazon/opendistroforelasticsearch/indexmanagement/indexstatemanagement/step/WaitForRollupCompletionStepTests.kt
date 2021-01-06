@@ -10,7 +10,6 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.test.ESTestCase
 
-
 class WaitForRollupCompletionStepTests : ESTestCase() {
 
     private val clusterService: ClusterService = mock()

@@ -61,10 +61,8 @@ class AttemptCreateRollupJobStep(
         val indexRollupRequest = IndexRollupRequest(rollup, WriteRequest.RefreshPolicy.IMMEDIATE)
 
         try {
-            withContext(Dispatchers.IO) {
-                val response = client.execute(IndexRollupAction.INSTANCE, indexRollupRequest).actionGet()
-                logger.info("Received status ${response.status.status} on trying to create rollup job $rollupId")
-            }
+            val response = withContext(Dispatchers.IO) { client.execute(IndexRollupAction.INSTANCE, indexRollupRequest).actionGet() }
+            logger.info("Received status ${response.status.status} on trying to create rollup job $rollupId")
 
             stepStatus = StepStatus.COMPLETED
             info = mapOf("message" to getSuccessMessage(rollupId!!, indexName))

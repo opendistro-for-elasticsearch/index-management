@@ -51,18 +51,16 @@ class WaitForRollupCompletionStep(
         } else {
             val explainRollupRequest = ExplainRollupRequest(listOf(rollupJobId!!))
             try {
-                withContext(Dispatchers.IO) {
-                    val response = client.execute(ExplainRollupAction.INSTANCE, explainRollupRequest).actionGet()
-                    logger.info("Received the response ${response.getIdsToExplain().keys}")
+                val response =  withContext(Dispatchers.IO) { client.execute(ExplainRollupAction.INSTANCE, explainRollupRequest).actionGet() }
+                logger.info("Received the status for jobs [${response.getIdsToExplain().keys}]")
 
-                    if (response.getIdsToExplain()[rollupJobId!!]?.metadata?.status == null) {
-                        logger.warn("Job $rollupJobId has not started yet")
-                        stepStatus = StepStatus.CONDITION_NOT_MET
-                        info = mapOf("message" to getJobProcessingMessage(rollupJobId!!))
-                    } else {
-                        logger.info("Received metadata associated with $rollupJobId")
-                        processRollupMetadataStatus(response.getIdsToExplain().getValue(rollupJobId!!)!!.metadata!!)
-                    }
+                if (response.getIdsToExplain()[rollupJobId!!]?.metadata?.status == null) {
+                    logger.warn("Job $rollupJobId has not started yet")
+                    stepStatus = StepStatus.CONDITION_NOT_MET
+                    info = mapOf("message" to getJobProcessingMessage(rollupJobId!!))
+                } else {
+                    logger.info("Received metadata associated with $rollupJobId")
+                    processRollupMetadataStatus(response.getIdsToExplain().getValue(rollupJobId!!)!!.metadata!!)
                 }
             } catch (e: Exception) {
                 processFailure(e)

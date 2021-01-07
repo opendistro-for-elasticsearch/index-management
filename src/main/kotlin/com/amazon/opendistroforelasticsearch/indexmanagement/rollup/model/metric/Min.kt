@@ -30,6 +30,7 @@ class Min() : Metric(Type.MIN) {
         return builder.startObject().startObject(Type.MIN.type).endObject().endObject()
     }
 
+    @Suppress("EmptyFunctionBlock")
     override fun writeTo(out: StreamOutput) {} // nothing to write
 
     override fun equals(other: Any?): Boolean {

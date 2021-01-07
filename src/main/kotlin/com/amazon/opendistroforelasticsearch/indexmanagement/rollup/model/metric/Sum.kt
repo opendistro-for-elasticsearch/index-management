@@ -30,6 +30,7 @@ class Sum() : Metric(Type.SUM) {
         return builder.startObject().startObject(Type.SUM.type).endObject().endObject()
     }
 
+    @Suppress("EmptyFunctionBlock")
     override fun writeTo(out: StreamOutput) {} // nothing to write
 
     override fun equals(other: Any?): Boolean {

@@ -30,6 +30,7 @@ class Max() : Metric(Type.MAX) {
         return builder.startObject().startObject(Type.MAX.type).endObject().endObject()
     }
 
+    @Suppress("EmptyFunctionBlock")
     override fun writeTo(out: StreamOutput) {} // nothing to write
 
     override fun equals(other: Any?): Boolean {

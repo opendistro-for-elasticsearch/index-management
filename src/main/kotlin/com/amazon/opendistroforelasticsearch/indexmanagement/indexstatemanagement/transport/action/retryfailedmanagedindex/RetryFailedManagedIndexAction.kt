@@ -21,6 +21,6 @@ import org.elasticsearch.action.ActionType
 class RetryFailedManagedIndexAction private constructor() : ActionType<ISMStatusResponse>(NAME, ::ISMStatusResponse) {
     companion object {
         val INSTANCE = RetryFailedManagedIndexAction()
-        val NAME = "cluster:admin/opendistro/ism/managedindex/retry"
+        const val NAME = "cluster:admin/opendistro/ism/managedindex/retry"
     }
 }

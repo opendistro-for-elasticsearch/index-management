@@ -30,6 +30,7 @@ class Average() : Metric(Type.AVERAGE) {
         return builder.startObject().startObject(Type.AVERAGE.type).endObject().endObject()
     }
 
+    @Suppress("EmptyFunctionBlock")
     override fun writeTo(out: StreamOutput) {} // nothing to write
 
     override fun equals(other: Any?): Boolean {

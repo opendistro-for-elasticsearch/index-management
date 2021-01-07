@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class IndexPolicyAction private constructor() : ActionType<IndexPolicyResponse>(NAME, ::IndexPolicyResponse) {
     companion object {
         val INSTANCE = IndexPolicyAction()
-        val NAME = "cluster:admin/opendistro/ism/policy/write"
+        const val NAME = "cluster:admin/opendistro/ism/policy/write"
     }
 }

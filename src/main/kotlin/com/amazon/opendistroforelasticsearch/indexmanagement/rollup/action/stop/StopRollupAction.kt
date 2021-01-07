@@ -21,6 +21,6 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 class StopRollupAction private constructor() : ActionType<AcknowledgedResponse>(NAME, ::AcknowledgedResponse) {
     companion object {
         val INSTANCE = StopRollupAction()
-        val NAME = "cluster:admin/opendistro/rollup/stop"
+        const val NAME = "cluster:admin/opendistro/rollup/stop"
     }
 }

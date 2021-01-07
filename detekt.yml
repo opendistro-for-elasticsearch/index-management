@@ -1,5 +1,3 @@
-failFast: false
-
 # TODO: Remove this before initial release, only for developmental purposes
 exceptions:
   TooGenericExceptionCaught:
@@ -10,3 +8,6 @@ style:
     active: false
   MaxLineLength:
     maxLineLength: 150
+
+build:
+  maxIssues: 10

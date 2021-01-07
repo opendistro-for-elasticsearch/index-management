@@ -49,11 +49,19 @@ abstract class IndexManagementRestTestCase : ESRestTestCase() {
     protected val isDebuggingTest = DisableOnDebug(null).isDebugging
     protected val isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false")!!.toBoolean()
     protected val isMultiNode = System.getProperty("cluster.number_of_nodes", "1").toInt() > 1
-
     protected val isLocalTest = clusterName() == "integTest"
+
+    fun isHttps(): Boolean = System.getProperty("https", "false")!!.toBoolean()
+
+    fun securityEnabled(): Boolean = System.getProperty("security", "false")!!.toBoolean()
+
+    override fun getProtocol(): String = if (isHttps()) "https" else "http"
+
     private fun clusterName(): String {
         return System.getProperty("tests.clustername")
     }
+
+    // override fun preserveIndicesUponCompletion(): Boolean = true
 
     fun Response.asMap(): Map<String, Any> = entityAsMap(this)
 

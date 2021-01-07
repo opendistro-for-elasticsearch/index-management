@@ -20,6 +20,6 @@ import org.elasticsearch.action.ActionType
 class GetRollupsAction private constructor() : ActionType<GetRollupsResponse>(NAME, ::GetRollupsResponse) {
     companion object {
         val INSTANCE = GetRollupsAction()
-        val NAME = "cluster:admin/opendistro/rollup/get_rollups"
+        const val NAME = "cluster:admin/opendistro/rollup/get_rollups"
     }
 }

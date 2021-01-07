@@ -201,7 +201,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, ActionPlugin, Plug
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
             ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS,
-            ManagedIndexSettings.ALLOW_LIST
+            ManagedIndexSettings.ALLOW_LIST,
+            ManagedIndexSettings.SNAPSHOT_DENY_LIST
         )
     }
 

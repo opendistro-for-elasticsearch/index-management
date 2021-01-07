@@ -97,7 +97,7 @@ class AttemptCreateRollupJobStep(
         )
     }
 
-    private fun processFailure(rollupId: String, e: Exception) {
+    fun processFailure(rollupId: String, e: Exception) {
         val message = getFailedMessage(rollupId, indexName)
         logger.error(message, e)
         stepStatus = StepStatus.FAILED

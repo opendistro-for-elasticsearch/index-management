@@ -53,13 +53,14 @@ class WaitForRollupCompletionStep(
             try {
                 val response: ExplainRollupResponse = client.suspendUntil { execute(ExplainRollupAction.INSTANCE, explainRollupRequest, it) }
                 logger.info("Received the status for jobs [${response.getIdsToExplain().keys}]")
+                val metadata = response.getIdsToExplain()[rollupJobId]?.metadata
 
-                if (response.getIdsToExplain()[rollupJobId]?.metadata?.status == null) {
+                if (metadata?.status == null) {
                     logger.warn("Job $rollupJobId has not started yet")
                     stepStatus = StepStatus.CONDITION_NOT_MET
                     info = mapOf("message" to getJobProcessingMessage(rollupJobId, indexName))
                 } else {
-                    processRollupMetadataStatus(rollupJobId, response.getIdsToExplain().getValue(rollupJobId)!!.metadata!!)
+                    processRollupMetadataStatus(rollupJobId, metadata)
                 }
             } catch (e: RemoteTransportException) {
                 processFailure(rollupJobId, e)
@@ -115,7 +116,7 @@ class WaitForRollupCompletionStep(
     }
 
     fun processFailure(rollupJobId: String, e: Exception) {
-        stepStatus = StepStatus.CONDITION_NOT_MET
+        stepStatus = StepStatus.FAILED
         val message = getFailedMessage(rollupJobId, indexName)
         logger.error(message, e)
         val mutableInfo = mutableMapOf("message" to message)

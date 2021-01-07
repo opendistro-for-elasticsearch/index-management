@@ -132,6 +132,6 @@ class WaitForRollupCompletionStepTests : ESTestCase() {
                 WaitForRollupCompletionStep.getFailedMessage(rollupId, indexName),
                 updateManagedIndexMetaData.info?.get("message")
         )
-        assertEquals("Step status is not CONDIITON_NOT_MET", Step.StepStatus.CONDITION_NOT_MET, updateManagedIndexMetaData.stepMetaData?.stepStatus)
+        assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updateManagedIndexMetaData.stepMetaData?.stepStatus)
     }
 }

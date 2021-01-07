@@ -74,8 +74,8 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 fun Rollup.getRollupSearchRequest(metadata: RollupMetadata): SearchRequest {
     val query = if (metadata.continuous != null) {
         RangeQueryBuilder(this.getDateHistogram().sourceField)
-            .from(metadata.continuous.nextWindowStartTime, true)
-            .to(metadata.continuous.nextWindowEndTime, false)
+            .from(metadata.continuous.nextWindowStartTime.toEpochMilli(), true)
+            .to(metadata.continuous.nextWindowEndTime.toEpochMilli(), false)
     } else {
         MatchAllQueryBuilder()
     }

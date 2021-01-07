@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomSchedule
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ContinuousMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ExplainRollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ISMRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
@@ -171,6 +172,16 @@ fun randomExplainRollup(): ExplainRollup {
     return ExplainRollup(metadataID = metadata.id, metadata = metadata)
 }
 
+fun randomISMRollup(): ISMRollup {
+    return ISMRollup(
+        description = ESRestTestCase.randomAlphaOfLength(10),
+        targetIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
+        pageSize = ESRestTestCase.randomIntBetween(1, 10000),
+        dimensions = randomRollupDimensions(),
+        metrics = ESRestTestCase.randomList(20, ::randomRollupMetrics).distinctBy { it.targetField }
+    )
+}
+
 fun randomTermQuery(): TermQueryBuilder { return TermQueryBuilder(ESRestTestCase.randomAlphaOfLength(5), ESRestTestCase.randomAlphaOfLength(5)) }
 
 fun DateHistogram.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
@@ -194,3 +205,5 @@ fun RollupMetrics.toJsonString(): String = this.toXContent(XContentFactory.jsonB
 fun Rollup.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()
 
 fun RollupMetadata.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()
+
+fun ISMRollup.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()

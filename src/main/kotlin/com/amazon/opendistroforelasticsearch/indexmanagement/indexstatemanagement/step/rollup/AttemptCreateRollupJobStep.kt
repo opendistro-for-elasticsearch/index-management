@@ -84,7 +84,6 @@ class AttemptCreateRollupJobStep(
             processFailure(rollup.id, e)
         }
 
-
         return this
     }
 

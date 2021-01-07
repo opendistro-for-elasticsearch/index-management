@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomContin
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomExplainRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomISMRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMax
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMin
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
@@ -153,5 +154,13 @@ class WriteableTests : ESTestCase() {
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val streamedRollupMetadata = RollupMetadata(sin)
         assertEquals("Round tripping RollupMetadata stream doesn't work", rollupMetadata, streamedRollupMetadata)
+    }
+
+    fun `test ism rollup as stream`() {
+        val ismRollup = randomISMRollup()
+        val out = BytesStreamOutput().also { ismRollup.writeTo(it) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedISMRollup = ISMRollup(sin)
+        assertEquals("Round tripping ISMRollup stream doesn't work", ismRollup, streamedISMRollup)
     }
 }

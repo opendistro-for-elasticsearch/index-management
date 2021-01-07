@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 2
+    "schema_version": 3
   },
   "dynamic": "strict",
   "properties": {
@@ -93,6 +93,17 @@
                       "type": "keyword"
                     }
                   }
+                },
+                "rollup_id": {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "has_rollup_failed": {
+                  "type": "boolean"
                 }
               }
             }

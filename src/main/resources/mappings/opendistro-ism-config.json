@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 5
+    "schema_version": 6
   },
   "dynamic": "strict",
   "properties": {
@@ -323,6 +323,107 @@
                     },
                     "wait_for": {
                       "type": "boolean"
+                    }
+                  }
+                },
+                "rollup": {
+                  "properties": {
+                    "ism_rollup": {
+                      "properties": {
+                        "description": {
+                          "type": "text"
+                        },
+                        "target_index": {
+                          "type": "text",
+                          "fields": {
+                            "keyword": {
+                              "type": "keyword",
+                              "ignore_above": 256
+                            }
+                          }
+                        },
+                        "page_size": {
+                          "type": "long"
+                        },
+                        "dimensions": {
+                          "type": "nested",
+                          "properties": {
+                            "date_histogram": {
+                              "properties": {
+                                "fixed_interval": {
+                                  "type": "keyword"
+                                },
+                                "calendar_interval": {
+                                  "type": "keyword"
+                                },
+                                "timezone": {
+                                  "type": "keyword"
+                                },
+                                "source_field": {
+                                  "type": "keyword"
+                                },
+                                "target_field": {
+                                  "type": "keyword"
+                                }
+                              }
+                            },
+                            "terms": {
+                              "properties": {
+                                "source_field": {
+                                  "type": "keyword"
+                                },
+                                "target_field": {
+                                  "type": "keyword"
+                                }
+                              }
+                            },
+                            "histogram": {
+                              "properties": {
+                                "source_field": {
+                                  "type": "keyword"
+                                },
+                                "target_field": {
+                                  "type": "keyword"
+                                },
+                                "interval": {
+                                  "type": "double"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "metrics": {
+                          "type": "nested",
+                          "properties": {
+                            "source_field": {
+                              "type": "keyword"
+                            },
+                            "target_field": {
+                              "type": "keyword"
+                            },
+                            "metrics": {
+                              "type": "nested",
+                              "properties": {
+                                "avg": {
+                                  "type": "object"
+                                },
+                                "sum": {
+                                  "type": "object"
+                                },
+                                "max": {
+                                  "type": "object"
+                                },
+                                "min": {
+                                  "type": "object"
+                                },
+                                "value_count": {
+                                  "type": "object"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }

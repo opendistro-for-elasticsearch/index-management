@@ -268,6 +268,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,
             ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS,
             ManagedIndexSettings.ALLOW_LIST,
+            ManagedIndexSettings.SNAPSHOT_DENY_LIST,
             RollupSettings.ROLLUP_INGEST_BACKOFF_COUNT,
             RollupSettings.ROLLUP_INGEST_BACKOFF_MILLIS,
             RollupSettings.ROLLUP_SEARCH_BACKOFF_COUNT,

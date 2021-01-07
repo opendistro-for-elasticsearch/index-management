@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.AttemptSnapshotStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.WaitForSnapshotStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
@@ -166,6 +167,47 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
         waitFor {
             assertEquals(WaitForSnapshotStep.getFailedMessage(indexName), getExplainManagedIndexMetaData(indexName).info?.get("message"))
             assertEquals("[$repository:$snapshotName] is missing", getExplainManagedIndexMetaData(indexName).info?.get("cause"))
+        }
+    }
+
+    fun `test snapshot repository blocked`() {
+        val denyList = listOf("hello-*")
+        updateClusterSetting(SNAPSHOT_DENY_LIST.key, "hello-*")
+
+        val indexName = "${testIndexName}_index_blocked"
+        val policyID = "${testIndexName}_policy_basic"
+        val repository = "hello-world"
+        val snapshot = "snapshot"
+        val actionConfig = SnapshotActionConfig(repository, snapshot, 0)
+        val states = listOf(
+            State("Snapshot", listOf(actionConfig), listOf())
+        )
+
+        createRepository(repository)
+
+        val policy = Policy(
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states
+        )
+        createPolicy(policy, policyID)
+        createIndex(indexName, policyID)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
+
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor {
+            assertEquals(AttemptSnapshotStep.getBlockedMessage(denyList, repository, indexName), getExplainManagedIndexMetaData(indexName).info?.get("message"))
         }
     }
 }

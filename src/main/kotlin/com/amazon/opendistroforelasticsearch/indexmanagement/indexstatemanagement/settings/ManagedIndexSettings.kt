@@ -27,6 +27,7 @@ class ManagedIndexSettings {
         const val DEFAULT_JOB_INTERVAL = 5
         private val ALLOW_LIST_ALL = ActionConfig.ActionType.values().toList().map { it.type }
         val ALLOW_LIST_NONE = emptyList<String>()
+        val SNAPSHOT_DENY_LIST_NONE = emptyList<String>()
 
         val INDEX_STATE_MANAGEMENT_ENABLED: Setting<Boolean> = Setting.boolSetting(
             "opendistro.index_state_management.enabled",
@@ -117,6 +118,14 @@ class ManagedIndexSettings {
         val ALLOW_LIST: Setting<List<String>> = Setting.listSetting(
             "opendistro.index_state_management.allow_list",
             ALLOW_LIST_ALL,
+            Function.identity(),
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val SNAPSHOT_DENY_LIST: Setting<List<String>> = Setting.listSetting(
+            "opendistro.index_state_management.snapshot.deny_list",
+            SNAPSHOT_DENY_LIST_NONE,
             Function.identity(),
             Setting.Property.NodeScope,
             Setting.Property.Dynamic

@@ -36,6 +36,11 @@ class WaitForRollupCompletionStepTests : ESTestCase() {
 
         val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
         assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
+        assertEquals(
+            "Missing failure message",
+            WaitForRollupCompletionStep.getMissingRollupJobMessage(indexName),
+            updatedManagedIndexMetaData.info?.get("message")
+        )
     }
 
     fun `test process rollup metadata FAILED status`() {
@@ -64,6 +69,7 @@ class WaitForRollupCompletionStepTests : ESTestCase() {
                 updateManagedIndexMetaData.info?.get("message")
         )
         assertEquals("Missing rollup failed action property", true, updateManagedIndexMetaData.actionMetaData?.actionProperties?.hasRollupFailed)
+        assertEquals("Mismatch in cause", WaitForRollupCompletionStep.getJobStoppedMessage(), updateManagedIndexMetaData.info?.get("cause"))
     }
 
     fun `test process rollup metadata INIT status`() {
@@ -133,5 +139,9 @@ class WaitForRollupCompletionStepTests : ESTestCase() {
                 updateManagedIndexMetaData.info?.get("message")
         )
         assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updateManagedIndexMetaData.stepMetaData?.stepStatus)
+    }
+
+    fun `test isIdempotent`() {
+        assertTrue(step.isIdempotent())
     }
 }

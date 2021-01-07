@@ -13,16 +13,16 @@ import java.lang.Exception
 
 class AttemptCreateRollupJobStepTests : ESTestCase() {
 
-    fun `test process failure`() {
-        val rollupActionConfig = randomRollupActionConfig()
-        val indexName = "test"
-        val rollupId: String = rollupActionConfig.ismRollup.toRollup(indexName).id
-        val client: Client = mock()
-        val clusterService: ClusterService = mock()
-        val metadata = ManagedIndexMetaData(indexName, "indexUuid", "policy_id", null, null, null, null, null, null,
-            ActionMetaData(AttemptCreateRollupJobStep.name, 1, 0, false, 0, null, ActionProperties(rollupId = rollupId)), null, null, null)
-        val step = AttemptCreateRollupJobStep(clusterService, client, rollupActionConfig.ismRollup, metadata)
+    private val rollupActionConfig = randomRollupActionConfig()
+    private val indexName = "test"
+    private val rollupId: String = rollupActionConfig.ismRollup.toRollup(indexName).id
+    private val client: Client = mock()
+    private val clusterService: ClusterService = mock()
+    private val metadata = ManagedIndexMetaData(indexName, "indexUuid", "policy_id", null, null, null, null, null, null,
+        ActionMetaData(AttemptCreateRollupJobStep.name, 1, 0, false, 0, null, ActionProperties(rollupId = rollupId)), null, null, null)
+    private val step = AttemptCreateRollupJobStep(clusterService, client, rollupActionConfig.ismRollup, metadata)
 
+    fun `test process failure`() {
         step.processFailure(rollupId, Exception("dummy-error"))
         val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
         assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
@@ -31,5 +31,9 @@ class AttemptCreateRollupJobStepTests : ESTestCase() {
             AttemptCreateRollupJobStep.getFailedMessage(rollupId, indexName),
             updatedManagedIndexMetaData.info?.get("message")
         )
+    }
+
+    fun `test isIdempotent`() {
+        assertTrue(step.isIdempotent())
     }
 }

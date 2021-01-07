@@ -48,6 +48,7 @@ class WaitForRollupCompletionStep(
         if (rollupJobId == null) {
             logger.error("No rollup job id passed down")
             stepStatus = StepStatus.FAILED
+            info = mapOf("message" to getMissingRollupJobMessage(indexName))
         } else {
             val explainRollupRequest = ExplainRollupRequest(listOf(rollupJobId))
             try {
@@ -110,7 +111,7 @@ class WaitForRollupCompletionStep(
             RollupMetadata.Status.STOPPED -> {
                 stepStatus = StepStatus.FAILED
                 hasRollupFailed = true
-                info = mapOf("message" to getJobFailedMessage(rollupJobId, indexName), "cause" to "${rollupMetadata.failureReason}")
+                info = mapOf("message" to getJobFailedMessage(rollupJobId, indexName), "cause" to getJobStoppedMessage())
             }
         }
     }
@@ -130,6 +131,8 @@ class WaitForRollupCompletionStep(
         fun getFailedMessage(rollupJob: String, index: String) = "Failed to get the status of rollup job [$rollupJob] [index=$index]"
         fun getJobProcessingMessage(rollupJob: String, index: String) = "Rollup job [$rollupJob] is still processing [index=$index]"
         fun getJobCompletionMessage(rollupJob: String, index: String) = "Rollup job [$rollupJob] completed [index=$index]"
-        fun getJobFailedMessage(rollupJob: String, index: String) = "Rollup job [$rollupJob] stopped [index=$index]"
+        fun getJobFailedMessage(rollupJob: String, index: String) = "Rollup job [$rollupJob] failed [index=$index]"
+        fun getJobStoppedMessage() = "Rollup job was stopped"
+        fun getMissingRollupJobMessage(index: String) = "Rollup job was not found [index=$index]"
     }
 }

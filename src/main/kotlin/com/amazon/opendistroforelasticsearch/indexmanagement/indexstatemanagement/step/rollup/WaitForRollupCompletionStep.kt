@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.transport.RemoteTransportException
 import java.lang.Exception
 
 class WaitForRollupCompletionStep(
@@ -58,9 +59,10 @@ class WaitForRollupCompletionStep(
                     stepStatus = StepStatus.CONDITION_NOT_MET
                     info = mapOf("message" to getJobProcessingMessage(rollupJobId, indexName))
                 } else {
-                    logger.info("Received metadata associated with $rollupJobId")
                     processRollupMetadataStatus(rollupJobId, response.getIdsToExplain().getValue(rollupJobId)!!.metadata!!)
                 }
+            } catch (e: RemoteTransportException) {
+                processFailure(rollupJobId, e)
             } catch (e: Exception) {
                 processFailure(rollupJobId, e)
             }
@@ -73,11 +75,11 @@ class WaitForRollupCompletionStep(
         val currentActionMetaData = currentMetaData.actionMetaData
         val currentActionProperties = currentActionMetaData?.actionProperties
         return currentMetaData.copy(
-                actionMetaData = currentActionMetaData?.copy(actionProperties = currentActionProperties?.copy(
-                        hasRollupFailed = hasRollupFailed)),
-                stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
-                transitionTo = null,
-                info = info
+            actionMetaData = currentActionMetaData?.copy(actionProperties = currentActionProperties?.copy(
+                hasRollupFailed = hasRollupFailed)),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
+            transitionTo = null,
+            info = info
         )
     }
 

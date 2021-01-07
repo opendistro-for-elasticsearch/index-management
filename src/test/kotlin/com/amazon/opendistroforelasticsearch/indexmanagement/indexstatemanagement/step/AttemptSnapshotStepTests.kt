@@ -110,11 +110,11 @@ class AttemptSnapshotStepTests : ESTestCase() {
     private fun getClusterAdminClient(createSnapshotRequest: CreateSnapshotResponse?, exception: Exception?): ClusterAdminClient {
         assertTrue("Must provide one and only one response or exception", (createSnapshotRequest != null).xor(exception != null))
         return mock {
-                doAnswer { invocationOnMock ->
-                    val listener = invocationOnMock.getArgument<ActionListener<CreateSnapshotResponse>>(1)
-                    if (createSnapshotRequest != null) listener.onResponse(createSnapshotRequest)
-                    else listener.onFailure(exception)
-                }.whenever(this.mock).createSnapshot(any(), any())
+            doAnswer { invocationOnMock ->
+                val listener = invocationOnMock.getArgument<ActionListener<CreateSnapshotResponse>>(1)
+                if (createSnapshotRequest != null) listener.onResponse(createSnapshotRequest)
+                else listener.onFailure(exception)
+            }.whenever(this.mock).createSnapshot(any(), any())
         }
     }
 }

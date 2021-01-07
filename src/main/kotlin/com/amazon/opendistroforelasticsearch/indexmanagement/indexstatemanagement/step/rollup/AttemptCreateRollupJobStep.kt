@@ -27,11 +27,13 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.start.StartRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ISMRollup
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.index.engine.VersionConflictEngineException
+import org.elasticsearch.transport.RemoteTransportException
 import java.lang.Exception
 
 class AttemptCreateRollupJobStep(
@@ -76,12 +78,12 @@ class AttemptCreateRollupJobStep(
                 stepStatus = StepStatus.COMPLETED
                 info = mapOf("info" to message)
             }
-        } catch (e: Exception) {
-            val message = getFailedMessage(rollup.id, indexName)
-            logger.error(message, e)
-            stepStatus = StepStatus.FAILED
-            info = mapOf("message" to message, "cause" to "${e.message}")
+        } catch (e: RemoteTransportException) {
+            processFailure(rollup.id, ExceptionsHelper.unwrapCause(e) as Exception)
+        } catch (e: RemoteTransportException) {
+            processFailure(rollup.id, e)
         }
+
 
         return this
     }
@@ -89,11 +91,18 @@ class AttemptCreateRollupJobStep(
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {
         val currentActionMetaData = currentMetaData.actionMetaData
         return currentMetaData.copy(
-                actionMetaData = currentActionMetaData?.copy(actionProperties = ActionProperties(rollupId = rollupId)),
-                stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
-                transitionTo = null,
-                info = info
+            actionMetaData = currentActionMetaData?.copy(actionProperties = ActionProperties(rollupId = rollupId)),
+            stepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), stepStatus),
+            transitionTo = null,
+            info = info
         )
+    }
+
+    private fun processFailure(rollupId: String, e: Exception) {
+        val message = getFailedMessage(rollupId, indexName)
+        logger.error(message, e)
+        stepStatus = StepStatus.FAILED
+        info = mapOf("message" to message, "cause" to "${e.message}")
     }
 
     private suspend fun startRollupJob(rollupId: String) {

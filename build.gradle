@@ -35,7 +35,7 @@ buildscript {
         classpath "org.elasticsearch.gradle:build-tools:${es_version}"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
         classpath "org.jetbrains.kotlin:kotlin-allopen:${kotlin_version}"
-        classpath "io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.15.0"
+        // classpath "io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.15.0"
         classpath "org.jacoco:org.jacoco.agent:0.8.5"
     }
 }
@@ -51,7 +51,7 @@ apply plugin: 'idea'
 apply plugin: 'elasticsearch.esplugin'
 apply plugin: 'elasticsearch.testclusters'
 apply plugin: 'elasticsearch.rest-test'
-apply plugin: 'io.gitlab.arturbosch.detekt'
+// apply plugin: 'io.gitlab.arturbosch.detekt'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
 
@@ -82,10 +82,10 @@ configurations {
     ktlint
 }
 
-detekt {
-    config = files("detekt.yml")
-    buildUponDefaultConfig = true
-}
+//detekt {
+//    config = files("detekt.yml")
+//    buildUponDefaultConfig = true
+//}
 
 configurations.testCompile {
     exclude module: "securemock"
@@ -113,7 +113,7 @@ dependencies {
     testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0"
     testCompile "org.mockito:mockito-core:2.23.0"
 
-    ktlint "com.pinterest:ktlint:0.33.0"
+    // ktlint "com.pinterest:ktlint:0.33.0"
 }
 
 repositories {

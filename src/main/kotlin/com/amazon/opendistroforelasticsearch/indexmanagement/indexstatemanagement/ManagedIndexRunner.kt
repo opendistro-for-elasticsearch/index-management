@@ -214,7 +214,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     @Suppress("ReturnCount", "ComplexMethod", "LongMethod")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
-        logger.info("try to run job for ${managedIndexConfig.index}")
+        logger.info("run job for index ${managedIndexConfig.index}")
         // doing a check of local cluster health as we do not want to overload master node with potentially a lot of calls
         if (clusterIsRed()) {
             logger.debug("Skipping current execution of ${managedIndexConfig.index} because of red cluster health")

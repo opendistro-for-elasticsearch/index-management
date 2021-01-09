@@ -277,7 +277,8 @@ class TransportChangePolicyAction @Inject constructor(
             )
             val excludes = emptyArray<String>()
             val fetchSourceContext = FetchSourceContext(true, includes, excludes)
-            managedIndexUuids.forEach { request.add(MultiGetRequest.Item(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, it).fetchSourceContext(fetchSourceContext)) }
+            managedIndexUuids.forEach { request.add(MultiGetRequest.Item(
+                IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, it).fetchSourceContext(fetchSourceContext).routing(it)) }
             return request
         }
 

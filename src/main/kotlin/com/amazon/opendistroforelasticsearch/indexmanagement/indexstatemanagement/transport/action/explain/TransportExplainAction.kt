@@ -59,7 +59,7 @@ class TransportExplainAction @Inject constructor(
         lateinit var response: GetResponse
 
         private val indexNames = mutableListOf<String>()
-        private val indexMetadataUuids = mutableListOf<String>()
+        private val indexUuids = mutableListOf<String>()
         private val indexPolicyIds = mutableListOf<String?>()
 
         @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
@@ -87,12 +87,12 @@ class TransportExplainAction @Inject constructor(
         private fun onClusterStateResponse(response: ClusterStateResponse) {
             for (indexMetadataEntry in response.state.metadata.indices) {
                 indexNames.add(indexMetadataEntry.key)
-                indexMetadataUuids.add(indexMetadataEntry.value.indexUUID + "metadata")
+                indexUuids.add(indexMetadataEntry.value.indexUUID)
                 indexPolicyIds.add(indexMetadataEntry.value.getPolicyID())
             }
 
             val mgetRequest = MultiGetRequest()
-            indexMetadataUuids.forEach { mgetRequest.add(MultiGetRequest.Item(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, it)) }
+            indexUuids.forEach { mgetRequest.add(MultiGetRequest.Item(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, it + "metadata").routing(it)) }
             client.multiGet(mgetRequest, object : ActionListener<MultiGetResponse> {
                 override fun onResponse(response: MultiGetResponse) {
                     processResponse(response)

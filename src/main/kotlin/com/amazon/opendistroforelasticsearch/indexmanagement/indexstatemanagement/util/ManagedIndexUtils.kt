@@ -43,6 +43,7 @@ import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
+import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
@@ -98,6 +99,7 @@ fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData)
             .setIfPrimaryTerm(managedIndexMetadata.primaryTerm)
             .setIfSeqNo(managedIndexMetadata.seqNo)
             .routing(managedIndexMetadata.indexUuid)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL)
             .source(managedIndexMetadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true))
 }
 

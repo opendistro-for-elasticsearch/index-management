@@ -62,7 +62,7 @@ jobs:
           rpm_outfile=`basename ${rpm%.rpm}-build-${GITHUB_RUN_NUMBER}.rpm`
           deb_outfile=`basename ${deb%.deb}-build-${GITHUB_RUN_NUMBER}.deb`
 
-          s3_prefix="s3://staging.artifacts.opendistroforelasticsearch.amazon.com/snapshot/elasticsearch-plugins/index-management/"
+          s3_prefix="s3://staging.artifacts.opendistroforelasticsearch.amazon.com/snapshots/elasticsearch-plugins/index-management/"
 
           echo "Copying ${zip} to ${s3_prefix}${zip_outfile}"
           aws s3 cp $zip ${s3_prefix}${zip_outfile}

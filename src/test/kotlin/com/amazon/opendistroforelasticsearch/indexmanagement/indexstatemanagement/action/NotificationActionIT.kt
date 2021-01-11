@@ -48,15 +48,15 @@ class NotificationActionIT : IndexStateManagementRestTestCase() {
             chime = null,
             slack = null,
             customWebhook = CustomWebhook(
-                url = "http://$clusterUri/$notificationIndex/_doc",
+                url = "$protocol://$clusterUri/$notificationIndex/_doc",
                 scheme = null,
                 host = null,
                 port = -1,
                 path = null,
                 queryParams = emptyMap(),
                 headerParams = mapOf("Content-Type" to "application/json"),
-                username = null,
-                password = null
+                username = if (securityEnabled()) "admin" else null,
+                password = if (securityEnabled()) "admin" else null
             )
         )
         val messageTemplate = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "{ \"testing\": 5 }", emptyMap())

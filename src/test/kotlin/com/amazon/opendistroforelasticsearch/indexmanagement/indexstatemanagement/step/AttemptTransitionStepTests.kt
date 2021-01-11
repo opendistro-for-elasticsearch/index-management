@@ -113,6 +113,7 @@ class AttemptTransitionStepTests : ESTestCase() {
             val completedStartTime = Instant.now()
             val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, StepMetaData("attempt_transition", completedStartTime.toEpochMilli(), Step.StepStatus.COMPLETED), null, null)
             val step = AttemptTransitionStep(clusterService, client, config, managedIndexMetaData)
+            Thread.sleep(50) // Make sure we give enough time for the instants to be different
             val startTime = step.getStepStartTime()
             assertNotEquals("Two separate transitions should not have same start time", completedStartTime.toEpochMilli(), startTime.toEpochMilli())
         }

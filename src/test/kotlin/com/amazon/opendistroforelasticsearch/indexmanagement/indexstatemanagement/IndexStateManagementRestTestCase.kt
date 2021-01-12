@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_TEMPLATE_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
@@ -36,9 +35,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.GetISMTemplateResponse.Companion.ISM_TEMPLATE
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.GetISMTemplateResponse.Companion.ISM_TEMPLATES
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.GetISMTemplateResponse.Companion.TEMPLATE_NAME
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
@@ -703,76 +699,6 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         return true
     }
 
-    protected fun createISMTemplate(
-        name: String,
-        template: ISMTemplate
-    ): Response {
-        return createISMTemplateJson(name, template.toJsonString())
-    }
-
-    protected fun createISMTemplateJson(
-        name: String,
-        templateString: String
-    ): Response {
-        return client().makeRequest(
-            "PUT",
-            "$ISM_TEMPLATE_BASE_URI/$name",
-            StringEntity(templateString, APPLICATION_JSON)
-        )
-    }
-
-    protected fun getISMTemplatesAsMap(name: String): Map<String, Any> {
-        val response = client().makeRequest("GET", "$ISM_TEMPLATE_BASE_URI/$name")
-        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-        return response.asMap()
-    }
-
-    protected fun getISMTemplatesAsObject(name: String?): Map<String, ISMTemplate> {
-        var endpoint = ISM_TEMPLATE_BASE_URI
-        if (name != null) endpoint += "/$name"
-        val response = client().makeRequest("GET", endpoint)
-        assertEquals("Unable to get template $name", RestStatus.OK, response.restStatus())
-
-        val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
-        val ismTemplates = mutableMapOf<String, ISMTemplate>()
-
-        ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
-
-        while (xcp.nextToken() != Token.END_OBJECT) {
-            val fieldName = xcp.currentName()
-            xcp.nextToken()
-
-            when (fieldName) {
-                ISM_TEMPLATES -> {
-                    ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
-
-                    var templateName: String? = null
-                    var template: ISMTemplate? = null
-
-                    while (xcp.nextToken() != Token.END_ARRAY) {
-                        when (xcp.currentName()) {
-                            TEMPLATE_NAME -> {
-                                xcp.nextToken()
-                                templateName = xcp.text()
-                            }
-                            ISM_TEMPLATE -> {
-                                // xcp.nextToken()
-                                template = ISMTemplate.parse(xcp)
-                            }
-                        }
-                        if (templateName != null && template != null) {
-                            ismTemplates[templateName] = template
-                            templateName = null
-                            template = null
-                        }
-                    }
-                }
-            }
-        }
-
-        return ismTemplates
-    }
-
     protected fun assertPredicatesOnISMTemplatesMap(
         templatePredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, // response map name: predicate
         response: Map<String, Any?>
@@ -792,7 +718,6 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     protected fun assertISMTemplateEquals(expected: ISMTemplate, actualISMTemplateMap: Any?): Boolean {
         actualISMTemplateMap as Map<String, Any>
         assertEquals(expected.indexPatterns, actualISMTemplateMap[ISMTemplate.INDEX_PATTERN])
-        assertEquals(expected.policyID, actualISMTemplateMap[ISMTemplate.POLICY_ID])
         assertEquals(expected.priority, actualISMTemplateMap[ISMTemplate.PRIORITY])
         return true
     }
@@ -801,13 +726,8 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         assertNotNull(actual)
         if (actual != null) {
             assertEquals(expected.indexPatterns, actual.indexPatterns)
-            assertEquals(expected.policyID, actual.policyID)
             assertEquals(expected.priority, actual.priority)
         }
         return true
-    }
-
-    protected fun deleteISMTemplate(name: String): Response {
-        return client().makeRequest("DELETE", "$ISM_TEMPLATE_BASE_URI/$name")
     }
 }

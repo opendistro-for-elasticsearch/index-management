@@ -18,10 +18,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import org.apache.logging.log4j.LogManager
-import org.elasticsearch.cluster.AbstractDiffable
-import org.elasticsearch.cluster.Diff
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -34,14 +33,11 @@ import java.time.Instant
 
 private val log = LogManager.getLogger(ISMTemplate::class.java)
 
-// ComposableIndexTemplate
-// ManagedIndexMetaData
 data class ISMTemplate(
     val indexPatterns: List<String>,
-    val policyID: String,
     val priority: Int,
     val lastUpdatedTime: Instant
-) : ToXContentObject, AbstractDiffable<ISMTemplate>() {
+) : ToXContentObject, Writeable {
 
     init {
         require(indexPatterns.isNotEmpty()) { "at least give one index pattern" }
@@ -50,7 +46,6 @@ data class ISMTemplate(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
             .field(INDEX_PATTERN, indexPatterns)
-            .field(POLICY_ID, policyID)
             .field(PRIORITY, priority)
             .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
             .endObject()
@@ -59,7 +54,6 @@ data class ISMTemplate(
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         sin.readStringList(),
-        sin.readString(),
         sin.readInt(),
         sin.readInstant()
     )
@@ -67,27 +61,23 @@ data class ISMTemplate(
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeStringCollection(indexPatterns)
-        out.writeString(policyID)
         out.writeInt(priority)
         out.writeInstant(lastUpdatedTime)
     }
 
     companion object {
-        const val ISM_TEMPLATE_ID = "template_name"
         const val ISM_TEMPLATE_TYPE = "ism_template"
         const val INDEX_PATTERN = "index_patterns"
-        const val POLICY_ID = "policy_id"
         const val PRIORITY = "priority"
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
 
         @Suppress("ComplexMethod")
         fun parse(xcp: XContentParser): ISMTemplate {
             val indexPatterns: MutableList<String> = mutableListOf()
-            var policyID: String? = null
             var priority = 0
             var lastUpdatedTime: Instant? = null
 
-            ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
+            ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
@@ -99,7 +89,6 @@ data class ISMTemplate(
                             indexPatterns.add(xcp.text())
                         }
                     }
-                    POLICY_ID -> policyID = xcp.text()
                     PRIORITY -> priority = if (xcp.currentToken() == Token.VALUE_NULL) 0 else xcp.intValue()
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ISMTemplate.")
@@ -107,13 +96,10 @@ data class ISMTemplate(
             }
 
             return ISMTemplate(
-                indexPatterns,
-                requireNotNull(policyID) { "policy id is null" },
-                priority,
-                lastUpdatedTime ?: Instant.now()
+                indexPatterns = indexPatterns,
+                priority = priority,
+                lastUpdatedTime = lastUpdatedTime ?: Instant.now()
             )
         }
-
-        fun readISMTemplateDiffFrom(sin: StreamInput): Diff<ISMTemplate> = AbstractDiffable.readDiffFrom(::ISMTemplate, sin)
     }
 }

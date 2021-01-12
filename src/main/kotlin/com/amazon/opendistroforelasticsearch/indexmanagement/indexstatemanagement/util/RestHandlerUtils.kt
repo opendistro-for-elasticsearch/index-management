@@ -18,10 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplateMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
-import org.elasticsearch.cluster.metadata.Metadata
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -37,6 +34,8 @@ val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
 const val FAILURES = "failures"
 const val FAILED_INDICES = "failed_indices"
 const val UPDATED_INDICES = "updated_indices"
+
+const val ISM_TEMPLATE_FIELD = "policy.ism_template"
 
 fun buildInvalidIndexResponse(builder: XContentBuilder, failedIndices: List<FailedIndex>) {
     if (failedIndices.isNotEmpty()) {
@@ -94,22 +93,4 @@ fun getPartialChangePolicyBuilder(
         .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, changePolicy)
         .endObject()
         .endObject()
-}
-
-/**
- * return sorted ism templates map saved in cluster metadata
- */
-fun Metadata.ismTemplates(): Map<String, ISMTemplate> {
-    val ismCustomMetadata: ISMTemplateMetadata? = this.custom(ISMTemplateMetadata.TYPE)
-    return ismCustomMetadata?.ismTemplates?.toSortedMap() ?: emptyMap()
-}
-
-fun Metadata.Builder.putISMTemplate(name: String, template: ISMTemplate, existing: Map<String, ISMTemplate>): Metadata.Builder {
-    return this.putCustom(ISMTemplateMetadata.TYPE,
-            ISMTemplateMetadata(existing.plus(name to template)))
-}
-
-fun Metadata.Builder.removeISMTemplate(name: String, existing: Map<String, ISMTemplate>): Metadata.Builder {
-    return this.putCustom(ISMTemplateMetadata.TYPE,
-            ISMTemplateMetadata(existing.minus(name)))
 }

@@ -21,9 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy.IndexPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.delete.DeleteISMTemplateAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.GetISMTemplateAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put.PutISMTemplateAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy.RemovePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex.RetryFailedManagedIndexAction
 import org.elasticsearch.test.ESTestCase
@@ -67,20 +64,5 @@ class ActionTests : ESTestCase() {
     fun `test get policy action name`() {
         assertNotNull(GetPolicyAction.NAME)
         assertEquals(GetPolicyAction.INSTANCE.name(), GetPolicyAction.NAME)
-    }
-
-    fun `test get template action name`() {
-        assertNotNull(GetISMTemplateAction.NAME)
-        assertEquals(GetISMTemplateAction.INSTANCE.name(), GetISMTemplateAction.NAME)
-    }
-
-    fun `test put template action name`() {
-        assertNotNull(PutISMTemplateAction.NAME)
-        assertEquals(PutISMTemplateAction.INSTANCE.name(), PutISMTemplateAction.NAME)
-    }
-
-    fun `test delete template action name`() {
-        assertNotNull(DeleteISMTemplateAction.NAME)
-        assertEquals(DeleteISMTemplateAction.INSTANCE.name(), DeleteISMTemplateAction.NAME)
     }
 }

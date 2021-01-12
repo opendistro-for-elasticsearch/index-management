@@ -18,18 +18,14 @@ package com.amazon.opendistroforelasticsearch.indexmanagement
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplateMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.TransportUpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestAddISMTemplateAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestAddPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestChangePolicyAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestDeleteISMTemplateAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestDeletePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestGetISMTemplateAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestGetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestIndexPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestRemovePolicyAction
@@ -47,12 +43,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.TransportGetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy.IndexPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy.TransportIndexPolicyAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.delete.DeleteISMTemplateAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.delete.TransportDeleteISMTemplateAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.GetISMTemplateAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.get.TransportGetISMTemplateAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put.PutISMTemplateAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put.TransportPutISMTemplateAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy.RemovePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy.TransportRemovePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex.RetryFailedManagedIndexAction
@@ -100,13 +90,10 @@ import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.action.support.ActionFilter
 import org.elasticsearch.client.Client
-import org.elasticsearch.cluster.NamedDiff
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
-import org.elasticsearch.cluster.metadata.Metadata
 import org.elasticsearch.cluster.node.DiscoveryNodes
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry
-import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.settings.ClusterSettings
 import org.elasticsearch.common.settings.IndexScopedSettings
 import org.elasticsearch.common.settings.Setting
@@ -145,7 +132,6 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         const val ROLLUP_BASE_URI = "$OPEN_DISTRO_BASE_URI/_rollup"
         const val POLICY_BASE_URI = "$ISM_BASE_URI/policies"
         const val ROLLUP_JOBS_BASE_URI = "$ROLLUP_BASE_URI/jobs"
-        const val ISM_TEMPLATE_BASE_URI = "$ISM_BASE_URI/templates"
         const val INDEX_MANAGEMENT_INDEX = ".opendistro-ism-config"
         const val INDEX_MANAGEMENT_JOB_TYPE = "opendistro-index-management"
         const val INDEX_STATE_MANAGEMENT_HISTORY_TYPE = "managed_index_meta_data"
@@ -211,10 +197,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             RestIndexRollupAction(),
             RestStartRollupAction(),
             RestStopRollupAction(),
-            RestExplainRollupAction(),
-            RestAddISMTemplateAction(),
-            RestGetISMTemplateAction(),
-            RestDeleteISMTemplateAction()
+            RestExplainRollupAction()
         )
     }
 
@@ -315,25 +298,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ActionPlugin.ActionHandler(StartRollupAction.INSTANCE, TransportStartRollupAction::class.java),
             ActionPlugin.ActionHandler(StopRollupAction.INSTANCE, TransportStopRollupAction::class.java),
             ActionPlugin.ActionHandler(ExplainRollupAction.INSTANCE, TransportExplainRollupAction::class.java),
-            ActionPlugin.ActionHandler(UpdateRollupMappingAction.INSTANCE, TransportUpdateRollupMappingAction::class.java),
-            ActionPlugin.ActionHandler(PutISMTemplateAction.INSTANCE, TransportPutISMTemplateAction::class.java),
-            ActionPlugin.ActionHandler(GetISMTemplateAction.INSTANCE, TransportGetISMTemplateAction::class.java),
-            ActionPlugin.ActionHandler(DeleteISMTemplateAction.INSTANCE, TransportDeleteISMTemplateAction::class.java)
-        )
-    }
-
-    override fun getNamedWriteables(): List<NamedWriteableRegistry.Entry> {
-        return listOf(
-            NamedWriteableRegistry.Entry(
-                Metadata.Custom::class.java,
-                ISMTemplateMetadata.TYPE,
-                Writeable.Reader { sin -> ISMTemplateMetadata(sin) }
-            ),
-            NamedWriteableRegistry.Entry(
-                NamedDiff::class.java,
-                ISMTemplateMetadata.TYPE,
-                Writeable.Reader { sin -> ISMTemplateMetadata.readDiffFrom(sin) }
-            )
+            ActionPlugin.ActionHandler(UpdateRollupMappingAction.INSTANCE, TransportUpdateRollupMappingAction::class.java)
         )
     }
 

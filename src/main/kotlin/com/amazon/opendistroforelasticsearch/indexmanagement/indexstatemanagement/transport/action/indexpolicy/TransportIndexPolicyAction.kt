@@ -17,6 +17,11 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService.Companion.findConflictingISMTemplates
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService.Companion.validateFormat
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.ismTemplatesFromSearchResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
@@ -24,16 +29,22 @@ import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.index.IndexResponse
+import org.elasticsearch.action.search.SearchRequest
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
+import java.util.stream.Collectors
 
 private val log = LogManager.getLogger(TransportIndexPolicyAction::class.java)
 
@@ -41,7 +52,8 @@ class TransportIndexPolicyAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
     actionFilters: ActionFilters,
-    val ismIndices: IndexManagementIndices
+    val ismIndices: IndexManagementIndices,
+    val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<IndexPolicyRequest, IndexPolicyResponse>(
         IndexPolicyAction.NAME, transportService, actionFilters, ::IndexPolicyRequest
 ) {
@@ -69,7 +81,12 @@ class TransportIndexPolicyAction @Inject constructor(
         private fun onCreateMappingsResponse(response: AcknowledgedResponse) {
             if (response.isAcknowledged) {
                 log.info("Successfully created or updated ${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX} with newest mappings.")
-                putPolicy()
+
+                // if there is template field, we will check
+                val reqTemplate = request.policy.ismTemplate
+                if (reqTemplate != null) {
+                    checkTemplate(reqTemplate.indexPatterns, reqTemplate.priority)
+                } else putPolicy()
             } else {
                 log.error("Unable to create or update ${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX} with newest mapping.")
 
@@ -77,6 +94,41 @@ class TransportIndexPolicyAction @Inject constructor(
                     "Unable to create or update ${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX} with newest mapping.",
                     RestStatus.INTERNAL_SERVER_ERROR))
             }
+        }
+
+        private fun checkTemplate(indexPatterns: List<String>, priority: Int) {
+            val possibleEx = validateFormat(indexPatterns)
+            if (possibleEx != null) {
+                actionListener.onFailure(possibleEx)
+                return
+            }
+
+            val searchRequest = SearchRequest()
+                .source(
+                    SearchSourceBuilder().query(
+                    QueryBuilders.existsQuery(ISM_TEMPLATE_FIELD)))
+                .indices(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
+
+            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                override fun onResponse(response: SearchResponse) {
+                    val ismTemplates = ismTemplatesFromSearchResponse(response, xContentRegistry)
+                    val overlaps = findConflictingISMTemplates(request.policyID, indexPatterns, priority, ismTemplates)
+                    if (overlaps.isNotEmpty()) {
+                        val esg = "new policy ${request.policyID} has an ism template with index pattern $indexPatterns " +
+                            "matching existing templates ${overlaps.entries.stream().map { "${it.key} => ${it.value}" }.collect(
+                                Collectors.joining(","))}," +
+                            " please use a different priority than $priority"
+                        actionListener.onFailure(IndexManagementException.wrap(IllegalArgumentException(esg)))
+                        return
+                    }
+
+                    putPolicy()
+                }
+
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
         }
 
         private fun putPolicy() {

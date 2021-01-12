@@ -1,21 +1,18 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_TEMPLATE_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
-import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.rest.RestRequest.Method.GET
-import org.junit.After
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -24,104 +21,33 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    private val templateName = "t1"
-    private val templateName2 = "t2"
-
-    @After
-    fun `clean template`() {
-        deleteISMTemplate(templateName)
-        deleteISMTemplate(templateName2)
-    }
-
-    fun `test ISM template`() {
-        val ismTemp = ISMTemplate(listOf("log*"), "policy_1", 100, randomInstant())
-
-        var res = createISMTemplate(templateName, ismTemp)
-        assertEquals("Unable to create new ISM template", RestStatus.CREATED, res.restStatus())
-
-        res = createISMTemplate(templateName, ismTemp)
-        assertEquals("Unable to update new ISM template", RestStatus.OK, res.restStatus())
-
-        var getRes = getISMTemplatesAsObject(templateName)
-        assertISMTemplateEquals(ismTemp, getRes[templateName])
-
-        val ismTemp2 = ISMTemplate(listOf("trace*"), "policy_1", 100, randomInstant())
-        createISMTemplate(templateName2, ismTemp2)
-        getRes = getISMTemplatesAsObject("$templateName,$templateName2")
-        val getRes2 = getISMTemplatesAsObject(null)
-        assertEquals(getRes, getRes2)
-        assertISMTemplateEquals(ismTemp, getRes[templateName])
-        assertISMTemplateEquals(ismTemp2, getRes[templateName2])
-
-        val delRes = deleteISMTemplate(templateName)
-        assertEquals(true, delRes.asMap()["acknowledged"])
-    }
-
-    fun `test get not exist template`() {
-        try {
-            client().makeRequest(GET.toString(), "$ISM_TEMPLATE_BASE_URI/$templateName")
-            fail("Expect a failure")
-        } catch (e: ResponseException) {
-            assertEquals("Unexpected RestStatus", RestStatus.NOT_FOUND, e.response.restStatus())
-            val actualMessage = e.response.asMap()
-            val expectErrorMessage = mapOf(
-                "error" to mapOf(
-                    "root_cause" to listOf<Map<String, Any>>(
-                        mapOf("type" to "resource_not_found_exception", "reason" to "index template matching [$templateName] not found")
-                    ),
-                    "type" to "resource_not_found_exception",
-                    "reason" to "index template matching [$templateName] not found"
-                ),
-                "status" to 404
-            )
-            assertEquals(expectErrorMessage, actualMessage)
-        }
-    }
+    private val policyID1 = "t1"
+    private val policyID2 = "t2"
 
     fun `test add template with invalid index pattern`() {
         try {
-            val ismTemp = ISMTemplate(listOf(" "), "policy_1", 100, randomInstant())
-            createISMTemplate(templateName, ismTemp)
+            val ismTemp = ISMTemplate(listOf(" "), 100, randomInstant())
+            createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
             fail("Expect a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
-            val actualMessage = e.response.asMap()
-            val expectErrorMessage = mapOf(
-                "error" to mapOf(
-                    "reason" to "index_template [$templateName] invalid, cause [Validation Failed: 1: index_patterns [ ] must not contain a space;2: index_pattern [ ] must not contain the following characters [ , \", *, \\, <, |, ,, >, /, ?];]",
-                    "type" to "invalid_index_template_exception",
-                    "root_cause" to listOf<Map<String, Any>>(
-                        mapOf("reason" to "index_template [$templateName] invalid, cause [Validation Failed: 1: index_patterns [ ] must not contain a space;2: index_pattern [ ] must not contain the following characters [ , \", *, \\, <, |, ,, >, /, ?];]",
-                            "type" to "invalid_index_template_exception")
-                    )
-                ),
-                "status" to 400
-            )
-            assertEquals(expectErrorMessage, actualMessage)
+            val actualMessage = e.response.asMap()["error"] as Map<String, Any>
+            val expectedReason = "Validation Failed: 1: index_patterns [ ] must not contain a space;2: index_pattern [ ] must not contain the following characters [ , \", *, \\, <, |, ,, >, /, ?];"
+            assertEquals(expectedReason, actualMessage["reason"])
         }
     }
 
     fun `test add template with overlapping index pattern`() {
         try {
-            val ismTemp = ISMTemplate(listOf("log*"), "policy_1", 100, randomInstant())
-            createISMTemplate(templateName, ismTemp)
-            createISMTemplate(templateName2, ismTemp)
+            val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())
+            createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
+            createPolicy(randomPolicy(ismTemplate = ismTemp), policyID2)
             fail("Expect a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
-            val actualMessage = e.response.asMap()
-            val expectErrorMessage = mapOf(
-                "error" to mapOf(
-                    "reason" to "new ism template $templateName2 has index pattern [log*] matching existing templates t1 => [log*], please use a different priority than 100",
-                    "type" to "illegal_argument_exception",
-                    "root_cause" to listOf<Map<String, Any>>(
-                        mapOf("reason" to "new ism template $templateName2 has index pattern [log*] matching existing templates t1 => [log*], please use a different priority than 100",
-                            "type" to "illegal_argument_exception")
-                    )
-                ),
-                "status" to 400
-            )
-            assertEquals(expectErrorMessage, actualMessage)
+            val actualMessage = e.response.asMap()["error"] as Map<String, Any>
+            val expectedReason = "new policy $policyID2 has an ism template with index pattern [log*] matching existing templates $policyID1 => [log*], please use a different priority than 100"
+            assertEquals(expectedReason, actualMessage["reason"])
         }
     }
 
@@ -134,8 +60,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         // need to specify policyID null, can remove after policyID deprecated
         createIndex(indexName1, null)
 
-        val ismTemp = ISMTemplate(listOf("log*"), policyID, 100, randomInstant())
-        createISMTemplate(templateName, ismTemp)
+        val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())
 
         val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(
@@ -148,7 +73,8 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
             lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
-            states = states
+            states = states,
+            ismTemplate = ismTemp
         )
         createPolicy(policy, policyID)
 

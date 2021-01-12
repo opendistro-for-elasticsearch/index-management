@@ -15,118 +15,20 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.filterNotNullValues
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ismtemplate.put.PutISMTemplateResponse
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismTemplates
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.putISMTemplate
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.removeISMTemplate
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import org.apache.logging.log4j.LogManager
 import org.apache.lucene.util.automaton.Operations
-import org.elasticsearch.action.ActionListener
-import org.elasticsearch.action.support.master.AcknowledgedResponse
-import org.elasticsearch.cluster.ClusterState
-import org.elasticsearch.cluster.ClusterStateUpdateTask
+import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.cluster.metadata.IndexMetadata
-import org.elasticsearch.cluster.metadata.Metadata
-import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.Priority
 import org.elasticsearch.common.Strings
 import org.elasticsearch.common.ValidationException
-import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.common.regex.Regex
-import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.indices.InvalidIndexTemplateException
-import org.elasticsearch.rest.RestStatus
-import java.util.stream.Collectors
-import java.util.Locale
 
 private val log = LogManager.getLogger(ISMTemplateService::class.java)
 
-class ISMTemplateService @Inject constructor(
-    val clusterService: ClusterService
-) {
-    /**
-     * save ISM template to cluster state metadata
-     */
-    fun putISMTemplate(
-        templateName: String,
-        template: ISMTemplate,
-        masterTimeout: TimeValue,
-        listener: ActionListener<PutISMTemplateResponse>
-    ) {
-        clusterService.submitStateUpdateTask(
-            IndexManagementPlugin.PLUGIN_NAME,
-            object : ClusterStateUpdateTask(Priority.NORMAL) {
-                override fun execute(currentState: ClusterState): ClusterState {
-                    return addISMTemplate(currentState, templateName, template)
-                }
-
-                override fun onFailure(source: String, e: Exception) {
-                    listener.onFailure(e)
-                }
-
-                override fun timeout(): TimeValue = masterTimeout
-
-                override fun clusterStateProcessed(source: String, oldState: ClusterState, newState: ClusterState) {
-                    var status = RestStatus.CREATED
-                    val oldTemplate = oldState.metadata.ismTemplates()[templateName]
-                    if (oldTemplate != null) {
-                        status = RestStatus.OK
-                    }
-                    listener.onResponse(PutISMTemplateResponse(templateName, template, status))
-                }
-            }
-        )
-    }
-
-    fun addISMTemplate(currentState: ClusterState, templateName: String, template: ISMTemplate): ClusterState {
-        val existingTemplates = currentState.metadata.ismTemplates()
-        val existingTemplate = existingTemplates[templateName]
-
-        if (template == existingTemplate) return currentState
-
-        // find templates with overlapping index pattern
-        val overlaps = findConflictingISMTemplates(templateName, template.indexPatterns, template.priority, existingTemplates)
-        if (overlaps.isNotEmpty()) {
-            val esg = "new ism template $templateName has index pattern ${template.indexPatterns} " +
-                "matching existing templates ${overlaps.entries.stream().map { "${it.key} => ${it.value}" }.collect(Collectors.joining(","))}," +
-                " please use a different priority than ${template.priority}"
-            throw IllegalArgumentException(esg)
-        }
-
-        validateFormat(templateName, template.indexPatterns)
-
-        return ClusterState.builder(currentState).metadata(Metadata.builder(currentState.metadata())
-                .putISMTemplate(templateName, template, existingTemplates)).build()
-    }
-
-    /**
-     * remove ISM template from cluster state metadata
-     */
-    fun deleteISMTemplate(templateName: String, masterTimeout: TimeValue, listener: ActionListener<AcknowledgedResponse>) {
-        clusterService.submitStateUpdateTask(
-            IndexManagementPlugin.PLUGIN_NAME,
-            object : ClusterStateUpdateTask(Priority.NORMAL) {
-                override fun execute(currentState: ClusterState): ClusterState {
-                    val existingTemplates = currentState.metadata.ismTemplates()
-                    return ClusterState.builder(currentState).metadata(Metadata.builder(currentState.metadata)
-                            .removeISMTemplate(templateName, existingTemplates)).build()
-                }
-
-                override fun onFailure(source: String, e: Exception) {
-                    listener.onFailure(e)
-                }
-
-                override fun timeout(): TimeValue = masterTimeout
-
-                override fun clusterStateProcessed(source: String, oldState: ClusterState, newState: ClusterState) {
-                    listener.onResponse(AcknowledgedResponse(true))
-                }
-            }
-        )
-    }
-
+class ISMTemplateService {
     companion object {
         /**
          * find the matching template for the index
@@ -136,7 +38,7 @@ class ISMTemplateService @Inject constructor(
          *
          * @param ismTemplates current ISM templates saved in metadata
          * @param indexMetadata cluster state index metadata
-         * @return template name matching with given index
+         * @return policyID
          */
         @Suppress("ReturnCount")
         fun findMatchingISMTemplate(ismTemplates: Map<String, ISMTemplate>, indexMetadata: IndexMetadata): String? {
@@ -172,26 +74,8 @@ class ISMTemplateService @Inject constructor(
          * reusing ES validate function in MetadataIndexTemplateService
          */
         @Suppress("ComplexMethod")
-        fun validateFormat(templateName: String, indexPatterns: List<String>) {
+        fun validateFormat(indexPatterns: List<String>): ElasticsearchException? {
             val validationErrors = mutableListOf<String>()
-            if (templateName.contains(" ")) {
-                validationErrors.add("name must not contain a space")
-            }
-            if (templateName.contains(",")) {
-                validationErrors.add("name must not contain a ','")
-            }
-            if (templateName.contains("#")) {
-                validationErrors.add("name must not contain a '#'")
-            }
-            if (templateName.contains("*")) {
-                validationErrors.add("name must not contain a '*'")
-            }
-            if (templateName.startsWith("_")) {
-                validationErrors.add("name must not start with '_'")
-            }
-            if (templateName.toLowerCase(Locale.ROOT) != templateName) {
-                validationErrors.add("name must be lower cased")
-            }
             for (indexPattern in indexPatterns) {
                 if (indexPattern.contains(" ")) {
                     validationErrors.add("index_patterns [$indexPattern] must not contain a space")
@@ -217,8 +101,9 @@ class ISMTemplateService @Inject constructor(
             if (validationErrors.size > 0) {
                 val validationException = ValidationException()
                 validationException.addValidationErrors(validationErrors)
-                throw InvalidIndexTemplateException(templateName, validationException.message)
+                return IndexManagementException.wrap(validationException)
             }
+            return null
         }
 
         /**
@@ -231,17 +116,18 @@ class ISMTemplateService @Inject constructor(
             candidate: String,
             indexPatterns: List<String>,
             priority: Int,
-            ismTemplates: Map<String, ISMTemplate>
+            ismTemplates: Map<String, ISMTemplate?>
         ): Map<String, List<String>> {
             val automaton1 = Regex.simpleMatchToAutomaton(*indexPatterns.toTypedArray())
             val overlappingTemplates = mutableMapOf<String, List<String>>()
 
             // focus on template with same priority
-            ismTemplates.filter { it.value.priority == priority }.forEach { (templateName, template) ->
+            ismTemplates.filterNotNullValues()
+                .filter { it.value.priority == priority }.forEach { (policyID, template) ->
                 val automaton2 = Regex.simpleMatchToAutomaton(*template.indexPatterns.toTypedArray())
                 if (!Operations.isEmpty(Operations.intersection(automaton1, automaton2))) {
-                    log.info("existing template $templateName overlaps candidate $candidate")
-                    overlappingTemplates[templateName] = template.indexPatterns
+                    log.info("existing ism_template in $policyID overlaps candidate $candidate")
+                    overlappingTemplates[policyID] = template.indexPatterns
                 }
             }
             overlappingTemplates.remove(candidate)

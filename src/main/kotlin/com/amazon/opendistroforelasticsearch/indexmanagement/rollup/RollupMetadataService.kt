@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata.Companion.NO_ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.DATE_FIELD_EPOCH_MILLIS_FORMAT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
@@ -51,7 +52,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
-import java.time.ZonedDateTime
 
 // TODO: Wrap client calls in retry for transient failures
 // Service that handles CRUD operations for rollup metadata
@@ -181,7 +181,8 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                 .query(MatchAllQueryBuilder())
                 .sort(dateHistogram.sourceField, SortOrder.ASC) // TODO: figure out where nulls are sorted
                 .trackTotalHits(false)
-                .fetchSource(dateHistogram.sourceField, null)
+                .fetchSource(false)
+                .docValueField(dateHistogram.sourceField, DATE_FIELD_EPOCH_MILLIS_FORMAT)
             val searchRequest = SearchRequest(rollup.sourceIndex)
                 .source(searchSourceBuilder)
                 .allowPartialSearchResults(false)
@@ -192,9 +193,12 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
                 return StartingTimeResult.NoDocumentsFound
             }
 
-            val firstSource = response.hits.hits.first().sourceAsMap[dateHistogram.sourceField] as String
+            // Get the doc value field of the dateHistogram.sourceField for the first search hit converted to epoch millis
+            // If the doc value is null or empty it will be treated the same as empty doc hits
+            val firstHitTimestamp = response.hits.hits.first().field(dateHistogram.sourceField).getValue<String>()?.toLong()
+                ?: return StartingTimeResult.NoDocumentsFound
 
-            return StartingTimeResult.Success(getRoundedTime(firstSource, dateHistogram))
+            return StartingTimeResult.Success(getRoundedTime(firstHitTimestamp, dateHistogram))
         } catch (e: RemoteTransportException) {
             val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
             logger.debug("Error when getting initial start time for rollup [${rollup.id}]: $unwrappedException")
@@ -210,13 +214,11 @@ class RollupMetadataService(val client: Client, val xContentRegistry: NamedXCont
      * Return time rounded down to the nearest unit of time the interval is based on.
      * This should map to the equivalent bucket a document with the given timestamp would fall into for the date histogram.
      */
-    private fun getRoundedTime(timestamp: String, dateHistogram: DateHistogram): Instant {
+    private fun getRoundedTime(timestamp: Long, dateHistogram: DateHistogram): Instant {
         val roundingStrategy = getRoundingStrategy(dateHistogram)
-        val timeInMillis = ZonedDateTime.parse(timestamp).toInstant().toEpochMilli()
-
         val roundedMillis = roundingStrategy
-            .prepare(timeInMillis, timeInMillis)
-            .round(timeInMillis)
+            .prepare(timestamp, timestamp)
+            .round(timestamp)
         return Instant.ofEpochMilli(roundedMillis)
     }
 

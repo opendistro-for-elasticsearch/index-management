@@ -52,7 +52,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.transport.RemoteTransportException
 import java.time.Instant
-import java.time.ZonedDateTime
 
 // TODO: Wrap client calls in retry for transient failures
 // Service that handles CRUD operations for rollup metadata

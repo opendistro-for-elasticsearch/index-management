@@ -45,6 +45,30 @@ abstract class ODFERestTestCase : ESRestTestCase() {
 
     override fun preserveIndicesUponCompletion(): Boolean = true
 
+    @After
+    fun waitForThreadPools() {
+        waitFor {
+            val response = client().performRequest(Request("GET", "/_cat/thread_pool?format=json"))
+
+            val xContentType = XContentType.fromMediaTypeOrFormat(response.entity.contentType.value)
+            xContentType.xContent().createParser(
+                NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                response.entity.content
+            ).use { parser ->
+                for (index in parser.list()) {
+                    val jsonObject: Map<*, *> = index as java.util.HashMap<*, *>
+                    val active = (jsonObject["active"] as String).toInt()
+                    val queue = (jsonObject["queue"] as String).toInt()
+                    val name = jsonObject["name"]
+                    val trueActive = if (name == "management") active - 1 else active
+                    if (trueActive > 0 || queue > 0) {
+                        fail("Still active threadpools in cluster: $jsonObject")
+                    }
+                }
+            }
+        }
+    }
+
     @Throws(IOException::class)
     @After
     open fun wipeAllODFEIndices() {

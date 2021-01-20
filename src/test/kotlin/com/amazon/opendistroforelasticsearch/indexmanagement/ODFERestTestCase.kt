@@ -22,8 +22,10 @@ import com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants.OPENDISTRO_SECURITY_SSL_HTTP_PEMCERT_FILEPATH
 import com.amazon.opendistroforelasticsearch.commons.rest.SecureRestClientBuilder
 import org.apache.http.HttpHost
+import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksAction
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.RequestOptions
+import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.WarningsHandler
 import org.elasticsearch.common.io.PathUtils
@@ -45,8 +47,45 @@ abstract class ODFERestTestCase : ESRestTestCase() {
 
     override fun preserveIndicesUponCompletion(): Boolean = true
 
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IOException::class)
+    private fun runningTasks(response: Response): MutableSet<String> {
+        val runningTasks: MutableSet<String> = HashSet()
+        val nodes = entityAsMap(response)["nodes"] as Map<String, Any>?
+        for ((_, value) in nodes!!) {
+            val nodeInfo = value as Map<String, Any>
+            val nodeTasks = nodeInfo["tasks"] as Map<String, Any>?
+            for ((_, value1) in nodeTasks!!) {
+                val task = value1 as Map<String, Any>
+                runningTasks.add(task["action"].toString())
+            }
+        }
+        return runningTasks
+    }
+
     @After
-    fun waitForThreadPools() {
+    fun waitForCleanup() {
+        waitFor {
+            waitForRunningTasks()
+            waitForThreadPools()
+            waitForPendingTasks(adminClient())
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun waitForRunningTasks() {
+        val runningTasks: MutableSet<String> = runningTasks(adminClient().performRequest(Request("GET", "/_tasks")))
+        // Ignore the task list API - it doesn't count against us
+        runningTasks.remove(ListTasksAction.NAME)
+        runningTasks.remove(ListTasksAction.NAME + "[n]")
+        if (runningTasks.isEmpty()) {
+            return
+        }
+        val stillRunning = ArrayList<String>(runningTasks)
+        fail("There are still tasks running after this test that might break subsequent tests $stillRunning.")
+    }
+
+    private fun waitForThreadPools() {
         waitFor {
             val response = client().performRequest(Request("GET", "/_cat/thread_pool?format=json"))
 

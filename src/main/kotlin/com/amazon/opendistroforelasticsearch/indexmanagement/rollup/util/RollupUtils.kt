@@ -71,11 +71,14 @@ import org.elasticsearch.search.aggregations.metrics.SumAggregationBuilder
 import org.elasticsearch.search.aggregations.metrics.ValueCountAggregationBuilder
 import org.elasticsearch.search.builder.SearchSourceBuilder
 
+const val DATE_FIELD_EPOCH_MILLIS_FORMAT = "epoch_millis"
+
 fun Rollup.getRollupSearchRequest(metadata: RollupMetadata): SearchRequest {
     val query = if (metadata.continuous != null) {
         RangeQueryBuilder(this.getDateHistogram().sourceField)
             .from(metadata.continuous.nextWindowStartTime.toEpochMilli(), true)
             .to(metadata.continuous.nextWindowEndTime.toEpochMilli(), false)
+            .format(DATE_FIELD_EPOCH_MILLIS_FORMAT)
     } else {
         MatchAllQueryBuilder()
     }

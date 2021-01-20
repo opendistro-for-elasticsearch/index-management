@@ -13,12 +13,6 @@ import kotlin.test.assertFailsWith
 
 class ISMRollupTests : ESTestCase() {
 
-    fun `test ism rollup requires non empty metrics`() {
-        assertFailsWith(IllegalArgumentException:: class, "Metrics cannot be empty") {
-            randomISMRollup().copy(metrics = listOf())
-        }
-    }
-
     fun `test ism rollup requires only one date histogram and it should be first dimension`() {
         assertFailsWith(IllegalArgumentException:: class, "The first dimension must be a date histogram") {
             randomISMRollup().copy(dimensions = listOf(randomTerms(), randomDateHistogram()))

@@ -34,9 +34,9 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.bytes.BytesArray
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.document.DocumentField
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
-import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.SearchHits
 import org.elasticsearch.test.ESTestCase
@@ -47,6 +47,8 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
+// TODO: Given the way these tests are mocking data, only entries that work with ZonedDateTime.parse
+//   are being tested, should mock the data more generically to test all cases
 class RollupMetadataServiceTests : ESTestCase() {
 
     private lateinit var xContentRegistry: NamedXContentRegistry
@@ -711,13 +713,9 @@ class RollupMetadataServiceTests : ESTestCase() {
 
         // TODO: Mockito 2 supposedly should be able to mock final classes but there were errors when trying to do so
         //   Will need to check if there is a workaround or a better way to mock getting hits.hits since this current approach is verbose
-        val sourceAsBytes = BytesReference.bytes(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .field(dateHistogram.sourceField, timestamp)
-                .endObject()
-        )
-        val searchHit = SearchHit(0).sourceRef(sourceAsBytes)
+        val docField = DocumentField(dateHistogram.sourceField, listOf(getInstant(timestamp).toEpochMilli().toString()))
+        val searchHit = SearchHit(0)
+        searchHit.setDocumentField(dateHistogram.sourceField, docField)
         val searchHits = SearchHits(arrayOf(searchHit), null, 0.0F)
 
         val searchResponse: SearchResponse = mock()

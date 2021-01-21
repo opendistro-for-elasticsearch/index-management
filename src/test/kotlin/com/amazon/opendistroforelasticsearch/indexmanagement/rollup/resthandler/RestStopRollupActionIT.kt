@@ -114,16 +114,14 @@ class RestStopRollupActionIT : RollupRestTestCase() {
     @Throws(Exception::class)
     fun `test stopping a failed rollup`() {
         // Create a rollup that will fail because no source index
-        val rollup = createRollup(
-            randomRollup()
-                .copy(
-                    continuous = false,
-                    jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
-                    enabled = true,
-                    jobEnabledTime = Instant.now(),
-                    metadataID = null
-                )
-        )
+        val rollup = randomRollup().copy(
+            id = "test_stopping_a_failed_rollup",
+            continuous = false,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            enabled = true,
+            jobEnabledTime = Instant.now(),
+            metadataID = null
+        ).let { createRollup(it, it.id) }
         updateRollupStartTime(rollup)
 
         // Assert its in failed

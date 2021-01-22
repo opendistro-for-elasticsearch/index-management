@@ -17,9 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService.Companion.findConflictingISMTemplates
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService.Companion.findConflictingPolicyTemplates
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService.Companion.validateFormat
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.ismTemplatesFromSearchResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
@@ -111,11 +111,11 @@ class TransportIndexPolicyAction @Inject constructor(
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
-                    val ismTemplates = ismTemplatesFromSearchResponse(response, xContentRegistry)
-                    val overlaps = findConflictingISMTemplates(request.policyID, indexPatterns, priority, ismTemplates)
+                    val policyToTemplateMap = getPolicyToTemplateMap(response, xContentRegistry)
+                    val overlaps = findConflictingPolicyTemplates(request.policyID, indexPatterns, priority, policyToTemplateMap)
                     if (overlaps.isNotEmpty()) {
                         val esg = "new policy ${request.policyID} has an ism template with index pattern $indexPatterns " +
-                            "matching existing templates ${overlaps.entries.stream().map { "${it.key} => ${it.value}" }.collect(
+                            "matching existing policy templates ${overlaps.entries.stream().map { "policy [${it.key}] => ${it.value}" }.collect(
                                 Collectors.joining(","))}," +
                             " please use a different priority than $priority"
                         actionListener.onFailure(IndexManagementException.wrap(IllegalArgumentException(esg)))

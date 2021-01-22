@@ -113,7 +113,7 @@ fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
  *
  * @return map of policyID to ISMTemplate in this policy
  */
-fun ismTemplatesFromSearchResponse(response: SearchResponse, xContentRegistry: NamedXContentRegistry = NamedXContentRegistry.EMPTY):
+fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXContentRegistry = NamedXContentRegistry.EMPTY):
     Map<String, ISMTemplate?> {
     return response.hits.hits.map {
         val id = it.id

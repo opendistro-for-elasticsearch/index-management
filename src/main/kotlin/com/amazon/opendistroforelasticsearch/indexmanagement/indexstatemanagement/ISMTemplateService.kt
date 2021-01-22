@@ -31,7 +31,7 @@ private val log = LogManager.getLogger(ISMTemplateService::class.java)
 class ISMTemplateService {
     companion object {
         /**
-         * find the matching template for the index
+         * find the matching policy based on ISM template field for the given index
          *
          * filter out hidden index
          * filter out older index than template lastUpdateTime
@@ -41,32 +41,31 @@ class ISMTemplateService {
          * @return policyID
          */
         @Suppress("ReturnCount")
-        fun findMatchingISMTemplate(ismTemplates: Map<String, ISMTemplate>, indexMetadata: IndexMetadata): String? {
+        fun findMatchingPolicy(ismTemplates: Map<String, ISMTemplate>, indexMetadata: IndexMetadata): String? {
+            if (ismTemplates.isEmpty()) return null
+
             val indexName = indexMetadata.index.name
 
             // don't include hidden index
             val isHidden = IndexMetadata.INDEX_HIDDEN_SETTING.get(indexMetadata.settings)
-            log.info("index $indexName is hidden $isHidden")
             if (isHidden) return null
 
             // only process indices created after template
             // traverse all ism templates for matching ones
             val patternMatchPredicate = { pattern: String -> Regex.simpleMatch(pattern, indexName) }
-            val matchedTemplates = mutableMapOf<ISMTemplate, String>()
+            var matchedPolicy: String? = null
+            var highestPriority: Int = -1
             ismTemplates.filter { (_, template) ->
-                log.info("index create after template? ${template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate}")
                 template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate
-            }.forEach { (templateName, template) ->
+            }.forEach { (policyID, template) ->
                 val matched = template.indexPatterns.stream().anyMatch(patternMatchPredicate)
-                if (matched) matchedTemplates[template] = templateName
+                if (matched && highestPriority < template.priority) {
+                    highestPriority = template.priority
+                    matchedPolicy = policyID
+                }
             }
 
-            if (matchedTemplates.isEmpty()) return null
-
-            // sort by template priority
-            val winner = matchedTemplates.keys.maxBy { it.priority }
-            log.info("winner with highest priority is $winner")
-            return matchedTemplates[winner]
+            return matchedPolicy
         }
 
         /**
@@ -107,12 +106,12 @@ class ISMTemplateService {
         }
 
         /**
-         * find templates whose index patterns overlap with given template
+         * find policy templates whose index patterns overlap with given template
          *
          * @return map of overlapping template name to its index patterns
          */
         @Suppress("SpreadOperator")
-        fun findConflictingISMTemplates(
+        fun findConflictingPolicyTemplates(
             candidate: String,
             indexPatterns: List<String>,
             priority: Int,

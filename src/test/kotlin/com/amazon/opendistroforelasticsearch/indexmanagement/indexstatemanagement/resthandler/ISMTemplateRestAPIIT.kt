@@ -46,7 +46,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()["error"] as Map<String, Any>
-            val expectedReason = "new policy $policyID2 has an ism template with index pattern [log*] matching existing templates $policyID1 => [log*], please use a different priority than 100"
+            val expectedReason = "new policy $policyID2 has an ism template with index pattern [log*] matching existing policy templates policy [$policyID1] => [log*], please use a different priority than 100"
             assertEquals(expectedReason, actualMessage["reason"])
         }
     }

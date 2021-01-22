@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
@@ -35,6 +36,8 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
+private val log = LogManager.getLogger(TransportGetPolicyAction::class.java)
+
 class TransportGetPolicyAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
@@ -44,7 +47,9 @@ class TransportGetPolicyAction @Inject constructor(
     GetPolicyAction.NAME, transportService, actionFilters, ::GetPolicyRequest
 ) {
     override fun doExecute(task: Task, request: GetPolicyRequest, listener: ActionListener<GetPolicyResponse>) {
-        GetPolicyHandler(client, listener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            GetPolicyHandler(client, listener, request).start()
+        }
     }
 
     inner class GetPolicyHandler(

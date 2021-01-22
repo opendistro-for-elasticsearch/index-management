@@ -16,6 +16,8 @@
 @file:Suppress("TopLevelPropertyNaming", "MatchingDeclarationName")
 package com.amazon.opendistroforelasticsearch.indexmanagement.util
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
+
 const val _DOC = "_doc"
 const val _ID = "_id"
 const val NO_ID = ""
@@ -25,3 +27,11 @@ const val IF_SEQ_NO = "if_seq_no"
 const val _PRIMARY_TERM = "_primary_term"
 const val IF_PRIMARY_TERM = "if_primary_term"
 const val REFRESH = "refresh"
+
+fun resolveUser(user: User?): User {
+    return if (user == null) {
+        User("", listOf(), listOf(), listOf())
+    } else {
+        User(user.name, user.backendRoles, user.roles, user.customAttNames)
+    }
+}

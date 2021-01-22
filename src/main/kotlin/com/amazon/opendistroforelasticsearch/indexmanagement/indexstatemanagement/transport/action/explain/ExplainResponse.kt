@@ -31,15 +31,18 @@ open class ExplainResponse : ActionResponse, ToXContentObject {
     val indexNames: List<String>
     val indexPolicyIDs: List<String?>
     val indexMetadatas: List<ManagedIndexMetaData?>
+    // val totalManagedIndices: Int
 
     constructor(
         indexNames: List<String>,
         indexPolicyIDs: List<String?>,
         indexMetadatas: List<ManagedIndexMetaData?>
+        // totalManagedIndices: Int
     ) : super() {
         this.indexNames = indexNames
         this.indexPolicyIDs = indexPolicyIDs
         this.indexMetadatas = indexMetadatas
+        // this.totalManagedIndices = totalManagedIndices
     }
 
     @Throws(IOException::class)
@@ -47,6 +50,7 @@ open class ExplainResponse : ActionResponse, ToXContentObject {
         indexNames = sin.readStringList(),
         indexPolicyIDs = sin.readStringList(),
         indexMetadatas = sin.readList { ManagedIndexMetaData.fromStreamInput(it) }
+        // totalManagedIndices = sin.readInt()
     )
 
     @Throws(IOException::class)
@@ -54,6 +58,7 @@ open class ExplainResponse : ActionResponse, ToXContentObject {
         out.writeStringCollection(indexNames)
         out.writeStringCollection(indexPolicyIDs)
         out.writeCollection(indexMetadatas)
+        // out.writeInt(totalManagedIndices)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -64,6 +69,7 @@ open class ExplainResponse : ActionResponse, ToXContentObject {
             indexMetadatas[ind]?.toXContent(builder, ToXContent.EMPTY_PARAMS)
             builder.endObject()
         }
+        // builder.field("totalManagedIndices", totalManagedIndices)
         return builder.endObject()
     }
 }

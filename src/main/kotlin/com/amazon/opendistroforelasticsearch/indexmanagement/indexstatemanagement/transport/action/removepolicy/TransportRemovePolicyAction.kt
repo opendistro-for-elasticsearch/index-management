@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getUuidsForClosedIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
@@ -24,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
@@ -42,6 +44,7 @@ import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.index.Index
 import org.elasticsearch.index.IndexNotFoundException
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
@@ -50,12 +53,15 @@ private val log = LogManager.getLogger(TransportRemovePolicyAction::class.java)
 class TransportRemovePolicyAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
-    actionFilters: ActionFilters
+    actionFilters: ActionFilters,
+    val ismIndices: IndexManagementIndices
 ) : HandledTransportAction<RemovePolicyRequest, ISMStatusResponse>(
         RemovePolicyAction.NAME, transportService, actionFilters, ::RemovePolicyRequest
 ) {
     override fun doExecute(task: Task, request: RemovePolicyRequest, listener: ActionListener<ISMStatusResponse>) {
-        RemovePolicyHandler(client, listener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            RemovePolicyHandler(client, listener, request).start()
+        }
     }
 
     inner class RemovePolicyHandler(
@@ -67,8 +73,36 @@ class TransportRemovePolicyAction @Inject constructor(
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
         private val indicesToRemove = mutableMapOf<String, String>() // uuid: name
 
-        @Suppress("SpreadOperator")
         fun start() {
+            ismIndices.checkAndUpdateIMConfigIndex(object : ActionListener<AcknowledgedResponse> {
+                override fun onResponse(response: AcknowledgedResponse) {
+                    log.info("going to create mapping response")
+                    onCreateMappingsResponse(response)
+                }
+
+                override fun onFailure(t: java.lang.Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
+
+        private fun onCreateMappingsResponse(response: AcknowledgedResponse) {
+            if (response.isAcknowledged) {
+                log.info("Successfully created or updated $INDEX_MANAGEMENT_INDEX with newest mappings.")
+                getClusterState()
+            } else {
+                log.error("Unable to create or update $INDEX_MANAGEMENT_INDEX with newest mapping.")
+
+                actionListener.onFailure(
+                    ElasticsearchStatusException(
+                        "Unable to create or update $INDEX_MANAGEMENT_INDEX with newest mapping.",
+                        RestStatus.INTERNAL_SERVER_ERROR)
+                )
+            }
+        }
+
+        @Suppress("SpreadOperator")
+        fun getClusterState() {
             val strictExpandOptions = IndicesOptions.strictExpand()
 
             val clusterStateRequest = ClusterStateRequest()
@@ -155,7 +189,6 @@ class TransportRemovePolicyAction @Inject constructor(
 
                         // clean metadata for indicesToRemove
                         val indicesToRemoveMetadata = indicesToRemove.map { Index(it.value, it.key) }
-                        log.info("remove metadata for $indicesToRemoveMetadata")
                         removeMetadatas(indicesToRemoveMetadata)
                     }
 

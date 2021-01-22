@@ -53,7 +53,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         val policyId = ESTestCase.randomAlphaOfLength(10)
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 6)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, configSchemaVersion)
     }
 
     fun `test update management index mapping with new schema version`() {

@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
@@ -25,9 +25,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_MILLIS
@@ -293,10 +293,11 @@ class ManagedIndexCoordinator(
         indexToMatchedPolicy.filterNotNullValues()
             .forEach { (index, policyID) ->
                 val indexUuid = indexMetadatas[index].indexUUID
-                if (indexUuid != null) {
-                    logger.info("index [$index] will be managed by policy [$policyID]")
+                val ismTemplate = templates[policyID]
+                if (indexUuid != null && ismTemplate != null) {
+                    logger.info("index [$index] will be managed by policy [$policyID] of roles [${ismTemplate.user?.roles}]")
                     updateManagedIndexReqs.add(
-                        managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval)
+                        managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval, ismTemplate.user)
                     )
                 }
             }

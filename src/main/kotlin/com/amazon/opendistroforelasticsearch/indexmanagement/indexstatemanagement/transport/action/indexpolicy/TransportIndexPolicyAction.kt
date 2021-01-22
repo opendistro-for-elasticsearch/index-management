@@ -15,15 +15,19 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy
 
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.filterNotNullValues
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.findConflictingPolicyTemplates
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.validateFormat
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
@@ -59,8 +63,17 @@ class TransportIndexPolicyAction @Inject constructor(
 ) : HandledTransportAction<IndexPolicyRequest, IndexPolicyResponse>(
         IndexPolicyAction.NAME, transportService, actionFilters, ::IndexPolicyRequest
 ) {
+
+    @Volatile lateinit var user: User
+    lateinit var policy: Policy
+
     override fun doExecute(task: Task, request: IndexPolicyRequest, listener: ActionListener<IndexPolicyResponse>) {
-        IndexPolicyHandler(client, listener, request).start()
+        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
+        user = resolveUser(User.parse(userStr))
+
+        client.threadPool().threadContext.stashContext().use {
+            IndexPolicyHandler(client, listener, request).start()
+        }
     }
 
     inner class IndexPolicyHandler(
@@ -71,6 +84,7 @@ class TransportIndexPolicyAction @Inject constructor(
         fun start() {
             ismIndices.checkAndUpdateIMConfigIndex(object : ActionListener<AcknowledgedResponse> {
                 override fun onResponse(response: AcknowledgedResponse) {
+                    log.info("going to create mapping response")
                     onCreateMappingsResponse(response)
                 }
 
@@ -85,10 +99,13 @@ class TransportIndexPolicyAction @Inject constructor(
                 log.info("Successfully created or updated ${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX} with newest mappings.")
 
                 // if there is template field, we will check
-                val reqTemplate = request.policy.ismTemplate
+                policy = request.policy
+                val reqTemplate = policy.ismTemplate
                 if (reqTemplate != null) {
                     checkTemplate(reqTemplate.indexPatterns, reqTemplate.priority)
-                } else putPolicy()
+                } else {
+                    putPolicy()
+                }
             } else {
                 log.error("Unable to create or update ${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX} with newest mapping.")
 
@@ -125,6 +142,7 @@ class TransportIndexPolicyAction @Inject constructor(
                         return
                     }
 
+                    policy = policy.copy(ismTemplate = policy.ismTemplate?.copy(user = user))
                     putPolicy()
                 }
 
@@ -135,19 +153,18 @@ class TransportIndexPolicyAction @Inject constructor(
         }
 
         private fun putPolicy() {
-            request.policy.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
+            policy = policy.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
 
             val indexRequest = IndexRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
                 .setRefreshPolicy(request.refreshPolicy)
-                .source(request.policy.toXContent(XContentFactory.jsonBuilder()))
+                .source(policy.toXContent(XContentFactory.jsonBuilder()))
                 .id(request.policyID)
                 .timeout(IndexRequest.DEFAULT_TIMEOUT)
 
             if (request.seqNo == SequenceNumbers.UNASSIGNED_SEQ_NO || request.primaryTerm == SequenceNumbers.UNASSIGNED_PRIMARY_TERM) {
                 indexRequest.opType(DocWriteRequest.OpType.CREATE)
             } else {
-                indexRequest.setIfSeqNo(request.seqNo)
-                        .setIfPrimaryTerm(request.primaryTerm)
+                indexRequest.setIfSeqNo(request.seqNo).setIfPrimaryTerm(request.primaryTerm)
             }
 
             client.index(indexRequest, object : ActionListener<IndexResponse> {
@@ -162,7 +179,7 @@ class TransportIndexPolicyAction @Inject constructor(
                         response.version,
                         response.primaryTerm,
                         response.seqNo,
-                        request.policy,
+                        policy,
                         response.status()
                     ))
                 }

@@ -58,7 +58,9 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
         RetryFailedManagedIndexAction.NAME, transportService, actionFilters, ::RetryFailedManagedIndexRequest
 ) {
     override fun doExecute(task: Task, request: RetryFailedManagedIndexRequest, listener: ActionListener<ISMStatusResponse>) {
-        RetryFailedManagedIndexHandler(client, listener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            RetryFailedManagedIndexHandler(client, listener, request).start()
+        }
     }
 
     inner class RetryFailedManagedIndexHandler(

@@ -15,8 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalUserField
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -36,12 +38,13 @@ private val log = LogManager.getLogger(ISMTemplate::class.java)
 data class ISMTemplate(
     val indexPatterns: List<String>,
     val priority: Int,
-    val lastUpdatedTime: Instant
+    val lastUpdatedTime: Instant,
+    val user: User?
 ) : ToXContentObject, Writeable {
 
     init {
         require(priority >= 0) { "Requires priority to be >= 0" }
-        require(indexPatterns.isNotEmpty()) { "Requires at least one index pattern" }
+        require(indexPatterns.isNotEmpty()) { "at least give one index pattern" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -49,6 +52,7 @@ data class ISMTemplate(
             .field(INDEX_PATTERN, indexPatterns)
             .field(PRIORITY, priority)
             .optionalTimeField(LAST_UPDATED_TIME_FIELD, lastUpdatedTime)
+            .optionalUserField(USER_FIELD, user)
             .endObject()
     }
 
@@ -56,7 +60,8 @@ data class ISMTemplate(
     constructor(sin: StreamInput) : this(
         sin.readStringList(),
         sin.readInt(),
-        sin.readInstant()
+        sin.readInstant(),
+        sin.readOptionalWriteable(::User)
     )
 
     @Throws(IOException::class)
@@ -64,6 +69,7 @@ data class ISMTemplate(
         out.writeStringCollection(indexPatterns)
         out.writeInt(priority)
         out.writeInstant(lastUpdatedTime)
+        out.writeOptionalWriteable(user)
     }
 
     companion object {
@@ -71,12 +77,14 @@ data class ISMTemplate(
         const val INDEX_PATTERN = "index_patterns"
         const val PRIORITY = "priority"
         const val LAST_UPDATED_TIME_FIELD = "last_updated_time"
+        const val USER_FIELD = "user"
 
         @Suppress("ComplexMethod")
         fun parse(xcp: XContentParser): ISMTemplate {
             val indexPatterns: MutableList<String> = mutableListOf()
             var priority = 0
             var lastUpdatedTime: Instant? = null
+            var user: User? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -92,6 +100,7 @@ data class ISMTemplate(
                     }
                     PRIORITY -> priority = if (xcp.currentToken() == Token.VALUE_NULL) 0 else xcp.intValue()
                     LAST_UPDATED_TIME_FIELD -> lastUpdatedTime = xcp.instant()
+                    USER_FIELD -> user = if (xcp.currentToken() == Token.VALUE_NULL) null else User.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ISMTemplate.")
                 }
             }
@@ -99,7 +108,8 @@ data class ISMTemplate(
             return ISMTemplate(
                 indexPatterns = indexPatterns,
                 priority = priority,
-                lastUpdatedTime = lastUpdatedTime ?: Instant.now()
+                lastUpdatedTime = lastUpdatedTime ?: Instant.now(),
+                user = user
             )
         }
     }

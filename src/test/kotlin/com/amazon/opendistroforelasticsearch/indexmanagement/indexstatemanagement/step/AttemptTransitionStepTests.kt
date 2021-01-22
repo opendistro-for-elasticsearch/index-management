@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.TransitionsActionConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.transition.AttemptTransitionStep
 import com.nhaarman.mockitokotlin2.any
 import com.nhaarman.mockitokotlin2.doAnswer
@@ -40,6 +41,7 @@ import org.elasticsearch.index.shard.DocsStats
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.transport.RemoteTransportException
+import java.time.Instant
 
 class AttemptTransitionStepTests : ESTestCase() {
 
@@ -100,6 +102,20 @@ class AttemptTransitionStepTests : ESTestCase() {
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(managedIndexMetaData)
             assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
             assertEquals("Did not get cause from nested exception", "nested", updatedManagedIndexMetaData.info!!["cause"])
+        }
+    }
+
+    fun `test step start time resetting between two transitions`() {
+        val client = getClient(getAdminClient(getIndicesAdminClient(statsResponse, null)))
+
+        runBlocking {
+            val config = TransitionsActionConfig(listOf(Transition("some_state", null)))
+            val completedStartTime = Instant.now()
+            val managedIndexMetaData = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, null, StepMetaData("attempt_transition", completedStartTime.toEpochMilli(), Step.StepStatus.COMPLETED), null, null)
+            val step = AttemptTransitionStep(clusterService, client, config, managedIndexMetaData)
+            Thread.sleep(50) // Make sure we give enough time for the instants to be different
+            val startTime = step.getStepStartTime()
+            assertNotEquals("Two separate transitions should not have same start time", completedStartTime.toEpochMilli(), startTime.toEpochMilli())
         }
     }
 

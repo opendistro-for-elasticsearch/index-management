@@ -101,7 +101,7 @@ fun RestClient.makeRequest(
 }
 
 fun <T> waitFor(
-    timeout: Instant = Instant.ofEpochSecond(10),
+    timeout: Instant = Instant.ofEpochSecond(20),
     block: () -> T
 ): T {
     val startTime = Instant.now().toEpochMilli()

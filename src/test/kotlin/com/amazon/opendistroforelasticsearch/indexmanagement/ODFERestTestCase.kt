@@ -45,7 +45,7 @@ abstract class ODFERestTestCase : ESRestTestCase() {
 
     override fun getProtocol(): String = if (isHttps()) "https" else "http"
 
-    override fun preserveIndicesUponCompletion(): Boolean = true
+    // override fun preserveIndicesUponCompletion(): Boolean = true
 
     @Suppress("UNCHECKED_CAST")
     @Throws(IOException::class)
@@ -109,7 +109,6 @@ abstract class ODFERestTestCase : ESRestTestCase() {
     }
 
     @Throws(IOException::class)
-    @After
     open fun wipeAllODFEIndices() {
         val response = client().performRequest(Request("GET", "/_cat/indices?format=json&expand_wildcards=all"))
 

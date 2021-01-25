@@ -81,10 +81,12 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         // Define rollup
         var rollup = randomRollup().copy(
+            id = "metadata_set_failed_id_doc_not_exist",
             enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobEnabledTime = Instant.now(),
             sourceIndex = indexName,
+            targetIndex = "${indexName}_TARGET",
             metadataID = null,
             continuous = true
         )
@@ -121,7 +123,7 @@ class RollupRunnerIT : RollupRestTestCase() {
         // Update rollup start time to run second execution
         updateRollupStartTime(rollup)
 
-        waitFor {
+        waitFor(Instant.ofEpochSecond(20)) {
             val rollupJob = getRollup(rollupId = rollup.id)
             assertNotNull("Rollup job not found", rollupJob)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
@@ -306,7 +308,7 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         waitFor { assertTrue("Target rollup index was not created", indexExists(rollup.targetIndex)) }
 
-        val finishedRollup = waitFor {
+        val finishedRollup = waitFor(Instant.ofEpochSecond(20)) {
             val rollupJob = getRollup(rollupId = rollup.id)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
@@ -316,7 +318,7 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         updateRollupStartTime(secondRollup)
 
-        val secondFinishedRollup = waitFor {
+        val secondFinishedRollup = waitFor(Instant.ofEpochSecond(20)) {
             val rollupJob = getRollup(rollupId = secondRollup.id)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
@@ -326,11 +328,11 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         updateRollupStartTime(thirdRollup)
 
-        val thirdFinishedRollup = waitFor {
+        val thirdFinishedRollup = waitFor(Instant.ofEpochSecond(20)) {
             val rollupJob = getRollup(rollupId = thirdRollup.id)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
-            assertEquals("Rollup is not finished", RollupMetadata.Status.FINISHED, rollupMetadata.status)
+            assertEquals("Rollup is not finished $rollupMetadata", RollupMetadata.Status.FINISHED, rollupMetadata.status)
             rollupJob
         }
 

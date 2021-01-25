@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimens
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
@@ -32,6 +33,7 @@ import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.client.Response
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -185,6 +187,16 @@ abstract class RollupRestTestCase : IndexManagementRestTestCase() {
     protected fun Rollup.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
 
     protected fun updateRollupStartTime(update: Rollup, desiredStartTimeMillis: Long? = null) {
+        // Before updating start time of a job always make sure there are no unassigned shards that could cause the config
+        // index to move to a new node and negate this forced start
+        waitFor {
+            try {
+                client().makeRequest("GET", "_cluster/allocation/explain")
+                fail("Expected 400 Bad Request when there are no unassigned shards to explain")
+            } catch (e: ResponseException) {
+                assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
+            }
+        }
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis

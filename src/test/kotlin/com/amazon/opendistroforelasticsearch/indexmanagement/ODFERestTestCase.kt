@@ -45,8 +45,6 @@ abstract class ODFERestTestCase : ESRestTestCase() {
 
     override fun getProtocol(): String = if (isHttps()) "https" else "http"
 
-    // override fun preserveIndicesUponCompletion(): Boolean = true
-
     @Suppress("UNCHECKED_CAST")
     @Throws(IOException::class)
     private fun runningTasks(response: Response): MutableSet<String> {

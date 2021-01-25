@@ -123,7 +123,7 @@ class RollupRunnerIT : RollupRestTestCase() {
         // Update rollup start time to run second execution
         updateRollupStartTime(rollup)
 
-        waitFor(Instant.ofEpochSecond(20)) {
+        waitFor() {
             val rollupJob = getRollup(rollupId = rollup.id)
             assertNotNull("Rollup job not found", rollupJob)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
@@ -308,7 +308,7 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         waitFor { assertTrue("Target rollup index was not created", indexExists(rollup.targetIndex)) }
 
-        val finishedRollup = waitFor(Instant.ofEpochSecond(20)) {
+        val finishedRollup = waitFor() {
             val rollupJob = getRollup(rollupId = rollup.id)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
@@ -318,7 +318,7 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         updateRollupStartTime(secondRollup)
 
-        val secondFinishedRollup = waitFor(Instant.ofEpochSecond(20)) {
+        val secondFinishedRollup = waitFor() {
             val rollupJob = getRollup(rollupId = secondRollup.id)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
@@ -328,7 +328,7 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         updateRollupStartTime(thirdRollup)
 
-        val thirdFinishedRollup = waitFor(Instant.ofEpochSecond(20)) {
+        val thirdFinishedRollup = waitFor() {
             val rollupJob = getRollup(rollupId = thirdRollup.id)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)

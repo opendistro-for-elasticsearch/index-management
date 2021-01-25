@@ -86,7 +86,7 @@ class RollupRunnerIT : RollupRestTestCase() {
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobEnabledTime = Instant.now(),
             sourceIndex = indexName,
-            targetIndex = "${indexName}_TARGET",
+            targetIndex = "${indexName}_target",
             metadataID = null,
             continuous = true
         )

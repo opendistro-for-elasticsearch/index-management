@@ -304,12 +304,14 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     protected fun updateManagedIndexConfigStartTime(update: ManagedIndexConfig, desiredStartTimeMillis: Long? = null) {
         // Before updating start time of a job always make sure there are no unassigned shards that could cause the config
         // index to move to a new node and negate this forced start
-        waitFor {
-            try {
-                client().makeRequest("GET", "_cluster/allocation/explain")
-                fail("Expected 400 Bad Request when there are no unassigned shards to explain")
-            } catch (e: ResponseException) {
-                assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
+        if (isMultiNode) {
+            waitFor {
+                try {
+                    client().makeRequest("GET", "_cluster/allocation/explain")
+                    fail("Expected 400 Bad Request when there are no unassigned shards to explain")
+                } catch (e: ResponseException) {
+                    assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
+                }
             }
         }
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)

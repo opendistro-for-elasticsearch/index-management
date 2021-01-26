@@ -35,10 +35,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.delete.AttemptDeleteStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -56,6 +58,8 @@ import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+
+private val log = LogManager.getLogger("ManagedIndexUtils")
 
 fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String, jobInterval: Int): IndexRequest {
     val managedIndexConfig = ManagedIndexConfig(

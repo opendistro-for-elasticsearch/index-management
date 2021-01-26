@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
@@ -37,6 +38,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
@@ -53,6 +56,7 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -160,7 +164,8 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         policyID: String? = randomAlphaOfLength(10),
         alias: String? = null,
         replicas: String? = null,
-        shards: String? = null
+        shards: String? = null,
+        mapping: String = ""
     ): Pair<String, String?> {
         val settings = Settings.builder().let {
             if (policyID == null) {
@@ -185,7 +190,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             }
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
-        createIndex(index, settings, "", aliases)
+        createIndex(index, settings, mapping, aliases)
         return index to policyID
     }
 
@@ -300,6 +305,18 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     }
 
     protected fun updateManagedIndexConfigStartTime(update: ManagedIndexConfig, desiredStartTimeMillis: Long? = null) {
+        // Before updating start time of a job always make sure there are no unassigned shards that could cause the config
+        // index to move to a new node and negate this forced start
+        if (isMultiNode) {
+            waitFor {
+                try {
+                    client().makeRequest("GET", "_cluster/allocation/explain")
+                    fail("Expected 400 Bad Request when there are no unassigned shards to explain")
+                } catch (e: ResponseException) {
+                    assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
+                }
+            }
+        }
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
@@ -525,6 +542,63 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         } catch (e: IOException) {
             throw ElasticsearchParseException("Failed to parse content to list", e)
         }
+    }
+
+    protected fun getRollup(
+        rollupId: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): Rollup {
+        val response = client().makeRequest("GET", "${IndexManagementPlugin.ROLLUP_JOBS_BASE_URI}/$rollupId", null, header)
+        assertEquals("Unable to get rollup $rollupId", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        ensureExpectedToken(Token.START_OBJECT, parser.nextToken(), parser)
+
+        lateinit var id: String
+        var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
+        lateinit var rollup: Rollup
+
+        while (parser.nextToken() != Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                _ID -> id = parser.text()
+                _SEQ_NO -> seqNo = parser.longValue()
+                _PRIMARY_TERM -> primaryTerm = parser.longValue()
+                Rollup.ROLLUP_TYPE -> rollup = Rollup.parse(parser, id, seqNo, primaryTerm)
+            }
+        }
+        return rollup
+    }
+
+    protected fun getRollupMetadata(
+        metadataId: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): RollupMetadata {
+        val response = client().makeRequest("GET", "$INDEX_MANAGEMENT_INDEX/_doc/$metadataId", null, header)
+        assertEquals("Unable to get rollup metadata $metadataId", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        ensureExpectedToken(Token.START_OBJECT, parser.nextToken(), parser)
+
+        lateinit var id: String
+        var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
+        lateinit var metadata: RollupMetadata
+
+        while (parser.nextToken() != Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                _ID -> id = parser.text()
+                _SEQ_NO -> seqNo = parser.longValue()
+                _PRIMARY_TERM -> primaryTerm = parser.longValue()
+                RollupMetadata.ROLLUP_METADATA_TYPE -> metadata = RollupMetadata.parse(parser, id, seqNo, primaryTerm)
+            }
+        }
+
+        return metadata
     }
 
     protected fun deleteSnapshot(repository: String, snapshotName: String) {

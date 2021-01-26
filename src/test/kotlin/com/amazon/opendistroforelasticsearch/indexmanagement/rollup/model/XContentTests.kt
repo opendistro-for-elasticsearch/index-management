@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomAverage
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomISMRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMax
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomMin
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
@@ -126,6 +127,13 @@ class XContentTests : ESTestCase() {
         val rollupString = rollup.toJsonString(XCONTENT_WITHOUT_TYPE)
         val parsedRollup = Rollup.parse(parser(rollupString), rollup.id, rollup.seqNo, rollup.primaryTerm)
         assertEquals("Round tripping Rollup without type doesn't work", rollup, parsedRollup)
+    }
+
+    fun `test ism rollup parsing`() {
+        val ismRollup = randomISMRollup()
+        val ismRollupString = ismRollup.toJsonString()
+        val parsedISMRollup = ISMRollup.parse(parser(ismRollupString))
+        assertEquals("Round tripping ISMRollup doesn't work", ismRollup, parsedISMRollup)
     }
 
     private fun parser(xc: String): XContentParser {

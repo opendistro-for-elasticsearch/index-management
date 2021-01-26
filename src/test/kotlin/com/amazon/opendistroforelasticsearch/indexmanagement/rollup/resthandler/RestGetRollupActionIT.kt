@@ -74,9 +74,9 @@ class RestGetRollupActionIT : RollupRestTestCase() {
             assertEquals(testRollup.primaryTerm, (foundRollup["_primary_term"] as Int).toLong())
             assertEquals(testRollup.id, innerRollup["rollup_id"] as String)
             // Doesn't matter what rollup sets, current system is at schema version 5
-            assertEquals(5, (innerRollup["schema_version"] as Int).toLong())
+            assertEquals(6, (innerRollup["schema_version"] as Int).toLong())
             assertEquals(testRollup.enabled, innerRollup["enabled"] as Boolean)
-            assertEquals(testRollup.enabledTime?.toEpochMilli(), innerRollup["enabled_time"] as Long?)
+            assertEquals(testRollup.enabledTime?.toEpochMilli(), (innerRollup["enabled_time"] as Number?)?.toLong())
             // Last updated time will never be correct as it gets updated in the API call
             // assertEquals(testRollup.lastUpdateTime.toEpochMilli(), innerRollup["last_updated_time"] as Long)
             assertEquals(testRollup.continuous, innerRollup["continuous"] as Boolean)

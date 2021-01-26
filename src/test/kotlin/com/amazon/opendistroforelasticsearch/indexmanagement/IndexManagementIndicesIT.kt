@@ -23,8 +23,8 @@ import java.util.Locale
 class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
-    private val configSchemaVersion = 5
-    private val historySchemaVersion = 2
+    private val configSchemaVersion = 6
+    private val historySchemaVersion = 3
 
     /*
     * If this test fails it means you changed the config mappings
@@ -53,10 +53,12 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         val policyId = ESTestCase.randomAlphaOfLength(10)
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 5)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 6)
     }
 
     fun `test update management index mapping with new schema version`() {
+        wipeAllODFEIndices()
+        waitForPendingTasks(adminClient())
         assertIndexDoesNotExist(INDEX_MANAGEMENT_INDEX)
 
         val mapping = indexManagementMappings.trim().trimStart('{').trimEnd('}')

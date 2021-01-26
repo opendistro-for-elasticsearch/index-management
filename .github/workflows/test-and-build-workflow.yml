@@ -16,6 +16,9 @@ jobs:
     name: Build Index Management
     # This job runs on Linux
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        job: [im, ism, rollover, refresh]
     steps:
       # This step uses the checkout Github action: https://github.com/actions/checkout
       - name: Checkout Branch
@@ -26,7 +29,7 @@ jobs:
         with:
           java-version: 14
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew build -Dtest.suite=${{ matrix.job }}
       - name: Upload failed logs
         uses: actions/upload-artifact@v2
         if: failure()

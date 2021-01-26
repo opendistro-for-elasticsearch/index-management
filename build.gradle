@@ -56,7 +56,7 @@ apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
-def usingMultiNode = System.getProperty("numNodes")
+def usingMultiNode = project.properties.containsKey('numNodes')
 // Only apply jacoco test coverage if we are running a local single node cluster
 if (!usingRemoteCluster && !usingMultiNode) {
     apply from: 'build-tools/esplugin-coverage.gradle'
@@ -189,10 +189,28 @@ afterEvaluate {
 
 test {
     systemProperty 'tests.security.manager', 'false'
+    switch (System.getProperty("test.suite")) {
+        case "ism":
+            filter {includeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.*" }
+            break
+        case "rollup":
+            filter {includeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.rollup.*" }
+            break
+        case "refresh":
+            filter {includeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.*" }
+            break
+        case "im":
+            filter {
+                excludeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.*"
+                excludeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.rollup.*"
+                excludeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.*"
+            }
+            break
+    }
 }
 
 File repo = file("$buildDir/testclusters/repo")
-def _numNodes = System.getProperty("numNodes") as Integer ?: 1
+def _numNodes = findProperty('numNodes') as Integer ?: 1
 testClusters.integTest {
     plugin(project.tasks.bundlePlugin.archiveFile)
     testDistribution = "OSS"
@@ -249,6 +267,25 @@ integTest {
     // The -Dcluster.debug option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
+    }
+
+    switch (System.getProperty("test.suite")) {
+        case "ism":
+            filter {includeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.*" }
+            break
+        case "rollup":
+            filter {includeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.rollup.*" }
+            break
+        case "refresh":
+            filter {includeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.*" }
+            break
+        case "im":
+            filter {
+                excludeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.*"
+                excludeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.rollup.*"
+                excludeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.refreshanalyzer.*"
+            }
+            break
     }
 
     // TODO: Fix running notification test against remote cluster with security plugin installed

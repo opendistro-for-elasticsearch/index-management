@@ -56,7 +56,7 @@ apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
-def usingMultiNode = System.getProperty("numNodes")
+def usingMultiNode = project.properties.containsKey('numNodes')
 // Only apply jacoco test coverage if we are running a local single node cluster
 if (!usingRemoteCluster && !usingMultiNode) {
     apply from: 'build-tools/esplugin-coverage.gradle'
@@ -192,7 +192,7 @@ test {
 }
 
 File repo = file("$buildDir/testclusters/repo")
-def _numNodes = System.getProperty("numNodes") as Integer ?: 1
+def _numNodes = findProperty('numNodes') as Integer ?: 1
 testClusters.integTest {
     plugin(project.tasks.bundlePlugin.archiveFile)
     testDistribution = "OSS"

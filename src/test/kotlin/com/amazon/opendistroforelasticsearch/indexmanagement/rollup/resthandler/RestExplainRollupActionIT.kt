@@ -34,16 +34,14 @@ class RestExplainRollupActionIT : RollupRestTestCase() {
 
     @Throws(Exception::class)
     fun `test explain rollup`() {
-        val rollup = createRollup(
-            randomRollup()
-                .copy(
-                    continuous = false,
-                    jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
-                    enabled = true,
-                    jobEnabledTime = Instant.now(),
-                    metadataID = null
-                )
-        )
+        val rollup = randomRollup().copy(
+            id = "test_explain_rollup",
+            continuous = false,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            enabled = true,
+            jobEnabledTime = Instant.now(),
+            metadataID = null
+        ).let { createRollup(it, it.id) }
         createRollupSourceIndex(rollup)
         updateRollupStartTime(rollup)
 

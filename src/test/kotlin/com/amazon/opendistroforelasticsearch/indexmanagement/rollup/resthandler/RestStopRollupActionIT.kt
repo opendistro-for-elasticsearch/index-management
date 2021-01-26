@@ -114,16 +114,14 @@ class RestStopRollupActionIT : RollupRestTestCase() {
     @Throws(Exception::class)
     fun `test stopping a failed rollup`() {
         // Create a rollup that will fail because no source index
-        val rollup = createRollup(
-            randomRollup()
-                .copy(
-                    continuous = false,
-                    jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
-                    enabled = true,
-                    jobEnabledTime = Instant.now(),
-                    metadataID = null
-                )
-        )
+        val rollup = randomRollup().copy(
+            id = "test_stopping_a_failed_rollup",
+            continuous = false,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            enabled = true,
+            jobEnabledTime = Instant.now(),
+            metadataID = null
+        ).let { createRollup(it, it.id) }
         updateRollupStartTime(rollup)
 
         // Assert its in failed
@@ -231,12 +229,14 @@ class RestStopRollupActionIT : RollupRestTestCase() {
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
             assertEquals("Rollup is not STARTED", RollupMetadata.Status.STARTED, rollupMetadata.status)
-        }
 
-        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
-        assertEquals("Stop rollup failed", RestStatus.OK, response.restStatus())
-        val expectedResponse = mapOf("acknowledged" to true)
-        assertEquals(expectedResponse, response.asMap())
+            // There are two calls to _stop happening serially which is prone to version conflicts during an ongoing job
+            // so including it in a waitFor to ensure it can retry a few times
+            val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
+            assertEquals("Stop rollup failed", RestStatus.OK, response.restStatus())
+            val expectedResponse = mapOf("acknowledged" to true)
+            assertEquals(expectedResponse, response.asMap())
+        }
 
         val updatedRollup = getRollup(rollup.id)
         assertFalse("Rollup was not disabled", updatedRollup.enabled)

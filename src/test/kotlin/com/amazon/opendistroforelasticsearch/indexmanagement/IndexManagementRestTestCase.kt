@@ -23,7 +23,6 @@ import org.elasticsearch.client.Response
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.test.rest.ESRestTestCase
 import org.junit.AfterClass
 import org.junit.Before
 import org.junit.rules.DisableOnDebug
@@ -34,7 +33,7 @@ import javax.management.ObjectName
 import javax.management.remote.JMXConnectorFactory
 import javax.management.remote.JMXServiceURL
 
-abstract class IndexManagementRestTestCase : ESRestTestCase() {
+abstract class IndexManagementRestTestCase : ODFERestTestCase() {
 
     // Having issues with tests leaking into other tests and mappings being incorrect and they are not caught by any pending task wait check as
     // they do not go through the pending task queue. Ideally this should probably be written in a way to wait for the

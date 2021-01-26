@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.filterNotNullValues
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import org.apache.logging.log4j.LogManager
@@ -38,6 +37,7 @@ private val log = LogManager.getLogger("ISMTemplateService")
  * @param indexMetadata cluster state index metadata
  * @return policyID
  */
+@Suppress("ReturnCount")
 fun Map<String, ISMTemplate>.findMatchingPolicy(indexMetadata: IndexMetadata): String? {
     if (this.isEmpty()) return null
 
@@ -64,7 +64,6 @@ fun Map<String, ISMTemplate>.findMatchingPolicy(indexMetadata: IndexMetadata): S
 
     return matchedPolicy
 }
-
 
 /**
  * validate the template Name and indexPattern provided in the template

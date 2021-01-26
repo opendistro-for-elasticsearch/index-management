@@ -73,6 +73,7 @@ class TransportChangePolicyAction @Inject constructor(
         ChangePolicyHandler(client, listener, request).start()
     }
 
+    @Suppress("TooManyFunctions")
     inner class ChangePolicyHandler(
         private val client: NodeClient,
         private val actionListener: ActionListener<ISMStatusResponse>,

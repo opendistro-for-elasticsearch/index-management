@@ -33,7 +33,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
-import org.junit.Assert
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale

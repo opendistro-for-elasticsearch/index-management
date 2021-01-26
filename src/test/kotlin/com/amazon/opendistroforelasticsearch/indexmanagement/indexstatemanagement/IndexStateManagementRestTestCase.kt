@@ -719,7 +719,6 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         val templates = response["ism_templates"] as ArrayList<Map<String, Any?>>
 
         templatePredicates.forEachIndexed { ind, (_, predicates) ->
-            // assertTrue("The template: $name was not found in the response: $response", templates.containsKey(name))
             val template = templates[ind]
             predicates.forEach { (fieldName, predicate) ->
                 assertTrue("The key: $fieldName was not found in the response: $template", template.containsKey(fieldName))

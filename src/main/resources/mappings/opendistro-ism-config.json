@@ -445,9 +445,6 @@
         },
         "ism_template": {
           "properties": {
-            "template_name": {
-              "type": "keyword"
-            },
             "index_patterns": {
               "type": "keyword"
             },

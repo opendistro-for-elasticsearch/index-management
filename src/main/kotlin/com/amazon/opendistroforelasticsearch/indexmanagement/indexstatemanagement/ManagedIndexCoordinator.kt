@@ -19,7 +19,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService.Companion.findMatchingPolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
@@ -270,12 +269,14 @@ class ManagedIndexCoordinator(
         * */
         var hasCreateRequests = false
         val updateManagedIndicesRequests = mutableListOf<DocWriteRequest<*>>()
+        val indicesWithPolicyID = mutableListOf<String>()
         val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
         event.state().metadata().indices().forEach {
             val previousIndexMetaData = event.previousState().metadata().index(it.value.index)
             val policyID = it.value.getPolicyID()
             val request: DocWriteRequest<*>? = when {
                 it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyID != null -> {
+                    indicesWithPolicyID.add(it.value.index.name)
                     hasCreateRequests = true
                     managedIndexConfigIndexRequest(it.value.index.name, it.value.indexUUID, policyID, jobInterval)
                 }
@@ -289,8 +290,12 @@ class ManagedIndexCoordinator(
             if (it.value.shouldDeleteManagedIndexMetaData()) indicesToRemoveManagedIndexMetaDataFrom.add(it.value.index)
         }
 
-        // check if newly created indices matching any ISM templates
-        val updateMatchingIndexReq = getMatchingIndicesUpdateReq(event.state(), event.indicesCreated())
+        // Check if newly created indices matching any ISM templates
+        var updateMatchingIndexReq = emptyList<DocWriteRequest<*>>()
+        // filter out indices with policyID, they will be picked up in previous block
+        val indicesCreated = event.indicesCreated().filter { it !in indicesWithPolicyID }
+        if (indicesCreated.isNotEmpty()) // only check template match if there are new created indices
+            updateMatchingIndexReq = getMatchingIndicesUpdateReq(event.state(), indicesCreated)
         if (updateMatchingIndexReq.isNotEmpty()) hasCreateRequests = true
 
         updateManagedIndices(updateManagedIndicesRequests + updateMatchingIndexReq + indicesDeletedRequests, hasCreateRequests)
@@ -305,7 +310,7 @@ class ManagedIndexCoordinator(
         val templates = getISMTemplates()
 
         val indexToMatchedPolicy = indexNames.map { indexName ->
-            indexName to findMatchingPolicy(templates, indexMetadatas[indexName])
+            indexName to templates.findMatchingPolicy(indexMetadatas[indexName])
         }.toMap()
 
         val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
@@ -335,6 +340,9 @@ class ManagedIndexCoordinator(
         } catch (ex: IndexNotFoundException) {
             emptyMap()
         } catch (ex: ClusterBlockException) {
+            emptyMap()
+        } catch (e: Exception) {
+            logger.error("Failed to get ISM templates", e)
             emptyMap()
         }
     }

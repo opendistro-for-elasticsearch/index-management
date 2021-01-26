@@ -112,7 +112,9 @@ fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
  * parse search response with this function
  *
  * @return map of policyID to ISMTemplate in this policy
+ * @throws [IllegalArgumentException]
  */
+@Throws(Exception::class)
 fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXContentRegistry = NamedXContentRegistry.EMPTY):
     Map<String, ISMTemplate?> {
     return response.hits.hits.map {

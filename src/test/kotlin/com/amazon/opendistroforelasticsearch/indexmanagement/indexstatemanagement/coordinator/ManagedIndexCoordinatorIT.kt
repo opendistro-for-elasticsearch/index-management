@@ -33,6 +33,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
+import org.junit.Assert
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -70,6 +71,9 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
     }
 
     fun `test creating index with invalid policy_id`() {
+        wipeAllODFEIndices()
+        assertIndexDoesNotExist(INDEX_MANAGEMENT_INDEX)
+
         val indexOne = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)
         val indexTwo = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)
         val indexThree = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)

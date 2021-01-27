@@ -27,7 +27,7 @@ import java.time.temporal.ChronoUnit
 
 class GetPolicyResponseTests : ESTestCase() {
 
-    fun `test explain response`() {
+    fun `test get policy response`() {
         val id = "id"
         val version: Long = 1
         val primaryTerm: Long = 123

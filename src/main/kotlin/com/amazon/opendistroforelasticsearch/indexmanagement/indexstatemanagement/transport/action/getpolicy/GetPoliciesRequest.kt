@@ -1,11 +1,11 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
  * A copy of the License is located at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * or in the "license" file accompanying this file. This file is distributed
  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -13,40 +13,27 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
+package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
-import org.elasticsearch.common.unit.TimeValue
 import java.io.IOException
 
-class ExplainRequest : ActionRequest {
+class GetPoliciesRequest : ActionRequest {
 
-    val indices: List<String>
-    val local: Boolean
-    val masterTimeout: TimeValue
     val searchParams: SearchParams
 
     constructor(
-        indices: List<String>,
-        local: Boolean,
-        masterTimeout: TimeValue,
         searchParams: SearchParams
     ) : super() {
-        this.indices = indices
-        this.local = local
-        this.masterTimeout = masterTimeout
         this.searchParams = searchParams
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        indices = sin.readStringList(),
-        local = sin.readBoolean(),
-        masterTimeout = sin.readTimeValue(),
         searchParams = SearchParams(sin)
     )
 
@@ -56,9 +43,6 @@ class ExplainRequest : ActionRequest {
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeStringCollection(indices)
-        out.writeBoolean(local)
-        out.writeTimeValue(masterTimeout)
         searchParams.writeTo(out)
     }
 }

@@ -50,7 +50,7 @@ class AttemptCallForceMergeStep(
 
     override fun isIdempotent() = false
 
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "ComplexMethod")
     override suspend fun execute(): AttemptCallForceMergeStep {
         try {
 

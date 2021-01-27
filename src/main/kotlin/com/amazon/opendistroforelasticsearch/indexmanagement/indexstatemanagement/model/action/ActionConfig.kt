@@ -87,6 +87,7 @@ abstract class ActionConfig(
         // TODO clean up for actionIndex
         @JvmStatic
         @Throws(IOException::class)
+        @Suppress("ComplexMethod")
         fun fromStreamInput(sin: StreamInput): ActionConfig {
             val type = sin.readEnum(ActionType::class.java)
             val actionIndex = sin.readInt()

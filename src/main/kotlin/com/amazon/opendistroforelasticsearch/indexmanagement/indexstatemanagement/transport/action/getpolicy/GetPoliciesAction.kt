@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import org.elasticsearch.action.ActionType
 
-class GetPolicyAction private constructor() : ActionType<GetPolicyResponse>(NAME, ::GetPolicyResponse) {
+class GetPoliciesAction private constructor() : ActionType<GetPoliciesResponse>(NAME, ::GetPoliciesResponse) {
     companion object {
-        val INSTANCE = GetPolicyAction()
-        val NAME = "cluster:admin/opendistro/ism/policy/get"
+        val INSTANCE = GetPoliciesAction()
+        val NAME = "cluster:admin/opendistro/ism/policy/search"
     }
 }

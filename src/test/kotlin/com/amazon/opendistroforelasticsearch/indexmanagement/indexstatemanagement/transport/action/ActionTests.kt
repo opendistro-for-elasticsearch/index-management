@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.deletepolicy.DeletePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.indexpolicy.IndexPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPoliciesAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.getpolicy.GetPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy.RemovePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.retryfailedmanagedindex.RetryFailedManagedIndexAction
@@ -64,5 +65,10 @@ class ActionTests : ESTestCase() {
     fun `test get policy action name`() {
         assertNotNull(GetPolicyAction.NAME)
         assertEquals(GetPolicyAction.INSTANCE.name(), GetPolicyAction.NAME)
+    }
+
+    fun `test get policies action name`() {
+        assertNotNull(GetPoliciesAction.NAME)
+        assertEquals(GetPoliciesAction.INSTANCE.name(), GetPoliciesAction.NAME)
     }
 }

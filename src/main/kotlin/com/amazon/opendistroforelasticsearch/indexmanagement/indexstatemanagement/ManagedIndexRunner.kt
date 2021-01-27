@@ -534,7 +534,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
      * Initializes the change policy process where we will get the policy using the change policy's policyID, update the [ManagedIndexMetaData]
      * to reflect the new policy, and save the new policy to the [ManagedIndexConfig] while resetting the change policy to null
      */
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "ComplexMethod")
     private suspend fun initChangePolicy(
         managedIndexConfig: ManagedIndexConfig,
         managedIndexMetaData: ManagedIndexMetaData,

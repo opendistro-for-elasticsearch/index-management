@@ -47,26 +47,49 @@ class TransportGetRollupAction @Inject constructor(
     override fun doExecute(task: Task, request: GetRollupRequest, listener: ActionListener<GetRollupResponse>) {
         val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, request.id)
             .fetchSourceContext(request.srcContext).preference(request.preference)
-        client.get(getRequest, object : ActionListener<GetResponse> {
-            override fun onResponse(response: GetResponse) {
-                if (!response.isExists) {
-                    return listener.onFailure(ElasticsearchStatusException("Rollup not found", RestStatus.NOT_FOUND))
-                }
-
-                var rollup: Rollup? = null
-                if (!response.isSourceEmpty) {
-                    XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE,
-                    response.sourceAsBytesRef, XContentType.JSON).use { xcp ->
-                        rollup = xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, Rollup.Companion::parse)
+        client.threadPool().threadContext.stashContext().use {
+            client.get(getRequest, object : ActionListener<GetResponse> {
+                override fun onResponse(response: GetResponse) {
+                    if (!response.isExists) {
+                        return listener.onFailure(
+                            ElasticsearchStatusException(
+                                "Rollup not found",
+                                RestStatus.NOT_FOUND
+                            )
+                        )
                     }
+
+                    var rollup: Rollup? = null
+                    if (!response.isSourceEmpty) {
+                        XContentHelper.createParser(
+                            xContentRegistry, LoggingDeprecationHandler.INSTANCE,
+                            response.sourceAsBytesRef, XContentType.JSON
+                        ).use { xcp ->
+                            rollup = xcp.parseWithType(
+                                response.id,
+                                response.seqNo,
+                                response.primaryTerm,
+                                Rollup.Companion::parse
+                            )
+                        }
+                    }
+
+                    listener.onResponse(
+                        GetRollupResponse(
+                            response.id,
+                            response.version,
+                            response.seqNo,
+                            response.primaryTerm,
+                            RestStatus.OK,
+                            rollup
+                        )
+                    )
                 }
 
-                listener.onResponse(GetRollupResponse(response.id, response.version, response.seqNo, response.primaryTerm, RestStatus.OK, rollup))
-            }
-
-            override fun onFailure(e: Exception) {
-                listener.onFailure(e)
-            }
-        })
+                override fun onFailure(e: Exception) {
+                    listener.onFailure(e)
+                }
+            })
+        }
     }
 }

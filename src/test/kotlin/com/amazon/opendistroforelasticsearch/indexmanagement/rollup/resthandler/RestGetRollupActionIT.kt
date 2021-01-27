@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
@@ -37,7 +38,8 @@ class RestGetRollupActionIT : RollupRestTestCase() {
         rollup = rollup.copy(
             schemaVersion = indexedRollup.schemaVersion,
             jobLastUpdatedTime = indexedRollup.jobLastUpdatedTime,
-            jobSchedule = indexedRollup.jobSchedule
+            jobSchedule = indexedRollup.jobSchedule,
+            user = User("", listOf(), listOf(), listOf())
         )
         assertEquals("Indexed and retrieved rollup differ", rollup, indexedRollup)
     }
@@ -74,7 +76,7 @@ class RestGetRollupActionIT : RollupRestTestCase() {
             assertEquals(testRollup.primaryTerm, (foundRollup["_primary_term"] as Int).toLong())
             assertEquals(testRollup.id, innerRollup["rollup_id"] as String)
             // Doesn't matter what rollup sets, current system is at schema version 5
-            assertEquals(6, (innerRollup["schema_version"] as Int).toLong())
+            assertEquals(7, (innerRollup["schema_version"] as Int).toLong())
             assertEquals(testRollup.enabled, innerRollup["enabled"] as Boolean)
             assertEquals(testRollup.enabledTime?.toEpochMilli(), (innerRollup["enabled_time"] as Number?)?.toLong())
             // Last updated time will never be correct as it gets updated in the API call
@@ -83,7 +85,6 @@ class RestGetRollupActionIT : RollupRestTestCase() {
             assertEquals(testRollup.targetIndex, innerRollup["target_index"] as String)
             assertEquals(testRollup.sourceIndex, innerRollup["source_index"] as String)
             assertEquals(testRollup.metadataID, innerRollup["metadata_id"] as String?)
-            assertEquals(testRollup.roles, innerRollup["roles"] as List<String>)
             assertEquals(testRollup.pageSize, innerRollup["page_size"] as Int)
             assertEquals(testRollup.description, innerRollup["description"] as String)
             assertEquals(testRollup.delay, (innerRollup["delay"] as Number?)?.toLong())

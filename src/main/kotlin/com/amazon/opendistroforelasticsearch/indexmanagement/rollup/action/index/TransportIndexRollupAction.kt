@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index
 
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
@@ -22,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.G
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -53,7 +56,15 @@ class TransportIndexRollupAction @Inject constructor(
 
     private val log = LogManager.getLogger(javaClass)
 
+    @Volatile lateinit var user: User
+    @Volatile var userName: String? = null
+
     override fun doExecute(task: Task, request: IndexRollupRequest, listener: ActionListener<IndexRollupResponse>) {
+        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
+        log.info("User and roles string from thread context: $userStr")
+        user = resolveUser(User.parse(userStr))
+        userName = client.threadPool().threadContext.getTransient<String>(ConfigConstants.INJECTED_USER)
+
         IndexRollupHandler(client, listener, request).start()
     }
 
@@ -108,12 +119,16 @@ class TransportIndexRollupAction @Inject constructor(
             if (rollup.metrics != newRollup.metrics) modified.add(Rollup.METRICS_FIELD)
             if (rollup.sourceIndex != newRollup.sourceIndex) modified.add(Rollup.SOURCE_INDEX_FIELD)
             if (rollup.targetIndex != newRollup.targetIndex) modified.add(Rollup.TARGET_INDEX_FIELD)
-            if (rollup.roles != newRollup.roles) modified.add(Rollup.ROLES_FIELD)
             return modified.toList()
         }
 
         private fun putRollup() {
-            val rollup = request.rollup.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
+            var rollup = request.rollup.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
+
+            // in rollup runner, we inject a user name to not update user field in rollup
+            if (userName == null)
+                rollup = rollup.copy(user = user)
+
             request.index(INDEX_MANAGEMENT_INDEX)
                 .id(request.rollup.id)
                 .source(rollup.toXContent(jsonBuilder(), ToXContent.EMPTY_PARAMS))

@@ -119,6 +119,8 @@ dependencies {
     compile "org.jetbrains:annotations:13.0"
     compile "com.amazon.opendistroforelasticsearch:notification:${opendistroVersion}.0"
     compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.2"
+    compile "org.elasticsearch.client:elasticsearch-rest-client:${es_version}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlin_version}"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"

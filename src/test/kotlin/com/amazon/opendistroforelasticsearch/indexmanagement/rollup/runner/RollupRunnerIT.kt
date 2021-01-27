@@ -243,8 +243,8 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         val rollup = Rollup(
             id = "basic_stats_check_runner_fifth",
-            schemaVersion = 1L,
             enabled = true,
+            schemaVersion = 1L,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -252,20 +252,20 @@ class RollupRunnerIT : RollupRestTestCase() {
             sourceIndex = "source_runner_fifth",
             targetIndex = "target_runner_fifth",
             metadataID = null,
-            roles = emptyList(),
             pageSize = 100,
             delay = 0,
             continuous = false,
             dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h")),
             metrics = listOf(
                 RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
-            )
+            ),
+            user = null
         ).let { createRollup(it, it.id) }
 
         val secondRollup = Rollup(
             id = "all_inclusive_intervals_runner_fifth",
-            schemaVersion = 1L,
             enabled = true,
+            schemaVersion = 1L,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -273,20 +273,20 @@ class RollupRunnerIT : RollupRestTestCase() {
             sourceIndex = "source_runner_fifth",
             targetIndex = "target_runner_fifth",
             metadataID = null,
-            roles = emptyList(),
             pageSize = 100,
             delay = 0,
             continuous = false,
             dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "100d")),
             metrics = listOf(
                 RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
-            )
+            ),
+            user = null
         ).let { createRollup(it, it.id) }
 
         val thirdRollup = Rollup(
             id = "second_interval_runner_fifth",
-            schemaVersion = 1L,
             enabled = true,
+            schemaVersion = 1L,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -294,14 +294,14 @@ class RollupRunnerIT : RollupRestTestCase() {
             sourceIndex = "source_runner_fifth",
             targetIndex = "target_runner_fifth",
             metadataID = null,
-            roles = emptyList(),
             pageSize = 100,
             delay = 0,
             continuous = false,
             dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1s")),
             metrics = listOf(
                 RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
-            )
+            ),
+            user = null
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)
@@ -386,8 +386,8 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         val rollup = Rollup(
             id = "page_size_runner_sixth",
-            schemaVersion = 1L,
             enabled = true,
+            schemaVersion = 1L,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -395,14 +395,14 @@ class RollupRunnerIT : RollupRestTestCase() {
             sourceIndex = "source_runner_sixth",
             targetIndex = "target_runner_sixth",
             metadataID = null,
-            roles = emptyList(),
             pageSize = 1,
             delay = 0,
             continuous = false,
             dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1s")),
             metrics = listOf(
                 RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))
-            )
+            ),
+            user = null
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)
@@ -443,8 +443,8 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         val rollup = Rollup(
             id = "page_size_no_retry_first_runner_seventh",
-            schemaVersion = 1L,
             enabled = true,
+            schemaVersion = 1L,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -452,12 +452,12 @@ class RollupRunnerIT : RollupRestTestCase() {
             sourceIndex = "source_runner_seventh",
             targetIndex = "target_runner_seventh",
             metadataID = null,
-            roles = emptyList(),
             pageSize = 100,
             delay = 0,
             continuous = false,
             dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1m")),
-            metrics = listOf(RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average())))
+            metrics = listOf(RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))),
+            user = null
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)
@@ -478,8 +478,8 @@ class RollupRunnerIT : RollupRestTestCase() {
 
         val secondRollup = Rollup(
             id = "page_size_with_retry_second_runner_seventh",
-            schemaVersion = 1L,
             enabled = true,
+            schemaVersion = 1L,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -487,12 +487,12 @@ class RollupRunnerIT : RollupRestTestCase() {
             sourceIndex = "source_runner_seventh",
             targetIndex = "new_target_runner_seventh",
             metadataID = null,
-            roles = emptyList(),
             pageSize = 100,
             delay = 0,
             continuous = false,
             dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1m")),
-            metrics = listOf(RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average())))
+            metrics = listOf(RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(), ValueCount(), Average()))),
+            user = null
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(secondRollup)

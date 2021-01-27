@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator.Companion.MAX_HITS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.index.IndexNotFoundException
@@ -88,7 +89,15 @@ class TransportExplainAction @Inject constructor(
                     .defaultField("managed_index.name")
                     .defaultOperator(Operator.AND))
 
+            var searchSourceBuilder = SearchSourceBuilder()
+                .from(params.from)
+                .fetchSource(FETCH_SOURCE)
+                .seqNoAndPrimaryTerm(true)
+                .version(true)
+                .sort(sortBuilder)
+
             if (!explainAll) {
+                searchSourceBuilder = searchSourceBuilder.size(MAX_HITS)
                 if (wildcard) { // explain/index*
                     indices.forEach {
                         if (it.contains("*")) {
@@ -101,17 +110,11 @@ class TransportExplainAction @Inject constructor(
                     queryBuilder.filter(QueryBuilders.termsQuery("managed_index.index", indices))
                 }
             } else { // explain all
+                searchSourceBuilder = searchSourceBuilder.size(params.size)
                 queryBuilder.filter(QueryBuilders.existsQuery("managed_index"))
             }
 
-            val searchSourceBuilder = SearchSourceBuilder()
-                .from(params.from)
-                .size(params.size)
-                .fetchSource(FETCH_SOURCE)
-                .seqNoAndPrimaryTerm(true)
-                .version(true)
-                .sort(sortBuilder)
-                .query(queryBuilder)
+            searchSourceBuilder = searchSourceBuilder.query(queryBuilder)
 
             val searchRequest = SearchRequest()
                 .indices(INDEX_MANAGEMENT_INDEX)
@@ -140,7 +143,9 @@ class TransportExplainAction @Inject constructor(
                     // explain all only return managed indices
                     if (explainAll) {
                         if (managedIndices.size == 0) {
-                            emptyResponse()
+                            // edge case: if specify query param pagination size to be 0
+                            // we still show total managed indices
+                            emptyResponse(totalManagedIndices)
                             return
                         } else {
                             indexNames.addAll(managedIndices)
@@ -234,9 +239,9 @@ class TransportExplainAction @Inject constructor(
             actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
         }
 
-        fun emptyResponse() {
+        fun emptyResponse(size: Int = 0) {
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), 0, emptyMap()))
+                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), size, emptyMap()))
                 return
             }
             actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList()))

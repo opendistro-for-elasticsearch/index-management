@@ -65,7 +65,7 @@ class ExplainAllResponse : ExplainResponse, ToXContentObject {
             builder.field("enabled", enabledState[name])
             builder.endObject()
         }
-        builder.field("totalManagedIndices", totalManagedIndices)
+        builder.field("total_managed_indices", totalManagedIndices)
         return builder.endObject()
     }
 }

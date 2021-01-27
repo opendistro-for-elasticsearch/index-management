@@ -66,7 +66,7 @@ class GetPoliciesResponse : ActionResponse, ToXContentObject {
                 }
             }
             .endArray()
-            .field("totalPolicies", totalPolicies)
+            .field("total_policies", totalPolicies)
             .endObject()
     }
 }

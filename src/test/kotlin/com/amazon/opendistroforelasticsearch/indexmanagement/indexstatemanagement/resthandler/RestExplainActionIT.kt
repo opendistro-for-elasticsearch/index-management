@@ -43,7 +43,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         val indexName = "${testIndexName}_movies"
         createIndex(indexName, null)
         val expected = mapOf(
-            "totalManagedIndices" to 0
+            "total_managed_indices" to 0
         )
         assertResponseMap(expected, getExplainMap(null))
     }
@@ -88,7 +88,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                         "policy_id" to policy.id,
                         "enabled" to true
                 ),
-                "totalManagedIndices" to 1
+                "total_managed_indices" to 1
         )
         waitFor {
             assertResponseMap(expected, getExplainMap(null))
@@ -186,7 +186,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
     private fun assertResponseMap(expected: Map<String, Any>, actual: Map<String, Any>) {
         assertEquals("Explain Map does not match", expected.size, actual.size)
         for (metaDataEntry in expected) {
-            if (metaDataEntry.key == "totalManagedIndices") {
+            if (metaDataEntry.key == "total_managed_indices") {
                 assertEquals(metaDataEntry.value, actual[metaDataEntry.key])
                 continue
             }

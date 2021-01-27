@@ -487,7 +487,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         while (xcp.nextToken() != Token.END_OBJECT) {
             val cn = xcp.currentName()
             xcp.nextToken()
-            if (cn == "totalManagedIndices") continue
+            if (cn == "total_managed_indices") continue
 
             metadata = ManagedIndexMetaData.parse(xcp)
         }

@@ -286,7 +286,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         val actualResponse = client().makeRequest(RestRequest.Method.GET.toString(), POLICY_BASE_URI).asMap()
         val expectedResponse = mapOf(
             "policies" to emptyList<Policy>(),
-            "totalPolicies" to 0
+            "total_policies" to 0
         )
         assertEquals(expectedResponse, actualResponse)
     }
@@ -298,6 +298,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
 
         val actualMessage = response.asMap()
         val expectedMessage = mapOf(
+            "total_policies" to 1,
             "policies" to listOf(mapOf(
                 _SEQ_NO to policy.seqNo,
                 _ID to policy.id,
@@ -317,8 +318,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
                         )
                     }
                 )
-            )),
-            "totalPolicies" to 1
+            ))
         )
 
         assertEquals(expectedMessage.toString(), actualMessage.toString())

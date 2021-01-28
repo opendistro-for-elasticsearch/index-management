@@ -17,10 +17,18 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.cluster.metadata.IndexMetadata
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentType
 
 /**
  * Compares current and previous IndexMetaData to determine if we should create [ManagedIndexConfig].
@@ -98,3 +106,28 @@ fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
     }
     return null
 }
+
+/**
+ * Do a exists search query to retrieve all policy with ism_template field
+ * parse search response with this function
+ *
+ * @return map of policyID to ISMTemplate in this policy
+ * @throws [IllegalArgumentException]
+ */
+@Throws(Exception::class)
+fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXContentRegistry = NamedXContentRegistry.EMPTY):
+    Map<String, ISMTemplate?> {
+    return response.hits.hits.map {
+        val id = it.id
+        val seqNo = it.seqNo
+        val primaryTerm = it.primaryTerm
+        val xcp = XContentFactory.xContent(XContentType.JSON)
+            .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, it.sourceAsString)
+        xcp.parseWithType(id, seqNo, primaryTerm, Policy.Companion::parse)
+            .copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
+    }.map { it.id to it.ismTemplate }.toMap()
+}
+
+@Suppress("UNCHECKED_CAST")
+fun <K, V> Map<K, V?>.filterNotNullValues(): Map<K, V> =
+    filterValues { it != null } as Map<K, V>

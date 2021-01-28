@@ -308,6 +308,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
                     "policy_id" to policy.id,
                     "last_updated_time" to policy.lastUpdatedTime.toEpochMilli(),
                     "default_state" to policy.defaultState,
+                    "ism_template" to null,
                     "description" to policy.description,
                     "error_notification" to policy.errorNotification,
                     "states" to policy.states.map {

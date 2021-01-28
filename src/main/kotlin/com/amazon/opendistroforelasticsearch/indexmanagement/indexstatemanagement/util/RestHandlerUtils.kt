@@ -35,6 +35,8 @@ const val FAILURES = "failures"
 const val FAILED_INDICES = "failed_indices"
 const val UPDATED_INDICES = "updated_indices"
 
+const val ISM_TEMPLATE_FIELD = "policy.ism_template"
+
 const val DEFAULT_PAGINATION_SIZE = 20
 const val DEFAULT_PAGINATION_FROM = 0
 const val DEFAULT_JOB_SORT_FIELD = "managed_index.index"

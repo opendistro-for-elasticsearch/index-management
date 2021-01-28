@@ -17,15 +17,19 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.filterNotNullValues
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldCreateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldDeleteManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.shouldDeleteManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -38,6 +42,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexConfigIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
@@ -61,13 +66,16 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
+import org.elasticsearch.action.search.SearchPhaseExecutionException
+import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterState
-import org.elasticsearch.cluster.LocalNodeMasterListener
+import org.elasticsearch.cluster.ClusterStateListener
+import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.component.LifecycleListener
@@ -79,7 +87,10 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
+import org.elasticsearch.index.IndexNotFoundException
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
 
@@ -106,7 +117,7 @@ class ManagedIndexCoordinator(
     private val clusterService: ClusterService,
     private val threadPool: ThreadPool,
     indexManagementIndices: IndexManagementIndices
-) : LocalNodeMasterListener,
+) : ClusterStateListener,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexCoordinator")),
     LifecycleListener() {
 
@@ -122,10 +133,11 @@ class ManagedIndexCoordinator(
             BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings), COORDINATOR_BACKOFF_COUNT.get(settings))
     @Volatile private var jobInterval = JOB_INTERVAL.get(settings)
 
+    @Volatile private var isMaster = false
+
     init {
         clusterService.addListener(this)
         clusterService.addLifecycleListener(this)
-        clusterService.addLocalNodeMasterListener(this)
         clusterService.clusterSettings.addSettingsUpdateConsumer(SWEEP_PERIOD) {
             sweepPeriod = it
             initBackgroundSweep()
@@ -142,18 +154,34 @@ class ManagedIndexCoordinator(
         }
     }
 
-    override fun onMaster() {
+    private fun executorName(): String {
+        return ThreadPool.Names.MANAGEMENT
+    }
+
+    fun onMaster() {
         // Init background sweep when promoted to being master
         initBackgroundSweep()
     }
 
-    override fun offMaster() {
+    fun offMaster() {
         // Cancel background sweep when demoted from being master
         scheduledFullSweep?.cancel()
     }
 
     @Suppress("ReturnCount")
     override fun clusterChanged(event: ClusterChangedEvent) {
+        // Instead of using a LocalNodeMasterListener to track master changes, this service will
+        // track them here to avoid conditions where master listener events run after other
+        // listeners that depend on what happened in the master listener
+        if (this.isMaster != event.localNodeMaster()) {
+            this.isMaster = event.localNodeMaster()
+            if (this.isMaster) {
+                onMaster()
+            } else {
+                offMaster()
+            }
+        }
+
         if (!isIndexStateManagementEnabled()) return
 
         if (!event.localNodeMaster()) return
@@ -242,12 +270,14 @@ class ManagedIndexCoordinator(
         * */
         var hasCreateRequests = false
         val updateManagedIndicesRequests = mutableListOf<DocWriteRequest<*>>()
+        val indicesWithPolicyID = mutableListOf<String>()
         val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
         event.state().metadata().indices().forEach {
             val previousIndexMetaData = event.previousState().metadata().index(it.value.index)
             val policyID = it.value.getPolicyID()
             val request: DocWriteRequest<*>? = when {
                 it.value.shouldCreateManagedIndexConfig(previousIndexMetaData) && policyID != null -> {
+                    indicesWithPolicyID.add(it.value.index.name)
                     hasCreateRequests = true
                     managedIndexConfigIndexRequest(it.value.index.name, it.value.indexUUID, policyID, jobInterval)
                 }
@@ -261,8 +291,66 @@ class ManagedIndexCoordinator(
             if (it.value.shouldDeleteManagedIndexMetaData()) indicesToRemoveManagedIndexMetaDataFrom.add(it.value.index)
         }
 
-        updateManagedIndices(updateManagedIndicesRequests + indicesDeletedRequests, hasCreateRequests)
+        // Check if newly created indices matching any ISM templates
+        var updateMatchingIndexReq = emptyList<DocWriteRequest<*>>()
+        // filter out indices with policyID, they will be picked up in previous block
+        val indicesCreated = event.indicesCreated().filter { it !in indicesWithPolicyID }
+        if (indicesCreated.isNotEmpty()) // only check template match if there are new created indices
+            updateMatchingIndexReq = getMatchingIndicesUpdateReq(event.state(), indicesCreated)
+        if (updateMatchingIndexReq.isNotEmpty()) hasCreateRequests = true
+
+        updateManagedIndices(updateManagedIndicesRequests + updateMatchingIndexReq + indicesDeletedRequests, hasCreateRequests)
         clearManagedIndexMetaData(indicesToRemoveManagedIndexMetaDataFrom)
+    }
+
+    /**
+     * build requests to create jobs for indices matching ISM templates
+     */
+    suspend fun getMatchingIndicesUpdateReq(clusterState: ClusterState, indexNames: List<String>): List<DocWriteRequest<*>> {
+        val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
+        if (indexNames.isEmpty()) return updateManagedIndexReqs
+
+        val indexMetadatas = clusterState.metadata.indices
+        val templates = getISMTemplates()
+
+        val indexToMatchedPolicy = indexNames.map { indexName ->
+            indexName to templates.findMatchingPolicy(indexMetadatas[indexName])
+        }.toMap()
+
+        indexToMatchedPolicy.filterNotNullValues()
+            .forEach { (index, policyID) ->
+            val indexUuid = indexMetadatas[index].indexUUID
+            if (indexUuid != null) {
+                logger.info("index [$index] will be managed by policy [$policyID]")
+                updateManagedIndexReqs.add(
+                    managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval))
+            }
+        }
+
+        return updateManagedIndexReqs
+    }
+
+    suspend fun getISMTemplates(): Map<String, ISMTemplate> {
+        val searchRequest = SearchRequest()
+            .source(
+                SearchSourceBuilder().query(
+                    QueryBuilders.existsQuery(ISM_TEMPLATE_FIELD)))
+            .indices(INDEX_MANAGEMENT_INDEX)
+
+        return try {
+            val response: SearchResponse = client.suspendUntil { search(searchRequest, it) }
+            getPolicyToTemplateMap(response).filterNotNullValues()
+        } catch (ex: IndexNotFoundException) {
+            emptyMap()
+        } catch (ex: ClusterBlockException) {
+            emptyMap()
+        } catch (e: SearchPhaseExecutionException) {
+            logger.error("Failed to get ISM templates: $e")
+            emptyMap()
+        } catch (e: Exception) {
+            logger.error("Failed to get ISM templates", e)
+            emptyMap()
+        }
     }
 
     /**
@@ -302,7 +390,7 @@ class ManagedIndexCoordinator(
             }
         }
 
-        scheduledFullSweep = threadPool.scheduleWithFixedDelay(scheduledSweep, sweepPeriod, ThreadPool.Names.SAME)
+        scheduledFullSweep = threadPool.scheduleWithFixedDelay(scheduledSweep, sweepPeriod, executorName())
     }
 
     private fun getFullSweepElapsedTime(): TimeValue =
@@ -317,6 +405,13 @@ class ManagedIndexCoordinator(
     @OpenForTesting
     suspend fun sweep() {
         val currentManagedIndices = sweepManagedIndexJobs(client, ismIndices.indexManagementIndexExists())
+
+        // check all un-managed indices, if matches any ism template
+        val unManagedIndices = clusterService.state().metadata.indices.values().filterNotNull()
+                .filter { it.value.indexUUID !in currentManagedIndices.keys }.map { it.value.index.name }
+        val updateMatchingIndicesReq = getMatchingIndicesUpdateReq(clusterService.state(), unManagedIndices)
+        updateManagedIndices(updateMatchingIndicesReq, updateMatchingIndicesReq.isNotEmpty())
+
         val clusterStateManagedIndices = sweepClusterState(clusterService.state())
 
         val createManagedIndexRequests =
@@ -330,6 +425,7 @@ class ManagedIndexCoordinator(
         val requests = createManagedIndexRequests + deleteManagedIndexRequests
         updateManagedIndices(requests, createManagedIndexRequests.isNotEmpty())
         clearManagedIndexMetaData(indicesToDeleteManagedIndexMetaDataFrom)
+
         lastFullSweepTimeNano = System.nanoTime()
     }
 

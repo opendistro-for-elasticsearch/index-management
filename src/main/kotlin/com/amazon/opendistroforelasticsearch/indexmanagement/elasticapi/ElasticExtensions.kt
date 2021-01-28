@@ -17,6 +17,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
 import kotlinx.coroutines.delay
@@ -68,6 +70,13 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
         return nullField(name)
     }
     return this.timeField(name, "${name}_in_millis", instant.toEpochMilli())
+}
+
+fun XContentBuilder.optionalISMTemplateField(name: String, ismTemplate: ISMTemplate?): XContentBuilder {
+    if (ismTemplate == null) {
+        return nullField(name)
+    }
+    return this.field(Policy.ISM_TEMPLATE, ismTemplate)
 }
 
 /**

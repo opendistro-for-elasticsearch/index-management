@@ -190,7 +190,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
     }
 
-    @Suppress("ReturnCount", "ComplexMethod", "LongMethod")
+    @Suppress("ReturnCount", "ComplexMethod", "LongMethod", "ComplexCondition")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
         // doing a check of local cluster health as we do not want to overload master node with potentially a lot of calls
         if (clusterIsRed()) {

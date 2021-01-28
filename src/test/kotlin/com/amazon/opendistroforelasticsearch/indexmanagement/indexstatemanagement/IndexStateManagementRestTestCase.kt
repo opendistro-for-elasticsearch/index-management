@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
@@ -714,6 +715,37 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         val expectedStartTime = expectedAction.startTime
         if (expectedStartTime != null) {
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
+        }
+        return true
+    }
+
+    protected fun assertPredicatesOnISMTemplatesMap(
+        templatePredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, // response map name: predicate
+        response: Map<String, Any?>
+    ) {
+        val templates = response["ism_templates"] as ArrayList<Map<String, Any?>>
+
+        templatePredicates.forEachIndexed { ind, (_, predicates) ->
+            val template = templates[ind]
+            predicates.forEach { (fieldName, predicate) ->
+                assertTrue("The key: $fieldName was not found in the response: $template", template.containsKey(fieldName))
+                assertTrue("Failed predicate assertion for $fieldName in response=($template) predicate=$predicate", predicate(template[fieldName]))
+            }
+        }
+    }
+
+    protected fun assertISMTemplateEquals(expected: ISMTemplate, actualISMTemplateMap: Any?): Boolean {
+        actualISMTemplateMap as Map<String, Any>
+        assertEquals(expected.indexPatterns, actualISMTemplateMap[ISMTemplate.INDEX_PATTERN])
+        assertEquals(expected.priority, actualISMTemplateMap[ISMTemplate.PRIORITY])
+        return true
+    }
+
+    protected fun assertISMTemplateEquals(expected: ISMTemplate, actual: ISMTemplate?): Boolean {
+        assertNotNull(actual)
+        if (actual != null) {
+            assertEquals(expected.indexPatterns, actual.indexPatterns)
+            assertEquals(expected.priority, actual.priority)
         }
         return true
     }

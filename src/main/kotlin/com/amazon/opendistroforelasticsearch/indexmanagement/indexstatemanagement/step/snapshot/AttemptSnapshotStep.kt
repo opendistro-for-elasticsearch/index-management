@@ -147,7 +147,8 @@ class AttemptSnapshotStep(
 
     companion object {
         const val name = "attempt_snapshot"
-        fun getBlockedMessage(denyList: List<String>, repoName: String, index: String) = "Snapshot repository [$repoName] is blocked in $denyList [index=$index]"
+        fun getBlockedMessage(denyList: List<String>, repoName: String, index: String) =
+            "Snapshot repository [$repoName] is blocked in $denyList [index=$index]"
         fun getFailedMessage(index: String) = "Failed to create snapshot [index=$index]"
         fun getFailedConcurrentSnapshotMessage(index: String) = "Concurrent snapshot in progress, retrying next execution [index=$index]"
         fun getSuccessMessage(index: String) = "Successfully started snapshot [index=$index]"

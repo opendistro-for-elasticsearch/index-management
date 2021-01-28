@@ -18,13 +18,13 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.POLICY_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementRestTestCase
-import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomReadOnlyActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomState
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
@@ -34,6 +34,7 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
+import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.junit.annotations.TestLogging
@@ -71,7 +72,8 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
     fun `test creating a policy`() {
         val policy = randomPolicy()
         val policyId = ESTestCase.randomAlphaOfLength(10)
-        val createResponse = client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
+        val createResponse =
+            client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
 
         assertEquals("Create policy failed", RestStatus.CREATED, createResponse.restStatus())
         val responseBody = createResponse.asMap()
@@ -124,10 +126,15 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
             // createRandomPolicy currently does not create a random list of actions so it won't accidentally create one with read_only
             val policy = createRandomPolicy()
             // update the policy to have read_only action which is not allowed
-            val updatedPolicy = policy.copy(defaultState = "some_state", states = listOf(randomState(name = "some_state", actions = listOf(randomReadOnlyActionConfig()))))
-            client().makeRequest("PUT",
+            val updatedPolicy = policy.copy(
+                defaultState = "some_state",
+                states = listOf(randomState(name = "some_state", actions = listOf(randomReadOnlyActionConfig())))
+            )
+            client().makeRequest(
+                "PUT",
                 "$POLICY_BASE_URI/${updatedPolicy.id}?refresh=true&if_seq_no=${updatedPolicy.seqNo}&if_primary_term=${updatedPolicy.primaryTerm}",
-                emptyMap(), updatedPolicy.toHttpEntity())
+                emptyMap(), updatedPolicy.toHttpEntity()
+            )
             fail("Expected 403 Method FORBIDDEN response")
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.FORBIDDEN, e.response.restStatus())
@@ -150,11 +157,13 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         createRandomPolicy()
 
         val response = client().makeRequest("GET", "/$INDEX_MANAGEMENT_INDEX/_mapping")
-        val parserMap = createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
+        val parserMap =
+            createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
         val mappingsMap = parserMap[INDEX_MANAGEMENT_INDEX]!!["mappings"] as Map<String, Any>
         val expected = createParser(
-                XContentType.JSON.xContent(),
-                javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText())
+            XContentType.JSON.xContent(),
+            javaClass.classLoader.getResource("mappings/opendistro-ism-config.json").readText()
+        )
         val expectedMap = expected.map()
 
         assertEquals("Mappings are different", expectedMap, mappingsMap)
@@ -165,9 +174,11 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         val policy = createRandomPolicy()
 
         try {
-            client().makeRequest("PUT",
-                    "$POLICY_BASE_URI/${policy.id}?refresh=true&if_seq_no=10251989&if_primary_term=2342",
-                    emptyMap(), policy.toHttpEntity())
+            client().makeRequest(
+                "PUT",
+                "$POLICY_BASE_URI/${policy.id}?refresh=true&if_seq_no=10251989&if_primary_term=2342",
+                emptyMap(), policy.toHttpEntity()
+            )
             fail("expected 409 ResponseException")
         } catch (e: ResponseException) {
             assertEquals(RestStatus.CONFLICT, e.response.restStatus())
@@ -177,9 +188,11 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
     @Throws(Exception::class)
     fun `test update policy with correct seq_no and primary_term`() {
         val policy = createRandomPolicy()
-        val updateResponse = client().makeRequest("PUT",
-                "$POLICY_BASE_URI/${policy.id}?refresh=true&if_seq_no=${policy.seqNo}&if_primary_term=${policy.primaryTerm}",
-                emptyMap(), policy.toHttpEntity())
+        val updateResponse = client().makeRequest(
+            "PUT",
+            "$POLICY_BASE_URI/${policy.id}?refresh=true&if_seq_no=${policy.seqNo}&if_primary_term=${policy.primaryTerm}",
+            emptyMap(), policy.toHttpEntity()
+        )
 
         assertEquals("Update policy failed", RestStatus.OK, updateResponse.restStatus())
         val responseBody = updateResponse.asMap()
@@ -260,10 +273,54 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
                 }
             }
         """.trimIndent()
-        val response = client().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_search", emptyMap(),
-                StringEntity(request, APPLICATION_JSON))
+        val response = client().makeRequest(
+            "POST", "$INDEX_MANAGEMENT_INDEX/_search", emptyMap(),
+            StringEntity(request, APPLICATION_JSON)
+        )
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
         val searchResponse = SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
         assertTrue("Did not find policy using fuzzy search", searchResponse.hits.hits.size == 1)
+    }
+
+    fun `test get policies before ism init`() {
+        val actualResponse = client().makeRequest(RestRequest.Method.GET.toString(), POLICY_BASE_URI).asMap()
+        val expectedResponse = mapOf(
+            "policies" to emptyList<Policy>(),
+            "total_policies" to 0
+        )
+        assertEquals(expectedResponse, actualResponse)
+    }
+
+    fun `test get policies with actual policy`() {
+        val policy = createRandomPolicy()
+
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), POLICY_BASE_URI)
+
+        val actualMessage = response.asMap()
+        val expectedMessage = mapOf(
+            "total_policies" to 1,
+            "policies" to listOf(mapOf(
+                _SEQ_NO to policy.seqNo,
+                _ID to policy.id,
+                _PRIMARY_TERM to policy.primaryTerm,
+                Policy.POLICY_TYPE to mapOf(
+                    "schema_version" to policy.schemaVersion,
+                    "policy_id" to policy.id,
+                    "last_updated_time" to policy.lastUpdatedTime.toEpochMilli(),
+                    "default_state" to policy.defaultState,
+                    "description" to policy.description,
+                    "error_notification" to policy.errorNotification,
+                    "states" to policy.states.map {
+                        mapOf(
+                            "name" to it.name,
+                            "transitions" to it.transitions,
+                            "actions" to it.actions
+                        )
+                    }
+                )
+            ))
+        )
+
+        assertEquals(expectedMessage.toString(), actualMessage.toString())
     }
 }

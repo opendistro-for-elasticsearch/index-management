@@ -117,6 +117,7 @@ data class ManagedIndexMetaData(
         }
 
         if (info != null) builder.field(INFO, info)
+
         return builder
     }
 

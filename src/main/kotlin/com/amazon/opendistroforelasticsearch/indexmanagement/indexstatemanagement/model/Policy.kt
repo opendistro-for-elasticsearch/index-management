@@ -161,16 +161,16 @@ data class Policy(
             }
 
             return Policy(
-                id,
-                seqNo,
-                primaryTerm,
-                requireNotNull(description) { "$DESCRIPTION_FIELD is null" },
-                schemaVersion,
-                lastUpdatedTime ?: Instant.now(),
-                errorNotification,
-                requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
-                states.toList(),
-                ismTemplate
+                id = id,
+                seqNo = seqNo,
+                primaryTerm = primaryTerm,
+                description = requireNotNull(description) { "$DESCRIPTION_FIELD is null" },
+                schemaVersion = schemaVersion,
+                lastUpdatedTime = lastUpdatedTime ?: Instant.now(),
+                errorNotification = errorNotification,
+                defaultState = requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
+                states = states.toList(),
+                ismTemplate = ismTemplate
             )
         }
     }

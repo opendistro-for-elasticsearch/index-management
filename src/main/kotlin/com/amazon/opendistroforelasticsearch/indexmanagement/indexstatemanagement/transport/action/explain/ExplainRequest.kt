@@ -15,9 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
-import org.elasticsearch.action.ValidateActions
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.unit.TimeValue
@@ -28,30 +28,30 @@ class ExplainRequest : ActionRequest {
     val indices: List<String>
     val local: Boolean
     val masterTimeout: TimeValue
+    val searchParams: SearchParams
 
     constructor(
         indices: List<String>,
         local: Boolean,
-        masterTimeout: TimeValue
+        masterTimeout: TimeValue,
+        searchParams: SearchParams
     ) : super() {
         this.indices = indices
         this.local = local
         this.masterTimeout = masterTimeout
+        this.searchParams = searchParams
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         indices = sin.readStringList(),
         local = sin.readBoolean(),
-        masterTimeout = sin.readTimeValue()
+        masterTimeout = sin.readTimeValue(),
+        searchParams = SearchParams(sin)
     )
 
     override fun validate(): ActionRequestValidationException? {
-        var validationException: ActionRequestValidationException? = null
-        if (indices.isEmpty()) {
-            validationException = ValidateActions.addValidationError("Missing indices", validationException)
-        }
-        return validationException
+        return null
     }
 
     @Throws(IOException::class)
@@ -59,5 +59,6 @@ class ExplainRequest : ActionRequest {
         out.writeStringCollection(indices)
         out.writeBoolean(local)
         out.writeTimeValue(masterTimeout)
+        searchParams.writeTo(out)
     }
 }

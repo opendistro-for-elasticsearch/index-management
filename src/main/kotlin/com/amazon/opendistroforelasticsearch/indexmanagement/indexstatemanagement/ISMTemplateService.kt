@@ -67,36 +67,32 @@ fun Map<String, ISMTemplate>.findMatchingPolicy(indexMetadata: IndexMetadata): S
 
 /**
  * validate the template Name and indexPattern provided in the template
- * reusing ES validate function in MetadataIndexTemplateService
+ *
+ * get the idea from ES validate function in MetadataIndexTemplateService
+ * acknowledge https://github.com/a2lin who should be the first contributor
  */
 @Suppress("ComplexMethod")
 fun validateFormat(indexPatterns: List<String>): ElasticsearchException? {
-    val validationErrors = mutableListOf<String>()
+    val indexPatternFormatErrors = mutableListOf<String>()
     for (indexPattern in indexPatterns) {
-        if (indexPattern.contains(" ")) {
-            validationErrors.add("index_patterns [$indexPattern] must not contain a space")
-        }
-        if (indexPattern.contains(",")) {
-            validationErrors.add("index_pattern [$indexPattern] must not contain a ','")
-        }
         if (indexPattern.contains("#")) {
-            validationErrors.add("index_pattern [$indexPattern] must not contain a '#'")
+            indexPatternFormatErrors.add("index_pattern [$indexPattern] must not contain a '#'")
         }
         if (indexPattern.contains(":")) {
-            validationErrors.add("index_pattern [$indexPattern] must not contain a ':'")
+            indexPatternFormatErrors.add("index_pattern [$indexPattern] must not contain a ':'")
         }
         if (indexPattern.startsWith("_")) {
-            validationErrors.add("index_pattern [$indexPattern] must not start with '_'")
+            indexPatternFormatErrors.add("index_pattern [$indexPattern] must not start with '_'")
         }
         if (!Strings.validFileNameExcludingAstrix(indexPattern)) {
-            validationErrors.add("index_pattern [" + indexPattern + "] must not contain the following characters " +
+            indexPatternFormatErrors.add("index_pattern [" + indexPattern + "] must not contain the following characters " +
                 Strings.INVALID_FILENAME_CHARS)
         }
     }
 
-    if (validationErrors.size > 0) {
+    if (indexPatternFormatErrors.size > 0) {
         val validationException = ValidationException()
-        validationException.addValidationErrors(validationErrors)
+        validationException.addValidationErrors(indexPatternFormatErrors)
         return IndexManagementException.wrap(validationException)
     }
     return null
@@ -121,7 +117,7 @@ fun Map<String, ISMTemplate>.findConflictingPolicyTemplates(
         .forEach { (policyID, template) ->
         val automaton2 = Regex.simpleMatchToAutomaton(*template.indexPatterns.toTypedArray())
         if (!Operations.isEmpty(Operations.intersection(automaton1, automaton2))) {
-            log.info("existing ism_template in $policyID overlaps candidate $candidate")
+            log.info("Existing ism_template for $policyID overlaps candidate $candidate")
             overlappingTemplates[policyID] = template.indexPatterns
         }
     }

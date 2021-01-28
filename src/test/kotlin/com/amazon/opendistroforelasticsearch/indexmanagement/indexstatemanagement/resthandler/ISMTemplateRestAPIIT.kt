@@ -47,7 +47,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()["error"] as Map<String, Any>
-            val expectedReason = "Validation Failed: 1: index_patterns [ ] must not contain a space;2: index_pattern [ ] must not contain the following characters [ , \", *, \\, <, |, ,, >, /, ?];"
+            val expectedReason = "Validation Failed: 1: index_pattern [ ] must not contain the following characters [ , \", *, \\, <, |, ,, >, /, ?];"
             assertEquals(expectedReason, actualMessage["reason"])
         }
     }
@@ -55,13 +55,14 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
     fun `test add template with overlapping index pattern`() {
         try {
             val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())
+            val ismTemp2 = ISMTemplate(listOf("lo*"), 100, randomInstant())
             createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
-            createPolicy(randomPolicy(ismTemplate = ismTemp), policyID2)
+            createPolicy(randomPolicy(ismTemplate = ismTemp2), policyID2)
             fail("Expect a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()["error"] as Map<String, Any>
-            val expectedReason = "new policy $policyID2 has an ism template with index pattern [log*] matching existing policy templates policy [$policyID1] => [log*], please use a different priority than 100"
+            val expectedReason = "new policy $policyID2 has an ism template with index pattern [lo*] matching existing policy templates policy [$policyID1] => [log*], please use a different priority than 100"
             assertEquals(expectedReason, actualMessage["reason"])
         }
     }

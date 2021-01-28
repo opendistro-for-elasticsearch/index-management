@@ -66,6 +66,7 @@ import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
+import org.elasticsearch.action.search.SearchPhaseExecutionException
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.IndicesOptions
@@ -306,6 +307,9 @@ class ManagedIndexCoordinator(
      * build requests to create jobs for indices matching ISM templates
      */
     suspend fun getMatchingIndicesUpdateReq(clusterState: ClusterState, indexNames: List<String>): List<DocWriteRequest<*>> {
+        val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
+        if (indexNames.isEmpty()) return updateManagedIndexReqs
+
         val indexMetadatas = clusterState.metadata.indices
         val templates = getISMTemplates()
 
@@ -313,7 +317,6 @@ class ManagedIndexCoordinator(
             indexName to templates.findMatchingPolicy(indexMetadatas[indexName])
         }.toMap()
 
-        val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
         indexToMatchedPolicy.filterNotNullValues()
             .forEach { (index, policyID) ->
             val indexUuid = indexMetadatas[index].indexUUID
@@ -340,6 +343,9 @@ class ManagedIndexCoordinator(
         } catch (ex: IndexNotFoundException) {
             emptyMap()
         } catch (ex: ClusterBlockException) {
+            emptyMap()
+        } catch (e: SearchPhaseExecutionException) {
+            logger.error("Failed to get ISM templates: $e")
             emptyMap()
         } catch (e: Exception) {
             logger.error("Failed to get ISM templates", e)
@@ -403,8 +409,8 @@ class ManagedIndexCoordinator(
         // check all un-managed indices, if matches any ism template
         val unManagedIndices = clusterService.state().metadata.indices.values().filterNotNull()
                 .filter { it.value.indexUUID !in currentManagedIndices.keys }.map { it.value.index.name }
-        val updateMatchingIndicesReqs = getMatchingIndicesUpdateReq(clusterService.state(), unManagedIndices)
-        updateManagedIndices(updateMatchingIndicesReqs, updateMatchingIndicesReqs.isNotEmpty())
+        val updateMatchingIndicesReq = getMatchingIndicesUpdateReq(clusterService.state(), unManagedIndices)
+        updateManagedIndices(updateMatchingIndicesReq, updateMatchingIndicesReq.isNotEmpty())
 
         val clusterStateManagedIndices = sweepClusterState(clusterService.state())
 

@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWit
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
@@ -210,13 +209,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
         if (policy == null || managedIndexMetaData == null) {
             initManagedIndex(managedIndexConfig, managedIndexMetaData)
             return
-        }
-
-        // If there is a mismatch between _settings policy_id and job policy_id it means the user
-        // tried to change it using the _settings API or we failed to update during ChangePolicy
-        // so we will attempt to self heal and disallow the use of _settings API to modify policy_id
-        if (indexMetaData.getPolicyID() != managedIndexConfig.policyID) {
-            updateIndexPolicyIDSetting(managedIndexConfig.index, managedIndexConfig.policyID)
         }
 
         // If the policy was completed or failed then return early and disable job so it stops scheduling work

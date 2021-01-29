@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestRequest.Method.POST
 import org.elasticsearch.rest.RestStatus
@@ -75,6 +76,7 @@ class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
 
     fun `test index without policy`() {
         val index = "movies"
+        createRandomPolicy()
         createIndex(index, null)
 
         val response = client().makeRequest(
@@ -171,6 +173,8 @@ class RestRemovePolicyActionIT : IndexStateManagementRestTestCase() {
         assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
 
         // Check if indexThree had policy removed
-        assertEquals(null, getPolicyFromIndex(indexThree))
+        waitFor {
+            assertEquals(null, getPolicyIDOfManagedIndex(indexThree))
+        }
     }
 }

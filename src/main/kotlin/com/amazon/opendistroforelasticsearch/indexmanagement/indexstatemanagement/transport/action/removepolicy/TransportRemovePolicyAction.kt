@@ -15,16 +15,21 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClosedIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsAction
-import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
+import org.elasticsearch.action.bulk.BulkRequest
+import org.elasticsearch.action.bulk.BulkResponse
+import org.elasticsearch.action.get.MultiGetRequest
+import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
@@ -32,10 +37,9 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.block.ClusterBlockException
-import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.Index
+import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
@@ -59,7 +63,7 @@ class TransportRemovePolicyAction @Inject constructor(
     ) {
 
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
-        private val indicesToRemovePolicyFrom: MutableList<Index> = mutableListOf()
+        private val indicesToRemove = mutableMapOf<String, String>() // uuid: name
         private var updated: Int = 0
 
         @Suppress("SpreadOperator")
@@ -77,7 +81,11 @@ class TransportRemovePolicyAction @Inject constructor(
                 .cluster()
                 .state(clusterStateRequest, object : ActionListener<ClusterStateResponse> {
                     override fun onResponse(response: ClusterStateResponse) {
-                        processResponse(response)
+                        val indexMetadatas = response.state.metadata.indices
+                        indexMetadatas.forEach {
+                            indicesToRemove.putIfAbsent(it.value.indexUUID, it.key)
+                        }
+                        populateLists(response.state)
                     }
 
                     override fun onFailure(t: Exception) {
@@ -86,63 +94,100 @@ class TransportRemovePolicyAction @Inject constructor(
                 })
         }
 
+        private fun populateLists(state: ClusterState) {
+            getClosedIndices(state).forEach {
+                failedIndices.add(FailedIndex(indicesToRemove[it] as String, it, "This index is closed"))
+                indicesToRemove.remove(it)
+            }
+            if (indicesToRemove.isEmpty()) {
+                actionListener.onResponse(ISMStatusResponse(0, failedIndices))
+                return
+            }
+
+            val multiGetReq = MultiGetRequest()
+            indicesToRemove.forEach { multiGetReq.add(INDEX_MANAGEMENT_INDEX, it.key) }
+
+            client.multiGet(multiGetReq, object : ActionListener<MultiGetResponse> {
+                override fun onResponse(response: MultiGetResponse) {
+                    // config index may not be initialized
+                    val f = response.responses.first()
+                    if (f.isFailed && f.failure.failure is IndexNotFoundException) {
+                        indicesToRemove.forEach { (uuid, name) ->
+                            failedIndices.add(FailedIndex(name, uuid, "This index does not have a policy to remove"))
+                        }
+                        actionListener.onResponse(ISMStatusResponse(0, failedIndices))
+                        return
+                    }
+
+                    response.forEach {
+                        if (!it.response.isExists) {
+                            val docId = it.id // docId is managed index uuid
+                            failedIndices.add(FailedIndex(indicesToRemove[docId] as String, docId,
+                                    "This index does not have a policy to remove"))
+                            indicesToRemove.remove(docId)
+                        }
+                    }
+
+                    removeManagedIndex()
+                }
+
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
+
         @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
-        fun processResponse(clusterStateResponse: ClusterStateResponse) {
-            val state = clusterStateResponse.state
-            populateLists(state)
-
-            if (indicesToRemovePolicyFrom.isNotEmpty()) {
-                val updateSettingsRequest = UpdateSettingsRequest()
-                    .indices(*indicesToRemovePolicyFrom.map { it.name }.toTypedArray())
-                    .settings(Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key))
-
-                try {
-                    client.execute(UpdateSettingsAction.INSTANCE, updateSettingsRequest,
-                        object : ActionListener<AcknowledgedResponse> {
-                            override fun onResponse(response: AcknowledgedResponse) {
-                                if (response.isAcknowledged) {
-                                    updated = indicesToRemovePolicyFrom.size
-                                } else {
-                                    updated = 0
-                                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
-                                        FailedIndex(it.name, it.uuid, "Failed to remove policy")
-                                    })
-                                }
-
-                                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
-                            }
-
-                            override fun onFailure(t: Exception) {
-                                actionListener.onFailure(t)
+        fun removeManagedIndex() {
+            if (indicesToRemove.isNotEmpty()) {
+                val bulkReq = BulkRequest()
+                indicesToRemove.forEach { bulkReq.add(deleteManagedIndexRequest(it.key)) }
+                client.bulk(bulkReq, object : ActionListener<BulkResponse> {
+                    override fun onResponse(response: BulkResponse) {
+                        response.forEach {
+                            val docId = it.id // docId is indexUuid of the managed index
+                            if (it.isFailed) {
+                                failedIndices.add(FailedIndex(indicesToRemove[docId] as String, docId, "Failed to remove policy"))
+                                indicesToRemove.remove(docId)
                             }
                         }
-                    )
-                } catch (e: ClusterBlockException) {
-                    failedIndices.addAll(indicesToRemovePolicyFrom.map {
-                        FailedIndex(it.name, it.uuid, "Failed to remove policy due to ClusterBlockException: ${e.message}")
-                    })
-                    updated = 0
-                    actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
-                }
+
+                        // clean metadata for indicesToRemove
+                        val indicesToRemoveMetadata = indicesToRemove.map { Index(it.value, it.key) }
+                        log.info("remove metadata for $indicesToRemoveMetadata")
+                        removeMetadata(indicesToRemoveMetadata)
+                    }
+
+                    override fun onFailure(t: Exception) {
+                        if (t is ClusterBlockException) {
+                            indicesToRemove.forEach { (uuid, name) ->
+                                failedIndices.add(FailedIndex(name, uuid, "Failed to remove policy due to ClusterBlockingException: ${t.message}"))
+                            }
+                            actionListener.onResponse(ISMStatusResponse(0, failedIndices))
+                        } else {
+                            actionListener.onFailure(t)
+                        }
+                    }
+                })
             } else {
                 updated = 0
                 actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
             }
         }
 
-        private fun populateLists(state: ClusterState) {
-            for (indexMetaDataEntry in state.metadata.indices) {
-                val indexMetaData = indexMetaDataEntry.value
-                when {
-                    indexMetaData.getPolicyID() == null ->
-                        failedIndices.add(
-                            FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index does not have a policy to remove")
-                        )
-                    indexMetaData.state == IndexMetadata.State.CLOSE ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is closed"))
-                    else -> indicesToRemovePolicyFrom.add(indexMetaData.index)
+        fun removeMetadata(indices: List<Index>) {
+            val request = UpdateManagedIndexMetaDataRequest(indicesToRemoveManagedIndexMetaDataFrom = indices)
+
+            client.execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, object : ActionListener<AcknowledgedResponse> {
+                override fun onResponse(response: AcknowledgedResponse) {
+                    actionListener.onResponse(ISMStatusResponse(indicesToRemove.size, failedIndices))
                 }
-            }
+
+                override fun onFailure(e: Exception) {
+                    // TODO return exception with message saying failed at removing metadata
+                    actionListener.onFailure(e)
+                }
+            })
         }
     }
 }

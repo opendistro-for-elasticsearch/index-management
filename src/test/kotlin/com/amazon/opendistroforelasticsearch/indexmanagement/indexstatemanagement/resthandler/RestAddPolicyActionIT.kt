@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.elasticsearch.client.ResponseException
@@ -78,12 +79,13 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
 
     fun `test index with existing policy`() {
         val index = "movies"
-        createIndex(index, "somePolicy")
+        val policy = createRandomPolicy()
+        createIndex(index, policy.id)
 
         val response = client().makeRequest(
             POST.toString(),
             "${RestAddPolicyAction.ADD_POLICY_BASE_URI}/$index",
-            StringEntity("{ \"policy_id\": \"someOtherPolicy\" }", APPLICATION_JSON)
+            StringEntity("{ \"policy_id\": \"${policy.id}\" }", APPLICATION_JSON)
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
@@ -177,6 +179,8 @@ class RestAddPolicyActionIT : IndexStateManagementRestTestCase() {
         assertAffectedIndicesResponseIsEqual(expectedMessage, actualMessage)
 
         // Check if indexThree had policy set
-        assertEquals("someOtherPolicy", getPolicyFromIndex(indexThree))
+        waitFor {
+            assertEquals("someOtherPolicy", getPolicyIDOfManagedIndex(indexThree))
+        }
     }
 }

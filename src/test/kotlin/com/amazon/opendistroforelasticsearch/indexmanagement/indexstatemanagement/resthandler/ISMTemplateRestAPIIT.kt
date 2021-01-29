@@ -41,7 +41,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
 
     fun `test add template with invalid index pattern`() {
         try {
-            val ismTemp = ISMTemplate(listOf(" "), 100, randomInstant())
+            val ismTemp = ISMTemplate(listOf(" "), 100, randomInstant(), null)
             createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
             fail("Expect a failure")
         } catch (e: ResponseException) {
@@ -54,8 +54,8 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
 
     fun `test add template with overlapping index pattern`() {
         try {
-            val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())
-            val ismTemp2 = ISMTemplate(listOf("lo*"), 100, randomInstant())
+            val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant(), null)
+            val ismTemp2 = ISMTemplate(listOf("lo*"), 100, randomInstant(), null)
             createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
             createPolicy(randomPolicy(ismTemplate = ismTemp2), policyID2)
             fail("Expect a failure")
@@ -76,7 +76,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         // need to specify policyID null, can remove after policyID deprecated
         createIndex(indexName1, null)
 
-        val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())
+        val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant(), null)
 
         val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(

@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClosedIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
@@ -48,12 +49,15 @@ private val log = LogManager.getLogger(TransportRemovePolicyAction::class.java)
 class TransportRemovePolicyAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
-    actionFilters: ActionFilters
+    actionFilters: ActionFilters,
+    val ismIndices: IndexManagementIndices
 ) : HandledTransportAction<RemovePolicyRequest, ISMStatusResponse>(
         RemovePolicyAction.NAME, transportService, actionFilters, ::RemovePolicyRequest
 ) {
     override fun doExecute(task: Task, request: RemovePolicyRequest, listener: ActionListener<ISMStatusResponse>) {
-        RemovePolicyHandler(client, listener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            RemovePolicyHandler(client, listener, request).start()
+        }
     }
 
     inner class RemovePolicyHandler(
@@ -127,7 +131,6 @@ class TransportRemovePolicyAction @Inject constructor(
                             indicesToRemove.remove(docId)
                         }
                     }
-
                     removeManagedIndex()
                 }
 

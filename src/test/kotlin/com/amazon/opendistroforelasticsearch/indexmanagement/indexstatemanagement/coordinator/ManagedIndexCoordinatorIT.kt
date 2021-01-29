@@ -32,7 +32,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.common.xcontent.XContentType
-import org.junit.Assume
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 

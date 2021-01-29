@@ -16,6 +16,7 @@
 @file:JvmName("ManagedIndexUtils")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.Action
@@ -38,9 +39,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.delete.AttemptDeleteStep
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
-import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -60,9 +59,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-private val log = LogManager.getLogger("ManagedIndexUtils")
-
-fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String, jobInterval: Int): IndexRequest {
+fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String, jobInterval: Int, user: User?): IndexRequest {
     val managedIndexConfig = ManagedIndexConfig(
         jobName = index,
         index = index,
@@ -75,7 +72,8 @@ fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String
         policy = null,
         policySeqNo = null,
         policyPrimaryTerm = null,
-        changePolicy = null
+        changePolicy = null,
+        user = user
     )
 
     return IndexRequest(INDEX_MANAGEMENT_INDEX)
@@ -116,11 +114,11 @@ fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
     return DeleteRequest(INDEX_MANAGEMENT_INDEX, uuid)
 }
 
-fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig): UpdateRequest {
+fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig, user: User): UpdateRequest {
     return UpdateRequest(INDEX_MANAGEMENT_INDEX, sweptManagedIndexConfig.uuid)
         .setIfPrimaryTerm(sweptManagedIndexConfig.primaryTerm)
         .setIfSeqNo(sweptManagedIndexConfig.seqNo)
-        .doc(getPartialChangePolicyBuilder(sweptManagedIndexConfig.changePolicy))
+        .doc(getPartialChangePolicyBuilder(sweptManagedIndexConfig.changePolicy, user))
 }
 
 /**
@@ -134,16 +132,16 @@ fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig):
  * @param jobInterval dynamic int setting from cluster settings
  * @return list of [DocWriteRequest].
  */
-@OpenForTesting
-fun getCreateManagedIndexRequests(
-    clusterStateManagedIndexConfigs: Map<String, ClusterStateManagedIndexConfig>,
-    currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>,
-    jobInterval: Int
-): List<DocWriteRequest<*>> {
-    return clusterStateManagedIndexConfigs.filter { (uuid) ->
-        !currentManagedIndexConfigs.containsKey(uuid)
-    }.map { managedIndexConfigIndexRequest(it.value.index, it.value.uuid, it.value.policyID, jobInterval) }
-}
+// @OpenForTesting
+// fun getCreateManagedIndexRequests(
+//     clusterStateManagedIndexConfigs: Map<String, ClusterStateManagedIndexConfig>,
+//     currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>,
+//     jobInterval: Int
+// ): List<DocWriteRequest<*>> {
+//     return clusterStateManagedIndexConfigs.filter { (uuid) ->
+//         !currentManagedIndexConfigs.containsKey(uuid)
+//     }.map { managedIndexConfigIndexRequest(it.value.index, it.value.uuid, it.value.policyID, jobInterval) }
+// }
 
 /**
  * Creates DeleteRequests for [ManagedIndexConfig].

@@ -49,7 +49,9 @@ class TransportExplainAction @Inject constructor(
         ExplainAction.NAME, transportService, actionFilters, ::ExplainRequest
 ) {
     override fun doExecute(task: Task, request: ExplainRequest, listener: ActionListener<ExplainResponse>) {
-        ExplainHandler(client, listener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            ExplainHandler(client, listener, request).start()
+        }
     }
 
     /**

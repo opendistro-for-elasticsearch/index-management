@@ -19,8 +19,11 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.commons.InjectSecurity
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
+import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.delay
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
@@ -30,7 +33,9 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.DefaultShardOperationFailedException
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.common.bytes.BytesReference
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.util.concurrent.ThreadContext
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -44,6 +49,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.transport.RemoteTransportException
 import java.io.IOException
 import java.time.Instant
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -70,6 +76,13 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
         return nullField(name)
     }
     return this.timeField(name, "${name}_in_millis", instant.toEpochMilli())
+}
+
+fun XContentBuilder.optionalUserField(name: String, user: User?): XContentBuilder {
+    if (user == null) {
+        return nullField(name)
+    }
+    return this.field(name, user)
 }
 
 fun XContentBuilder.optionalISMTemplateField(name: String, ismTemplate: ISMTemplate?): XContentBuilder {
@@ -178,4 +191,26 @@ fun <T> XContentParser.parseWithType(
     val parsed = parse(this, id, seqNo, primaryTerm)
     ensureExpectedToken(Token.END_OBJECT, this.nextToken(), this)
     return parsed
+}
+
+class InjectorContextElement(
+    id: String,
+    settings: Settings,
+    threadContext: ThreadContext,
+    private val roles: List<String>?
+) : ThreadContextElement<Unit> {
+
+    companion object Key : CoroutineContext.Key<InjectorContextElement>
+    override val key: CoroutineContext.Key<*>
+        get() = Key
+
+    var rolesInjectorHelper = InjectSecurity(id, settings, threadContext)
+
+    override fun updateThreadContext(context: CoroutineContext) {
+        rolesInjectorHelper.injectRoles(roles)
+    }
+
+    override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
+        rolesInjectorHelper.close()
+    }
 }

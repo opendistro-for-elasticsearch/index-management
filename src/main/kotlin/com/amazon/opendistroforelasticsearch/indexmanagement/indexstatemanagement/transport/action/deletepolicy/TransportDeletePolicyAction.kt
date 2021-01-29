@@ -37,6 +37,8 @@ class TransportDeletePolicyAction @Inject constructor(
         val deleteRequest = DeleteRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, request.policyID)
                 .setRefreshPolicy(request.refreshPolicy)
 
-        client.delete(deleteRequest, listener)
+        client.threadPool().threadContext.stashContext().use {
+            client.delete(deleteRequest, listener)
+        }
     }
 }

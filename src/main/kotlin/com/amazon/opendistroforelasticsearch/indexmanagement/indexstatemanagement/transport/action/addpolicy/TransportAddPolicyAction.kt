@@ -15,6 +15,8 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
  * permissions and limitations under the License.
  */
 
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClosedIndices
@@ -22,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexConfigIndexRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ElasticsearchTimeoutException
@@ -64,6 +67,7 @@ class TransportAddPolicyAction @Inject constructor(
 ) {
 
     @Volatile private var jobInterval = ManagedIndexSettings.JOB_INTERVAL.get(settings)
+    @Volatile lateinit var user: User
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.JOB_INTERVAL) {
@@ -72,7 +76,12 @@ class TransportAddPolicyAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: AddPolicyRequest, listener: ActionListener<ISMStatusResponse>) {
-        AddPolicyHandler(client, listener, request).start()
+        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
+        user = resolveUser(User.parse(userStr))
+
+        client.threadPool().threadContext.stashContext().use {
+            AddPolicyHandler(client, listener, request).start()
+        }
     }
 
     inner class AddPolicyHandler(
@@ -88,7 +97,6 @@ class TransportAddPolicyAction @Inject constructor(
         fun start() {
             ismIndices.checkAndUpdateIMConfigIndex(object : ActionListener<AcknowledgedResponse> {
                 override fun onResponse(response: AcknowledgedResponse) {
-                    log.info("going to create mapping response")
                     onCreateMappingsResponse(response)
                 }
 
@@ -190,8 +198,9 @@ class TransportAddPolicyAction @Inject constructor(
                 }
 
                 val bulkReq = BulkRequest().timeout(TimeValue.timeValueMillis(bulkReqTimeout))
+                log.info("add policy with user $user")
                 indicesToAdd.forEach { (uuid, name) ->
-                    bulkReq.add(managedIndexConfigIndexRequest(name, uuid, request.policyID, jobInterval))
+                    bulkReq.add(managedIndexConfigIndexRequest(name, uuid, request.policyID, jobInterval, user))
                 }
 
                 client.bulk(bulkReq, object : ActionListener<BulkResponse> {
@@ -199,7 +208,7 @@ class TransportAddPolicyAction @Inject constructor(
                         response.forEach {
                             val docId = it.id // docId is managed index uuid
                             if (it.isFailed) {
-                                failedIndices.add(FailedIndex(indicesToAdd[docId] as String, docId, "failed to add policy"))
+                                failedIndices.add(FailedIndex(indicesToAdd[docId] as String, docId, "Failed to add policy: ${it.failureMessage}"))
                                 indicesToAdd.remove(docId)
                             }
                         }

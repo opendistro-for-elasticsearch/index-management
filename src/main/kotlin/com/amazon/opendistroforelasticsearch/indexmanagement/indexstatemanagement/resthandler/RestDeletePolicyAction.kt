@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.deletepolicy.DeletePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.deletepolicy.DeletePolicyRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.REFRESH
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.rest.BaseRestHandler
@@ -27,6 +28,8 @@ import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.DELETE
 import org.elasticsearch.rest.action.RestStatusToXContentListener
 import java.io.IOException
+
+private val log = LogManager.getLogger(RestDeletePolicyAction::class.java)
 
 class RestDeletePolicyAction : BaseRestHandler() {
 
@@ -40,6 +43,8 @@ class RestDeletePolicyAction : BaseRestHandler() {
 
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
+        log.info("${request.method()} ${request.path()}")
+
         val policyId = request.param("policyID")
         if (policyId == null || policyId.isEmpty()) {
             throw IllegalArgumentException("Missing policy ID")

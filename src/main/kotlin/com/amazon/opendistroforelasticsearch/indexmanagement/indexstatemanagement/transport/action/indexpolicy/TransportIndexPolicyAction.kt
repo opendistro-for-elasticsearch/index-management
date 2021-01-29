@@ -167,6 +167,8 @@ class TransportIndexPolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
+                    // TODO should wrap document already exists exception
+                    //  provide a direct message asking user to use seqNo and primaryTerm
                     actionListener.onFailure(t)
                 }
             })

@@ -31,16 +31,15 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.forcemerge.WaitForForceMergeStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.rollover.AttemptRolloverStep
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
+import org.junit.Assume
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 
 class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
 
     fun `test creating index with valid policy_id`() {
-        val (index, policyID) = createIndex()
+        val (index, policyID) = createIndex(policyID = "some_policy")
         waitFor {
             val managedIndexConfig = getManagedIndexConfig(index)
             assertNotNull("Did not create ManagedIndexConfig", managedIndexConfig)
@@ -52,7 +51,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun `test creating index with valid policy_id creates ism index with correct mappings`() {
+    fun `test first time add policy to index will create config index with correct mappings`() {
         createIndex()
         waitFor {
             val response = client().makeRequest("GET", "/$INDEX_MANAGEMENT_INDEX/_mapping")
@@ -69,24 +68,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         }
     }
 
-    fun `test creating index with invalid policy_id`() {
-        wipeAllODFEIndices()
-        assertIndexDoesNotExist(INDEX_MANAGEMENT_INDEX)
-
-        val indexOne = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)
-        val indexTwo = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)
-        val indexThree = randomAlphaOfLength(10).toLowerCase(Locale.ROOT)
-
-        createIndex(indexOne, Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, " ").build())
-        createIndex(indexTwo, Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, "").build())
-        createIndex(indexThree, Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key).build())
-
-        waitFor {
-            assertFalse("ISM index created for invalid policies", indexExists(INDEX_MANAGEMENT_INDEX))
-        }
-    }
-
-    fun `test deleting index with policy_id`() {
+    fun `test deleting index will remove managed-index`() {
         val (index) = createIndex(policyID = "some_policy")
         waitFor {
             val afterCreateConfig = getManagedIndexConfig(index)
@@ -100,7 +82,7 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         }
     }
 
-    fun `test managed index metadata is cleaned up after removing policy_id`() {
+    fun `test managed index metadata is cleaned up after removing policy`() {
         val policyID = "some_policy"
         val (index) = createIndex(policyID = policyID)
 

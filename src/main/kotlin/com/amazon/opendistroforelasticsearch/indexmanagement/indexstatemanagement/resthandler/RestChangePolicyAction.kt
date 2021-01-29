@@ -67,6 +67,5 @@ class RestChangePolicyAction : BaseRestHandler() {
         const val CHANGE_POLICY_BASE_URI = "$ISM_BASE_URI/change_policy"
         const val INDEX_NOT_MANAGED = "This index is not being managed"
         const val INDEX_IN_TRANSITION = "Cannot change policy while transitioning to new state"
-        const val INDEX_NOT_INITIALIZED = "This managed index has not been initialized yet"
     }
 }

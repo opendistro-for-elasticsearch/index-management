@@ -47,6 +47,7 @@ import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
@@ -150,38 +151,37 @@ fun getCreateManagedIndexRequests(
  * Finds ManagedIndices that exist in [INDEX_MANAGEMENT_INDEX] that do not exist in the cluster state
  * anymore which means we need to delete the [ManagedIndexConfig].
  *
- * @param clusterStateManagedIndexConfigs map of IndexUuid to [ClusterStateManagedIndexConfig].
+ * @param currentIndices List of current [IndexMetadata] in cluster state.
  * @param currentManagedIndexConfigs map of IndexUuid to [SweptManagedIndexConfig].
  * @return list of [DocWriteRequest].
  */
-@OpenForTesting
 fun getDeleteManagedIndexRequests(
-    clusterStateManagedIndexConfigs: Map<String, ClusterStateManagedIndexConfig>,
+    currentIndices: List<IndexMetadata>,
     currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>
 ): List<DocWriteRequest<*>> {
-    return currentManagedIndexConfigs.filter { (uuid) ->
-        !clusterStateManagedIndexConfigs.containsKey(uuid)
+    return currentManagedIndexConfigs.filter { currentManagedIndex ->
+        !currentIndices.map { it.index.uuid }.contains(currentManagedIndex.key)
     }.map { deleteManagedIndexRequest(it.value.uuid) }
 }
 
 fun getSweptManagedIndexSearchRequest(): SearchRequest {
     val boolQueryBuilder = BoolQueryBuilder().filter(QueryBuilders.existsQuery(ManagedIndexConfig.MANAGED_INDEX_TYPE))
     return SearchRequest()
-            .indices(INDEX_MANAGEMENT_INDEX)
-            .source(SearchSourceBuilder.searchSource()
-                    // TODO: Get all ManagedIndices at once or split into searchAfter queries?
-                    .size(ManagedIndexCoordinator.MAX_HITS)
-                    .seqNoAndPrimaryTerm(true)
-                    .fetchSource(
-                            arrayOf(
-                                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",
-                                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_UUID_FIELD}",
-                                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_ID_FIELD}",
-                                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.CHANGE_POLICY_FIELD}"
-                            ),
-                            emptyArray()
-                    )
-                    .query(boolQueryBuilder))
+        .indices(INDEX_MANAGEMENT_INDEX)
+        .source(SearchSourceBuilder.searchSource()
+            // TODO: Get all ManagedIndices at once or split into searchAfter queries?
+            .size(ManagedIndexCoordinator.MAX_HITS)
+            .seqNoAndPrimaryTerm(true)
+            .fetchSource(
+                arrayOf(
+                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_FIELD}",
+                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.INDEX_UUID_FIELD}",
+                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.POLICY_ID_FIELD}",
+                    "${ManagedIndexConfig.MANAGED_INDEX_TYPE}.${ManagedIndexConfig.CHANGE_POLICY_FIELD}"
+                ),
+                emptyArray()
+            )
+            .query(boolQueryBuilder))
 }
 
 @Suppress("ReturnCount")

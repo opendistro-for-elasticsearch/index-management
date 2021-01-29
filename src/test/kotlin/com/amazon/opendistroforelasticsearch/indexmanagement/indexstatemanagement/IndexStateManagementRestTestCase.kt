@@ -77,6 +77,8 @@ import java.time.Duration
 import java.time.Instant
 import java.util.Locale
 
+private val log = LogManager.getLogger(IndexStateManagementRestTestCase::class.java)
+
 abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() {
 
     val log = LogManager.getLogger(IndexStateManagementRestTestCase::class.java)
@@ -169,11 +171,6 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         mapping: String = ""
     ): Pair<String, String?> {
         val settings = Settings.builder().let {
-            if (policyID == null) {
-                it.putNull(ManagedIndexSettings.POLICY_ID.key)
-            } else {
-                it.put(ManagedIndexSettings.POLICY_ID.key, policyID)
-            }
             if (alias == null) {
                 it.putNull(ManagedIndexSettings.ROLLOVER_ALIAS.key)
             } else {
@@ -192,6 +189,9 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
         createIndex(index, settings, mapping, aliases)
+        if (policyID != null) {
+            addPolicyToIndex(index, policyID)
+        }
         return index to policyID
     }
 
@@ -205,19 +205,28 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         index: String,
         policyID: String
     ) {
-        val settings = Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, policyID)
-        updateIndexSettings(index, settings)
+        val body = """
+            {
+              "policy_id": "$policyID"
+            }
+        """.trimIndent()
+        val response = client().makeRequest("POST", "/_opendistro/_ism/add/$index", StringEntity(body, APPLICATION_JSON))
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
     }
 
     protected fun removePolicyFromIndex(index: String) {
-        val settings = Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key)
-        updateIndexSettings(index, settings)
+        client().makeRequest("POST", "/_opendistro/_ism/remove/$index")
     }
 
     @Suppress("UNCHECKED_CAST")
     protected fun getPolicyFromIndex(index: String): String? {
         val indexSettings = getIndexSettings(index) as Map<String, Map<String, Map<String, Any?>>>
         return indexSettings[index]!!["settings"]!![ManagedIndexSettings.POLICY_ID.key] as? String
+    }
+
+    protected fun getPolicyIDOfManagedIndex(index: String): String? {
+        val managedIndex = getManagedIndexConfig(index)
+        return managedIndex?.policyID
     }
 
     protected fun updateClusterSetting(key: String, value: String, escapeValue: Boolean = true) {

@@ -256,9 +256,8 @@ class ManagedIndexCoordinator(
         var removeManagedIndexReq = emptyList<DocWriteRequest<*>>()
         var indicesToClean = emptyList<Index>()
         if (event.indicesDeleted().isNotEmpty()) {
-            val deletedIndices = event.indicesDeleted().map { Index(it.name, it.uuid) }
-            val managedState = getManagedIndex(deletedIndices.map { it.uuid })
-            indicesToClean = deletedIndices.filter { it.uuid in managedState.keys }
+            val managedIndices = getManagedIndices(event.indicesDeleted().map { it.uuid })
+            indicesToClean = event.indicesDeleted().filter { it.uuid in managedIndices.keys }
             removeManagedIndexReq = indicesToClean.map { deleteManagedIndexRequest(it.uuid) }
         }
 
@@ -438,7 +437,7 @@ class ManagedIndexCoordinator(
      * @return map of IndexUuid to [ManagedIndexConfig]
      */
     @Suppress("ReturnCount")
-    suspend fun getManagedIndex(indexUuids: List<String>): Map<String, ManagedIndexConfig?> {
+    suspend fun getManagedIndices(indexUuids: List<String>): Map<String, ManagedIndexConfig?> {
         if (indexUuids.isEmpty()) return emptyMap()
 
         val result: MutableMap<String, ManagedIndexConfig?> = mutableMapOf()

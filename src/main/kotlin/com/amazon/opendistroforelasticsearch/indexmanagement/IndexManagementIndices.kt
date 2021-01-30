@@ -35,8 +35,6 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 
-private val log = LogManager.getLogger(IndexManagementIndices::class.java)
-
 @OpenForTesting
 class IndexManagementIndices(
     private val client: IndicesAdminClient,

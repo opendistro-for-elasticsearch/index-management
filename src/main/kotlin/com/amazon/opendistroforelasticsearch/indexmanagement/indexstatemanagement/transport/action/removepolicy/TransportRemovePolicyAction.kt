@@ -64,7 +64,6 @@ class TransportRemovePolicyAction @Inject constructor(
 
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
         private val indicesToRemove = mutableMapOf<String, String>() // uuid: name
-        private var updated: Int = 0
 
         @Suppress("SpreadOperator")
         fun start() {
@@ -128,7 +127,7 @@ class TransportRemovePolicyAction @Inject constructor(
                         }
                     }
 
-                    removeManagedIndex()
+                    removeManagedIndices()
                 }
 
                 override fun onFailure(t: Exception) {
@@ -138,7 +137,7 @@ class TransportRemovePolicyAction @Inject constructor(
         }
 
         @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
-        fun removeManagedIndex() {
+        fun removeManagedIndices() {
             if (indicesToRemove.isNotEmpty()) {
                 val bulkReq = BulkRequest()
                 indicesToRemove.forEach { bulkReq.add(deleteManagedIndexRequest(it.key)) }
@@ -155,7 +154,7 @@ class TransportRemovePolicyAction @Inject constructor(
                         // clean metadata for indicesToRemove
                         val indicesToRemoveMetadata = indicesToRemove.map { Index(it.value, it.key) }
                         log.info("remove metadata for $indicesToRemoveMetadata")
-                        removeMetadata(indicesToRemoveMetadata)
+                        removeMetadatas(indicesToRemoveMetadata)
                     }
 
                     override fun onFailure(t: Exception) {
@@ -170,12 +169,11 @@ class TransportRemovePolicyAction @Inject constructor(
                     }
                 })
             } else {
-                updated = 0
-                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(0, failedIndices))
             }
         }
 
-        fun removeMetadata(indices: List<Index>) {
+        fun removeMetadatas(indices: List<Index>) {
             val request = UpdateManagedIndexMetaDataRequest(indicesToRemoveManagedIndexMetaDataFrom = indices)
 
             client.execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, object : ActionListener<AcknowledgedResponse> {

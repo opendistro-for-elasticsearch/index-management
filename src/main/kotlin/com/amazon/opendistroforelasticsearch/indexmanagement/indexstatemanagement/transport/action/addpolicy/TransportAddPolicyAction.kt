@@ -82,7 +82,6 @@ class TransportAddPolicyAction @Inject constructor(
     ) {
         private lateinit var startTime: Instant
         private val indicesToAdd = mutableMapOf<String, String>() // uuid: name
-        private var updated: Int = 0
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
 
         fun start() {
@@ -166,7 +165,7 @@ class TransportAddPolicyAction @Inject constructor(
                         }
                     }
 
-                    createManagedIndex()
+                    createManagedIndices()
                 }
 
                 override fun onFailure(t: Exception) {
@@ -175,7 +174,7 @@ class TransportAddPolicyAction @Inject constructor(
             })
         }
 
-        private fun createManagedIndex() {
+        private fun createManagedIndices() {
             if (indicesToAdd.isNotEmpty()) {
                 val timeSinceClusterStateRequest: Duration = Duration.between(startTime, Instant.now())
 
@@ -217,8 +216,7 @@ class TransportAddPolicyAction @Inject constructor(
                     }
                 })
             } else {
-                updated = 0
-                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(0, failedIndices))
             }
         }
     }

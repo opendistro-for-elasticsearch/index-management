@@ -200,7 +200,7 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
         val updatedSeqNo = (responseBody[_SEQ_NO] as Int).toLong()
         assertNotEquals("response is missing Id", Policy.NO_ID, updatedId)
         assertEquals("not same id", policy.id, updatedId)
-        assertEquals("incorrect seqNo", policy.seqNo + 1, updatedSeqNo)
+        assertTrue("incorrect seqNo", policy.seqNo < updatedSeqNo)
     }
 
     @Throws(Exception::class)

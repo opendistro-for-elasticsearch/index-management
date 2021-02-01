@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -74,7 +75,7 @@ class TransportIndexPolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
@@ -128,7 +129,7 @@ class TransportIndexPolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
@@ -167,7 +168,9 @@ class TransportIndexPolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    // TODO should wrap document already exists exception
+                    //  provide a direct message asking user to use seqNo and primaryTerm
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }

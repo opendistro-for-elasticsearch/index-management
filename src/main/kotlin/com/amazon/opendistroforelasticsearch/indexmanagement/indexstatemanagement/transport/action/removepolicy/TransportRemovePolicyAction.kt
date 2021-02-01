@@ -16,13 +16,15 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.removepolicy
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClosedIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getUuidsForClosedIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -88,13 +90,13 @@ class TransportRemovePolicyAction @Inject constructor(
                     }
 
                     override fun onFailure(t: Exception) {
-                        actionListener.onFailure(t)
+                        actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                     }
                 })
         }
 
         private fun populateLists(state: ClusterState) {
-            getClosedIndices(state).forEach {
+            getUuidsForClosedIndices(state).forEach {
                 failedIndices.add(FailedIndex(indicesToRemove[it] as String, it, "This index is closed"))
                 indicesToRemove.remove(it)
             }
@@ -131,7 +133,7 @@ class TransportRemovePolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
@@ -164,7 +166,7 @@ class TransportRemovePolicyAction @Inject constructor(
                             }
                             actionListener.onResponse(ISMStatusResponse(0, failedIndices))
                         } else {
-                            actionListener.onFailure(t)
+                            actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                         }
                     }
                 })
@@ -182,8 +184,8 @@ class TransportRemovePolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(e: Exception) {
-                    // TODO return exception with message saying failed at removing metadata
-                    actionListener.onFailure(e)
+                    actionListener.onFailure(IndexManagementException.wrap(
+                        Exception("Failed to clean metadata for remove policy indices.", e)))
                 }
             })
         }

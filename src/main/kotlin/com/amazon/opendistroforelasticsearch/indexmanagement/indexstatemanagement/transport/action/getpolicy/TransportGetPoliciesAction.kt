@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -102,7 +103,7 @@ class TransportGetPoliciesAction @Inject constructor(
                     actionListener.onResponse(GetPoliciesResponse(emptyList(), 0))
                     return
                 }
-                actionListener.onFailure(t)
+                actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
             }
         })
     }

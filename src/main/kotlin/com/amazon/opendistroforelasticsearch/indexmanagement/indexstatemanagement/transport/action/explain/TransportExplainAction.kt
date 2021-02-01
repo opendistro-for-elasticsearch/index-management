@@ -76,6 +76,7 @@ class TransportExplainAction @Inject constructor(
 
         private val indexNames: MutableList<String> = mutableListOf()
         private val enabledState: MutableMap<String, Boolean> = mutableMapOf()
+        private val rolesMap: MutableMap<String, List<String>?> = mutableMapOf()
         private var totalManagedIndices = 0
 
         @Suppress("SpreadOperator")
@@ -135,6 +136,8 @@ class TransportExplainAction @Inject constructor(
                         val managedIndex = hitMap["index"] as String
                         managedIndices.add(managedIndex)
                         enabledState[managedIndex] = hitMap["enabled"] as Boolean
+                        val user = hitMap["user"] as Map<String, Any>?
+                        rolesMap[managedIndex] = user?.get("roles") as List<String>?
                         managedIndicesMetaDataMap[managedIndex] = mapOf(
                             "index" to hitMap["index"] as String?,
                             "index_uuid" to hitMap["index_uuid"] as String?,
@@ -236,18 +239,18 @@ class TransportExplainAction @Inject constructor(
             managedIndicesMetaDataMap.clear()
 
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices, enabledState))
+                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, rolesMap, totalManagedIndices, enabledState))
                 return
             }
-            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
+            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas, rolesMap))
         }
 
         fun emptyResponse(size: Int = 0) {
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), size, emptyMap()))
+                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), emptyMap(), size, emptyMap()))
                 return
             }
-            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList()))
+            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList(), emptyMap()))
         }
     }
 }

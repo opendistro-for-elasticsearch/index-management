@@ -31,7 +31,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.RolloverActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.TransitionsActionConfig
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
@@ -120,28 +119,6 @@ fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig, 
         .setIfSeqNo(sweptManagedIndexConfig.seqNo)
         .doc(getPartialChangePolicyBuilder(sweptManagedIndexConfig.changePolicy, user))
 }
-
-/**
- * Creates IndexRequests for [ManagedIndexConfig].
- *
- * Finds ManagedIndices that exist in the cluster state that do not yet exist in [INDEX_MANAGEMENT_INDEX]
- * which means we need to create the [ManagedIndexConfig].
- *
- * @param clusterStateManagedIndexConfigs map of IndexUuid to [ClusterStateManagedIndexConfig].
- * @param currentManagedIndexConfigs map of IndexUuid to [SweptManagedIndexConfig].
- * @param jobInterval dynamic int setting from cluster settings
- * @return list of [DocWriteRequest].
- */
-// @OpenForTesting
-// fun getCreateManagedIndexRequests(
-//     clusterStateManagedIndexConfigs: Map<String, ClusterStateManagedIndexConfig>,
-//     currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>,
-//     jobInterval: Int
-// ): List<DocWriteRequest<*>> {
-//     return clusterStateManagedIndexConfigs.filter { (uuid) ->
-//         !currentManagedIndexConfigs.containsKey(uuid)
-//     }.map { managedIndexConfigIndexRequest(it.value.index, it.value.uuid, it.value.policyID, jobInterval) }
-// }
 
 /**
  * Creates DeleteRequests for [ManagedIndexConfig].

@@ -201,7 +201,7 @@ class TransportChangePolicyAction @Inject constructor(
                 if (!it.isFailed && !it.response.isSourceEmpty) {
                     foundManagedIndices.add(it.response.id)
                     contentParser(it.response.sourceAsBytesRef).parseWithType(NO_ID, it.response.seqNo,
-                            it.response.primaryTerm, SweptManagedIndexConfig.Companion::parse)
+                        it.response.primaryTerm, SweptManagedIndexConfig.Companion::parse)
                 } else {
                     null
                 }

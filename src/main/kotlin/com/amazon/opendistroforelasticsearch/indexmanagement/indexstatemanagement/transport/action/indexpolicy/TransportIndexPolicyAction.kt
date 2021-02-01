@@ -23,7 +23,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.findConflictingPolicyTemplates
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.validateFormat
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
@@ -66,7 +65,7 @@ class TransportIndexPolicyAction @Inject constructor(
 ) {
 
     @Volatile lateinit var user: User
-    lateinit var policy: Policy
+    @Volatile lateinit var policy: Policy
 
     override fun doExecute(task: Task, request: IndexPolicyRequest, listener: ActionListener<IndexPolicyResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
@@ -85,7 +84,6 @@ class TransportIndexPolicyAction @Inject constructor(
         fun start() {
             ismIndices.checkAndUpdateIMConfigIndex(object : ActionListener<AcknowledgedResponse> {
                 override fun onResponse(response: AcknowledgedResponse) {
-                    log.info("going to create mapping response")
                     onCreateMappingsResponse(response)
                 }
 

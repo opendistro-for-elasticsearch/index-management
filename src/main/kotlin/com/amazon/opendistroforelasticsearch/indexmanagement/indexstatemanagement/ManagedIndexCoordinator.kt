@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -38,7 +39,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDeleteManagedIndexRequests
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getSweptManagedIndexSearchRequest
@@ -518,13 +518,6 @@ class ManagedIndexCoordinator(
         } catch (e: Exception) {
             logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]", e)
         }
-    }
-
-    private fun contentParser(bytesReference: BytesReference): XContentParser {
-        return XContentHelper.createParser(
-            NamedXContentRegistry.EMPTY,
-            LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON
-        )
     }
 
     companion object {

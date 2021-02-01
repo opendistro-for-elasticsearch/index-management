@@ -39,7 +39,7 @@ class ManagedIndexSettings {
         val POLICY_ID: Setting<String> = Setting.simpleString(
             "index.opendistro.index_state_management.policy_id",
             Setting.Property.IndexScope,
-            Setting.Property.Deprecated
+            Setting.Property.Dynamic
         )
 
         val ROLLOVER_ALIAS: Setting<String> = Setting.simpleString(

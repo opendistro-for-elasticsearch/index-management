@@ -220,7 +220,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         } else {
             managedIndexConfig.user.roles
         }
-        logger.debug("Running monitor: ${managedIndexConfig.name} with roles: $roles Thread: ${Thread.currentThread().name}")
+        logger.debug("Running ISM job: ${managedIndexConfig.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
         // Get current IndexMetaData and ManagedIndexMetaData
         val indexMetaData = getIndexMetaData(managedIndexConfig.index)

@@ -58,10 +58,15 @@ abstract class Step(val name: String, val managedIndexMetaData: ManagedIndexMeta
     fun getStartingStepMetaData(): StepMetaData = StepMetaData(name, getStepStartTime().toEpochMilli(), StepStatus.STARTING)
 
     fun getStepStartTime(): Instant {
-        if (managedIndexMetaData.stepMetaData == null || managedIndexMetaData.stepMetaData.name != this.name) {
-            return Instant.now()
+        return when {
+            managedIndexMetaData.stepMetaData == null -> Instant.now()
+            managedIndexMetaData.stepMetaData.name != this.name -> Instant.now()
+            // The managed index metadata is a historical snapshot of the metadata and refers to what has happened from the previous
+            // execution, so if we ever see it as COMPLETED it means we are always going to be in a new step, this specifically
+            // helps with the Transition -> Transition (empty state) sequence which the above do not capture
+            managedIndexMetaData.stepMetaData.stepStatus == StepStatus.COMPLETED -> Instant.now()
+            else -> Instant.ofEpochMilli(managedIndexMetaData.stepMetaData.startTime)
         }
-        return Instant.ofEpochMilli(managedIndexMetaData.stepMetaData.startTime)
     }
 
     protected val indexName: String = managedIndexMetaData.index

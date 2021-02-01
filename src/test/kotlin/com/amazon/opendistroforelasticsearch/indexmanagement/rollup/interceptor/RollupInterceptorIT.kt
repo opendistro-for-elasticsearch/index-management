@@ -551,10 +551,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
         }
     }
 
-    // Skipping this test for now as the date format of the 'tpep_pickup_datetime' field is causing exceptions
-    // when ZonedDateTime.parse() is called for determining continuous rollup start/end time.
-    // TODO: Enable this test to verify when the above issue is fixed
-    fun `skip test continuous rollup search`() {
+    fun `test continuous rollup search`() {
         generateNYCTaxiData("source_continuous_rollup_search")
         val rollup = Rollup(
             id = "basic_term_query_continuous_rollup_search",
@@ -572,7 +569,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
             delay = 0,
             continuous = true,
             dimensions = listOf(
-                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
+                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "7d"),
                 Terms("RatecodeID", "RatecodeID"),
                 Terms("PULocationID", "PULocationID")
             ),
@@ -589,7 +586,11 @@ class RollupInterceptorIT : RollupRestTestCase() {
             val rollupJob = getRollup(rollupId = rollup.id)
             assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
             val rollupMetadata = getRollupMetadata(rollupJob.metadataID!!)
-            assertTrue("Rollup has not caught up yet", Instant.now().isBefore(rollupMetadata.continuous!!.nextWindowEndTime))
+
+            // The test data does not have tpep_pickup_datetime going past "2019-01-01" so we can assume that
+            // if the nextWindowStartTime is after 2019-01-02T00:00:00Z then all data has been rolled up
+            assertTrue("Rollup has not caught up yet, docs processed: ${rollupMetadata.stats.documentsProcessed}",
+                rollupMetadata.continuous!!.nextWindowStartTime.isAfter(Instant.parse("2019-01-02T00:00:00Z")))
         }
 
         refreshAllIndices()

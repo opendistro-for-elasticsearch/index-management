@@ -53,7 +53,6 @@ data class ISMRollup(
             "Must specify precisely one date histogram dimension"
         }
         require(dimensions.first().type == Dimension.Type.DATE_HISTOGRAM) { "The first dimension must be a date histogram" }
-        require(metrics.isNotEmpty()) { "Metrics cannot be empty" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

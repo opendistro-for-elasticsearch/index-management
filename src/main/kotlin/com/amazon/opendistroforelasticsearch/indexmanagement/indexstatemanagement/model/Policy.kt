@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalISMTemplateField
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
@@ -41,7 +42,8 @@ data class Policy(
     val lastUpdatedTime: Instant,
     val errorNotification: ErrorNotification?,
     val defaultState: String,
-    val states: List<State>
+    val states: List<State>,
+    val ismTemplate: ISMTemplate? = null
 ) : ToXContentObject, Writeable {
 
     init {
@@ -72,6 +74,7 @@ data class Policy(
             .field(ERROR_NOTIFICATION_FIELD, errorNotification)
             .field(DEFAULT_STATE_FIELD, defaultState)
             .field(STATES_FIELD, states.toTypedArray())
+            .optionalISMTemplateField(ISM_TEMPLATE, ismTemplate)
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
         return builder.endObject()
     }
@@ -86,7 +89,8 @@ data class Policy(
         lastUpdatedTime = sin.readInstant(),
         errorNotification = sin.readOptionalWriteable(::ErrorNotification),
         defaultState = sin.readString(),
-        states = sin.readList(::State)
+        states = sin.readList(::State),
+        ismTemplate = sin.readOptionalWriteable(::ISMTemplate)
     )
 
     @Throws(IOException::class)
@@ -100,6 +104,7 @@ data class Policy(
         out.writeOptionalWriteable(errorNotification)
         out.writeString(defaultState)
         out.writeList(states)
+        out.writeOptionalWriteable(ismTemplate)
     }
 
     companion object {
@@ -112,6 +117,7 @@ data class Policy(
         const val ERROR_NOTIFICATION_FIELD = "error_notification"
         const val DEFAULT_STATE_FIELD = "default_state"
         const val STATES_FIELD = "states"
+        const val ISM_TEMPLATE = "ism_template"
 
         @Suppress("ComplexMethod")
         @JvmStatic
@@ -129,6 +135,7 @@ data class Policy(
             var lastUpdatedTime: Instant? = null
             var schemaVersion: Long = IndexUtils.DEFAULT_SCHEMA_VERSION
             val states: MutableList<State> = mutableListOf()
+            var ismTemplate: ISMTemplate? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -148,20 +155,22 @@ data class Policy(
                             states.add(State.parse(xcp))
                         }
                     }
+                    ISM_TEMPLATE -> ismTemplate = if (xcp.currentToken() == Token.VALUE_NULL) null else ISMTemplate.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in Policy.")
                 }
             }
 
             return Policy(
-                id,
-                seqNo,
-                primaryTerm,
-                requireNotNull(description) { "$DESCRIPTION_FIELD is null" },
-                schemaVersion,
-                lastUpdatedTime ?: Instant.now(),
-                errorNotification,
-                requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
-                states.toList()
+                id = id,
+                seqNo = seqNo,
+                primaryTerm = primaryTerm,
+                description = requireNotNull(description) { "$DESCRIPTION_FIELD is null" },
+                schemaVersion = schemaVersion,
+                lastUpdatedTime = lastUpdatedTime ?: Instant.now(),
+                errorNotification = errorNotification,
+                defaultState = requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
+                states = states.toList(),
+                ismTemplate = ismTemplate
             )
         }
     }

@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
@@ -50,11 +51,13 @@ import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchParseException
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -74,7 +77,11 @@ import java.time.Duration
 import java.time.Instant
 import java.util.Locale
 
+private val log = LogManager.getLogger(IndexStateManagementRestTestCase::class.java)
+
 abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() {
+
+    val log = LogManager.getLogger(IndexStateManagementRestTestCase::class.java)
 
     protected fun createPolicy(
         policy: Policy,
@@ -164,11 +171,6 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         mapping: String = ""
     ): Pair<String, String?> {
         val settings = Settings.builder().let {
-            if (policyID == null) {
-                it.putNull(ManagedIndexSettings.POLICY_ID.key)
-            } else {
-                it.put(ManagedIndexSettings.POLICY_ID.key, policyID)
-            }
             if (alias == null) {
                 it.putNull(ManagedIndexSettings.ROLLOVER_ALIAS.key)
             } else {
@@ -187,6 +189,9 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
         createIndex(index, settings, mapping, aliases)
+        if (policyID != null) {
+            addPolicyToIndex(index, policyID)
+        }
         return index to policyID
     }
 
@@ -200,19 +205,28 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         index: String,
         policyID: String
     ) {
-        val settings = Settings.builder().put(ManagedIndexSettings.POLICY_ID.key, policyID)
-        updateIndexSettings(index, settings)
+        val body = """
+            {
+              "policy_id": "$policyID"
+            }
+        """.trimIndent()
+        val response = client().makeRequest("POST", "/_opendistro/_ism/add/$index", StringEntity(body, APPLICATION_JSON))
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
     }
 
     protected fun removePolicyFromIndex(index: String) {
-        val settings = Settings.builder().putNull(ManagedIndexSettings.POLICY_ID.key)
-        updateIndexSettings(index, settings)
+        client().makeRequest("POST", "/_opendistro/_ism/remove/$index")
     }
 
     @Suppress("UNCHECKED_CAST")
     protected fun getPolicyFromIndex(index: String): String? {
         val indexSettings = getIndexSettings(index) as Map<String, Map<String, Map<String, Any?>>>
         return indexSettings[index]!!["settings"]!![ManagedIndexSettings.POLICY_ID.key] as? String
+    }
+
+    protected fun getPolicyIDOfManagedIndex(index: String): String? {
+        val managedIndex = getManagedIndexConfig(index)
+        return managedIndex?.policyID
     }
 
     protected fun updateClusterSetting(key: String, value: String, escapeValue: Boolean = true) {
@@ -301,6 +315,18 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     }
 
     protected fun updateManagedIndexConfigStartTime(update: ManagedIndexConfig, desiredStartTimeMillis: Long? = null) {
+        // Before updating start time of a job always make sure there are no unassigned shards that could cause the config
+        // index to move to a new node and negate this forced start
+        if (isMultiNode) {
+            waitFor {
+                try {
+                    client().makeRequest("GET", "_cluster/allocation/explain")
+                    fail("Expected 400 Bad Request when there are no unassigned shards to explain")
+                } catch (e: ResponseException) {
+                    assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
+                }
+            }
+        }
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
@@ -420,8 +446,10 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     protected fun getFlatSettings(indexName: String) =
             (getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>)[indexName]!!["settings"] as Map<String, String>
 
-    protected fun getExplainMap(indexName: String): Map<String, Any> {
-        val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
+    protected fun getExplainMap(indexName: String?): Map<String, Any> {
+        var endpoint = RestExplainAction.EXPLAIN_BASE_URI
+        if (indexName != null) endpoint += "/$indexName"
+        val response = client().makeRequest(RestRequest.Method.GET.toString(), endpoint)
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         return response.asMap()
     }
@@ -463,16 +491,19 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
         val response = client().makeRequest(RestRequest.Method.GET.toString(), "${RestExplainAction.EXPLAIN_BASE_URI}/$indexName")
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-
         lateinit var metadata: ManagedIndexMetaData
         val xcp = createParser(XContentType.JSON.xContent(), response.entity.content)
         ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)
         while (xcp.nextToken() != Token.END_OBJECT) {
-            xcp.currentName()
+            val cn = xcp.currentName()
             xcp.nextToken()
+            if (cn == "total_managed_indices") continue
 
             metadata = ManagedIndexMetaData.parse(xcp)
         }
+
+        // make sure metadata is initialised
+        assertTrue(metadata.transitionTo != null || metadata.stateMetaData != null || metadata.info != null || metadata.policyCompleted != null)
         return metadata
     }
 
@@ -693,6 +724,37 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         val expectedStartTime = expectedAction.startTime
         if (expectedStartTime != null) {
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
+        }
+        return true
+    }
+
+    protected fun assertPredicatesOnISMTemplatesMap(
+        templatePredicates: List<Pair<String, List<Pair<String, (Any?) -> Boolean>>>>, // response map name: predicate
+        response: Map<String, Any?>
+    ) {
+        val templates = response["ism_templates"] as ArrayList<Map<String, Any?>>
+
+        templatePredicates.forEachIndexed { ind, (_, predicates) ->
+            val template = templates[ind]
+            predicates.forEach { (fieldName, predicate) ->
+                assertTrue("The key: $fieldName was not found in the response: $template", template.containsKey(fieldName))
+                assertTrue("Failed predicate assertion for $fieldName in response=($template) predicate=$predicate", predicate(template[fieldName]))
+            }
+        }
+    }
+
+    protected fun assertISMTemplateEquals(expected: ISMTemplate, actualISMTemplateMap: Any?): Boolean {
+        actualISMTemplateMap as Map<String, Any>
+        assertEquals(expected.indexPatterns, actualISMTemplateMap[ISMTemplate.INDEX_PATTERN])
+        assertEquals(expected.priority, actualISMTemplateMap[ISMTemplate.PRIORITY])
+        return true
+    }
+
+    protected fun assertISMTemplateEquals(expected: ISMTemplate, actual: ISMTemplate?): Boolean {
+        assertNotNull(actual)
+        if (actual != null) {
+            assertEquals(expected.indexPatterns, actual.indexPatterns)
+            assertEquals(expected.priority, actual.priority)
         }
         return true
     }

@@ -25,11 +25,11 @@ import java.io.IOException
 class AddPolicyRequest : ActionRequest {
 
     val indices: List<String>
-    val policyID: String?
+    val policyID: String
 
     constructor(
         indices: List<String>,
-        policyID: String?
+        policyID: String
     ) : super() {
         this.indices = indices
         this.policyID = policyID
@@ -43,8 +43,8 @@ class AddPolicyRequest : ActionRequest {
 
     override fun validate(): ActionRequestValidationException? {
         var validationException: ActionRequestValidationException? = null
-        if (indices.isEmpty() || policyID.isNullOrBlank()) {
-            validationException = ValidateActions.addValidationError("Missing indices or policyID", validationException)
+        if (indices.isEmpty()) {
+            validationException = ValidateActions.addValidationError("Missing indices", validationException)
         }
         return validationException
     }

@@ -55,6 +55,27 @@ apply plugin: 'io.gitlab.arturbosch.detekt'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
 
+configurations.all {
+    if (it.state != Configuration.State.UNRESOLVED) return
+    resolutionStrategy {
+        force "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+        force "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
+        force 'junit:junit:4.13.1'
+        force 'commons-beanutils:commons-beanutils:1.9.4'
+        force 'com.google.guava:guava:30.0-jre'
+        force 'com.puppycrawl.tools:checkstyle:8.29'
+        force 'commons-codec:commons-codec:1.13'
+        // force 'org.apache.logging.log4j:log4j-core:2.13.2'
+        force 'org.apache.httpcomponents:httpclient:4.5.13'
+        force 'org.apache.httpcomponents:httpclient-osgi:4.5.13'
+        force 'org.apache.httpcomponents.client5:httpclient5:5.0.3'
+        force 'org.apache.httpcomponents.client5:httpclient5-osgi:5.0.3'
+        force 'com.fasterxml.jackson.core:jackson-databind:2.10.4'
+        force 'org.yaml:snakeyaml:1.26'
+        force 'org.codehaus.plexus:plexus-utils:3.0.24'
+    }
+}
+
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
 def usingMultiNode = project.properties.containsKey('numNodes')
 // Only apply jacoco test coverage if we are running a local single node cluster
@@ -64,7 +85,7 @@ if (!usingRemoteCluster && !usingMultiNode) {
 check.dependsOn jacocoTestReport
 
 esplugin {
-    name 'opendistro_index_management'
+    name 'opendistro-index-management'
     description 'Open Distro Index Management Plugin'
     classname 'com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin'
     extendedPlugins = ['opendistro-job-scheduler']
@@ -91,22 +112,26 @@ configurations.testCompile {
     exclude module: "securemock"
 }
 
-configurations.all {
-    if (it.state != Configuration.State.UNRESOLVED) return
-    resolutionStrategy {
-        force "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
-        force "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
-    }
+ext {
+    projectSubstitutions = [:]
+    opendistroVersion = "${version}"
+    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+    licenseFile = rootProject.file('LICENSE')
+    noticeFile = rootProject.file('NOTICE')
 }
+
+group = "com.amazon.opendistroforelasticsearch"
+version = "${opendistroVersion}.1"
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:1.12.0.0"
+    compileOnly "com.amazon.opendistroforelasticsearch:opendistro-job-scheduler-spi:${opendistroVersion}.0"
     compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7'
     compile "org.jetbrains:annotations:13.0"
-    compile "com.amazon.opendistroforelasticsearch:notification:1.12.0.0"
+    compile "com.amazon.opendistroforelasticsearch:notification:${opendistroVersion}.0"
+    compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.2"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
@@ -120,17 +145,6 @@ repositories {
     // TODO: remove mavenLocal once notification is published to maven
     mavenLocal()
 }
-
-ext {
-    projectSubstitutions = [:]
-    opendistroVersion = "${version}"
-    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-    licenseFile = rootProject.file('LICENSE')
-    noticeFile = rootProject.file('NOTICE')
-}
-
-group = "com.amazon.opendistroforelasticsearch"
-version = "${opendistroVersion}.1"
 
 if (isSnapshot) {
     version += "-SNAPSHOT"
@@ -228,7 +242,8 @@ integTest {
     systemProperty 'tests.security.manager', 'false'
     systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
     systemProperty 'buildDir', buildDir.path
-    systemProperty "https", System.getProperty("https", securityEnabled.toString())
+    systemProperty "https", System.getProperty("https")
+    systemProperty "security", System.getProperty("security")
     systemProperty "user", System.getProperty("user", "admin")
     systemProperty "password", System.getProperty("password", "admin")
     // Tell the test JVM if the cluster JVM is running under a debugger so that tests can use longer timeouts for
@@ -247,6 +262,13 @@ integTest {
     // The -Dcluster.debug option makes the cluster debuggable; this makes the tests debuggable
     if (System.getProperty("test.debug") != null) {
         jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
+    }
+
+    // TODO: Fix running notification test against remote cluster with security plugin installed
+    if (System.getProperty("https") != null) {
+        filter {
+            excludeTestsMatching "com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.NotificationActionIT"
+        }
     }
 }
 

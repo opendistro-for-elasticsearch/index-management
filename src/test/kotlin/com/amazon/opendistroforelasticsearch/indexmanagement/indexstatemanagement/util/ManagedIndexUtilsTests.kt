@@ -25,8 +25,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomSweptManagedIndexConfig
+import com.nhaarman.mockitokotlin2.doReturn
+import com.nhaarman.mockitokotlin2.mock
+import com.nhaarman.mockitokotlin2.whenever
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
@@ -34,6 +38,7 @@ import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.Index
 import org.elasticsearch.test.ESTestCase
 import java.time.Instant
 
@@ -133,9 +138,8 @@ class ManagedIndexUtilsTests : ESTestCase() {
     }
 
     fun `test get delete managed index requests`() {
-        val sweptConfigToDelete = randomSweptManagedIndexConfig(policyID = "delete_me")
-
         val clusterConfigToCreate = randomClusterStateManagedIndexConfig(policyID = "some_policy")
+        val sweptConfigToDelete = randomSweptManagedIndexConfig(policyID = "delete_me")
 
         val clusterConfigToUpdate = randomClusterStateManagedIndexConfig(policyID = "update_me")
         val sweptConfigToBeUpdated = randomSweptManagedIndexConfig(index = clusterConfigToUpdate.index,
@@ -150,13 +154,17 @@ class ManagedIndexUtilsTests : ESTestCase() {
         val sweptConfig = randomSweptManagedIndexConfig(index = clusterConfig.index,
                 uuid = clusterConfig.uuid, policyID = clusterConfig.policyID, seqNo = 5, primaryTerm = 17)
 
+        val indexMetadata1: IndexMetadata = mock()
+        val indexMetadata2: IndexMetadata = mock()
+        val indexMetadata3: IndexMetadata = mock()
+        val indexMetadata4: IndexMetadata = mock()
+        whenever(indexMetadata1.index).doReturn(Index(clusterConfig.index, clusterConfig.uuid))
+        whenever(indexMetadata2.index).doReturn(Index(clusterConfigToUpdate.index, clusterConfigToUpdate.uuid))
+        whenever(indexMetadata3.index).doReturn(Index(clusterConfigBeingUpdated.index, clusterConfigBeingUpdated.uuid))
+        whenever(indexMetadata4.index).doReturn(Index(clusterConfigToCreate.index, clusterConfigToCreate.uuid))
+
         val requests = getDeleteManagedIndexRequests(
-            mapOf(
-                clusterConfigToCreate.uuid to clusterConfigToCreate,
-                clusterConfigToUpdate.uuid to clusterConfigToUpdate,
-                clusterConfig.uuid to clusterConfig,
-                clusterConfigBeingUpdated.uuid to clusterConfigBeingUpdated
-            ),
+            listOf(indexMetadata1, indexMetadata2, indexMetadata3, indexMetadata4),
             mapOf(
                 sweptConfig.uuid to sweptConfig,
                 sweptConfigToDelete.uuid to sweptConfigToDelete,

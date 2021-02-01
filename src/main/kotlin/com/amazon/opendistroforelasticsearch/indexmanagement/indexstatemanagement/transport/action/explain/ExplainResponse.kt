@@ -24,10 +24,10 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
 import java.io.IOException
-import java.util.*
 
-class ExplainResponse : ActionResponse, ToXContentObject {
+open class ExplainResponse : ActionResponse, ToXContentObject {
 
+    // TODO refactor these lists usage to map
     val indexNames: List<String>
     val indexPolicyIDs: List<String?>
     val indexMetadatas: List<ManagedIndexMetaData?>
@@ -49,6 +49,7 @@ class ExplainResponse : ActionResponse, ToXContentObject {
         indexMetadatas = sin.readList { ManagedIndexMetaData.fromStreamInput(it) }
     )
 
+    @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeStringCollection(indexNames)
         out.writeStringCollection(indexPolicyIDs)

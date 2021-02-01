@@ -17,77 +17,26 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.ClusterStateManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import org.elasticsearch.cluster.ClusterState
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.cluster.metadata.IndexMetadata
-
-/**
- * Compares current and previous IndexMetaData to determine if we should create [ManagedIndexConfig].
- *
- * If [getPolicyID] returns null then we should not create a [ManagedIndexConfig].
- * Else if the previous IndexMetaData is null then it means this is a newly created index that should be managed.
- * Else if the previous IndexMetaData's [getPolicyID] is null then this is an existing index that had
- * a policy_id added to it.
- *
- * @param previousIndexMetaData the previous [IndexMetaData].
- * @return whether a [ManagedIndexConfig] should be created.
- */
-fun IndexMetadata.shouldCreateManagedIndexConfig(previousIndexMetaData: IndexMetadata?): Boolean {
-    if (this.getPolicyID() == null) return false
-
-    return previousIndexMetaData?.getPolicyID() == null
-}
-
-/**
- * Compares current and previous IndexMetadata to determine if we should delete [ManagedIndexConfig].
- *
- * If the previous IndexMetadata is null or its [getPolicyID] returns null then there should
- * be no [ManagedIndexConfig] to delete. Else if the current [getPolicyID] returns null
- * then it means we should delete the existing [ManagedIndexConfig].
- *
- * @param previousIndexMetaData the previous [IndexMetadata].
- * @return whether a [ManagedIndexConfig] should be deleted.
- */
-fun IndexMetadata.shouldDeleteManagedIndexConfig(previousIndexMetaData: IndexMetadata?): Boolean {
-    if (previousIndexMetaData?.getPolicyID() == null) return false
-
-    return this.getPolicyID() == null
-}
-
-/**
- * Checks to see if the [ManagedIndexMetaData] should be removed.
- *
- * If [getPolicyID] returns null but [ManagedIndexMetaData] is not null then the policy was removed and
- * the [ManagedIndexMetaData] remains and should be removed.
- */
-fun IndexMetadata.shouldDeleteManagedIndexMetaData(): Boolean =
-    this.getPolicyID() == null && this.getManagedIndexMetaData() != null
-
-/**
- * Returns the current policy_id if it exists and is valid otherwise returns null.
- * */
-fun IndexMetadata.getPolicyID(): String? {
-    if (this.settings.get(ManagedIndexSettings.POLICY_ID.key).isNullOrBlank()) return null
-
-    return this.settings.get(ManagedIndexSettings.POLICY_ID.key)
-}
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentType
 
 /**
  * Returns the current rollover_alias if it exists otherwise returns null.
- * */
+ */
 fun IndexMetadata.getRolloverAlias(): String? {
     if (this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key).isNullOrBlank()) return null
 
     return this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key)
-}
-
-fun IndexMetadata.getClusterStateManagedIndexConfig(): ClusterStateManagedIndexConfig? {
-    val index = this.index.name
-    val uuid = this.index.uuid
-    val policyID = this.getPolicyID() ?: return null
-
-    return ClusterStateManagedIndexConfig(index = index, uuid = uuid, policyID = policyID)
 }
 
 fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
@@ -98,3 +47,40 @@ fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
     }
     return null
 }
+
+fun getUuidsForClosedIndices(state: ClusterState): MutableList<String> {
+    val indexMetadatas = state.metadata.indices
+    val closeList = mutableListOf<String>()
+    indexMetadatas.forEach {
+        // it.key is index name
+        if (it.value.state == IndexMetadata.State.CLOSE) {
+            closeList.add(it.value.indexUUID)
+        }
+    }
+    return closeList
+}
+
+/**
+ * Do a exists search query to retrieve all policy with ism_template field
+ * parse search response with this function
+ *
+ * @return map of policyID to ISMTemplate in this policy
+ * @throws [IllegalArgumentException]
+ */
+@Throws(Exception::class)
+fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXContentRegistry = NamedXContentRegistry.EMPTY):
+    Map<String, ISMTemplate?> {
+    return response.hits.hits.map {
+        val id = it.id
+        val seqNo = it.seqNo
+        val primaryTerm = it.primaryTerm
+        val xcp = XContentFactory.xContent(XContentType.JSON)
+            .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, it.sourceAsString)
+        xcp.parseWithType(id, seqNo, primaryTerm, Policy.Companion::parse)
+            .copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
+    }.map { it.id to it.ismTemplate }.toMap()
+}
+
+@Suppress("UNCHECKED_CAST")
+fun <K, V> Map<K, V?>.filterNotNullValues(): Map<K, V> =
+    filterValues { it != null } as Map<K, V>

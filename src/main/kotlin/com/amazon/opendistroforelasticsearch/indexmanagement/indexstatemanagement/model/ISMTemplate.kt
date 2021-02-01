@@ -44,7 +44,7 @@ data class ISMTemplate(
 
     init {
         require(priority >= 0) { "Requires priority to be >= 0" }
-        require(indexPatterns.isNotEmpty()) { "Requires at least one index pattern" }
+        require(indexPatterns.isNotEmpty()) { "at least give one index pattern" }
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {

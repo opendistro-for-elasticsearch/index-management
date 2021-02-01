@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator.Companion.MAX_HITS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
@@ -173,7 +174,7 @@ class TransportExplainAction @Inject constructor(
                         emptyResponse()
                         return
                     }
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
@@ -196,7 +197,7 @@ class TransportExplainAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }

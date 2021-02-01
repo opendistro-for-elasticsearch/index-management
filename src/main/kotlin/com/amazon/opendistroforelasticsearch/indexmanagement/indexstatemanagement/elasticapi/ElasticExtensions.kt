@@ -51,7 +51,7 @@ fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
     return null
 }
 
-fun getClosedIndices(state: ClusterState): MutableList<String> {
+fun getUuidsForClosedIndices(state: ClusterState): MutableList<String> {
     val indexMetadatas = state.metadata.indices
     val closeList = mutableListOf<String>()
     indexMetadatas.forEach {

@@ -19,7 +19,7 @@ import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClosedIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getUuidsForClosedIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
@@ -28,6 +28,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ElasticsearchTimeoutException
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -91,7 +92,6 @@ class TransportAddPolicyAction @Inject constructor(
     ) {
         private lateinit var startTime: Instant
         private val indicesToAdd = mutableMapOf<String, String>() // uuid: name
-        private var updated: Int = 0
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
 
         fun start() {
@@ -101,7 +101,7 @@ class TransportAddPolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
@@ -137,8 +137,7 @@ class TransportAddPolicyAction @Inject constructor(
                 .cluster()
                 .state(clusterStateRequest, object : ActionListener<ClusterStateResponse> {
                     override fun onResponse(response: ClusterStateResponse) {
-                        val indexMetadatas = response.state.metadata.indices
-                        indexMetadatas.forEach {
+                        response.state.metadata.indices.forEach {
                             indicesToAdd.putIfAbsent(it.value.indexUUID, it.key)
                         }
 
@@ -146,13 +145,13 @@ class TransportAddPolicyAction @Inject constructor(
                     }
 
                     override fun onFailure(t: Exception) {
-                        actionListener.onFailure(t)
+                        actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                     }
                 })
         }
 
         private fun populateLists(state: ClusterState) {
-            getClosedIndices(state).forEach {
+            getUuidsForClosedIndices(state).forEach {
                 failedIndices.add(FailedIndex(indicesToAdd[it] as String, it, "This index is closed"))
                 indicesToAdd.remove(it)
             }
@@ -175,16 +174,16 @@ class TransportAddPolicyAction @Inject constructor(
                         }
                     }
 
-                    createManagedIndex()
+                    createManagedIndices()
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
 
-        private fun createManagedIndex() {
+        private fun createManagedIndices() {
             if (indicesToAdd.isNotEmpty()) {
                 val timeSinceClusterStateRequest: Duration = Duration.between(startTime, Instant.now())
 
@@ -198,7 +197,6 @@ class TransportAddPolicyAction @Inject constructor(
                 }
 
                 val bulkReq = BulkRequest().timeout(TimeValue.timeValueMillis(bulkReqTimeout))
-                log.info("add policy with user $user")
                 indicesToAdd.forEach { (uuid, name) ->
                     bulkReq.add(managedIndexConfigIndexRequest(name, uuid, request.policyID, jobInterval, user))
                 }
@@ -208,7 +206,7 @@ class TransportAddPolicyAction @Inject constructor(
                         response.forEach {
                             val docId = it.id // docId is managed index uuid
                             if (it.isFailed) {
-                                failedIndices.add(FailedIndex(indicesToAdd[docId] as String, docId, "Failed to add policy: ${it.failureMessage}"))
+                                failedIndices.add(FailedIndex(indicesToAdd[docId] as String, docId, "Failed to add policy due to: ${it.failureMessage}"))
                                 indicesToAdd.remove(docId)
                             }
                         }
@@ -222,13 +220,12 @@ class TransportAddPolicyAction @Inject constructor(
                             }
                             actionListener.onResponse(ISMStatusResponse(0, failedIndices))
                         } else {
-                            actionListener.onFailure(t)
+                            actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                         }
                     }
                 })
             } else {
-                updated = 0
-                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(0, failedIndices))
             }
         }
     }

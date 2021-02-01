@@ -17,13 +17,16 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getClosedIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getUuidsForClosedIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -41,6 +44,7 @@ import org.elasticsearch.cluster.block.ClusterBlockException
 import org.elasticsearch.common.inject.Inject
 import org.elasticsearch.index.Index
 import org.elasticsearch.index.IndexNotFoundException
+import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
@@ -68,10 +72,37 @@ class TransportRemovePolicyAction @Inject constructor(
 
         private val failedIndices: MutableList<FailedIndex> = mutableListOf()
         private val indicesToRemove = mutableMapOf<String, String>() // uuid: name
-        private var updated: Int = 0
+
+        fun start() {
+            ismIndices.checkAndUpdateIMConfigIndex(object : ActionListener<AcknowledgedResponse> {
+                override fun onResponse(response: AcknowledgedResponse) {
+                    log.info("going to create mapping response")
+                    onCreateMappingsResponse(response)
+                }
+
+                override fun onFailure(t: java.lang.Exception) {
+                    actionListener.onFailure(t)
+                }
+            })
+        }
+
+        private fun onCreateMappingsResponse(response: AcknowledgedResponse) {
+            if (response.isAcknowledged) {
+                log.info("Successfully created or updated $INDEX_MANAGEMENT_INDEX with newest mappings.")
+                getClusterState()
+            } else {
+                log.error("Unable to create or update $INDEX_MANAGEMENT_INDEX with newest mapping.")
+
+                actionListener.onFailure(
+                    ElasticsearchStatusException(
+                        "Unable to create or update $INDEX_MANAGEMENT_INDEX with newest mapping.",
+                        RestStatus.INTERNAL_SERVER_ERROR)
+                )
+            }
+        }
 
         @Suppress("SpreadOperator")
-        fun start() {
+        fun getClusterState() {
             val strictExpandOptions = IndicesOptions.strictExpand()
 
             val clusterStateRequest = ClusterStateRequest()
@@ -93,13 +124,13 @@ class TransportRemovePolicyAction @Inject constructor(
                     }
 
                     override fun onFailure(t: Exception) {
-                        actionListener.onFailure(t)
+                        actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                     }
                 })
         }
 
         private fun populateLists(state: ClusterState) {
-            getClosedIndices(state).forEach {
+            getUuidsForClosedIndices(state).forEach {
                 failedIndices.add(FailedIndex(indicesToRemove[it] as String, it, "This index is closed"))
                 indicesToRemove.remove(it)
             }
@@ -131,17 +162,18 @@ class TransportRemovePolicyAction @Inject constructor(
                             indicesToRemove.remove(docId)
                         }
                     }
-                    removeManagedIndex()
+
+                    removeManagedIndices()
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
 
         @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
-        fun removeManagedIndex() {
+        fun removeManagedIndices() {
             if (indicesToRemove.isNotEmpty()) {
                 val bulkReq = BulkRequest()
                 indicesToRemove.forEach { bulkReq.add(deleteManagedIndexRequest(it.key)) }
@@ -157,8 +189,7 @@ class TransportRemovePolicyAction @Inject constructor(
 
                         // clean metadata for indicesToRemove
                         val indicesToRemoveMetadata = indicesToRemove.map { Index(it.value, it.key) }
-                        log.info("remove metadata for $indicesToRemoveMetadata")
-                        removeMetadata(indicesToRemoveMetadata)
+                        removeMetadatas(indicesToRemoveMetadata)
                     }
 
                     override fun onFailure(t: Exception) {
@@ -168,17 +199,16 @@ class TransportRemovePolicyAction @Inject constructor(
                             }
                             actionListener.onResponse(ISMStatusResponse(0, failedIndices))
                         } else {
-                            actionListener.onFailure(t)
+                            actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                         }
                     }
                 })
             } else {
-                updated = 0
-                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(0, failedIndices))
             }
         }
 
-        fun removeMetadata(indices: List<Index>) {
+        fun removeMetadatas(indices: List<Index>) {
             val request = UpdateManagedIndexMetaDataRequest(indicesToRemoveManagedIndexMetaDataFrom = indices)
 
             client.execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, object : ActionListener<AcknowledgedResponse> {
@@ -187,8 +217,8 @@ class TransportRemovePolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(e: Exception) {
-                    // TODO return exception with message saying failed at removing metadata
-                    actionListener.onFailure(e)
+                    actionListener.onFailure(IndexManagementException.wrap(
+                        Exception("Failed to clean metadata for remove policy indices.", e)))
                 }
             })
         }

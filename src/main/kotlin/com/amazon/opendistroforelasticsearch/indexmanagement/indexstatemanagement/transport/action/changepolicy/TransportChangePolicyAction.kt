@@ -33,6 +33,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -103,8 +104,7 @@ class TransportChangePolicyAction @Inject constructor(
         }
 
         private fun onFailure(t: Exception) {
-            log.info("change policy failure $t")
-            actionListener.onFailure(t)
+            actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
         }
 
         private fun onGetPolicyResponse(response: GetResponse) {
@@ -234,7 +234,7 @@ class TransportChangePolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }

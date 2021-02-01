@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.findConflictingPolicyTemplates
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.validateFormat
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
@@ -30,6 +31,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -88,7 +90,7 @@ class TransportIndexPolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
@@ -97,6 +99,7 @@ class TransportIndexPolicyAction @Inject constructor(
             if (response.isAcknowledged) {
                 log.info("Successfully created or updated ${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX} with newest mappings.")
 
+                // if there is template field, we will check
                 policy = request.policy
                 val reqTemplate = policy.ismTemplate
                 if (reqTemplate != null) {
@@ -145,7 +148,7 @@ class TransportIndexPolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }
@@ -185,7 +188,7 @@ class TransportIndexPolicyAction @Inject constructor(
                 override fun onFailure(t: Exception) {
                     // TODO should wrap document already exists exception
                     //  provide a direct message asking user to use seqNo and primaryTerm
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }

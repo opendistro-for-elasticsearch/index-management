@@ -19,12 +19,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndi
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.filterNotNullValues
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -38,6 +38,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDeleteManagedIndexRequests
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getSweptManagedIndexSearchRequest
@@ -251,9 +252,8 @@ class ManagedIndexCoordinator(
         var removeManagedIndexReq = emptyList<DocWriteRequest<*>>()
         var indicesToClean = emptyList<Index>()
         if (event.indicesDeleted().isNotEmpty()) {
-            val deletedIndices = event.indicesDeleted().map { Index(it.name, it.uuid) }
-            val managedState = getManagedIndex(deletedIndices.map { it.uuid })
-            indicesToClean = deletedIndices.filter { it.uuid in managedState.keys }
+            val managedIndices = getManagedIndices(event.indicesDeleted().map { it.uuid })
+            indicesToClean = event.indicesDeleted().filter { it.uuid in managedIndices.keys }
             removeManagedIndexReq = indicesToClean.map { deleteManagedIndexRequest(it.uuid) }
         }
 
@@ -291,7 +291,7 @@ class ManagedIndexCoordinator(
                 val indexUuid = indexMetadatas[index].indexUUID
                 val ismTemplate = templates[policyID]
                 if (indexUuid != null && ismTemplate != null) {
-                    logger.info("index [$index] will be managed by policy [$policyID] with role [$ismTemplate.user.roles]")
+                    logger.info("index [$index] will be managed by policy [$policyID] of roles [${ismTemplate.user?.roles}]")
                     updateManagedIndexReqs.add(
                         managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval, ismTemplate.user)
                     )
@@ -434,7 +434,7 @@ class ManagedIndexCoordinator(
      * @return map of IndexUuid to [ManagedIndexConfig]
      */
     @Suppress("ReturnCount")
-    suspend fun getManagedIndex(indexUuids: List<String>): Map<String, ManagedIndexConfig?> {
+    suspend fun getManagedIndices(indexUuids: List<String>): Map<String, ManagedIndexConfig?> {
         if (indexUuids.isEmpty()) return emptyMap()
 
         val result: MutableMap<String, ManagedIndexConfig?> = mutableMapOf()
@@ -518,6 +518,13 @@ class ManagedIndexCoordinator(
         } catch (e: Exception) {
             logger.error("Failed to remove ManagedIndexMetaData for [indices=$indices]", e)
         }
+    }
+
+    private fun contentParser(bytesReference: BytesReference): XContentParser {
+        return XContentHelper.createParser(
+            NamedXContentRegistry.EMPTY,
+            LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON
+        )
     }
 
     companion object {

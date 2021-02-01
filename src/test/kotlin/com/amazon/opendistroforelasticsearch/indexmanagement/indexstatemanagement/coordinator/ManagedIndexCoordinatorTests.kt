@@ -20,12 +20,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.Version
 import org.elasticsearch.client.Client
-import org.elasticsearch.cluster.ClusterName
-import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.ESAllocationTestCase
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.metadata.IndexMetadata.SETTING_INDEX_UUID
-import org.elasticsearch.cluster.metadata.Metadata
 import org.elasticsearch.cluster.node.DiscoveryNode
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.ClusterSettings
@@ -127,37 +124,16 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         Mockito.verify(threadPool, Mockito.times(2)).scheduleWithFixedDelay(Mockito.any(), Mockito.any(), Mockito.anyString())
     }
 
-    fun `test sweep cluster state`() {
-        val metadata = Metadata.builder()
-                .put(createIndexMetaData("index-with-policy", 1, 3, "first_policy"))
-                .put(createIndexMetaData("index-with-null-policy", 1, 3, null))
-                .put(createIndexMetaData("index-with-empty-policy", 1, 3, ""))
-                .put(createIndexMetaData("index-with-blank-policy", 1, 3, " "))
-                .put(createIndexMetaData("index-with-policy-two", 1, 3, "second_policy"))
-                .build()
-
-        val clusterState = ClusterState.builder(ClusterName("cluster_name"))
-                .metadata(metadata)
-                .build()
-
-        val results = coordinator.sweepClusterState(clusterState)
-        assertTrue("Missed index with policy_id: first_policy", results.values.any { it.index == "index-with-policy" })
-        assertTrue("Missed index with policy_id: second_policy", results.values.any { it.index == "index-with-policy-two" })
-        assertFalse("Swept index with null policy_id", results.values.any { it.index == "index-with-null-policy" })
-        assertFalse("Swept index with empty policy_id", results.values.any { it.index == "index-with-empty-policy" })
-        assertFalse("Swept index with blank policy_id", results.values.any { it.index == "index-with-blank-policy" })
-    }
-
     private fun createIndexMetaData(indexName: String, replicaNumber: Int, shardNumber: Int, policyID: String?): IndexMetadata.Builder {
         val defaultSettings = Settings.builder()
-                .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
-                .put(ManagedIndexSettings.POLICY_ID.key, policyID)
-                .put(SETTING_INDEX_UUID, randomAlphaOfLength(20))
-                .build()
+            .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT)
+            .put(ManagedIndexSettings.POLICY_ID.key, policyID)
+            .put(SETTING_INDEX_UUID, randomAlphaOfLength(20))
+            .build()
         return IndexMetadata.Builder(indexName)
-                .settings(defaultSettings)
-                .numberOfReplicas(replicaNumber)
-                .numberOfShards(shardNumber)
+            .settings(defaultSettings)
+            .numberOfReplicas(replicaNumber)
+            .numberOfShards(shardNumber)
     }
 
     private fun <T> any(): T {

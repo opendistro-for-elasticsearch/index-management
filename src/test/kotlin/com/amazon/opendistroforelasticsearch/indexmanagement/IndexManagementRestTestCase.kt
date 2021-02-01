@@ -126,6 +126,22 @@ abstract class IndexManagementRestTestCase : ODFERestTestCase() {
         insertSampleBulkData(index, javaClass.classLoader.getResource("data/nyc_5000.ndjson").readText())
     }
 
+    fun createUser(name: String, passwd: String, backendRoles: Array<String>) {
+        val request = Request("PUT", "/_opendistro/_security/api/internalusers/$name")
+        val broles = backendRoles.joinToString { it -> "\"$it\"" }
+        val entity = " {\n" +
+            "\"password\": \"$passwd\",\n" +
+            "\"backend_roles\": [$broles],\n" +
+            "\"attributes\": {\n" +
+            "}} "
+        request.setJsonEntity(entity)
+        client().performRequest(request)
+    }
+
+    fun deleteUser(name: String) {
+        client().makeRequest("DELETE", "/_opendistro/_security/api/internalusers/$name")
+    }
+
     companion object {
         internal interface IProxy {
             val version: String?

@@ -106,15 +106,19 @@ abstract class ODFERestTestCase : ESRestTestCase() {
         }
     }
 
+    override fun preserveIndicesUponCompletion(): Boolean {
+        return true
+    }
+
     @Throws(IOException::class)
+    @After
     open fun wipeAllODFEIndices() {
         val response = client().performRequest(Request("GET", "/_cat/indices?format=json&expand_wildcards=all"))
 
         val xContentType = XContentType.fromMediaTypeOrFormat(response.entity.contentType.value)
         xContentType.xContent().createParser(
             NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-            response.entity.content
-        ).use { parser ->
+            response.entity.content).use { parser ->
             for (index in parser.list()) {
                 val jsonObject: Map<*, *> = index as java.util.HashMap<*, *>
                 val indexName: String = jsonObject["index"] as String

@@ -142,6 +142,22 @@ abstract class IndexManagementRestTestCase : ODFERestTestCase() {
         client().makeRequest("DELETE", "/_opendistro/_security/api/internalusers/$name")
     }
 
+    fun createRolesMapping(users: Array<String>, role: String) {
+        val request = Request("PUT", "/_opendistro/_security/api/rolesmapping/$role")
+        val usersStr = users.joinToString { it -> "\"$it\"" }
+        val entity = "{                                  \n" +
+            "  \"backend_roles\" : [  ],\n" +
+            "  \"hosts\" : [  ],\n" +
+            "  \"users\" : [$usersStr]\n" +
+            "}"
+        request.setJsonEntity(entity)
+        client().performRequest(request)
+    }
+
+    fun deleteRolesMapping(role: String) {
+        client().makeRequest("DELETE", "/_opendistro/_security/api/rolesmapping/$role")
+    }
+
     companion object {
         internal interface IProxy {
             val version: String?

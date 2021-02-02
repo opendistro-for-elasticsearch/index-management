@@ -51,13 +51,13 @@ import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
-import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchParseException
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -71,24 +71,20 @@ import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.test.ESTestCase
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
 
-private val log = LogManager.getLogger(IndexStateManagementRestTestCase::class.java)
-
 abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() {
-
-    val log = LogManager.getLogger(IndexStateManagementRestTestCase::class.java)
 
     protected fun createPolicy(
         policy: Policy,
-        policyId: String = ESTestCase.randomAlphaOfLength(10),
-        refresh: Boolean = true
+        policyId: String = randomAlphaOfLength(10),
+        refresh: Boolean = true,
+        client: RestClient = client()
     ): Policy {
-        val response = createPolicyJson(policy.toJsonString(), policyId, refresh)
+        val response = createPolicyJson(policy.toJsonString(), policyId, refresh, client)
 
         val policyJson = jsonXContent
             .createParser(
@@ -108,9 +104,10 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     protected fun createPolicyJson(
         policyString: String,
         policyId: String,
-        refresh: Boolean = true
+        refresh: Boolean = true,
+        client: RestClient = client()
     ): Response {
-        val response = client()
+        val response = client
             .makeRequest(
                 "PUT",
                 "$POLICY_BASE_URI/$policyId?refresh=$refresh",
@@ -203,14 +200,15 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
     protected fun addPolicyToIndex(
         index: String,
-        policyID: String
+        policyID: String,
+        client: RestClient = client()
     ) {
         val body = """
             {
               "policy_id": "$policyID"
             }
         """.trimIndent()
-        val response = client().makeRequest("POST", "/_opendistro/_ism/add/$index", StringEntity(body, APPLICATION_JSON))
+        val response = client.makeRequest("POST", "/_opendistro/_ism/add/$index", StringEntity(body, APPLICATION_JSON))
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
     }
 
@@ -253,7 +251,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
                 }
             }
         """.trimIndent()
-        val response = client().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_search", emptyMap(),
+        val response = adminClient().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_search", emptyMap(),
                 StringEntity(request, APPLICATION_JSON))
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
         val searchResponse = SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
@@ -320,7 +318,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         if (isMultiNode) {
             waitFor {
                 try {
-                    client().makeRequest("GET", "_cluster/allocation/explain")
+                    adminClient().makeRequest("GET", "_cluster/allocation/explain")
                     fail("Expected 400 Bad Request when there are no unassigned shards to explain")
                 } catch (e: ResponseException) {
                     assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -331,7 +329,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
         val waitForActiveShards = if (isMultiNode) "all" else "1"
-        val response = client().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
+        val response = adminClient().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
             StringEntity(
                 "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
                     "\"$startTimeMillis\"}}}}}",
@@ -500,6 +498,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             if (cn == "total_managed_indices") continue
 
             metadata = ManagedIndexMetaData.parse(xcp)
+            break
         }
 
         // make sure metadata is initialised

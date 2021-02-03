@@ -64,22 +64,22 @@ class TransportIndexPolicyAction @Inject constructor(
         IndexPolicyAction.NAME, transportService, actionFilters, ::IndexPolicyRequest
 ) {
 
-    @Volatile lateinit var user: User
     @Volatile lateinit var policy: Policy
 
     override fun doExecute(task: Task, request: IndexPolicyRequest, listener: ActionListener<IndexPolicyResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
-        user = resolveUser(User.parse(userStr))
+        val user = resolveUser(User.parse(userStr))
 
         client.threadPool().threadContext.stashContext().use {
-            IndexPolicyHandler(client, listener, request).start()
+            IndexPolicyHandler(client, listener, request, user).start()
         }
     }
 
     inner class IndexPolicyHandler(
         private val client: NodeClient,
         private val actionListener: ActionListener<IndexPolicyResponse>,
-        private val request: IndexPolicyRequest
+        private val request: IndexPolicyRequest,
+        private val user: User
     ) {
         fun start() {
             ismIndices.checkAndUpdateIMConfigIndex(object : ActionListener<AcknowledgedResponse> {

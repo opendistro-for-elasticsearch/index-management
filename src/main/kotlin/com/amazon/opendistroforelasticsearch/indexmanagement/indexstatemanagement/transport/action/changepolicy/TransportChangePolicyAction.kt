@@ -73,14 +73,12 @@ class TransportChangePolicyAction @Inject constructor(
     ChangePolicyAction.NAME, transportService, actionFilters, ::ChangePolicyRequest
 ) {
 
-    @Volatile lateinit var user: User
-
     override fun doExecute(task: Task, request: ChangePolicyRequest, listener: ActionListener<ISMStatusResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
-        user = resolveUser(User.parse(userStr))
+        val user = resolveUser(User.parse(userStr))
 
         client.threadPool().threadContext.stashContext().use {
-            ChangePolicyHandler(client, listener, request).start()
+            ChangePolicyHandler(client, listener, request, user).start()
         }
     }
 
@@ -88,7 +86,8 @@ class TransportChangePolicyAction @Inject constructor(
     inner class ChangePolicyHandler(
         private val client: NodeClient,
         private val actionListener: ActionListener<ISMStatusResponse>,
-        private val request: ChangePolicyRequest
+        private val request: ChangePolicyRequest,
+        private val user: User
     ) {
         private val failedIndices = mutableListOf<FailedIndex>()
         private val managedIndexUuids = mutableListOf<Pair<String, String>>()

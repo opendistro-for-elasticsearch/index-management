@@ -68,7 +68,6 @@ class TransportAddPolicyAction @Inject constructor(
 ) {
 
     @Volatile private var jobInterval = ManagedIndexSettings.JOB_INTERVAL.get(settings)
-    @Volatile lateinit var user: User
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.JOB_INTERVAL) {
@@ -78,17 +77,24 @@ class TransportAddPolicyAction @Inject constructor(
 
     override fun doExecute(task: Task, request: AddPolicyRequest, listener: ActionListener<ISMStatusResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
-        user = resolveUser(User.parse(userStr))
+        val user = resolveUser(User.parse(userStr))
 
+        /*
+         * Remove security context before you call elasticsearch api's. By this time, permissions required
+         * to call this api are validated.
+         * Once system-indices [https://github.com/opendistro-for-elasticsearch/security/issues/666] is done, we
+         * might further improve this logic. Also change try to kotlin-use for auto-closable.
+         */
         client.threadPool().threadContext.stashContext().use {
-            AddPolicyHandler(client, listener, request).start()
+            AddPolicyHandler(client, listener, request, user).start()
         }
     }
 
     inner class AddPolicyHandler(
         private val client: NodeClient,
         private val actionListener: ActionListener<ISMStatusResponse>,
-        private val request: AddPolicyRequest
+        private val request: AddPolicyRequest,
+        private val user: User
     ) {
         private lateinit var startTime: Instant
         private val indicesToAdd = mutableMapOf<String, String>() // uuid: name

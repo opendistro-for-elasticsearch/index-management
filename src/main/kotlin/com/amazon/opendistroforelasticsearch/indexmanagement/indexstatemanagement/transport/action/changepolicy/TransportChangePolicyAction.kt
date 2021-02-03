@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.coordinator.SweptManagedIndexConfig
@@ -31,6 +30,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
@@ -73,6 +73,7 @@ class TransportChangePolicyAction @Inject constructor(
         ChangePolicyHandler(client, listener, request).start()
     }
 
+    @Suppress("TooManyFunctions")
     inner class ChangePolicyHandler(
         private val client: NodeClient,
         private val actionListener: ActionListener<ISMStatusResponse>,
@@ -92,7 +93,7 @@ class TransportChangePolicyAction @Inject constructor(
         }
 
         private fun onFailure(t: Exception) {
-            actionListener.onFailure(t)
+            actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
         }
 
         private fun onGetPolicyResponse(response: GetResponse) {
@@ -139,6 +140,7 @@ class TransportChangePolicyAction @Inject constructor(
         @Suppress("ComplexMethod")
         private fun processResponse(response: ClusterStateResponse) {
             val includedStates = request.changePolicy.include.map { it.state }.toSet()
+
             response.state.metadata.indices.forEach {
                 val indexMetaData = it.value
                 val currentState = indexMetaData.getManagedIndexMetaData()?.stateMetaData?.name
@@ -146,10 +148,7 @@ class TransportChangePolicyAction @Inject constructor(
                     indexUuidToCurrentState[indexMetaData.indexUUID] = currentState
                 }
                 when {
-                    // If there is no policyID on the index then it's not currently being managed
-                    indexMetaData.getPolicyID() == null ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, RestChangePolicyAction.INDEX_NOT_MANAGED))
-                    // else if there exists a transitionTo on the ManagedIndexMetaData then we will
+                    // if there exists a transitionTo on the ManagedIndexMetaData then we will
                     // fail as they might not of meant to add a ChangePolicy when its on the next state
                     indexMetaData.getManagedIndexMetaData()?.transitionTo != null ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, RestChangePolicyAction.INDEX_IN_TRANSITION))
@@ -181,24 +180,19 @@ class TransportChangePolicyAction @Inject constructor(
             val foundManagedIndices = mutableSetOf<String>()
             val sweptConfigs = response.responses.mapNotNull {
                 // The id is the index uuid
-                if (!it.isFailed && it.response != null) {
+                if (!it.response.isExists) { // meaning this index is not managed
+                    val indexUuid = it.response.id
+                    val indexName = managedIndexUuids.find { (_, second) -> second == indexUuid }?.first
+                    if (indexName != null) {
+                        failedIndices.add(FailedIndex(indexName, indexUuid, RestChangePolicyAction.INDEX_NOT_MANAGED))
+                    }
+                }
+                if (!it.isFailed && !it.response.isSourceEmpty) {
                     foundManagedIndices.add(it.response.id)
                     contentParser(it.response.sourceAsBytesRef).parseWithType(NO_ID, it.response.seqNo,
                         it.response.primaryTerm, SweptManagedIndexConfig.Companion::parse)
                 } else {
                     null
-                }
-            }
-
-            // If we do not find a matching ManagedIndexConfig for one of the provided managedIndexUuids
-            // it means that we have not yet created a job for that index (which can happen during the small
-            // gap of adding a policy_id to an index and a job being created by the coordinator, or the coordinator
-            // failing to create a job and waiting for the sweep to create the job). We will add these as failed indices
-            // that can not be updated from the ChangePolicy yet.
-            managedIndexUuids.forEach {
-                val (index, indexUuid) = it
-                if (!foundManagedIndices.contains(indexUuid)) {
-                    failedIndices.add(FailedIndex(index, indexUuid, RestChangePolicyAction.INDEX_NOT_INITIALIZED))
                 }
             }
 
@@ -215,7 +209,7 @@ class TransportChangePolicyAction @Inject constructor(
             val mapOfItemIdToIndex = mutableMapOf<Int, Pair<String, String>>()
             val bulkRequest = BulkRequest()
             sweptConfigs.forEachIndexed { index, sweptConfig ->
-                // compare the sweptconfig policy to the get policy here and update changePolicy
+                // compare the sweptConfig policy to the get policy here and update changePolicy
                 val currentStateName = indexUuidToCurrentState[sweptConfig.uuid]
                 val updatedChangePolicy = request.changePolicy
                         .copy(isSafe = sweptConfig.policy?.isSafeToChange(currentStateName, policy, request.changePolicy) == true)
@@ -229,7 +223,7 @@ class TransportChangePolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }

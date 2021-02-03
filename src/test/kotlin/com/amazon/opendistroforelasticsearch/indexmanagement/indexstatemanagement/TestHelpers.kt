@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Conditions
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ErrorNotification
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
@@ -66,10 +67,11 @@ fun randomPolicy(
     schemaVersion: Long = ESRestTestCase.randomLong(),
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     errorNotification: ErrorNotification? = randomErrorNotification(),
-    states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() }
+    states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() },
+    ismTemplate: ISMTemplate? = null
 ): Policy {
     return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description)
+            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description, ismTemplate = ismTemplate)
 }
 
 fun randomState(
@@ -314,6 +316,18 @@ fun randomSweptManagedIndexConfig(
     )
 }
 
+fun randomISMTemplate(
+    indexPatterns: List<String> = listOf(ESRestTestCase.randomAlphaOfLength(10) + "*"),
+    priority: Int = ESRestTestCase.randomIntBetween(0, 100),
+    lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+): ISMTemplate {
+    return ISMTemplate(
+        indexPatterns = indexPatterns,
+        priority = priority,
+        lastUpdatedTime = lastUpdatedTime
+    )
+}
+
 fun Policy.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder).string()
@@ -400,6 +414,11 @@ fun SnapshotActionConfig.toJsonString(): String {
 }
 
 fun RollupActionConfig.toJsonString(): String {
+    val builder = XContentFactory.jsonBuilder()
+    return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
+}
+
+fun ISMTemplate.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }

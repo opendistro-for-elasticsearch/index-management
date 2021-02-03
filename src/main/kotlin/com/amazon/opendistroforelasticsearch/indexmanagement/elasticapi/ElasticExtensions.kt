@@ -19,6 +19,8 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi
 
 import com.amazon.opendistroforelasticsearch.commons.InjectSecurity
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
 import kotlinx.coroutines.ThreadContextElement
@@ -81,6 +83,13 @@ fun XContentBuilder.optionalUserField(name: String, user: User?): XContentBuilde
         return nullField(name)
     }
     return this.field(name, user)
+}
+
+fun XContentBuilder.optionalISMTemplateField(name: String, ismTemplate: ISMTemplate?): XContentBuilder {
+    if (ismTemplate == null) {
+        return nullField(name)
+    }
+    return this.field(Policy.ISM_TEMPLATE, ismTemplate)
 }
 
 /**

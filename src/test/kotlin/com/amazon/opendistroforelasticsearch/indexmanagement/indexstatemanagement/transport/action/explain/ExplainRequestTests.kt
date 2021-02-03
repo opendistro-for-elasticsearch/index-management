@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.unit.TimeValue
@@ -26,7 +27,8 @@ class ExplainRequestTests : ESTestCase() {
         val indices = listOf("index1", "index2")
         val local = true
         val masterTimeout = TimeValue.timeValueSeconds(30)
-        val req = ExplainRequest(indices, local, masterTimeout)
+        val params = SearchParams(0, 20, "sort-field", "asc", "*")
+        val req = ExplainRequest(indices, local, masterTimeout, params)
 
         val out = BytesStreamOutput()
         req.writeTo(out)

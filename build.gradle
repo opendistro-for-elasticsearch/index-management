@@ -55,6 +55,27 @@ apply plugin: 'io.gitlab.arturbosch.detekt'
 apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'org.jetbrains.kotlin.plugin.allopen'
 
+configurations.all {
+    if (it.state != Configuration.State.UNRESOLVED) return
+    resolutionStrategy {
+        force "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
+        force "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
+        force 'junit:junit:4.13.1'
+        force 'commons-beanutils:commons-beanutils:1.9.4'
+        force 'com.google.guava:guava:30.0-jre'
+        force 'com.puppycrawl.tools:checkstyle:8.29'
+        force 'commons-codec:commons-codec:1.13'
+        // force 'org.apache.logging.log4j:log4j-core:2.13.2'
+        force 'org.apache.httpcomponents:httpclient:4.5.13'
+        force 'org.apache.httpcomponents:httpclient-osgi:4.5.13'
+        force 'org.apache.httpcomponents.client5:httpclient5:5.0.3'
+        force 'org.apache.httpcomponents.client5:httpclient5-osgi:5.0.3'
+        force 'com.fasterxml.jackson.core:jackson-databind:2.10.4'
+        force 'org.yaml:snakeyaml:1.26'
+        force 'org.codehaus.plexus:plexus-utils:3.0.24'
+    }
+}
+
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
 def usingMultiNode = project.properties.containsKey('numNodes')
 // Only apply jacoco test coverage if we are running a local single node cluster
@@ -89,14 +110,6 @@ detekt {
 
 configurations.testCompile {
     exclude module: "securemock"
-}
-
-configurations.all {
-    if (it.state != Configuration.State.UNRESOLVED) return
-    resolutionStrategy {
-        force "org.jetbrains.kotlin:kotlin-stdlib:${kotlin_version}"
-        force "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
-    }
 }
 
 ext {

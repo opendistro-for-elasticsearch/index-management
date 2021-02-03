@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import org.elasticsearch.ElasticsearchStatusException
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
@@ -62,7 +63,7 @@ class TransportGetPolicyAction @Inject constructor(
                 }
 
                 override fun onFailure(t: Exception) {
-                    actionListener.onFailure(t)
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
                 }
             })
         }

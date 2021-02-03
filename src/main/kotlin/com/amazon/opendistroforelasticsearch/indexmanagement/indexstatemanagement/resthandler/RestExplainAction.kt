@@ -16,8 +16,15 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ISM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.SearchParams
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.explain.ExplainRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_JOB_SORT_FIELD
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_FROM
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_PAGINATION_SIZE
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_QUERY_STRING
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.DEFAULT_SORT_ORDER
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.support.master.MasterNodeRequest
 import org.elasticsearch.client.node.NodeClient
 import org.elasticsearch.common.Strings
@@ -27,6 +34,8 @@ import org.elasticsearch.rest.RestHandler.Route
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestRequest.Method.GET
 import org.elasticsearch.rest.action.RestToXContentListener
+
+private val log = LogManager.getLogger(RestExplainAction::class.java)
 
 class RestExplainAction : BaseRestHandler() {
 
@@ -47,13 +56,22 @@ class RestExplainAction : BaseRestHandler() {
 
     @Suppress("SpreadOperator") // There is no way around dealing with java vararg without spread operator.
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
-        val indices: Array<String>? = Strings.splitStringByCommaToArray(request.param("index"))
-        if (indices == null || indices.isEmpty()) {
-            throw IllegalArgumentException("Missing indices")
-        }
+        log.debug("${request.method()} ${request.path()}")
 
-        val explainRequest = ExplainRequest(indices.toList(), request.paramAsBoolean("local", false),
-                request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT))
+        val indices: Array<String> = Strings.splitStringByCommaToArray(request.param("index"))
+
+        val size = request.paramAsInt("size", DEFAULT_PAGINATION_SIZE)
+        val from = request.paramAsInt("from", DEFAULT_PAGINATION_FROM)
+        val sortField = request.param("sortField", DEFAULT_JOB_SORT_FIELD)
+        val sortOrder = request.param("sortOrder", DEFAULT_SORT_ORDER)
+        val queryString = request.param("queryString", DEFAULT_QUERY_STRING)
+
+        val explainRequest = ExplainRequest(
+            indices.toList(),
+            request.paramAsBoolean("local", false),
+            request.paramAsTime("master_timeout", MasterNodeRequest.DEFAULT_MASTER_NODE_TIMEOUT),
+            SearchParams(size, from, sortField, sortOrder, queryString)
+        )
 
         return RestChannelConsumer { channel ->
             client.execute(ExplainAction.INSTANCE, explainRequest, RestToXContentListener(channel))

@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWit
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyID
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
@@ -190,7 +189,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
     }
 
-    @Suppress("ReturnCount", "ComplexMethod", "LongMethod")
+    @Suppress("ReturnCount", "ComplexMethod", "LongMethod", "ComplexCondition")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
         // doing a check of local cluster health as we do not want to overload master node with potentially a lot of calls
         if (clusterIsRed()) {
@@ -210,13 +209,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
         if (policy == null || managedIndexMetaData == null) {
             initManagedIndex(managedIndexConfig, managedIndexMetaData)
             return
-        }
-
-        // If there is a mismatch between _settings policy_id and job policy_id it means the user
-        // tried to change it using the _settings API or we failed to update during ChangePolicy
-        // so we will attempt to self heal and disallow the use of _settings API to modify policy_id
-        if (indexMetaData.getPolicyID() != managedIndexConfig.policyID) {
-            updateIndexPolicyIDSetting(managedIndexConfig.index, managedIndexConfig.policyID)
         }
 
         // If the policy was completed or failed then return early and disable job so it stops scheduling work
@@ -534,7 +526,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
      * Initializes the change policy process where we will get the policy using the change policy's policyID, update the [ManagedIndexMetaData]
      * to reflect the new policy, and save the new policy to the [ManagedIndexConfig] while resetting the change policy to null
      */
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "ComplexMethod")
     private suspend fun initChangePolicy(
         managedIndexConfig: ManagedIndexConfig,
         managedIndexMetaData: ManagedIndexMetaData,

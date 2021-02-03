@@ -285,14 +285,15 @@ object RollupRunner : ScheduledJobRunner,
                         } else {
                             job.user.roles
                         }
-                        val rollupResult = runBlocking(InjectorContextElement(job.id, settings, threadPool.threadContext, roles)) {
+
+                        val rollupResult = withContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles)) {
                             when (val rollupSearchResult =
                                 rollupSearchService.executeCompositeSearch(updatableJob, metadata)) {
                                 is RollupSearchResult.Success -> {
                                     val compositeRes: InternalComposite =
                                         rollupSearchResult.searchResponse.aggregations.get(updatableJob.id)
                                     metadata = metadata.incrementStats(rollupSearchResult.searchResponse, compositeRes)
-                                    return@runBlocking when (val rollupIndexResult =
+                                    return@withContext when (val rollupIndexResult =
                                         rollupIndexer.indexRollups(updatableJob, compositeRes)) {
                                         is RollupIndexResult.Success -> RollupResult.Success(
                                             compositeRes,
@@ -305,10 +306,11 @@ object RollupRunner : ScheduledJobRunner,
                                     }
                                 }
                                 is RollupSearchResult.Failure -> {
-                                    return@runBlocking RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
+                                    return@withContext RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
                                 }
                             }
                         }
+
                         when (rollupResult) {
                             is RollupResult.Success -> {
                                 metadata = rollupMetadataService.updateMetadata(updatableJob,

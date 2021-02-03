@@ -489,14 +489,6 @@
                       "type": "keyword"
                     }
                   }
-                },
-                "user_requested_tenant": {
-                  "type": "text",
-                  "fields": {
-                    "keyword": {
-                      "type": "keyword"
-                    }
-                  }
                 }
               }
             }
@@ -614,14 +606,6 @@
               }
             },
             "custom_attribute_names": {
-              "type" : "text",
-              "fields" : {
-                "keyword" : {
-                  "type" : "keyword"
-                }
-              }
-            },
-            "user_requested_tenant": {
               "type" : "text",
               "fields" : {
                 "keyword" : {

@@ -132,28 +132,28 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
 
-    // fun `test index not being managed`() {
-    //     val indexName = "${testIndexName}_games"
-    //     createIndex(indexName, null)
-    //     val response = client().makeRequest(
-    //         RestRequest.Method.POST.toString(),
-    //         "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
-    //     )
-    //     assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
-    //     val actualMessage = response.asMap()
-    //     val expectedErrorMessage = mapOf(
-    //         FAILURES to true,
-    //         UPDATED_INDICES to 0,
-    //         FAILED_INDICES to listOf(
-    //             mapOf(
-    //                 "index_name" to indexName,
-    //                 "index_uuid" to getUuid(indexName),
-    //                 "reason" to "This index is not being managed."
-    //             )
-    //         )
-    //     )
-    //     assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
-    // }
+    fun `test index not being managed`() {
+        val indexName = "${testIndexName}_games"
+        createIndex(indexName, null)
+        val response = client().makeRequest(
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+        )
+        assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
+        val actualMessage = response.asMap()
+        val expectedErrorMessage = mapOf(
+            FAILURES to true,
+            UPDATED_INDICES to 0,
+            FAILED_INDICES to listOf(
+                mapOf(
+                    "index_name" to indexName,
+                    "index_uuid" to getUuid(indexName),
+                    "reason" to "This index is not being managed."
+                )
+            )
+        )
+        assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
+    }
 
     fun `test index has no metadata`() {
         val indexName = "${testIndexName}_players"

@@ -308,7 +308,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         if (updateResult && state != null && action != null && step != null && currentActionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
-            runBlocking(InjectorContextElement(managedIndexConfig.id, settings, threadPool.threadContext, roles)) {
+            withContext(InjectorContextElement(managedIndexConfig.id, settings, threadPool.threadContext, roles)) {
                 step.preExecute(logger).execute().postExecute(logger)
             }
             var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(action, step)

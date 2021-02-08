@@ -51,7 +51,6 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
-import java.util.stream.Collectors
 
 private val log = LogManager.getLogger(TransportIndexPolicyAction::class.java)
 

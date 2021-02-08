@@ -38,6 +38,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
 
     private val policyID1 = "t1"
     private val policyID2 = "t2"
+    private val policyID3 = "t3"
 
     fun `test add template with invalid index pattern`() {
         try {
@@ -55,14 +56,16 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
     fun `test add template with overlapping index pattern`() {
         try {
             val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant(), null)
-            val ismTemp2 = ISMTemplate(listOf("lo*"), 100, randomInstant(), null)
+            val ismTemp2 = ISMTemplate(listOf("abc*"), 100, randomInstant(), null)
+            val ismTemp3 = ISMTemplate(listOf("*"), 100, randomInstant(), null)
             createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
             createPolicy(randomPolicy(ismTemplate = ismTemp2), policyID2)
+            createPolicy(randomPolicy(ismTemplate = ismTemp3), policyID3)
             fail("Expect a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()["error"] as Map<String, Any>
-            val expectedReason = "new policy $policyID2 has an ism template with index pattern [lo*] matching existing policy templates policy [$policyID1] => [log*], please use a different priority than 100"
+            val expectedReason = "new policy $policyID3 has an ism template with index pattern [*] matching existing policy templates with index pattern: [log*],[abc*], please use a different priority than 100"
             assertEquals(expectedReason, actualMessage["reason"])
         }
     }

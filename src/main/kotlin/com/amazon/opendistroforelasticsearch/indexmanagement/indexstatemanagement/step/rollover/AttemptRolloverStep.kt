@@ -107,7 +107,7 @@ class AttemptRolloverStep(
             executeRollover(alias, conditions)
         } else {
             stepStatus = StepStatus.CONDITION_NOT_MET
-            info = mapOf("message" to getAttemptingMessage(indexName), "conditions" to conditions)
+            info = mapOf("message" to getPendingMessage(indexName), "conditions" to conditions)
         }
 
         return this
@@ -211,7 +211,7 @@ class AttemptRolloverStep(
         fun getFailedNoValidAliasMessage(index: String) = "Missing rollover_alias index setting [index=$index]"
         fun getFailedDuplicateRolloverMessage(index: String) = "Index has already been rolled over [index=$index]"
         fun getFailedEvaluateMessage(index: String) = "Failed to evaluate conditions for rollover [index=$index]"
-        fun getAttemptingMessage(index: String) = "Attempting to rollover index [index=$index]"
+        fun getPendingMessage(index: String) = "Pending rollover of index [index=$index]"
         fun getSuccessMessage(index: String) = "Successfully rolled over index [index=$index]"
     }
 }

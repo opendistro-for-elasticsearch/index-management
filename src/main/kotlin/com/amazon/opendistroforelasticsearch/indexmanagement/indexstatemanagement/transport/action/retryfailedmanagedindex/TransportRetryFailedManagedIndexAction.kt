@@ -182,7 +182,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                                 startTime = null
                             ),
                             transitionTo = request.startState,
-                            info = mapOf("message" to "Attempting to retry")
+                            info = mapOf("message" to "Pending retry of failed managed index")
                         ))
                     )
                 }

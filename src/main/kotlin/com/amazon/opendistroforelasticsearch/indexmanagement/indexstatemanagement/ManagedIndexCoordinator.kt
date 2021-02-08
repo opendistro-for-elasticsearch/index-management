@@ -295,6 +295,9 @@ class ManagedIndexCoordinator(
                     updateManagedIndexReqs.add(
                         managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval, ismTemplate.user)
                     )
+                } else {
+                    logger.warn("index [$index] with null index uuid [$indexUuid] or " +
+                        "matching template [$ismTemplate] for this index is null.")
                 }
             }
 

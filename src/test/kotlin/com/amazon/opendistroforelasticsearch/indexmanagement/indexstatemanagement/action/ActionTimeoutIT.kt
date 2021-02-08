@@ -55,7 +55,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
             assertThat(
                 "Should be attempting to rollover",
                 getExplainManagedIndexMetaData(indexName).info,
-                IsMapContaining.hasEntry("message", AttemptRolloverStep.getAttemptingMessage(indexName) as Any?)
+                IsMapContaining.hasEntry("message", AttemptRolloverStep.getPendingMessage(indexName) as Any?)
             )
         }
 
@@ -115,7 +115,7 @@ class ActionTimeoutIT : IndexStateManagementRestTestCase() {
             assertThat(
                 "Should be attempting to rollover",
                 getExplainManagedIndexMetaData(indexName).info,
-                IsMapContaining.hasEntry("message", AttemptRolloverStep.getAttemptingMessage(indexName) as Any?)
+                IsMapContaining.hasEntry("message", AttemptRolloverStep.getPendingMessage(indexName) as Any?)
             )
         }
     }

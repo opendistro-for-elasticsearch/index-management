@@ -130,7 +130,6 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-common:${kotlin_version}"
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7'
     compile "org.jetbrains:annotations:13.0"
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlin_version}"
     compile "com.amazon.opendistroforelasticsearch:notification:${opendistroVersion}.0"
     compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.0"
 

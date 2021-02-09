@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_HIDDEN
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.client.ResponseException
@@ -98,7 +99,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         createPolicy(policy, policyID)
 
         createIndex(indexName2, null)
-        createIndex(indexName3, Settings.builder().put("index.hidden", true).build())
+        createIndex(indexName3, Settings.builder().put(INDEX_HIDDEN, true).build())
 
         waitFor { assertNotNull(getManagedIndexConfig(indexName2)) }
 

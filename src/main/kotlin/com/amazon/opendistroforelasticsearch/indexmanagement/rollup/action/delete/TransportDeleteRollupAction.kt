@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.delete.DeleteResponse

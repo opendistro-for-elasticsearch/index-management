@@ -737,14 +737,6 @@
                   "type": "keyword"
                 }
               }
-            },
-            "user_requested_tenant": {
-              "type": "text",
-              "fields": {
-                "keyword": {
-                  "type": "keyword"
-                }
-              }
             }
           }
         },

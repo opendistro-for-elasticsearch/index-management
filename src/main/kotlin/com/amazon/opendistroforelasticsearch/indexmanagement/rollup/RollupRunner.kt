@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.withCloseableContext
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
@@ -40,7 +41,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -285,14 +285,14 @@ object RollupRunner : ScheduledJobRunner,
                             job.user.roles
                         }
 
-                        val rollupResult = withContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles)) {
+                        val rollupResult = withCloseableContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles)) {
                             when (val rollupSearchResult =
                                 rollupSearchService.executeCompositeSearch(updatableJob, metadata)) {
                                 is RollupSearchResult.Success -> {
                                     val compositeRes: InternalComposite =
                                         rollupSearchResult.searchResponse.aggregations.get(updatableJob.id)
                                     metadata = metadata.incrementStats(rollupSearchResult.searchResponse, compositeRes)
-                                    return@withContext when (val rollupIndexResult =
+                                    return@withCloseableContext when (val rollupIndexResult =
                                         rollupIndexer.indexRollups(updatableJob, compositeRes)) {
                                         is RollupIndexResult.Success -> RollupResult.Success(
                                             compositeRes,
@@ -305,7 +305,7 @@ object RollupRunner : ScheduledJobRunner,
                                     }
                                 }
                                 is RollupSearchResult.Failure -> {
-                                    return@withContext RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
+                                    return@withCloseableContext RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
                                 }
                             }
                         }
@@ -387,8 +387,8 @@ object RollupRunner : ScheduledJobRunner,
             } else {
                 job.user.roles
             }
-            val res = withContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles, job.user?.name)) {
-                return@withContext client.suspendUntil<Client, IndexRollupResponse> {
+            val res = withCloseableContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles, job.user?.name)) {
+                return@withCloseableContext client.suspendUntil<Client, IndexRollupResponse> {
                     execute(IndexRollupAction.INSTANCE, req, it)
                 }
             }

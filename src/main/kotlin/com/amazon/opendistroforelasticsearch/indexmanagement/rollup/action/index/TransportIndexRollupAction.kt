@@ -56,22 +56,20 @@ class TransportIndexRollupAction @Inject constructor(
 
     private val log = LogManager.getLogger(javaClass)
 
-    @Volatile lateinit var user: User
-    @Volatile var userName: String? = null
-
     override fun doExecute(task: Task, request: IndexRollupRequest, listener: ActionListener<IndexRollupResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
-        log.info("User and roles string from thread context: $userStr")
-        user = resolveUser(User.parse(userStr))
-        userName = client.threadPool().threadContext.getTransient<String>(ConfigConstants.INJECTED_USER)
+        val user = resolveUser(User.parse(userStr))
+        val userName = client.threadPool().threadContext.getTransient<String>(ConfigConstants.INJECTED_USER)
 
-        IndexRollupHandler(client, listener, request).start()
+        IndexRollupHandler(client, listener, request, user, userName).start()
     }
 
     inner class IndexRollupHandler(
         private val client: Client,
         private val actionListener: ActionListener<IndexRollupResponse>,
-        private val request: IndexRollupRequest
+        private val request: IndexRollupRequest,
+        private val user: User,
+        private val userName: String?
     ) {
 
         fun start() {
@@ -125,7 +123,8 @@ class TransportIndexRollupAction @Inject constructor(
         private fun putRollup() {
             var rollup = request.rollup.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
 
-            // in rollup runner, we inject a user name to not update user field in rollup
+            // if userName exist, it is injected from rollup runner [updateRollupJob]
+            // this acts as a flag showing the call is from plugin so we don't update user
             if (userName == null)
                 rollup = rollup.copy(user = user)
 

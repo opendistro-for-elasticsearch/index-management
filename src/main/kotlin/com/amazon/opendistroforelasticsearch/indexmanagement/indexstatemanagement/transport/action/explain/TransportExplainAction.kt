@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator.Companion.MAX_HITS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.index.IndexNotFoundException
@@ -50,7 +51,9 @@ class TransportExplainAction @Inject constructor(
         ExplainAction.NAME, transportService, actionFilters, ::ExplainRequest
 ) {
     override fun doExecute(task: Task, request: ExplainRequest, listener: ActionListener<ExplainResponse>) {
-        ExplainHandler(client, listener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            ExplainHandler(client, listener, request).start()
+        }
     }
 
     /**
@@ -74,6 +77,7 @@ class TransportExplainAction @Inject constructor(
 
         private val indexNames: MutableList<String> = mutableListOf()
         private val enabledState: MutableMap<String, Boolean> = mutableMapOf()
+        private val rolesMap: MutableMap<String, List<String>?> = mutableMapOf()
         private var totalManagedIndices = 0
 
         @Suppress("SpreadOperator")
@@ -133,6 +137,8 @@ class TransportExplainAction @Inject constructor(
                         val managedIndex = hitMap["index"] as String
                         managedIndices.add(managedIndex)
                         enabledState[managedIndex] = hitMap["enabled"] as Boolean
+                        val user = hitMap["user"] as Map<String, Any>?
+                        rolesMap[managedIndex] = user?.get("roles") as List<String>?
                         managedIndicesMetaDataMap[managedIndex] = mapOf(
                             "index" to hitMap["index"] as String?,
                             "index_uuid" to hitMap["index_uuid"] as String?,
@@ -234,18 +240,18 @@ class TransportExplainAction @Inject constructor(
             managedIndicesMetaDataMap.clear()
 
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices, enabledState))
+                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, rolesMap, totalManagedIndices, enabledState))
                 return
             }
-            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
+            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas, rolesMap))
         }
 
         fun emptyResponse(size: Int = 0) {
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), size, emptyMap()))
+                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), emptyMap(), size, emptyMap()))
                 return
             }
-            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList()))
+            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList(), emptyMap()))
         }
     }
 }

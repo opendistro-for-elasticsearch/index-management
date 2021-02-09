@@ -224,6 +224,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerNamedXContentRegistry(xContentRegistry)
             .registerScriptService(scriptService)
             .registerSettings(settings)
+            .registerThreadPool(threadPool)
             .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
         val rollupRunner = RollupRunner
             .registerClient(client)

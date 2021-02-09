@@ -21,10 +21,14 @@ import com.amazon.opendistroforelasticsearch.commons.InjectSecurity
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
+import com.amazon.opendistroforelasticsearch.commons.InjectSecurity
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.ExceptionsHelper
@@ -214,5 +218,16 @@ class InjectorContextElement(
 
     override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
         rolesInjectorHelper.close()
+    }
+}
+
+suspend fun <T> withCloseableContext(
+    context: CoroutineContext,
+    block: suspend CoroutineScope.() -> T
+): T {
+    try {
+        return withContext(context) { block() }
+    } finally {
+        (context[InjectorContextElement.Key] as InjectorContextElement).rolesInjectorHelper.close()
     }
 }

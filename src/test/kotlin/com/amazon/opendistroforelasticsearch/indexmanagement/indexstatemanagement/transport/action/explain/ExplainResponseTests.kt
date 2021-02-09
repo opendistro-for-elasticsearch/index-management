@@ -41,7 +41,8 @@ class ExplainResponseTests : ESTestCase() {
             info = null
         )
         val indexMetadatas = listOf(metadata)
-        val res = ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas)
+        val rolesMap = mapOf("index1" to null)
+        val res = ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas, rolesMap)
 
         val out = BytesStreamOutput()
         res.writeTo(out)
@@ -73,7 +74,8 @@ class ExplainResponseTests : ESTestCase() {
         val indexMetadatas = listOf(metadata)
         val totalManagedIndices = 1
         val enabledState = mapOf("index1" to true)
-        val res = ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices, enabledState)
+        val rolesMap = mapOf("index1" to null)
+        val res = ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, rolesMap, totalManagedIndices, enabledState)
 
         val out = BytesStreamOutput()
         res.writeTo(out)

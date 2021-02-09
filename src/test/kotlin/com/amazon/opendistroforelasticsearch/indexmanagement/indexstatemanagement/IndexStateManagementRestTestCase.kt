@@ -313,7 +313,11 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         if (isMultiNode) {
             waitFor {
                 try {
-                    adminClient().makeRequest("GET", "_cluster/allocation/explain")
+                    adminClient().makeRequest(
+                        "GET",
+                        "_cluster/allocation/explain",
+                        StringEntity("{ \"index\": \"$INDEX_MANAGEMENT_INDEX\" }", APPLICATION_JSON)
+                    )
                     fail("Expected 400 Bad Request when there are no unassigned shards to explain")
                 } catch (e: ResponseException) {
                     assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())

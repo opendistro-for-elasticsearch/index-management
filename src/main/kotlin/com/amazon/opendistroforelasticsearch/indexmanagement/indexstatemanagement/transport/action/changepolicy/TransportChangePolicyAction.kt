@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.changepolicy
 
+import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
@@ -28,6 +30,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
@@ -69,15 +73,22 @@ class TransportChangePolicyAction @Inject constructor(
 ) : HandledTransportAction<ChangePolicyRequest, ISMStatusResponse>(
     ChangePolicyAction.NAME, transportService, actionFilters, ::ChangePolicyRequest
 ) {
+
     override fun doExecute(task: Task, request: ChangePolicyRequest, listener: ActionListener<ISMStatusResponse>) {
-        ChangePolicyHandler(client, listener, request).start()
+        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
+        val user = resolveUser(User.parse(userStr))
+
+        client.threadPool().threadContext.stashContext().use {
+            ChangePolicyHandler(client, listener, request, user).start()
+        }
     }
 
     @Suppress("TooManyFunctions")
     inner class ChangePolicyHandler(
         private val client: NodeClient,
         private val actionListener: ActionListener<ISMStatusResponse>,
-        private val request: ChangePolicyRequest
+        private val request: ChangePolicyRequest,
+        private val user: User
     ) {
         private val failedIndices = mutableListOf<FailedIndex>()
         private val managedIndexUuids = mutableListOf<Pair<String, String>>()
@@ -213,7 +224,7 @@ class TransportChangePolicyAction @Inject constructor(
                 val currentStateName = indexUuidToCurrentState[sweptConfig.uuid]
                 val updatedChangePolicy = request.changePolicy
                         .copy(isSafe = sweptConfig.policy?.isSafeToChange(currentStateName, policy, request.changePolicy) == true)
-                bulkRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy)))
+                bulkRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy), user))
                 mapOfItemIdToIndex[index] = sweptConfig.index to sweptConfig.uuid
             }
 

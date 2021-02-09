@@ -130,7 +130,7 @@ class TransportIndexRollupAction @Inject constructor(
 
             request.index(INDEX_MANAGEMENT_INDEX)
                 .id(request.rollup.id)
-                .source(rollup.toXContent(jsonBuilder(), ToXContent.EMPTY_PARAMS))
+                .source(rollup.toXContent(jsonBuilder(), ToXContent.EMPTY_PARAMS, true))
                 .timeout(IndexRequest.DEFAULT_TIMEOUT)
             client.index(request, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {

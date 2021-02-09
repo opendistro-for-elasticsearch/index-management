@@ -26,9 +26,14 @@ import java.io.IOException
 
 class ExplainRollupResponse : ActionResponse, ToXContentObject {
     val idsToExplain: Map<String, ExplainRollup?>
+    val rolesMap: Map<String, List<String>?>
 
-    constructor(idsToExplain: Map<String, ExplainRollup?>) : super() {
+    constructor(
+        idsToExplain: Map<String, ExplainRollup?>,
+        rolesMap: Map<String, List<String>?>
+    ) : super() {
         this.idsToExplain = idsToExplain
+        this.rolesMap = rolesMap
     }
 
     internal fun getIdsToExplain(): Map<String, ExplainRollup?> {
@@ -44,7 +49,8 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
                 idsToExplain[it.readString()] = if (sin.readBoolean()) ExplainRollup(it) else null
             }
             idsToExplain.toMap()
-        }
+        },
+        rolesMap = sin.readMap() as Map<String, List<String>?>
     )
 
     @Throws(IOException::class)
@@ -55,6 +61,7 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
             out.writeBoolean(metadata != null)
             metadata?.writeTo(out)
         }
+        out.writeMap(rolesMap)
     }
 
     @Throws(IOException::class)
@@ -62,6 +69,10 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
         builder.startObject()
         idsToExplain.entries.forEach { (id, explain) ->
             builder.field(id, explain)
+            val roles = rolesMap[id]
+            if (roles != null && roles.isNotEmpty()) {
+                builder.field("roles", roles)
+            }
         }
         return builder.endObject()
     }

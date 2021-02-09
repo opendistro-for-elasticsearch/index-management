@@ -87,7 +87,7 @@ class TransportUpdateRollupMappingAction @Inject constructor(
         }
 
         val rollup = XContentHelper.convertToMap(
-            BytesReference.bytes(request.rollup.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITHOUT_TYPE)),
+            BytesReference.bytes(request.rollup.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITHOUT_TYPE, true)),
             false,
             XContentType.JSON
         ).v2()

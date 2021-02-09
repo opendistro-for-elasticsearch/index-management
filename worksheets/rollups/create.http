@@ -77,6 +77,10 @@ GET localhost:9200/_opendistro/_rollup/jobs/example
 Content-Type: application/json
 
 ###
+GET localhost:9200/_opendistro/_rollup/jobs/example/_explain
+Content-Type: application/json
+
+###
 DELETE localhost:9200/rollup-test-index
 
 ###

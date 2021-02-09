@@ -58,6 +58,7 @@ class TransportExplainRollupAction @Inject constructor(
 
     @Suppress("SpreadOperator")
     override fun doExecute(task: Task, request: ExplainRollupRequest, actionListener: ActionListener<ExplainRollupResponse>) {
+        val rolesMap: MutableMap<String, List<String>?> = mutableMapOf()
         val ids = request.rollupIDs
         // Instantiate concrete ids to metadata map by removing wildcard matches
         val idsToExplain: MutableMap<String, ExplainRollup?> = ids.filter { !it.contains("*") }.map { it to null }.toMap(mutableMapOf())
@@ -82,6 +83,7 @@ class TransportExplainRollupAction @Inject constructor(
                                 Rollup.Companion::parse
                             )
                             idsToExplain[rollup.id] = ExplainRollup(metadataID = rollup.metadataID)
+                            rolesMap[rollup.id] = rollup.user?.roles
                         }
                     } catch (e: Exception) {
                         log.error("Failed to parse explain response", e)
@@ -104,7 +106,7 @@ class TransportExplainRollupAction @Inject constructor(
                                         )
                                     }
                                 }
-                                actionListener.onResponse(ExplainRollupResponse(idsToExplain.toMap()))
+                                actionListener.onResponse(ExplainRollupResponse(idsToExplain.toMap(), rolesMap))
                             } catch (e: Exception) {
                                 log.error("Failed to parse rollup metadata", e)
                                 actionListener.onFailure(e)
@@ -128,7 +130,7 @@ class TransportExplainRollupAction @Inject constructor(
                         is ResourceNotFoundException -> {
                             val nonWildcardIds =
                                 ids.filter { !it.contains("*") }.map { it to null }.toMap(mutableMapOf())
-                            actionListener.onResponse(ExplainRollupResponse(nonWildcardIds))
+                            actionListener.onResponse(ExplainRollupResponse(nonWildcardIds, emptyMap()))
                         }
                         is RemoteTransportException -> actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
                         else -> actionListener.onFailure(e)

@@ -38,8 +38,7 @@ class RestGetRollupActionIT : RollupRestTestCase() {
         rollup = rollup.copy(
             schemaVersion = indexedRollup.schemaVersion,
             jobLastUpdatedTime = indexedRollup.jobLastUpdatedTime,
-            jobSchedule = indexedRollup.jobSchedule,
-            user = User("", listOf(), listOf(), listOf())
+            jobSchedule = indexedRollup.jobSchedule
         )
         assertEquals("Indexed and retrieved rollup differ", rollup, indexedRollup)
     }

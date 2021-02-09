@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_HAS_USER
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
@@ -37,7 +38,6 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
@@ -130,7 +130,7 @@ class TransportIndexRollupAction @Inject constructor(
 
             request.index(INDEX_MANAGEMENT_INDEX)
                 .id(request.rollup.id)
-                .source(rollup.toXContent(jsonBuilder(), ToXContent.EMPTY_PARAMS, true))
+                .source(rollup.toXContent(jsonBuilder(), XCONTENT_HAS_USER))
                 .timeout(IndexRequest.DEFAULT_TIMEOUT)
             client.index(request, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {

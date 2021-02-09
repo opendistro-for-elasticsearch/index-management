@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalUserField
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.HAS_USER
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
@@ -158,32 +159,10 @@ data class Rollup(
             .field(CONTINUOUS_FIELD, continuous)
             .field(DIMENSIONS_FIELD, dimensions.toTypedArray())
             .field(RollupMetrics.METRICS_FIELD, metrics.toTypedArray())
-        if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
-        builder.endObject()
-        return builder
-    }
-
-    // hasUser indicates it is for saving rollup object with user object
-    // compared to get rollup API we don't show user object
-    fun toXContent(builder: XContentBuilder, params: ToXContent.Params, hasUser: Boolean): XContentBuilder {
-        builder.startObject()
-        if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(ROLLUP_TYPE)
-        builder.field(ROLLUP_ID_FIELD, id)
-            .field(ENABLED_FIELD, enabled)
-            .field(SCHEDULE_FIELD, jobSchedule)
-            .optionalTimeField(LAST_UPDATED_TIME_FIELD, jobLastUpdatedTime)
-            .optionalTimeField(ENABLED_TIME_FIELD, jobEnabledTime)
-            .field(DESCRIPTION_FIELD, description)
-            .field(SCHEMA_VERSION_FIELD, schemaVersion)
-            .field(SOURCE_INDEX_FIELD, sourceIndex)
-            .field(TARGET_INDEX_FIELD, targetIndex)
-            .field(METADATA_ID_FIELD, metadataID)
-            .field(PAGE_SIZE_FIELD, pageSize)
-            .field(DELAY_FIELD, delay)
-            .field(CONTINUOUS_FIELD, continuous)
-            .field(DIMENSIONS_FIELD, dimensions.toTypedArray())
-            .field(RollupMetrics.METRICS_FIELD, metrics.toTypedArray())
-            .optionalUserField(USER_FIELD, user)
+        // hasUser indicates it is for saving rollup object with user object
+        // compared to get rollup API we don't show user object
+        if (params.paramAsBoolean(HAS_USER, false))
+            builder.optionalUserField(USER_FIELD, user)
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
         builder.endObject()
         return builder

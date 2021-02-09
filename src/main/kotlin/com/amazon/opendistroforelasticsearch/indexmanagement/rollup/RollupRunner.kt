@@ -383,7 +383,7 @@ object RollupRunner : ScheduledJobRunner,
         try {
             val req = IndexRollupRequest(rollup = job, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
             val roles = if (job.user == null) {
-                settings.getAsList("", listOf("all_access", "AmazonES_all_access"))
+                settings.getAsList("", listOf("all_access"))
             } else {
                 job.user.roles
             }

@@ -115,6 +115,20 @@ class ManagedIndexSettings {
             Setting.Property.Dynamic
         )
 
+        val HISTORY_NUMBER_OF_SHARDS: Setting<Int> = Setting.intSetting(
+            "opendistro.index_state_management.history.number_of_shards",
+            1,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val HISTORY_NUMBER_OF_REPLICAS: Setting<Int> = Setting.intSetting(
+            "opendistro.index_state_management.history.number_of_replicas",
+            1,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
         val ALLOW_LIST: Setting<List<String>> = Setting.listSetting(
             "opendistro.index_state_management.allow_list",
             ALLOW_LIST_ALL,

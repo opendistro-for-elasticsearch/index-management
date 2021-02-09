@@ -21,6 +21,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendU
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_HIDDEN
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_REPLICAS
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.DocWriteRequest
@@ -55,14 +58,12 @@ class IndexStateManagementHistory(
     private var scheduledRollover: Scheduler.Cancellable? = null
 
     @Volatile private var historyEnabled = ManagedIndexSettings.HISTORY_ENABLED.get(settings)
-
     @Volatile private var historyMaxDocs = ManagedIndexSettings.HISTORY_MAX_DOCS.get(settings)
-
     @Volatile private var historyMaxAge = ManagedIndexSettings.HISTORY_INDEX_MAX_AGE.get(settings)
-
     @Volatile private var historyRolloverCheckPeriod = ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD.get(settings)
-
     @Volatile private var historyRetentionPeriod = ManagedIndexSettings.HISTORY_RETENTION_PERIOD.get(settings)
+    @Volatile private var historyNumberOfShards = ManagedIndexSettings.HISTORY_NUMBER_OF_SHARDS.get(settings)
+    @Volatile private var historyNumberOfReplicas = ManagedIndexSettings.HISTORY_NUMBER_OF_REPLICAS.get(settings)
 
     init {
         clusterService.addLocalNodeMasterListener(this)
@@ -77,6 +78,12 @@ class IndexStateManagementHistory(
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.HISTORY_RETENTION_PERIOD) {
             historyRetentionPeriod = it
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.HISTORY_NUMBER_OF_SHARDS) {
+            historyNumberOfShards = it
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(ManagedIndexSettings.HISTORY_NUMBER_OF_REPLICAS) {
+            historyNumberOfReplicas = it
         }
     }
 
@@ -119,7 +126,12 @@ class IndexStateManagementHistory(
         val request = RolloverRequest(IndexManagementIndices.HISTORY_WRITE_INDEX_ALIAS, null)
         request.createIndexRequest.index(IndexManagementIndices.HISTORY_INDEX_PATTERN)
             .mapping(_DOC, IndexManagementIndices.indexStateManagementHistoryMappings, XContentType.JSON)
-            .settings(Settings.builder().put("index.hidden", true).put("index.number_of_shards", 1).put("index.number_of_replicas", 1))
+            .settings(
+                Settings.builder()
+                    .put(INDEX_HIDDEN, true)
+                    .put(INDEX_NUMBER_OF_SHARDS, historyNumberOfShards)
+                    .put(INDEX_NUMBER_OF_REPLICAS, historyNumberOfReplicas)
+            )
         request.addMaxIndexDocsCondition(historyMaxDocs)
         request.addMaxIndexAgeCondition(historyMaxAge)
         val response = client.admin().indices().rolloverIndex(request).actionGet()

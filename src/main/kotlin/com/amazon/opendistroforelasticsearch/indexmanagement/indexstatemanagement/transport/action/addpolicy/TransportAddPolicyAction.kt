@@ -83,8 +83,6 @@ class TransportAddPolicyAction @Inject constructor(
         /*
          * Remove security context before you call elasticsearch api's. By this time, permissions required
          * to call this api are validated.
-         * Once system-indices [https://github.com/opendistro-for-elasticsearch/security/issues/666] is done, we
-         * might further improve this logic. Also change try to kotlin-use for auto-closable.
          */
         client.threadPool().threadContext.stashContext().use {
             AddPolicyHandler(client, listener, request, user).start()

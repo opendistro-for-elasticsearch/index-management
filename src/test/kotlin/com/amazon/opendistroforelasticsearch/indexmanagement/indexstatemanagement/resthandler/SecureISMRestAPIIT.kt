@@ -39,10 +39,17 @@ import java.util.*
 
 class SecureISMRestAPIIT : IndexStateManagementRestTestCase() {
 
+    override fun preserveIndicesUponCompletion(): Boolean = true
+
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
     val user = "userOne"
     var userClient: RestClient? = null
+
+    @Before
+    fun wipe() {
+        wipeAllODFEIndices()
+    }
 
     @Before
     fun create() {

@@ -106,12 +106,7 @@ abstract class ODFERestTestCase : ESRestTestCase() {
         }
     }
 
-    override fun preserveIndicesUponCompletion(): Boolean {
-        return true
-    }
-
     @Throws(IOException::class)
-    @After
     open fun wipeAllODFEIndices() {
         val response = client().performRequest(Request("GET", "/_cat/indices?format=json&expand_wildcards=all"))
 

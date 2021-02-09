@@ -26,6 +26,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.withCloseableContext
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
@@ -307,9 +308,10 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         if (updateResult && state != null && action != null && step != null && currentActionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
-            withContext(InjectorContextElement(managedIndexConfig.id, settings, threadPool.threadContext, roles)) {
+            withCloseableContext(InjectorContextElement(managedIndexConfig.id, settings, threadPool.threadContext, roles)) {
                 step.preExecute(logger).execute().postExecute(logger)
             }
+
             var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(action, step)
 
             if (executedManagedIndexMetaData.isFailed) {

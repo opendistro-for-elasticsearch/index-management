@@ -280,7 +280,7 @@ object RollupRunner : ScheduledJobRunner,
                 do {
                     try {
                         val roles = if (job.user == null) {
-                            settings.getAsList("", listOf("all_access", "AmazonES_all_access"))
+                            settings.getAsList("", listOf("all_access"))
                         } else {
                             job.user.roles
                         }
@@ -325,19 +325,19 @@ object RollupRunner : ScheduledJobRunner,
                             }
                         }
                         try {
-                                BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(
-                                    RollupSettings.DEFAULT_RENEW_LOCK_RETRY_DELAY),
-                                    RollupSettings.DEFAULT_RENEW_LOCK_RETRY_COUNT
-                                ).retry(logger) {
-                                    updatableLock = context.lockService.suspendUntil { renewLock(updatableLock, it) }
-                                }
-                            } catch (e: Exception) {
-                                logger.warn("Failed trying to renew lock on $updatableLock", e)
-                                // If we fail to renew the lock it doesn't mean we need to perm fail the job, we can just return early
-                                // and let the next execution try to process the data from where this one left off
-                                releaseLockForRollupJob(context, updatableLock)
-                                return
+                            BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(
+                                RollupSettings.DEFAULT_RENEW_LOCK_RETRY_DELAY),
+                                RollupSettings.DEFAULT_RENEW_LOCK_RETRY_COUNT
+                            ).retry(logger) {
+                                updatableLock = context.lockService.suspendUntil { renewLock(updatableLock, it) }
                             }
+                        } catch (e: Exception) {
+                            logger.warn("Failed trying to renew lock on $updatableLock", e)
+                            // If we fail to renew the lock it doesn't mean we need to perm fail the job, we can just return early
+                            // and let the next execution try to process the data from where this one left off
+                            releaseLockForRollupJob(context, updatableLock)
+                            return
+                        }
                     } catch (e: RollupMetadataException) {
                         // Rethrow this exception so it doesn't get consumed here
                         logger.info("RollupMetadataException being thrown", e)

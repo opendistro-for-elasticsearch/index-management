@@ -82,5 +82,6 @@ class ISMRollupTests : ESTestCase() {
         assertFalse(rollup.continuous)
         assertTrue(rollup.enabled)
         assertTrue(rollup.isEnabled)
+        assertNull(rollup.user)
     }
 }

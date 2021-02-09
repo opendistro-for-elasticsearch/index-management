@@ -209,14 +209,14 @@ object ManagedIndexRunner : ScheduledJobRunner,
         /*
          * We need to handle 3 cases:
          * 1. ISM jobs that are created by older versions and never updated wont have User details in the
-         * job object. `managedIndexConfig.user` will be null. Insert `all_access, AmazonES_all_access` role.
+         * job object. `managedIndexConfig.user` will be null. Insert `all_access` role.
          * 2. ISM jobs that are created when security plugin is disabled will have empty User object.
          * (`managedIndexConfig.user.name`, `managedIndexConfig.user.roles` are empty )
          * 3. ISM jobs that are created when security plugin is enabled will have an User object.
          */
         val roles = if (managedIndexConfig.user == null) {
             // fixme: discuss and remove hardcoded to settings?
-            settings.getAsList("", listOf("all_access", "AmazonES_all_access"))
+            settings.getAsList("", listOf("all_access"))
         } else {
             managedIndexConfig.user.roles
         }

@@ -195,6 +195,10 @@ fun <T> XContentParser.parseWithType(
     return parsed
 }
 
+/**
+ * @param user: used as flag, if not null, meaning index rollup request
+ *          is from plugin itself so we don't update user object in rollup
+ */
 class InjectorContextElement(
     id: String,
     settings: Settings,

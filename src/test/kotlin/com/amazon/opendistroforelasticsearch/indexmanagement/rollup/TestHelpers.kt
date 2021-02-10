@@ -35,17 +35,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Min
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Sum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.ValueCount
-import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.TermQueryBuilder
-import org.elasticsearch.search.aggregations.AggregationBuilder
-import org.elasticsearch.search.aggregations.AggregationBuilders.avg
-import org.elasticsearch.search.aggregations.AggregationBuilders.max
-import org.elasticsearch.search.aggregations.AggregationBuilders.min
-import org.elasticsearch.search.aggregations.AggregationBuilders.sum
-import org.elasticsearch.search.aggregations.AggregationBuilders.count
-import org.elasticsearch.search.aggregations.AggregatorFactories
 import org.elasticsearch.test.rest.ESRestTestCase
 import java.util.Locale
 
@@ -195,55 +187,6 @@ fun randomDimension(): Dimension {
     return ESRestTestCase.randomSubsetOf(1, dimensions).first()
 }
 
-fun randomGroups(): List<Dimension> {
-    val dimensions = mutableListOf<Dimension>()
-    for (i in 0..ESRestTestCase.randomIntBetween(1, 10)) {
-        dimensions.add(randomDimension())
-    }
-    return dimensions
-}
-
-fun sumAggregation(): AggregationBuilder = sum(ESRestTestCase.randomAlphaOfLength(10)).field(ESRestTestCase.randomAlphaOfLength(10))
-fun maxAggregation(): AggregationBuilder = max(ESRestTestCase.randomAlphaOfLength(10)).field(ESRestTestCase.randomAlphaOfLength(10))
-fun minAggregation(): AggregationBuilder = min(ESRestTestCase.randomAlphaOfLength(10)).field(ESRestTestCase.randomAlphaOfLength(10))
-fun valueCountAggregation(): AggregationBuilder = count(ESRestTestCase.randomAlphaOfLength(10)).field(ESRestTestCase.randomAlphaOfLength(10))
-fun avgAggregation(): AggregationBuilder = avg(ESRestTestCase.randomAlphaOfLength(10)).field(ESRestTestCase.randomAlphaOfLength(10))
-
-fun randomAggregationBuilder(): AggregationBuilder {
-    val aggregations = listOf(sumAggregation(), maxAggregation(), minAggregation(), valueCountAggregation(), avgAggregation())
-    return ESRestTestCase.randomSubsetOf(1, aggregations).first()
-}
-
-fun randomAggregationFactories(): AggregatorFactories.Builder {
-    val factories = AggregatorFactories.builder()
-    for (i in 1..ESRestTestCase.randomIntBetween(1, 10)) {
-        factories.addAggregator(randomAggregationBuilder())
-    }
-    return factories
-}
-
-fun randomTransform(): Transform {
-    val enabled = ESRestTestCase.randomBoolean()
-    return Transform(
-        id = ESRestTestCase.randomAlphaOfLength(10),
-        seqNo = ESRestTestCase.randomNonNegativeLong(),
-        primaryTerm = ESRestTestCase.randomNonNegativeLong(),
-        schemaVersion = ESRestTestCase.randomLongBetween(1, 1000),
-        jobSchedule = randomSchedule(),
-        metadataId = if (ESRestTestCase.randomBoolean()) null else ESRestTestCase.randomAlphaOfLength(10),
-        updatedAt = randomInstant(),
-        enabled = enabled,
-        enabledAt = if (enabled) randomInstant() else null,
-        description = ESRestTestCase.randomAlphaOfLength(10),
-        sourceIndex = ESRestTestCase.randomAlphaOfLength(10),
-        targetIndex = ESRestTestCase.randomAlphaOfLength(10),
-        roles = ESRestTestCase.randomList(10) { ESRestTestCase.randomAlphaOfLength(10) },
-        pageSize = ESRestTestCase.randomIntBetween(1, 10000),
-        groups = randomGroups(),
-        aggregations = randomAggregationFactories()
-    )
-}
-
 fun randomTermQuery(): TermQueryBuilder { return TermQueryBuilder(ESRestTestCase.randomAlphaOfLength(5), ESRestTestCase.randomAlphaOfLength(5)) }
 
 fun DateHistogram.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()
@@ -269,5 +212,3 @@ fun Rollup.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): St
 fun RollupMetadata.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()
 
 fun ISMRollup.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()
-
-fun Transform.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params).string()

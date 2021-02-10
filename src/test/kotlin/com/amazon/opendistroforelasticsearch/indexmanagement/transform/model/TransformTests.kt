@@ -1,6 +1,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.model
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomTransform
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
 import org.elasticsearch.test.ESTestCase
 import kotlin.test.assertFailsWith
 

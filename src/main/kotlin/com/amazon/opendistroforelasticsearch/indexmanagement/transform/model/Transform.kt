@@ -38,13 +38,13 @@ data class Transform (
     val id: String = NO_ID,
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
-    val schemaVersion: Long,
-    val jobSchedule: Schedule,
+    override val schemaVersion: Long,
+    override val jobSchedule: Schedule,
     val metadataId: String?,
     val updatedAt: Instant,
-    val enabled: Boolean,
-    val enabledAt: Instant?,
-    val description: String,
+    override val enabled: Boolean,
+    override val enabledAt: Instant?,
+    override val description: String,
     val sourceIndex: String,
     val dataSelectionQuery: QueryBuilder = MatchAllQueryBuilder(),
     val targetIndex: String,
@@ -52,7 +52,9 @@ data class Transform (
     val pageSize: Int,
     val groups: List<Dimension>,
     val aggregations: AggregatorFactories.Builder
-) : ScheduledJobParameter, Writeable {
+) : ScheduleJob(schemaVersion = schemaVersion, jobSchedule = jobSchedule, enabled = enabled, enabledAt = enabledAt, description = description),
+    ScheduledJobParameter,
+    Writeable {
 
     init {
         aggregations.aggregatorFactories.forEach {
@@ -306,3 +308,11 @@ data class Transform (
         }
     }
 }
+
+abstract class ScheduleJob(
+    open val jobSchedule: Schedule,
+    open val schemaVersion: Long,
+    open val enabled: Boolean,
+    open val enabledAt: Instant?,
+    open val description: String
+)

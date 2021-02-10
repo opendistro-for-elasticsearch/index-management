@@ -62,6 +62,7 @@ class TransportIndexRollupAction @Inject constructor(
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         val user = resolveUser(User.parse(userStr))
         val internalReq = client.threadPool().threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL)
+        log.debug("Internal request: $internalReq")
 
         client.threadPool().threadContext.stashContext().use {
             IndexRollupHandler(client, listener, request, user, internalReq).start()

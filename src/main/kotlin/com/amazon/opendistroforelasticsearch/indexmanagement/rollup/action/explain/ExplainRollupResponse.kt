@@ -69,13 +69,15 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         idsToExplain.entries.forEach { (id, explain) ->
-            builder.startObject(id)
-            explain?.toXContent(builder, ToXContent.EMPTY_PARAMS)
-            val roles = rolesMap[id]
-            if (roles != null && roles.isNotEmpty()) {
-                builder.field(ROLES_FIELD, roles)
-            }
-            builder.endObject()
+            if (explain != null) {
+                builder.startObject(id)
+                explain.toXContent(builder, ToXContent.EMPTY_PARAMS)
+                val roles = rolesMap[id]
+                if (roles != null && roles.isNotEmpty()) {
+                    builder.field(ROLES_FIELD, roles)
+                }
+                builder.endObject()
+            } else builder.nullField(id)
         }
         return builder.endObject()
     }

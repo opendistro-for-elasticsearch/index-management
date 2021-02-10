@@ -117,7 +117,6 @@ class XContentTests : ESTestCase() {
     fun `test rollup parsing with type`() {
         val rollup = randomRollup()
         val rollupString = rollup.toJsonString()
-        println("rollup string: $rollupString")
         val parser = parserWithType(rollupString)
         val parsedRollup = parser.parseWithType(rollup.id, rollup.seqNo, rollup.primaryTerm, Rollup.Companion::parse)
         assertEquals("Round tripping Rollup with type doesn't work", rollup, parsedRollup)

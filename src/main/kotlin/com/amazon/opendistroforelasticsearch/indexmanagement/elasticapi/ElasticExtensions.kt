@@ -27,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.ExceptionsHelper
@@ -203,6 +204,7 @@ fun <T> XContentParser.parseWithType(
     return parsed
 }
 
+val log = LogManager.getLogger("IndexManagementElasticExtention")
 const val INDEX_MANAGEMENT_PLUGIN_INTERNAL = "index_management_plugin_internal"
 /**
  * @param internalReq: used as flag to indicate if the request is from
@@ -210,7 +212,7 @@ const val INDEX_MANAGEMENT_PLUGIN_INTERNAL = "index_management_plugin_internal"
  * then we will not update user object.
  */
 class InjectorContextElement(
-    id: String,
+    private val id: String,
     settings: Settings,
     private val threadContext: ThreadContext,
     private val roles: List<String>?,
@@ -225,11 +227,21 @@ class InjectorContextElement(
 
     override fun updateThreadContext(context: CoroutineContext) {
         rolesInjectorHelper.injectRoles(roles)
-        threadContext.putTransient(INDEX_MANAGEMENT_PLUGIN_INTERNAL, internalReq)
+        if (threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL) != internalReq) {
+            threadContext.putTransient(INDEX_MANAGEMENT_PLUGIN_INTERNAL, internalReq)
+            log.debug("Job [$id], rollup internal request: $internalReq;" +
+                " Thread: ${Thread.currentThread().name}")
+        } else {
+            log.error("Job [$id], rollup internal request [$internalReq] not cleaned up;" +
+                " Thread: ${Thread.currentThread().name}")
+        }
     }
 
     override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
         rolesInjectorHelper.close()
+        log.debug("Job [$id], rollup internal request cleaned: " +
+            "${threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL)};" +
+            " Thread: ${Thread.currentThread().name}")
     }
 }
 

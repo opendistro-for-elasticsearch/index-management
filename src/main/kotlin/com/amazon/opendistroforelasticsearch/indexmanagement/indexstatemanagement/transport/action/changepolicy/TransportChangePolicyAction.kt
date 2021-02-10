@@ -18,9 +18,9 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.buildMgetMetadataRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.mgetResponseToList
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -244,7 +244,7 @@ class TransportChangePolicyAction @Inject constructor(
                 val currentStateName = indexUuidToCurrentState[sweptConfig.uuid]
                 val updatedChangePolicy = changePolicy
                     .copy(isSafe = sweptConfig.policy?.isSafeToChange(currentStateName, policy, changePolicy) == true)
-                bulkUpdateManagedIndexRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy)))
+                bulkUpdateManagedIndexRequest.add(updateManagedIndexRequest(sweptConfig.copy(changePolicy = updatedChangePolicy), user))
                 mapOfItemIdToIndex[id] = Index(sweptConfig.index, sweptConfig.uuid)
             }
             client.bulk(bulkUpdateManagedIndexRequest, object : ActionListener<BulkResponse> {

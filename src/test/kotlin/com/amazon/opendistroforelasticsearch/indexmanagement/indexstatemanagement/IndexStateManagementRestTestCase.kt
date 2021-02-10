@@ -177,22 +177,9 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             } else {
                 it.put(ManagedIndexSettings.ROLLOVER_ALIAS.key, alias)
             }
-<<<<<<< HEAD
-            if (replicas == null) {
-                it.put("index.number_of_replicas", "1")
-            } else {
-                it.put("index.number_of_replicas", replicas)
-            }
-            if (shards == null) {
-                it.put("index.number_of_shards", "1")
-            } else {
-                it.put("index.number_of_shards", shards)
-            }
-            it.put("index.write.wait_for_active_shards", waitForActiveShards)
-=======
             it.put(INDEX_NUMBER_OF_REPLICAS, replicas ?: "1")
             it.put(INDEX_NUMBER_OF_SHARDS, shards ?: "1")
->>>>>>> main
+            it.put("index.write.wait_for_active_shards", waitForActiveShards)
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
         createIndex(index, settings, mapping, aliases)

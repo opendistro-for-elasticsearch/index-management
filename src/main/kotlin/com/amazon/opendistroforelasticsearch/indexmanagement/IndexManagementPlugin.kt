@@ -223,6 +223,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     ): Collection<Any> {
         val settings = environment.settings()
         this.clusterService = clusterService
+
         val rollupRunner = RollupRunner
             .registerClient(client)
             .registerClusterService(clusterService)
@@ -239,7 +240,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         this.indexNameExpressionResolver = indexNameExpressionResolver
 
         val skipFlag = SkipExecution(client, clusterService)
-        indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
+        indexManagementIndices = IndexManagementIndices(settings, client.admin().indices(), clusterService)
         val indexStateManagementHistory =
             IndexStateManagementHistory(
                 settings,

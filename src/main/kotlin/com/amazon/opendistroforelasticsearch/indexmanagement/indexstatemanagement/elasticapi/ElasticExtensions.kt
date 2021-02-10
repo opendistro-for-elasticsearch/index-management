@@ -18,6 +18,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
@@ -181,11 +182,6 @@ fun buildMgetMetadataRequest(clusterState: ClusterState): MultiGetRequest {
             INDEX_MANAGEMENT_INDEX, it.uuid + "metadata").routing(it.uuid))
     }
     return mgetMetadataRequest
-}
-
-fun contentParser(bytesReference: BytesReference): XContentParser {
-    return XContentHelper.createParser(NamedXContentRegistry.EMPTY,
-            LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
 }
 
 // forIndex means for saving to config index, distinguish from Explain and History, which only save meaningful partial metadata

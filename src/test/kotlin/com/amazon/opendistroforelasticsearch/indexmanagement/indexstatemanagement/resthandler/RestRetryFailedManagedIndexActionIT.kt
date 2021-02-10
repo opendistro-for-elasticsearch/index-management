@@ -87,6 +87,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                     "index_uuid" to getUuid(indexName1),
                     "reason" to "This index has no metadata information"
                 )
+            )
         )
         assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
@@ -127,6 +128,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                     "index_uuid" to getUuid(indexName2),
                     "reason" to "This index has no metadata information"
                 )
+            )
         )
         assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }
@@ -173,6 +175,7 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
                     "index_uuid" to getUuid(indexName),
                     "reason" to "This index has no metadata information"
                 )
+            )
         )
         assertAffectedIndicesResponseIsEqual(expectedErrorMessage, actualMessage)
     }

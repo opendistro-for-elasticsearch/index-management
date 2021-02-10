@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_HIDDEN
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_REPLICAS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.DocWriteRequest

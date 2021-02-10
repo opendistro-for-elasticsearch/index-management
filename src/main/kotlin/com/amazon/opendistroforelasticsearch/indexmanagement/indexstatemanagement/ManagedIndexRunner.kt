@@ -187,8 +187,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     fun registerSkipFlag(flag: SkipExecution): ManagedIndexRunner {
         this.skipExecFlag = flag
+        return this
     }
-    
+
     fun registerThreadPool(threadPool: ThreadPool): ManagedIndexRunner {
         this.threadPool = threadPool
         return this

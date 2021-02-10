@@ -81,7 +81,7 @@ class ISMRollupTests : ESTestCase() {
         assertNotNull(rollup.jobEnabledTime)
         assertFalse(rollup.continuous)
         assertTrue(rollup.enabled)
-        assertTrue(rollup.roles.isEmpty())
         assertTrue(rollup.isEnabled)
+        assertNull(rollup.user)
     }
 }

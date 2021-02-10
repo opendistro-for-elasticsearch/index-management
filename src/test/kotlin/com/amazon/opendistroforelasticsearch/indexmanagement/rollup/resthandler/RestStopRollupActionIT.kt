@@ -201,8 +201,8 @@ class RestStopRollupActionIT : RollupRestTestCase() {
         generateNYCTaxiData("source")
         val rollup = Rollup(
             id = "basic_term_query",
-            schemaVersion = 1L,
             enabled = true,
+            schemaVersion = 1L,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -210,7 +210,6 @@ class RestStopRollupActionIT : RollupRestTestCase() {
             sourceIndex = "source",
             targetIndex = "target",
             metadataID = null,
-            roles = emptyList(),
             pageSize = 10,
             delay = 0,
             continuous = false,
@@ -219,7 +218,8 @@ class RestStopRollupActionIT : RollupRestTestCase() {
                 Terms("RatecodeID", "RatecodeID"),
                 Terms("PULocationID", "PULocationID")
             ),
-            metrics = emptyList()
+            metrics = emptyList(),
+            user = null
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)

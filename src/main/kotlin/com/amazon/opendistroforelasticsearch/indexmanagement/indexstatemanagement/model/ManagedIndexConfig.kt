@@ -20,6 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.ALL_ACCESS_ROLE
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
@@ -91,6 +92,12 @@ data class ManagedIndexConfig(
                 .endObject()
             .endObject()
         return builder
+    }
+
+    fun getRoles(): List<String> {
+        return if (user == null) {
+            ALL_ACCESS_ROLE
+        } else user.roles
     }
 
     companion object {

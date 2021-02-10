@@ -13,20 +13,21 @@
  * permissions and limitations under the License.
  */
 
-@file:Suppress("TooManyFunctions")
+@file:Suppress("TooManyFunctions", "MatchingDeclarationName")
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.commons.InjectSecurity
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.Logger
 import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.ExceptionsHelper
@@ -38,6 +39,8 @@ import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.util.concurrent.ThreadContext
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -55,6 +58,12 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+
+fun contentParser(bytesReference: BytesReference): XContentParser {
+    return XContentHelper.createParser(
+        NamedXContentRegistry.EMPTY,
+        LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
+}
 
 /** Convert an object to maps and lists representation */
 fun ToXContent.convertToMap(): Map<String, Any> {
@@ -195,11 +204,19 @@ fun <T> XContentParser.parseWithType(
     return parsed
 }
 
+val log = LogManager.getLogger("IndexManagementElasticExtention")
+const val INDEX_MANAGEMENT_PLUGIN_INTERNAL = "index_management_plugin_internal"
+/**
+ * @param internalReq: used as flag to indicate if the request is from
+ * outside user or plugin runner. if the value of this element is true
+ * then we will not update user object.
+ */
 class InjectorContextElement(
-    id: String,
+    private val id: String,
     settings: Settings,
-    threadContext: ThreadContext,
-    private val roles: List<String>?
+    private val threadContext: ThreadContext,
+    private val roles: List<String>?,
+    private val internalReq: Boolean = false
 ) : ThreadContextElement<Unit> {
 
     companion object Key : CoroutineContext.Key<InjectorContextElement>
@@ -210,10 +227,21 @@ class InjectorContextElement(
 
     override fun updateThreadContext(context: CoroutineContext) {
         rolesInjectorHelper.injectRoles(roles)
+        if (threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL) != internalReq) {
+            threadContext.putTransient(INDEX_MANAGEMENT_PLUGIN_INTERNAL, internalReq)
+            log.debug("Job [$id], rollup internal request: $internalReq;" +
+                " Thread: ${Thread.currentThread().name}")
+        } else {
+            log.error("Job [$id], rollup internal request [$internalReq] not cleaned up;" +
+                " Thread: ${Thread.currentThread().name}")
+        }
     }
 
     override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
         rolesInjectorHelper.close()
+        log.debug("Job [$id], rollup internal request cleaned: " +
+            "${threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL)};" +
+            " Thread: ${Thread.currentThread().name}")
     }
 }
 

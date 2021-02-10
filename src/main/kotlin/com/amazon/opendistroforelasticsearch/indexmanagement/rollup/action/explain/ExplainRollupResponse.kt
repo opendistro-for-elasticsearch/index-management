@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User.ROLES_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ExplainRollup
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.common.io.stream.StreamInput
@@ -68,11 +69,13 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         idsToExplain.entries.forEach { (id, explain) ->
-            builder.field(id, explain)
+            builder.startObject(id)
+            explain?.toXContent(builder, ToXContent.EMPTY_PARAMS)
             val roles = rolesMap[id]
             if (roles != null && roles.isNotEmpty()) {
-                builder.field("roles", roles)
+                builder.field(ROLES_FIELD, roles)
             }
+            builder.endObject()
         }
         return builder.endObject()
     }

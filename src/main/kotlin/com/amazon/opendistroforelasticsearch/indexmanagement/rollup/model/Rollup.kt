@@ -161,9 +161,10 @@ data class Rollup(
             .field(DIMENSIONS_FIELD, dimensions.toTypedArray())
             .field(RollupMetrics.METRICS_FIELD, metrics.toTypedArray())
         // hasUser indicates it is for saving rollup object with user object
-        // compared to get rollup API we don't show user object
-        if (params.paramAsBoolean(HAS_USER, false))
+        // compared to get rollup API only show roles
+        if (params.paramAsBoolean(HAS_USER, false)) {
             builder.optionalUserField(USER_FIELD, user)
+        } else builder.field(ROLES_FIELD, user?.roles)
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
         builder.endObject()
         return builder
@@ -240,6 +241,7 @@ data class Rollup(
         const val ROLLUP_DOC_COUNT_FIELD = "$ROLLUP_TYPE._doc_count"
         const val ROLLUP_DOC_SCHEMA_VERSION_FIELD = "$ROLLUP_TYPE._$SCHEMA_VERSION_FIELD"
         const val USER_FIELD = "user"
+        const val ROLES_FIELD = "roles"
 
         @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic
@@ -266,6 +268,7 @@ data class Rollup(
             val dimensions = mutableListOf<Dimension>()
             val metrics = mutableListOf<RollupMetrics>()
             var user: User? = null
+            val roles = mutableListOf<String>()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
 
@@ -300,6 +303,14 @@ data class Rollup(
                         }
                     }
                     USER_FIELD -> user = if (xcp.currentToken() == Token.VALUE_NULL) null else User.parse(xcp)
+                    ROLES_FIELD -> {
+                        if (xcp.currentToken() != Token.VALUE_NULL) {
+                            ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
+                            while (xcp.nextToken() != Token.END_ARRAY) {
+                                roles.add(xcp.text())
+                            }
+                        }
+                    }
                     else -> throw IllegalArgumentException("Invalid field [$fieldName] found in Rollup.")
                 }
             }

@@ -28,6 +28,8 @@ const val _PRIMARY_TERM = "_primary_term"
 const val IF_PRIMARY_TERM = "if_primary_term"
 const val REFRESH = "refresh"
 
+val ALL_ACCESS_ROLE = listOf("all_access")
+
 fun resolveUser(user: User?): User {
     return if (user == null) {
         User("", listOf(), listOf(), listOf())

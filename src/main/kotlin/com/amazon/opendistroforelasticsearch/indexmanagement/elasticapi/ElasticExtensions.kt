@@ -38,6 +38,8 @@ import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.util.concurrent.ThreadContext
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentHelper
@@ -55,6 +57,12 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+
+fun contentParser(bytesReference: BytesReference): XContentParser {
+    return XContentHelper.createParser(
+        NamedXContentRegistry.EMPTY,
+        LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
+}
 
 /** Convert an object to maps and lists representation */
 fun ToXContent.convertToMap(): Map<String, Any> {
@@ -195,16 +203,18 @@ fun <T> XContentParser.parseWithType(
     return parsed
 }
 
+const val INDEX_MANAGEMENT_PLUGIN_INTERNAL = "index_management_plugin_internal"
 /**
- * @param user: used as flag, if not null, meaning index rollup request
- *          is from plugin itself so we don't update user object in rollup
+ * @param internalReq: used as flag to indicate if the request is from
+ * outside user or plugin runner. if the value of this element is true
+ * then we will not update user object.
  */
 class InjectorContextElement(
     id: String,
     settings: Settings,
-    threadContext: ThreadContext,
+    private val threadContext: ThreadContext,
     private val roles: List<String>?,
-    private val user: String? = null
+    private val internalReq: Boolean = false
 ) : ThreadContextElement<Unit> {
 
     companion object Key : CoroutineContext.Key<InjectorContextElement>
@@ -215,7 +225,7 @@ class InjectorContextElement(
 
     override fun updateThreadContext(context: CoroutineContext) {
         rolesInjectorHelper.injectRoles(roles)
-        if (user != null) rolesInjectorHelper.injectUser(user)
+        threadContext.putTransient(INDEX_MANAGEMENT_PLUGIN_INTERNAL, internalReq)
     }
 
     override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {

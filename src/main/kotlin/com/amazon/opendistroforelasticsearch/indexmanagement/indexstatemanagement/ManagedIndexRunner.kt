@@ -214,12 +214,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
          * (`managedIndexConfig.user.name`, `managedIndexConfig.user.roles` are empty )
          * 3. ISM jobs that are created when security plugin is enabled will have an User object.
          */
-        val roles = if (managedIndexConfig.user == null) {
-            // fixme: discuss and remove hardcoded to settings?
-            settings.getAsList("", listOf("all_access"))
-        } else {
-            managedIndexConfig.user.roles
-        }
+        val roles = managedIndexConfig.getRoles()
         logger.debug("Running ISM job: ${managedIndexConfig.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
         // Get current IndexMetaData and ManagedIndexMetaData

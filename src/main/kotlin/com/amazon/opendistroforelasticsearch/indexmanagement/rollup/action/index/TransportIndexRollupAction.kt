@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.INDEX_MANAGEMENT_PLUGIN_INTERNAL
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_HAS_USER
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
@@ -26,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.G
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -59,9 +61,11 @@ class TransportIndexRollupAction @Inject constructor(
     override fun doExecute(task: Task, request: IndexRollupRequest, listener: ActionListener<IndexRollupResponse>) {
         val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
         val user = resolveUser(User.parse(userStr))
-        val userName = client.threadPool().threadContext.getTransient<String>(ConfigConstants.INJECTED_USER)
+        val internalReq = client.threadPool().threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL)
 
-        IndexRollupHandler(client, listener, request, user, userName).start()
+        client.threadPool().threadContext.stashContext().use {
+            IndexRollupHandler(client, listener, request, user, internalReq).start()
+        }
     }
 
     inner class IndexRollupHandler(
@@ -69,7 +73,7 @@ class TransportIndexRollupAction @Inject constructor(
         private val actionListener: ActionListener<IndexRollupResponse>,
         private val request: IndexRollupRequest,
         private val user: User,
-        private val userName: String?
+        private val internalRequest: Boolean?
     ) {
 
         fun start() {
@@ -123,9 +127,7 @@ class TransportIndexRollupAction @Inject constructor(
         private fun putRollup() {
             var rollup = request.rollup.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
 
-            // if userName exist, it is injected from rollup runner [updateRollupJob]
-            // this acts as a flag showing the call is from plugin so we don't update user
-            if (userName == null)
+            if (internalRequest == null || !internalRequest)
                 rollup = rollup.copy(user = user)
 
             request.index(INDEX_MANAGEMENT_INDEX)

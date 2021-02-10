@@ -279,12 +279,7 @@ object RollupRunner : ScheduledJobRunner,
             while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
                 do {
                     try {
-                        val roles = if (job.user == null) {
-                            settings.getAsList("", listOf("all_access"))
-                        } else {
-                            job.user.roles
-                        }
-
+                        val roles = job.getRoles()
                         val rollupResult = withCloseableContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles)) {
                             when (val rollupSearchResult =
                                 rollupSearchService.executeCompositeSearch(updatableJob, metadata)) {
@@ -382,12 +377,8 @@ object RollupRunner : ScheduledJobRunner,
     private suspend fun updateRollupJob(job: Rollup, metadata: RollupMetadata): RollupJobResult {
         try {
             val req = IndexRollupRequest(rollup = job, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
-            val roles = if (job.user == null) {
-                settings.getAsList("", listOf("all_access"))
-            } else {
-                job.user.roles
-            }
-            val res = withCloseableContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles, job.user?.name)) {
+            val roles = job.getRoles()
+            val res = withCloseableContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles, true)) {
                 return@withCloseableContext client.suspendUntil<Client, IndexRollupResponse> {
                     execute(IndexRollupAction.INSTANCE, req, it)
                 }

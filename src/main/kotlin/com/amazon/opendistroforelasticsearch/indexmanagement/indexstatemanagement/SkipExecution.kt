@@ -57,7 +57,7 @@ class SkipExecution(
 
                 response.nodes.map { it.getInfo(PluginsAndModules::class.java).pluginInfos }
                     .forEach { it.forEach { nodePlugin ->
-                        if (nodePlugin.name == "opendistro_index_management") {
+                        if (nodePlugin.name == "opendistro-index-management") {
                             versionSet.add(nodePlugin.version)
                         }
                     } }

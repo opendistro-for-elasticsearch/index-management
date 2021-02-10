@@ -38,7 +38,6 @@ import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexMetadata
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.ToXContent
@@ -46,7 +45,6 @@ import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.Index
 import org.elasticsearch.index.IndexNotFoundException

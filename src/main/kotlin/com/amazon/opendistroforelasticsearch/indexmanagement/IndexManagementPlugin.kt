@@ -240,7 +240,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerConsumers()
         rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
         this.indexNameExpressionResolver = indexNameExpressionResolver
-        indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
+        indexManagementIndices = IndexManagementIndices(settings, client.admin().indices(), clusterService)
         val indexStateManagementHistory =
             IndexStateManagementHistory(
                 settings,
@@ -263,6 +263,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ManagedIndexSettings.HISTORY_MAX_DOCS,
             ManagedIndexSettings.HISTORY_RETENTION_PERIOD,
             ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD,
+            ManagedIndexSettings.HISTORY_NUMBER_OF_SHARDS,
+            ManagedIndexSettings.HISTORY_NUMBER_OF_REPLICAS,
             ManagedIndexSettings.POLICY_ID,
             ManagedIndexSettings.ROLLOVER_ALIAS,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,

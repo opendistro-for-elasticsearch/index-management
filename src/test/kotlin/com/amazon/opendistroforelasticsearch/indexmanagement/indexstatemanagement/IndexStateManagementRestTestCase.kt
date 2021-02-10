@@ -37,6 +37,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_REPLICAS
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
@@ -173,16 +175,8 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             } else {
                 it.put(ManagedIndexSettings.ROLLOVER_ALIAS.key, alias)
             }
-            if (replicas == null) {
-                it.put("index.number_of_replicas", "1")
-            } else {
-                it.put("index.number_of_replicas", replicas)
-            }
-            if (shards == null) {
-                it.put("index.number_of_shards", "1")
-            } else {
-                it.put("index.number_of_shards", shards)
-            }
+            it.put(INDEX_NUMBER_OF_REPLICAS, replicas ?: "1")
+            it.put(INDEX_NUMBER_OF_SHARDS, shards ?: "1")
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
         createIndex(index, settings, mapping, aliases)
@@ -236,8 +230,9 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
                 }
             }
         """.trimIndent()
-        client().makeRequest("PUT", "_cluster/settings", emptyMap(),
+        val res = client().makeRequest("PUT", "_cluster/settings", emptyMap(),
             StringEntity(request, APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, res.restStatus())
     }
 
     protected fun getManagedIndexConfig(index: String): ManagedIndexConfig? {
@@ -318,7 +313,11 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         if (isMultiNode) {
             waitFor {
                 try {
-                    adminClient().makeRequest("GET", "_cluster/allocation/explain")
+                    adminClient().makeRequest(
+                        "GET",
+                        "_cluster/allocation/explain",
+                        StringEntity("{ \"index\": \"$INDEX_MANAGEMENT_INDEX\" }", APPLICATION_JSON)
+                    )
                     fail("Expected 400 Bad Request when there are no unassigned shards to explain")
                 } catch (e: ResponseException) {
                     assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -425,7 +424,13 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     @Suppress("UNCHECKED_CAST")
     protected fun getNumberOfReplicasSetting(indexName: String): Int {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
-        return (indexSettings[indexName]!!["settings"]!!["index.number_of_replicas"] as String).toInt()
+        return (indexSettings[indexName]!!["settings"]!![INDEX_NUMBER_OF_REPLICAS] as String).toInt()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getNumberOfShardsSetting(indexName: String): Int {
+        val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
+        return (indexSettings[indexName]!!["settings"]!![INDEX_NUMBER_OF_SHARDS] as String).toInt()
     }
 
     @Suppress("UNCHECKED_CAST")

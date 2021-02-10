@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
@@ -66,28 +67,46 @@ class TransportGetRollupsAction @Inject constructor(
         val searchSourceBuilder = SearchSourceBuilder().query(boolQueryBuilder).from(from).size(size).seqNoAndPrimaryTerm(true)
             .sort(sortField, SortOrder.fromString(sortDirection))
         val searchRequest = SearchRequest(INDEX_MANAGEMENT_INDEX).source(searchSourceBuilder)
-        client.search(searchRequest, object : ActionListener<SearchResponse> {
-            override fun onResponse(response: SearchResponse) {
-                val totalRollups = response.hits.totalHits?.value ?: 0
+        client.threadPool().threadContext.stashContext().use {
+            client.search(searchRequest, object : ActionListener<SearchResponse> {
+                override fun onResponse(response: SearchResponse) {
+                    val totalRollups = response.hits.totalHits?.value ?: 0
 
-                if (response.shardFailures.isNotEmpty()) {
-                    val failure = response.shardFailures.reduce { s1, s2 -> if (s1.status().status > s2.status().status) s1 else s2 }
-                    listener.onFailure(ElasticsearchStatusException("Get rollups failed on some shards", failure.status(), failure.cause))
-                } else {
-                    try {
-                        val rollups = response.hits.hits.map {
-                            contentParser(it.sourceRef).parseWithType(it.id, it.seqNo, it.primaryTerm, Rollup.Companion::parse)
+                    if (response.shardFailures.isNotEmpty()) {
+                        val failure =
+                            response.shardFailures.reduce { s1, s2 -> if (s1.status().status > s2.status().status) s1 else s2 }
+                        listener.onFailure(
+                            ElasticsearchStatusException(
+                                "Get rollups failed on some shards",
+                                failure.status(),
+                                failure.cause
+                            )
+                        )
+                    } else {
+                        try {
+                            val rollups = response.hits.hits.map {
+                                contentParser(it.sourceRef).parseWithType(
+                                    it.id,
+                                    it.seqNo,
+                                    it.primaryTerm,
+                                    Rollup.Companion::parse
+                                )
+                            }
+                            listener.onResponse(GetRollupsResponse(rollups, totalRollups.toInt(), RestStatus.OK))
+                        } catch (e: Exception) {
+                            listener.onFailure(
+                                ElasticsearchStatusException(
+                                    "Failed to parse rollups",
+                                    RestStatus.INTERNAL_SERVER_ERROR, ExceptionsHelper.unwrapCause(e)
+                                )
+                            )
                         }
-                        listener.onResponse(GetRollupsResponse(rollups, totalRollups.toInt(), RestStatus.OK))
-                    } catch (e: Exception) {
-                        listener.onFailure(ElasticsearchStatusException("Failed to parse rollups",
-                            RestStatus.INTERNAL_SERVER_ERROR, ExceptionsHelper.unwrapCause(e)))
                     }
                 }
-            }
 
-            override fun onFailure(e: Exception) = listener.onFailure(e)
-        })
+                override fun onFailure(e: Exception) = listener.onFailure(e)
+            })
+        }
     }
 
     private fun contentParser(bytesReference: BytesReference): XContentParser {

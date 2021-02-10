@@ -70,24 +70,24 @@ data class ISMRollup(
         val id = sourceIndex + toString()
         val currentTime = Instant.now()
         return Rollup(
-                id = DigestUtils.sha1Hex(id),
-                seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO,
-                primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
-                enabled = true,
-                schemaVersion = IndexUtils.DEFAULT_SCHEMA_VERSION,
-                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
-                jobLastUpdatedTime = currentTime,
-                jobEnabledTime = currentTime,
-                description = this.description,
-                sourceIndex = sourceIndex,
-                targetIndex = this.targetIndex,
-                metadataID = null,
-                roles = roles,
-                pageSize = pageSize,
-                delay = null,
-                continuous = false,
-                dimensions = dimensions,
-                metrics = metrics
+            id = DigestUtils.sha1Hex(id),
+            seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO,
+            primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
+            enabled = true,
+            schemaVersion = IndexUtils.DEFAULT_SCHEMA_VERSION,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = currentTime,
+            jobEnabledTime = currentTime,
+            description = this.description,
+            sourceIndex = sourceIndex,
+            targetIndex = this.targetIndex,
+            metadataID = null,
+            pageSize = pageSize,
+            delay = null,
+            continuous = false,
+            dimensions = dimensions,
+            metrics = metrics,
+            user = null
         )
     }
 

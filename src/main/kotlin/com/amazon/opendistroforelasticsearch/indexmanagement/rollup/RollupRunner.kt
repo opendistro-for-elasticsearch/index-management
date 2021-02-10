@@ -15,8 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.withCloseableContext
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
@@ -277,19 +279,32 @@ object RollupRunner : ScheduledJobRunner,
             while (rollupSearchService.shouldProcessRollup(updatableJob, metadata)) {
                 do {
                     try {
-                        val rollupResult = when (val rollupSearchResult = rollupSearchService.executeCompositeSearch(updatableJob, metadata)) {
-                            is RollupSearchResult.Success -> {
-                                val compositeRes: InternalComposite = rollupSearchResult.searchResponse.aggregations.get(updatableJob.id)
-                                metadata = metadata.incrementStats(rollupSearchResult.searchResponse, compositeRes)
-                                when (val rollupIndexResult = rollupIndexer.indexRollups(updatableJob, compositeRes)) {
-                                    is RollupIndexResult.Success -> RollupResult.Success(compositeRes, rollupIndexResult.stats)
-                                    is RollupIndexResult.Failure -> RollupResult.Failure(rollupIndexResult.message, rollupIndexResult.cause)
+                        val roles = job.getRoles()
+                        val rollupResult = withCloseableContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles)) {
+                            when (val rollupSearchResult =
+                                rollupSearchService.executeCompositeSearch(updatableJob, metadata)) {
+                                is RollupSearchResult.Success -> {
+                                    val compositeRes: InternalComposite =
+                                        rollupSearchResult.searchResponse.aggregations.get(updatableJob.id)
+                                    metadata = metadata.incrementStats(rollupSearchResult.searchResponse, compositeRes)
+                                    return@withCloseableContext when (val rollupIndexResult =
+                                        rollupIndexer.indexRollups(updatableJob, compositeRes)) {
+                                        is RollupIndexResult.Success -> RollupResult.Success(
+                                            compositeRes,
+                                            rollupIndexResult.stats
+                                        )
+                                        is RollupIndexResult.Failure -> RollupResult.Failure(
+                                            rollupIndexResult.message,
+                                            rollupIndexResult.cause
+                                        )
+                                    }
+                                }
+                                is RollupSearchResult.Failure -> {
+                                    return@withCloseableContext RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
                                 }
                             }
-                            is RollupSearchResult.Failure -> {
-                                RollupResult.Failure(rollupSearchResult.message, rollupSearchResult.cause)
-                            }
                         }
+
                         when (rollupResult) {
                             is RollupResult.Success -> {
                                 metadata = rollupMetadataService.updateMetadata(updatableJob,
@@ -362,7 +377,12 @@ object RollupRunner : ScheduledJobRunner,
     private suspend fun updateRollupJob(job: Rollup, metadata: RollupMetadata): RollupJobResult {
         try {
             val req = IndexRollupRequest(rollup = job, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
-            val res: IndexRollupResponse = client.suspendUntil { execute(IndexRollupAction.INSTANCE, req, it) }
+            val roles = job.getRoles()
+            val res = withCloseableContext(InjectorContextElement(job.id, settings, threadPool.threadContext, roles, true)) {
+                return@withCloseableContext client.suspendUntil<Client, IndexRollupResponse> {
+                    execute(IndexRollupAction.INSTANCE, req, it)
+                }
+            }
             // TODO: Verify the seqNo/primterm got updated
             return RollupJobResult.Success(res.rollup)
         } catch (e: Exception) {

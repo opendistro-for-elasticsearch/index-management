@@ -401,9 +401,53 @@ class IndexStateManagementHistoryIT : IndexStateManagementRestTestCase() {
         waitFor { assertEquals("true", getIndexBlocksWriteSetting(indexName)) }
     }
 
+    fun `test history shard settings`() {
+        val indexName = "${testIndexName}_shard_settings"
+        val policyID = "${testIndexName}_shard_settings_1"
+        val actionConfig = ReadOnlyActionConfig(0)
+        val states = listOf(State("ReadOnlyState", listOf(actionConfig), listOf()))
+
+        val policy = Policy(
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states
+        )
+
+        createPolicy(policy, policyID)
+        createIndex(indexName, policyID)
+        resetHistorySetting()
+        updateClusterSetting(ManagedIndexSettings.HISTORY_NUMBER_OF_SHARDS.key, "2")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_NUMBER_OF_REPLICAS.key, "3")
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
+
+        // Need to wait two cycles.
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+        waitFor {
+            assertIndexExists(IndexManagementIndices.HISTORY_WRITE_INDEX_ALIAS)
+            val indexSettings = getIndexSettings(IndexManagementIndices.HISTORY_WRITE_INDEX_ALIAS)
+            val historyIndexName = indexSettings.keys.filter { it.startsWith(IndexManagementIndices.HISTORY_INDEX_BASE) }.firstOrNull()
+            assertNotNull("Could not find a concrete history index", historyIndexName)
+            assertEquals("Wrong number of shards", 2, getNumberOfShardsSetting(historyIndexName!!))
+            assertEquals("Wrong number of replicas", 3, getNumberOfReplicasSetting(historyIndexName))
+        }
+    }
+
     private fun resetHistorySetting() {
         updateClusterSetting(ManagedIndexSettings.HISTORY_ENABLED.key, "true")
         updateClusterSetting(ManagedIndexSettings.HISTORY_RETENTION_PERIOD.key, "60s")
         updateClusterSetting(ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD.key, "60s")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_NUMBER_OF_SHARDS.key, "1")
+        updateClusterSetting(ManagedIndexSettings.HISTORY_NUMBER_OF_REPLICAS.key, "1")
     }
 }

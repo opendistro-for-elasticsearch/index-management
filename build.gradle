@@ -20,7 +20,7 @@ import java.util.function.Predicate
 
 buildscript {
     ext {
-        es_version = System.getProperty("es.version", "7.10.0")
+        es_version = System.getProperty("es.version", "7.10.2")
         kotlin_version = System.getProperty("kotlin.version", "1.3.72")
     }
 
@@ -121,7 +121,7 @@ ext {
 }
 
 group = "com.amazon.opendistroforelasticsearch"
-version = "${opendistroVersion}.1"
+version = "${opendistroVersion}.0"
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
@@ -131,7 +131,7 @@ dependencies {
     compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7'
     compile "org.jetbrains:annotations:13.0"
     compile "com.amazon.opendistroforelasticsearch:notification:${opendistroVersion}.0"
-    compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.2"
+    compile "com.amazon.opendistroforelasticsearch:common-utils:${opendistroVersion}.0"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
@@ -196,6 +196,8 @@ afterEvaluate {
             node.setting("opendistro_security.enable_snapshot_restore_privilege", "true")
             node.setting("opendistro_security.check_snapshot_restore_write_privileges", "true")
             node.setting("opendistro_security.restapi.roles_enabled", "[\"all_access\", \"security_rest_api_access\"]")
+            node.setting("opendistro_security.system_indices.enabled", "true")
+            node.setting("opendistro_security.system_indices.indices", "[\".opendistro-ism-config\"]")
         }
     }
 }
@@ -232,7 +234,7 @@ testClusters.integTest {
         plugin(provider({
             new RegularFile() {
                 @Override
-                File getAsFile() { fileTree("src/test/resources/security") { include "opendistro_security*" }.getSingleFile() }
+                File getAsFile() { fileTree("src/test/resources/security") { include "opendistro-security*" }.getSingleFile() }
             }
         }))
     }

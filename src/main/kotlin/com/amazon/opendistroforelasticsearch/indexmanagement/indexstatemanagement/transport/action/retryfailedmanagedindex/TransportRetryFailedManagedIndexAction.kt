@@ -24,6 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateEnableManagedIndexRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
@@ -58,7 +59,9 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
         RetryFailedManagedIndexAction.NAME, transportService, actionFilters, ::RetryFailedManagedIndexRequest
 ) {
     override fun doExecute(task: Task, request: RetryFailedManagedIndexRequest, listener: ActionListener<ISMStatusResponse>) {
-        RetryFailedManagedIndexHandler(client, listener, request).start()
+        client.threadPool().threadContext.stashContext().use {
+            RetryFailedManagedIndexHandler(client, listener, request).start()
+        }
     }
 
     inner class RetryFailedManagedIndexHandler(
@@ -188,7 +191,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                                 startTime = null
                             ),
                             transitionTo = request.startState,
-                            info = mapOf("message" to "Attempting to retry")
+                            info = mapOf("message" to "Pending retry of failed managed index")
                         ))
                     )
                 }

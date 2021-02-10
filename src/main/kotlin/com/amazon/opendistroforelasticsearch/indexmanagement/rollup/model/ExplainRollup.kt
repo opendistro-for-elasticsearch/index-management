@@ -43,9 +43,8 @@ data class ExplainRollup(
 
     @Throws(IOException::class)
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        return builder.startObject()
+        return builder
             .field(Rollup.METADATA_ID_FIELD, metadataID)
             .field(RollupMetadata.ROLLUP_METADATA_TYPE, metadata)
-            .endObject()
     }
 }

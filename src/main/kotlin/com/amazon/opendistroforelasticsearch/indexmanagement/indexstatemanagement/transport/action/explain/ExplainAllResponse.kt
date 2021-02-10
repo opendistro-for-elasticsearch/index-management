@@ -33,9 +33,10 @@ class ExplainAllResponse : ExplainResponse, ToXContentObject {
         indexNames: List<String>,
         indexPolicyIDs: List<String?>,
         indexMetadatas: List<ManagedIndexMetaData?>,
+        rolesMap: Map<String, List<String>?>,
         totalManagedIndices: Int,
         enabledState: Map<String, Boolean>
-    ) : super(indexNames, indexPolicyIDs, indexMetadatas) {
+    ) : super(indexNames, indexPolicyIDs, indexMetadatas, rolesMap) {
         this.totalManagedIndices = totalManagedIndices
         this.enabledState = enabledState
     }
@@ -45,6 +46,7 @@ class ExplainAllResponse : ExplainResponse, ToXContentObject {
         indexNames = sin.readStringList(),
         indexPolicyIDs = sin.readStringList(),
         indexMetadatas = sin.readList { ManagedIndexMetaData.fromStreamInput(it) },
+        rolesMap = sin.readMap() as Map<String, List<String>?>,
         totalManagedIndices = sin.readInt(),
         enabledState = sin.readMap() as Map<String, Boolean>
     )
@@ -63,6 +65,10 @@ class ExplainAllResponse : ExplainResponse, ToXContentObject {
             builder.field(ManagedIndexSettings.POLICY_ID.key, indexPolicyIDs[ind])
             indexMetadatas[ind]?.toXContent(builder, ToXContent.EMPTY_PARAMS)
             builder.field("enabled", enabledState[name])
+            val roles = rolesMap[name]
+            if (roles != null && roles.isNotEmpty()) {
+                builder.field("roles", roles)
+            }
             builder.endObject()
         }
         builder.field("total_managed_indices", totalManagedIndices)

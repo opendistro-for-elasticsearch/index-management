@@ -16,6 +16,7 @@
 @file:Suppress("TopLevelPropertyNaming", "MatchingDeclarationName")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
@@ -30,6 +31,12 @@ import java.time.Instant
 
 const val WITH_TYPE = "with_type"
 val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
+const val HAS_USER = "has_user"
+val XCONTENT_HAS_USER = ToXContent.MapParams(mapOf(HAS_USER to "true"))
+val XCONTENT_WITHOUT_TYPE_HAS_USER = ToXContent.MapParams(
+    mapOf(WITH_TYPE to "false",
+        HAS_USER to "true")
+)
 
 const val FAILURES = "failures"
 const val FAILED_INDICES = "failed_indices"
@@ -43,6 +50,10 @@ const val DEFAULT_JOB_SORT_FIELD = "managed_index.index"
 const val DEFAULT_POLICY_SORT_FIELD = "policy.policy_id.keyword"
 const val DEFAULT_SORT_ORDER = "asc"
 const val DEFAULT_QUERY_STRING = "*"
+
+const val INDEX_HIDDEN = "index.hidden"
+const val INDEX_NUMBER_OF_SHARDS = "index.number_of_shards"
+const val INDEX_NUMBER_OF_REPLICAS = "index.number_of_replicas"
 
 fun buildInvalidIndexResponse(builder: XContentBuilder, failedIndices: List<FailedIndex>) {
     if (failedIndices.isNotEmpty()) {
@@ -91,13 +102,15 @@ data class FailedIndex(val name: String, val uuid: String, val reason: String) :
  * Gets the XContentBuilder for partially updating a [ManagedIndexConfig]'s ChangePolicy
  */
 fun getPartialChangePolicyBuilder(
-    changePolicy: ChangePolicy?
+    changePolicy: ChangePolicy?,
+    user: User
 ): XContentBuilder {
     return XContentFactory.jsonBuilder()
         .startObject()
         .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
         .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
         .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, changePolicy)
+        .field(ManagedIndexConfig.USER_FIELD, user)
         .endObject()
         .endObject()
 }

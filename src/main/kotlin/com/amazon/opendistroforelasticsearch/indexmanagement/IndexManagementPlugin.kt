@@ -223,7 +223,6 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     ): Collection<Any> {
         val settings = environment.settings()
         this.clusterService = clusterService
-
         val rollupRunner = RollupRunner
             .registerClient(client)
             .registerClusterService(clusterService)
@@ -256,6 +255,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerNamedXContentRegistry(xContentRegistry)
             .registerScriptService(scriptService)
             .registerSettings(settings)
+            .registerThreadPool(threadPool)
             .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
             .registerHistoryIndex(indexStateManagementHistory)
             .registerSkipFlag(skipFlag)
@@ -273,6 +273,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ManagedIndexSettings.HISTORY_MAX_DOCS,
             ManagedIndexSettings.HISTORY_RETENTION_PERIOD,
             ManagedIndexSettings.HISTORY_ROLLOVER_CHECK_PERIOD,
+            ManagedIndexSettings.HISTORY_NUMBER_OF_SHARDS,
+            ManagedIndexSettings.HISTORY_NUMBER_OF_REPLICAS,
             ManagedIndexSettings.POLICY_ID,
             ManagedIndexSettings.ROLLOVER_ALIAS,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,

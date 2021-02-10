@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomErrorNotification
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomPolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_HIDDEN
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import org.elasticsearch.client.ResponseException
@@ -38,10 +39,11 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
 
     private val policyID1 = "t1"
     private val policyID2 = "t2"
+    private val policyID3 = "t3"
 
     fun `test add template with invalid index pattern`() {
         try {
-            val ismTemp = ISMTemplate(listOf(" "), 100, randomInstant())
+            val ismTemp = ISMTemplate(listOf(" "), 100, randomInstant(), null)
             createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
             fail("Expect a failure")
         } catch (e: ResponseException) {
@@ -54,15 +56,17 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
 
     fun `test add template with overlapping index pattern`() {
         try {
-            val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())
-            val ismTemp2 = ISMTemplate(listOf("lo*"), 100, randomInstant())
+            val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant(), null)
+            val ismTemp2 = ISMTemplate(listOf("abc*"), 100, randomInstant(), null)
+            val ismTemp3 = ISMTemplate(listOf("*"), 100, randomInstant(), null)
             createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
             createPolicy(randomPolicy(ismTemplate = ismTemp2), policyID2)
+            createPolicy(randomPolicy(ismTemplate = ismTemp3), policyID3)
             fail("Expect a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
             val actualMessage = e.response.asMap()["error"] as Map<String, Any>
-            val expectedReason = "new policy $policyID2 has an ism template with index pattern [lo*] matching existing policy templates policy [$policyID1] => [log*], please use a different priority than 100"
+            val expectedReason = "New policy $policyID3 has an ISM template with index pattern [*] matching existing policy templates, please use a different priority than 100"
             assertEquals(expectedReason, actualMessage["reason"])
         }
     }
@@ -76,7 +80,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         // need to specify policyID null, can remove after policyID deprecated
         createIndex(indexName1, null)
 
-        val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())
+        val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant(), null)
 
         val actionConfig = ReadOnlyActionConfig(0)
         val states = listOf(
@@ -95,7 +99,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         createPolicy(policy, policyID)
 
         createIndex(indexName2, null)
-        createIndex(indexName3, Settings.builder().put("index.hidden", true).build())
+        createIndex(indexName3, Settings.builder().put(INDEX_HIDDEN, true).build())
 
         waitFor { assertNotNull(getManagedIndexConfig(indexName2)) }
 

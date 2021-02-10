@@ -15,13 +15,17 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
+import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalUserField
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.HAS_USER
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.ALL_ACCESS_ROLE
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -54,12 +58,12 @@ data class Rollup(
     val sourceIndex: String,
     val targetIndex: String,
     val metadataID: String?,
-    val roles: List<String>,
     val pageSize: Int,
     val delay: Long?,
     val continuous: Boolean,
     val dimensions: List<Dimension>,
-    val metrics: List<RollupMetrics>
+    val metrics: List<RollupMetrics>,
+    val user: User?
 ) : ScheduledJobParameter, Writeable {
 
     init {
@@ -116,7 +120,6 @@ data class Rollup(
         sourceIndex = sin.readString(),
         targetIndex = sin.readString(),
         metadataID = sin.readOptionalString(),
-        roles = sin.readStringArray().toList(),
         pageSize = sin.readInt(),
         delay = sin.readOptionalLong(),
         continuous = sin.readBoolean(),
@@ -135,7 +138,8 @@ data class Rollup(
             }
             dimensionsList.toList()
         },
-        metrics = sin.readList(::RollupMetrics)
+        metrics = sin.readList(::RollupMetrics),
+        user = sin.readOptionalWriteable(::User)
     )
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -151,12 +155,16 @@ data class Rollup(
             .field(SOURCE_INDEX_FIELD, sourceIndex)
             .field(TARGET_INDEX_FIELD, targetIndex)
             .field(METADATA_ID_FIELD, metadataID)
-            .field(ROLES_FIELD, roles.toTypedArray())
             .field(PAGE_SIZE_FIELD, pageSize)
             .field(DELAY_FIELD, delay)
             .field(CONTINUOUS_FIELD, continuous)
             .field(DIMENSIONS_FIELD, dimensions.toTypedArray())
             .field(RollupMetrics.METRICS_FIELD, metrics.toTypedArray())
+        // hasUser indicates it is for saving rollup object with user object
+        // compared to get rollup API only show roles
+        if (params.paramAsBoolean(HAS_USER, false)) {
+            builder.optionalUserField(USER_FIELD, user)
+        } else builder.field(ROLES_FIELD, user?.roles)
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
         builder.endObject()
         return builder
@@ -180,7 +188,6 @@ data class Rollup(
         out.writeString(sourceIndex)
         out.writeString(targetIndex)
         out.writeOptionalString(metadataID)
-        out.writeStringArray(roles.toTypedArray())
         out.writeInt(pageSize)
         out.writeOptionalLong(delay)
         out.writeBoolean(continuous)
@@ -194,6 +201,13 @@ data class Rollup(
             }
         }
         out.writeCollection(metrics)
+        out.writeOptionalWriteable(user)
+    }
+
+    fun getRoles(): List<String> {
+        return if (user == null) {
+            ALL_ACCESS_ROLE
+        } else user.roles
     }
 
     companion object {
@@ -214,7 +228,6 @@ data class Rollup(
         const val SOURCE_INDEX_FIELD = "source_index"
         const val TARGET_INDEX_FIELD = "target_index"
         const val METADATA_ID_FIELD = "metadata_id"
-        const val ROLES_FIELD = "roles"
         const val PAGE_SIZE_FIELD = "page_size"
         const val DELAY_FIELD = "delay"
         const val CONTINUOUS_FIELD = "continuous"
@@ -227,6 +240,8 @@ data class Rollup(
         const val ROLLUP_DOC_ID_FIELD = "$ROLLUP_TYPE.$_ID"
         const val ROLLUP_DOC_COUNT_FIELD = "$ROLLUP_TYPE._doc_count"
         const val ROLLUP_DOC_SCHEMA_VERSION_FIELD = "$ROLLUP_TYPE._$SCHEMA_VERSION_FIELD"
+        const val USER_FIELD = "user"
+        const val ROLES_FIELD = "roles"
 
         @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic
@@ -247,12 +262,13 @@ data class Rollup(
             var sourceIndex: String? = null
             var targetIndex: String? = null
             var metadataID: String? = null
-            val roles = mutableListOf<String>()
             var pageSize: Int? = null
             var delay: Long? = null
             var continuous = false
             val dimensions = mutableListOf<Dimension>()
             val metrics = mutableListOf<RollupMetrics>()
+            var user: User? = null
+            val roles = mutableListOf<String>()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
 
@@ -271,12 +287,6 @@ data class Rollup(
                     SOURCE_INDEX_FIELD -> sourceIndex = xcp.text()
                     TARGET_INDEX_FIELD -> targetIndex = xcp.text()
                     METADATA_ID_FIELD -> metadataID = xcp.textOrNull()
-                    ROLES_FIELD -> {
-                        ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
-                        while (xcp.nextToken() != Token.END_ARRAY) {
-                            roles.add(xcp.text())
-                        }
-                    }
                     PAGE_SIZE_FIELD -> pageSize = xcp.intValue()
                     DELAY_FIELD -> delay = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.longValue()
                     CONTINUOUS_FIELD -> continuous = xcp.booleanValue()
@@ -290,6 +300,15 @@ data class Rollup(
                         ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != Token.END_ARRAY) {
                             metrics.add(RollupMetrics.parse(xcp))
+                        }
+                    }
+                    USER_FIELD -> user = if (xcp.currentToken() == Token.VALUE_NULL) null else User.parse(xcp)
+                    ROLES_FIELD -> {
+                        if (xcp.currentToken() != Token.VALUE_NULL) {
+                            ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
+                            while (xcp.nextToken() != Token.END_ARRAY) {
+                                roles.add(xcp.text())
+                            }
                         }
                     }
                     else -> throw IllegalArgumentException("Invalid field [$fieldName] found in Rollup.")
@@ -322,12 +341,12 @@ data class Rollup(
                 sourceIndex = requireNotNull(sourceIndex) { "Rollup source index is null" },
                 targetIndex = requireNotNull(targetIndex) { "Rollup target index is null" },
                 metadataID = metadataID,
-                roles = roles.toList(),
                 pageSize = requireNotNull(pageSize) { "Rollup page size is null" },
                 delay = delay,
                 continuous = continuous,
                 dimensions = dimensions,
-                metrics = metrics
+                metrics = metrics,
+                user = user
             )
         }
     }

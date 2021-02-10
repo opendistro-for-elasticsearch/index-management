@@ -38,6 +38,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_REPLICAS
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
@@ -58,6 +60,7 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Request
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.client.RestClient
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -71,7 +74,6 @@ import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestRequest
 import org.elasticsearch.rest.RestStatus
-import org.elasticsearch.test.ESTestCase
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
@@ -79,35 +81,13 @@ import java.util.Locale
 
 abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() {
 
-    protected fun waitForStepCompleted(indexName: String) {
-        waitFor {
-            val metadata = getExplainManagedIndexMetaData(indexName)
-            val stepStatus = metadata.stepMetaData?.stepStatus.toString()
-            assertEquals("completed", stepStatus)
-        }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun runningTasks(response: Response): MutableSet<String> {
-        val runningTasks: MutableSet<String> = HashSet()
-        val nodes = entityAsMap(response)["nodes"] as Map<String, Any>?
-        for ((_, value) in nodes!!) {
-            val nodeInfo = value as Map<String, Any>
-            val nodeTasks = nodeInfo["tasks"] as Map<String, Any>?
-            for ((_, value1) in nodeTasks!!) {
-                val task = value1 as Map<String, Any>
-                runningTasks.add(task["action"].toString())
-            }
-        }
-        return runningTasks
-    }
-
     protected fun createPolicy(
         policy: Policy,
-        policyId: String = ESTestCase.randomAlphaOfLength(10),
-        refresh: Boolean = true
+        policyId: String = randomAlphaOfLength(10),
+        refresh: Boolean = true,
+        client: RestClient = client()
     ): Policy {
-        val response = createPolicyJson(policy.toJsonString(), policyId, refresh)
+        val response = createPolicyJson(policy.toJsonString(), policyId, refresh, client)
 
         val policyJson = jsonXContent
             .createParser(
@@ -127,9 +107,10 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     protected fun createPolicyJson(
         policyString: String,
         policyId: String,
-        refresh: Boolean = true
+        refresh: Boolean = true,
+        client: RestClient = client()
     ): Response {
-        val response = client()
+        val response = client
             .makeRequest(
                 "PUT",
                 "$POLICY_BASE_URI/$policyId?refresh=$refresh",
@@ -196,6 +177,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             } else {
                 it.put(ManagedIndexSettings.ROLLOVER_ALIAS.key, alias)
             }
+<<<<<<< HEAD
             if (replicas == null) {
                 it.put("index.number_of_replicas", "1")
             } else {
@@ -207,6 +189,10 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
                 it.put("index.number_of_shards", shards)
             }
             it.put("index.write.wait_for_active_shards", waitForActiveShards)
+=======
+            it.put(INDEX_NUMBER_OF_REPLICAS, replicas ?: "1")
+            it.put(INDEX_NUMBER_OF_SHARDS, shards ?: "1")
+>>>>>>> main
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
         createIndex(index, settings, mapping, aliases)
@@ -224,14 +210,15 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
 
     protected fun addPolicyToIndex(
         index: String,
-        policyID: String
+        policyID: String,
+        client: RestClient = client()
     ) {
         val body = """
             {
               "policy_id": "$policyID"
             }
         """.trimIndent()
-        val response = client().makeRequest("POST", "/_opendistro/_ism/add/$index", StringEntity(body, APPLICATION_JSON))
+        val response = client.makeRequest("POST", "/_opendistro/_ism/add/$index", StringEntity(body, APPLICATION_JSON))
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
     }
 
@@ -259,8 +246,9 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
                 }
             }
         """.trimIndent()
-        client().makeRequest("PUT", "_cluster/settings", emptyMap(),
+        val res = client().makeRequest("PUT", "_cluster/settings", emptyMap(),
             StringEntity(request, APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, res.restStatus())
     }
 
     protected fun getManagedIndexConfig(index: String): ManagedIndexConfig? {
@@ -274,7 +262,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
                 }
             }
         """.trimIndent()
-        val response = client().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_search", emptyMap(),
+        val response = adminClient().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_search", emptyMap(),
                 StringEntity(request, APPLICATION_JSON))
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
         val searchResponse = SearchResponse.fromXContent(createParser(jsonXContent, response.entity.content))
@@ -341,7 +329,11 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         if (isMultiNode) {
             waitFor {
                 try {
-                    client().makeRequest("GET", "_cluster/allocation/explain")
+                    adminClient().makeRequest(
+                        "GET",
+                        "_cluster/allocation/explain",
+                        StringEntity("{ \"index\": \"$INDEX_MANAGEMENT_INDEX\" }", APPLICATION_JSON)
+                    )
                     fail("Expected 400 Bad Request when there are no unassigned shards to explain")
                 } catch (e: ResponseException) {
                     assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -352,7 +344,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
         val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
         val waitForActiveShards = if (isMultiNode) "all" else "1"
-        val response = client().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
+        val response = adminClient().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
             StringEntity(
                 "{\"doc\":{\"managed_index\":{\"schedule\":{\"interval\":{\"start_time\":" +
                     "\"$startTimeMillis\"}}}}}",
@@ -448,7 +440,13 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     @Suppress("UNCHECKED_CAST")
     protected fun getNumberOfReplicasSetting(indexName: String): Int {
         val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
-        return (indexSettings[indexName]!!["settings"]!!["index.number_of_replicas"] as String).toInt()
+        return (indexSettings[indexName]!!["settings"]!![INDEX_NUMBER_OF_REPLICAS] as String).toInt()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun getNumberOfShardsSetting(indexName: String): Int {
+        val indexSettings = getIndexSettings(indexName) as Map<String, Map<String, Map<String, Any?>>>
+        return (indexSettings[indexName]!!["settings"]!![INDEX_NUMBER_OF_SHARDS] as String).toInt()
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -521,6 +519,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             if (cn == "total_managed_indices") continue
 
             metadata = ManagedIndexMetaData.parse(xcp)
+            break
         }
 
         // make sure metadata is initialised

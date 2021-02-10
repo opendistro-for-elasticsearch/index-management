@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.G
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
@@ -57,31 +58,36 @@ class TransportStartRollupAction @Inject constructor(
 
     override fun doExecute(task: Task, request: StartRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
         val getReq = GetRollupRequest(request.id(), null)
-        client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
-            override fun onResponse(response: GetRollupResponse) {
-                val rollup = response.rollup
-                if (rollup == null) {
-                    return actionListener.onFailure(
-                        ElasticsearchStatusException("Could not find rollup [${request.id()}]", RestStatus.NOT_FOUND)
-                    )
-                }
-
-                if (rollup.enabled) {
-                    log.debug("Rollup job is already enabled, checking if metadata needs to be updated")
-                    return if (rollup.metadataID == null) {
-                        actionListener.onResponse(AcknowledgedResponse(true))
-                    } else {
-                        getRollupMetadata(rollup, actionListener)
+        client.threadPool().threadContext.stashContext().use {
+            client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
+                override fun onResponse(response: GetRollupResponse) {
+                    val rollup = response.rollup
+                    if (rollup == null) {
+                        return actionListener.onFailure(
+                            ElasticsearchStatusException(
+                                "Could not find rollup [${request.id()}]",
+                                RestStatus.NOT_FOUND
+                            )
+                        )
                     }
+
+                    if (rollup.enabled) {
+                        log.debug("Rollup job is already enabled, checking if metadata needs to be updated")
+                        return if (rollup.metadataID == null) {
+                            actionListener.onResponse(AcknowledgedResponse(true))
+                        } else {
+                            getRollupMetadata(rollup, actionListener)
+                        }
+                    }
+
+                    updateRollupJob(rollup, request, actionListener)
                 }
 
-                updateRollupJob(rollup, request, actionListener)
-            }
-
-            override fun onFailure(e: Exception) {
-                actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
-            }
-        })
+                override fun onFailure(e: Exception) {
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
+                }
+            })
+        }
     }
 
     // TODO: Should create a transport action to update metadata

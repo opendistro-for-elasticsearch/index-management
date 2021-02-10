@@ -12,6 +12,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestChangePolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILURES
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_HIDDEN
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.UPDATED_INDICES
 import org.apache.http.entity.ContentType
 import org.apache.http.entity.StringEntity
@@ -23,7 +24,7 @@ import java.util.Locale
 class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
-    private val configSchemaVersion = 6
+    private val configSchemaVersion = 8
     private val historySchemaVersion = 3
 
     /*
@@ -53,7 +54,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         val policyId = randomAlphaOfLength(10)
         client().makeRequest("PUT", "$POLICY_BASE_URI/$policyId", emptyMap(), policy.toHttpEntity())
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
-        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 6)
+        verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, configSchemaVersion)
     }
 
     fun `test update management index mapping with new schema version`() {
@@ -64,7 +65,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
         val mapping = indexManagementMappings.trim().trimStart('{').trimEnd('}')
             .replace("\"schema_version\": $configSchemaVersion", "\"schema_version\": 0")
 
-        createIndex(INDEX_MANAGEMENT_INDEX, Settings.builder().put("index.hidden", true).build(), mapping)
+        createIndex(INDEX_MANAGEMENT_INDEX, Settings.builder().put(INDEX_HIDDEN, true).build(), mapping)
         assertIndexExists(INDEX_MANAGEMENT_INDEX)
         verifyIndexSchemaVersion(INDEX_MANAGEMENT_INDEX, 0)
 
@@ -83,7 +84,7 @@ class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
                 .replace("\"schema_version\": $historySchemaVersion", "\"schema_version\": 0")
 
         val aliases = "\"$HISTORY_WRITE_INDEX_ALIAS\": { \"is_write_index\": true }"
-        createIndex("$HISTORY_INDEX_BASE-1", Settings.builder().put("index.hidden", true).build(), mapping, aliases)
+        createIndex("$HISTORY_INDEX_BASE-1", Settings.builder().put(INDEX_HIDDEN, true).build(), mapping, aliases)
         assertIndexExists(HISTORY_WRITE_INDEX_ALIAS)
         verifyIndexSchemaVersion(HISTORY_WRITE_INDEX_ALIAS, 0)
 

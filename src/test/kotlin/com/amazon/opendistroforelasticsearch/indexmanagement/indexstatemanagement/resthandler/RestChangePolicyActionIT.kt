@@ -541,7 +541,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         // verify we are in rollover and have not completed it yet
         waitFor {
             assertEquals(ActionConfig.ActionType.ROLLOVER.type, getExplainManagedIndexMetaData(indexName).actionMetaData?.name)
-            assertEquals(AttemptRolloverStep.getAttemptingMessage(indexName),
+            assertEquals(AttemptRolloverStep.getPendingMessage(indexName),
                 getExplainManagedIndexMetaData(indexName).info?.get("message"))
         }
 

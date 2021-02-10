@@ -55,8 +55,6 @@ import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
-import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
-import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
@@ -65,7 +63,6 @@ import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.search.SearchPhaseExecutionException
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.ClusterChangedEvent
@@ -213,15 +210,6 @@ class ManagedIndexCoordinator(
     }
 
     private suspend fun reenableJobs() {
-        val clusterStateRequest = ClusterStateRequest()
-            .clear()
-            .metadata(true)
-            .local(false)
-            .indices("*")
-            .indicesOptions(IndicesOptions.strictExpand())
-
-        val response: ClusterStateResponse = client.admin().cluster().suspendUntil { state(clusterStateRequest, it) }
-
         /*
          * Iterate through all indices and create update requests to update the ManagedIndexConfig for indices that
          * meet the following conditions:
@@ -243,10 +231,12 @@ class ManagedIndexCoordinator(
 
     private fun isIndexStateManagementEnabled(): Boolean = indexStateManagementEnabled == true
 
-    /** create, delete job document based on index's policyID setting changes */
+    /**
+     * create or clean job document and metadata
+     */
     @OpenForTesting
     suspend fun sweepClusterChangedEvent(event: ClusterChangedEvent) {
-        // deal with indices delete event
+        // indices delete event
         var removeManagedIndexReq = emptyList<DocWriteRequest<*>>()
         var indicesToClean = emptyList<Index>()
         if (event.indicesDeleted().isNotEmpty()) {
@@ -255,16 +245,14 @@ class ManagedIndexCoordinator(
             removeManagedIndexReq = indicesToClean.map { deleteManagedIndexRequest(it.uuid) }
         }
 
-        // Check if newly created indices matching any ISM templates
+        // check if newly created indices match with any ISM templates
         var updateMatchingIndexReq = emptyList<DocWriteRequest<*>>()
-        // filter out indices with policyID, they will be picked up in previous block
-        if (event.indicesCreated().isNotEmpty()) // only check template match if there are new created indices
+        if (event.indicesCreated().isNotEmpty())
             updateMatchingIndexReq = getMatchingIndicesUpdateReq(event.state(), event.indicesCreated())
 
         updateManagedIndices(updateMatchingIndexReq + removeManagedIndexReq, updateMatchingIndexReq.isNotEmpty())
 
-        val deleteRequests = indicesToClean.map { deleteManagedIndexMetadataRequest(it.uuid) }
-        clearManagedIndexMetaData(deleteRequests)
+        clearManagedIndexMetaData(indicesToClean.map { deleteManagedIndexMetadataRequest(it.uuid) })
     }
 
     /**
@@ -378,10 +366,11 @@ class ManagedIndexCoordinator(
      */
     @OpenForTesting
     suspend fun sweep() {
-        val currentManagedIndices = sweepManagedIndexJobs(client, ismIndices.indexManagementIndexExists())
-        // get all index in the cluster state
+        // get all indices in the cluster state
         val currentIndices = clusterService.state().metadata.indices.values().map { it.value }
             .distinct().filterNotNull()
+
+        val currentManagedIndices = sweepManagedIndexJobs(client, ismIndices.indexManagementIndexExists())
 
         // check all un-managed indices, if its name matches any template
         val unManagedIndices = currentIndices
@@ -389,7 +378,7 @@ class ManagedIndexCoordinator(
             .map { it.index }.distinct()
         val updateMatchingIndicesReqs = getMatchingIndicesUpdateReq(clusterService.state(), unManagedIndices.map { it.name })
 
-        // check all managed indices, if the index has been deleted
+        // check all managed indices, if the index has already been deleted
         val deleteManagedIndexRequests =
             getDeleteManagedIndexRequests(currentIndices, currentManagedIndices)
 
@@ -401,8 +390,7 @@ class ManagedIndexCoordinator(
         // clean metadata of un-managed index
         val indicesToDeleteMetadata =
             getIndicesToRemoveMetadataFrom(unManagedIndices) + getDeleteManagedIndices(currentIndices, currentManagedIndices)
-        val deleteRequests = indicesToDeleteMetadata.map { deleteManagedIndexMetadataRequest(it.uuid) }
-        clearManagedIndexMetaData(deleteRequests)
+        clearManagedIndexMetaData(indicesToDeleteMetadata.map { deleteManagedIndexMetadataRequest(it.uuid) })
 
         lastFullSweepTimeNano = System.nanoTime()
     }
@@ -487,7 +475,10 @@ class ManagedIndexCoordinator(
         }
     }
 
-    /** If this index is unmanaged but [ManagedIndexMetaData] is not null then metadata should be removed. */
+    /**
+     * If this index is unmanaged but [ManagedIndexMetaData] is not null
+     * then this metadata should be cleaned.
+     */
     suspend fun getIndicesToRemoveMetadataFrom(unManagedIndices: List<Index>): List<Index> {
         val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
         val metadataList = client.mgetManagedIndexMetadata(unManagedIndices)

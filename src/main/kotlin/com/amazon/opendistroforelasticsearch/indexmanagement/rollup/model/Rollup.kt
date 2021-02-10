@@ -243,7 +243,7 @@ data class Rollup(
         const val USER_FIELD = "user"
         const val ROLES_FIELD = "roles"
 
-        @Suppress("ComplexMethod", "LongMethod")
+        @Suppress("ComplexMethod", "LongMethod", "NestedBlockDepth")
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)

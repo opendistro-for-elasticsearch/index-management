@@ -144,35 +144,37 @@ class ManagedIndexCoordinatorIT : IndexStateManagementRestTestCase() {
         deleteIndex(index)
 
         // Verify ManagedIndexMetadata has been cleared
-        try {
-            client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
-            fail("Expected a failure")
-        } catch (e: ResponseException) {
-            assertEquals("Unexpected RestStatus", RestStatus.NOT_FOUND, e.response.restStatus())
-            val actualMessage = e.response.asMap()
-            val expectedErrorMessage = mapOf(
-                "error" to mapOf(
-                    "root_cause" to listOf(
-                        mapOf(
-                            "type" to "illegal_argument_exception", "reason" to "Missing indices",
-                            "reason" to "no such index [$index]",
-                            "index_uuid" to "_na_",
-                            "index" to index,
-                            "resource.type" to "index_or_alias",
-                            "type" to "index_not_found_exception",
-                            "resource.id" to index
-                        )
+        waitFor {
+            try {
+                client().makeRequest(RestRequest.Method.GET.toString(), RestExplainAction.EXPLAIN_BASE_URI)
+                fail("Expected a failure")
+            } catch (e: ResponseException) {
+                assertEquals("Unexpected RestStatus", RestStatus.NOT_FOUND, e.response.restStatus())
+                val actualMessage = e.response.asMap()
+                val expectedErrorMessage = mapOf(
+                    "error" to mapOf(
+                        "root_cause" to listOf(
+                            mapOf(
+                                "type" to "illegal_argument_exception", "reason" to "Missing indices",
+                                "reason" to "no such index [$index]",
+                                "index_uuid" to "_na_",
+                                "index" to index,
+                                "resource.type" to "index_or_alias",
+                                "type" to "index_not_found_exception",
+                                "resource.id" to index
+                            )
+                        ),
+                        "type" to "index_not_found_exception",
+                        "reason" to "no such index [$index]",
+                        "index_uuid" to "_na_",
+                        "index" to index,
+                        "resource.type" to "index_or_alias",
+                        "resource.id" to index
                     ),
-                    "type" to "index_not_found_exception",
-                    "reason" to "no such index [$index]",
-                    "index_uuid" to "_na_",
-                    "index" to index,
-                    "resource.type" to "index_or_alias",
-                    "resource.id" to index
-                ),
-                "status" to 404
-            )
-            assertEquals(expectedErrorMessage, actualMessage)
+                    "status" to 404
+                )
+                assertEquals(expectedErrorMessage, actualMessage)
+            }
         }
     }
 

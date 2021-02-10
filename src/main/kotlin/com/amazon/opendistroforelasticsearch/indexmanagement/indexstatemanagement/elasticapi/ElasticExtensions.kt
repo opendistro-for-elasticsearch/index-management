@@ -136,7 +136,11 @@ suspend fun IndexMetadata.getManagedIndexMetaData(client: Client): ManagedIndexM
     }
 }
 
-/** multi-get metadata for indices */
+/**
+ * multi-get metadata for indices
+ *
+ * @return list of metadata
+ */
 suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<ManagedIndexMetaData?> {
     log.debug("trying to get back metadata for indices ${indices.map { it.name }}")
 
@@ -157,7 +161,9 @@ suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<ManagedI
     return mgetMetadataList
 }
 
-/** transform multi-get response to list for ManagedIndexMetaData */
+/**
+ * transform multi-get response to list for ManagedIndexMetaData
+ */
 fun mgetResponseToList(mgetResponse: MultiGetResponse): MutableList<ManagedIndexMetaData?> {
     val mgetList = mutableListOf<ManagedIndexMetaData?>()
     mgetResponse.responses.forEach {
@@ -182,14 +188,15 @@ fun buildMgetMetadataRequest(clusterState: ClusterState): MultiGetRequest {
     return mgetMetadataRequest
 }
 
-// forIndex means for saving to config index, distinguish from Explain and History, which only save meaningful partial metadata
+// forIndex means saving to config index, distinguish from Explain and History,
+// which only show meaningful partial metadata
 @Suppress("ReturnCount")
 fun XContentBuilder.addObject(name: String, metadata: ToXContentFragment?, params: ToXContent.Params, forIndex: Boolean = false): XContentBuilder {
-    if (!forIndex) {
+    if (!forIndex) { // for explain and history
         return if (metadata != null) {
             return this.buildMetadata(name, metadata, params)
         } else {
-            this
+            this // omit this field
         }
     }
     // else: save to config index

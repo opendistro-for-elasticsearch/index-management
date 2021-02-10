@@ -335,8 +335,6 @@ testClusters.mixedCluster {
             }
         }))
 
-        println("node name ${node.name}")
-
         if (mixedClusterFlag && node.name == "mixedCluster-1") {
             node.plugin(provider({
                 new RegularFile() {

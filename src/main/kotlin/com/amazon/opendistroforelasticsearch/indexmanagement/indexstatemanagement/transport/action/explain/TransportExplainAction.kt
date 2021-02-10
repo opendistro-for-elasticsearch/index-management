@@ -221,11 +221,11 @@ class TransportExplainAction @Inject constructor(
             }
 
             val indices = state.metadata.indices.map { it.key to it.value.indexUUID }.toMap()
-            val mgetReq = MultiGetRequest()
+            val mgetMetadataReq = MultiGetRequest()
             indices.map { it.value }.forEach { uuid ->
-                mgetReq.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, uuid + "metadata").routing(uuid))
+                mgetMetadataReq.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, uuid + "metadata").routing(uuid))
             }
-            client.multiGet(mgetReq, object : ActionListener<MultiGetResponse> {
+            client.multiGet(mgetMetadataReq, object : ActionListener<MultiGetResponse> {
                 override fun onResponse(response: MultiGetResponse) {
                     val metadataMap = response.responses.map { it.id to getMetadata(it.response)?.toMap() }.toMap()
                     buildResponse(indices, metadataMap)
@@ -237,6 +237,7 @@ class TransportExplainAction @Inject constructor(
             })
         }
 
+        // metadataMap: doc id -> metadataMap, doc id for metadata is indexUuid + "metadata"
         fun buildResponse(indices: Map<String, String>, metadataMap: Map<String, Map<String, String>?>) {
             val indexPolicyIDs = mutableListOf<String?>()
             val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
@@ -269,7 +270,8 @@ class TransportExplainAction @Inject constructor(
         }
 
         private fun getMetadata(response: GetResponse?): ManagedIndexMetaData? {
-            if (response == null || response.sourceAsBytesRef == null) return null
+            if (response == null || response.sourceAsBytesRef == null)
+                return null
 
             val xcp = XContentHelper.createParser(
                 xContentRegistry,

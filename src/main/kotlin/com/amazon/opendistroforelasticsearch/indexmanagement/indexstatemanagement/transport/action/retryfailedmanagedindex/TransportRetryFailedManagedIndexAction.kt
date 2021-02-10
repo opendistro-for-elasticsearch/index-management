@@ -74,7 +74,6 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
         private val listOfIndexToMetadata: MutableList<Pair<Index, ManagedIndexMetaData>> = mutableListOf()
         private val mapOfItemIdToIndex: MutableMap<Int, Index> = mutableMapOf()
         private lateinit var clusterState: ClusterState
-        private var updated: Int = 0
         private val indicesManagedState: MutableMap<String, Boolean> = mutableMapOf()
         private var indicesToRetry = mutableMapOf<String, String>() // uuid: name
 
@@ -129,7 +128,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                         indicesManagedState[it.id] = it.response.isExists
                     }
 
-                    // get back metadata first to populate list
+                    // get back metadata from config index
                     client.multiGet(buildMgetMetadataRequest(clusterState), ActionListener.wrap(::onMgetMetadataResponse, ::onFailure))
                 }
 
@@ -144,7 +143,6 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
             clusterState.metadata.indices.forEachIndexed { ind, it ->
                 val indexMetaData = it.value
                 val managedIndexMetaData = metadataList[ind]
-                log.info("metadata: $managedIndexMetaData for index ${it.key}")
                 when {
                     indicesManagedState[indexMetaData.indexUUID] == false ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
@@ -162,8 +160,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
             if (listOfMetadata.isNotEmpty()) {
                 bulkEnableJob(listOfMetadata.map { it.indexUuid })
             } else {
-                updated = 0
-                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(0, failedIndices))
             }
         }
 
@@ -210,8 +207,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
 
                 client.bulk(bulkUpdateMetadataRequest, ActionListener.wrap(::onBulkUpdateMetadataResponse, ::onFailure))
             } else {
-                updated = 0
-                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(0, failedIndices))
             }
         }
 
@@ -224,7 +220,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                 }
             }
 
-            updated = (bulkResponse.items ?: arrayOf()).size - failedResponses.size
+            val updated = (bulkResponse.items ?: arrayOf()).size - failedResponses.size
             actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
         }
 
@@ -236,8 +232,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                     })
                 }
 
-                updated = 0
-                actionListener.onResponse(ISMStatusResponse(updated, failedIndices))
+                actionListener.onResponse(ISMStatusResponse(0, failedIndices))
             } catch (inner: Exception) {
                 inner.addSuppressed(e)
                 log.error("Failed to send failure response", inner)

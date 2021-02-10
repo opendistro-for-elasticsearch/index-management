@@ -133,7 +133,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private val errorNotificationRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     private var jobInterval: Int = DEFAULT_JOB_INTERVAL
     private var allowList: List<String> = ALLOW_LIST_NONE
-    // indicate whether metadata in cluster state is delete successful last time
+    // whether old metadata in cluster state is delete successful last time
     var metadataDeleted: Boolean = true
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
@@ -202,7 +202,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
         launch {
             if (skipExecFlag.flag) {
-                logger.info("cluster still has node running old version ISM plugin, so skip execution on this node until all nodes upgraded")
+                logger.info("Cluster still has nodes running old version ISM plugin, skip execution on new nodes until all nodes upgraded")
                 return@launch
             }
 
@@ -223,7 +223,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     @Suppress("ReturnCount", "ComplexMethod", "LongMethod", "ComplexCondition")
     private suspend fun runManagedIndexConfig(managedIndexConfig: ManagedIndexConfig) {
-        logger.info("run job for index ${managedIndexConfig.index}")
+        logger.debug("Run job for index ${managedIndexConfig.index}")
         // doing a check of local cluster health as we do not want to overload master node with potentially a lot of calls
         if (clusterIsRed()) {
             logger.debug("Skipping current execution of ${managedIndexConfig.index} because of red cluster health")
@@ -369,17 +369,15 @@ object ManagedIndexRunner : ScheduledJobRunner,
     }
 
     private suspend fun initManagedIndex(managedIndexConfig: ManagedIndexConfig, managedIndexMetaData: ManagedIndexMetaData?) {
-        logger.info("init for ${managedIndexConfig.index}, policy ${managedIndexConfig.policyID}")
         var policy: Policy? = managedIndexConfig.policy
         val policyID = managedIndexConfig.changePolicy?.policyID ?: managedIndexConfig.policyID
         // If policy does not currently exist, we need to save the policy on the ManagedIndexConfig for the first time
-        // or if a change policyID exists, it means user want to change policy before initialization phase
+        // or if a change policy exists then we will also execute the change as we are still in initialization phase
         if (policy == null || managedIndexConfig.changePolicy != null) {
             // Get the policy by the name unless a ChangePolicy exists then allow the change to happen during initialization
             policy = getPolicy(policyID)
             // Attempt to save the policy
             if (policy != null) {
-                logger.info("attempt to save policy to config index")
                 val saved = savePolicyToManagedIndexConfig(managedIndexConfig, policy)
                 // If we failed to save the policy, don't initialize ManagedIndexMetaData
                 if (!saved) return
@@ -394,9 +392,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
             // Initializing ManagedIndexMetaData for the first time
             getInitializedManagedIndexMetaData(managedIndexMetaData, managedIndexConfig, policy)
         }
-        logger.info("init metadata to update: $updatedManagedIndexMetaData")
 
-        val res = updateManagedIndexMetaData(updatedManagedIndexMetaData)
+        updateManagedIndexMetaData(updatedManagedIndexMetaData)
     }
 
     @Suppress("ReturnCount", "BlockingMethodInNonBlockingContext")
@@ -604,8 +601,10 @@ object ManagedIndexRunner : ScheduledJobRunner,
         return result
     }
 
-    // update metadata in config index, and save metadata in history after update
-    // we can possibly call this 2 times in one job run, so need to save seqNo & primeTerm for the second call
+    /**
+     * update metadata in config index, and save metadata in history after update
+     * this can be called 2 times in one job run, so need to save seqNo & primeTerm
+     */
     private suspend fun updateManagedIndexMetaData(
         managedIndexMetaData: ManagedIndexMetaData,
         lastUpdateResult: UpdateMetadataResult? = null
@@ -648,9 +647,9 @@ object ManagedIndexRunner : ScheduledJobRunner,
 
     /**
      *  only if metadata from config index is null and metadata from cluster state is not null
-     *  will try to update metadata from cluster state to config index, and clear metadata in cluster state
-     *  else when we have metadata in config index, we only try to clear metadata in cluster state if we
-     *  haven't cleared it successfully
+     *  then try to move metadata from cluster state to config index
+     *  if having metadata in config index, try to clear metadata in cluster state if we
+     *  haven't cleared it successfully at last time
      */
     @OpenForTesting
     suspend fun handleClusterStateMetadata(input: ManagedIndexMetaData?, metadataFromClusterState: ManagedIndexMetaData?): ManagedIndexMetaData? {

@@ -501,8 +501,8 @@ class ManagedIndexCoordinator(
                 val bulkRequest = BulkRequest().add(deleteRequests)
                 val bulkResponse: BulkResponse = client.suspendUntil { bulk(bulkRequest, it) }
                 bulkResponse.forEach {
-                    if (it.isFailed) logger.error("Failed to clear ManagedIndexMetadata for [index=${it.index}]. " +
-                            "Id: ${it.id}, failureMessage: ${it.failureMessage}")
+                    if (it.isFailed) logger.error("Failed to clear ManagedIndexMetadata for " +
+                        "index uuid: [${it.id}], failureMessage: ${it.failureMessage}")
                 }
             }
         } catch (e: Exception) {

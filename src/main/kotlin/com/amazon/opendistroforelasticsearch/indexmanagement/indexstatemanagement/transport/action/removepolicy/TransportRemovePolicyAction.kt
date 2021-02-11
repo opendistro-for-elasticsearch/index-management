@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexMetadataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
@@ -178,10 +179,17 @@ class TransportRemovePolicyAction @Inject constructor(
         }
 
         fun removeMetadatas(indices: List<Index>) {
-            val request = UpdateManagedIndexMetaDataRequest(indicesToRemoveManagedIndexMetaDataFrom = indices)
-
-            client.execute(UpdateManagedIndexMetaDataAction.INSTANCE, request, object : ActionListener<AcknowledgedResponse> {
-                override fun onResponse(response: AcknowledgedResponse) {
+            val request = indices.map { deleteManagedIndexMetadataRequest(it.uuid) }
+            val bulkReq = BulkRequest().add(request)
+            client.bulk(bulkReq, object : ActionListener<BulkResponse> {
+                override fun onResponse(response: BulkResponse) {
+                    response.forEach {
+                        val docId = it.id
+                        if (it.isFailed) {
+                            failedIndices.add(FailedIndex(indicesToRemove[docId] as String, docId, "Failed to clean metadata due to: ${it.failureMessage}"))
+                            indicesToRemove.remove(docId)
+                        }
+                    }
                     actionListener.onResponse(ISMStatusResponse(indicesToRemove.size, failedIndices))
                 }
 

@@ -703,7 +703,7 @@
                   "type": "integer"
                 },
                 "snapshot_name": {
-                  "type": "text"
+                  "type": "keyword"
                 },
                 "rollup_id": {
                   "type": "keyword"

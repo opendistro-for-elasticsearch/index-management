@@ -129,8 +129,8 @@ data class ManagedIndexMetaData(
             builder.addObject(StateMetaData.STATE, stateMetaData, params)
                 .addObject(ActionMetaData.ACTION, actionMetaData, params)
                 .addObject(StepMetaData.STEP, stepMetaData, params)
-                .addObject(PolicyRetryInfoMetaData.RETRY_INFO, policyRetryInfo, params)
         }
+        builder.addObject(PolicyRetryInfoMetaData.RETRY_INFO, policyRetryInfo, params)
 
         if (info != null) builder.field(INFO, info)
 

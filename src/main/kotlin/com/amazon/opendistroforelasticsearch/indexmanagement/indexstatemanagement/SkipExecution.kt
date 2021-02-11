@@ -27,6 +27,8 @@ import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.service.ClusterService
 
+// TODO this can be moved to job scheduler, so that all extended plugin
+//  can avoid running jobs in an upgrading cluster
 @OpenForTesting
 class SkipExecution(
     private val client: Client,
@@ -52,7 +54,6 @@ class SkipExecution(
         val request = NodesInfoRequest().clear().addMetric("plugins")
         client.execute(NodesInfoAction.INSTANCE, request, object : ActionListener<NodesInfoResponse> {
             override fun onResponse(response: NodesInfoResponse) {
-                flag = false
                 val versionSet = mutableSetOf<String>()
 
                 response.nodes.map { it.getInfo(PluginsAndModules::class.java).pluginInfos }
@@ -66,7 +67,7 @@ class SkipExecution(
                 if (versionSet.size > 1) {
                     flag = true
                     logger.info("There are multiple versions of Index Management plugins in the cluster: $versionSet")
-                }
+                } else flag = false
             }
 
             override fun onFailure(e: Exception) {

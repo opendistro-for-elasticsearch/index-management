@@ -199,6 +199,8 @@ class TransportExplainAction @Inject constructor(
             clusterStateRequest.clear()
                 .indices(*indices.toTypedArray())
                 .metadata(true)
+                .local(request.local)
+                .masterNodeTimeout(request.masterTimeout)
                 .indicesOptions(strictExpandIndicesOptions)
 
             client.admin().cluster().state(clusterStateRequest, object : ActionListener<ClusterStateResponse> {

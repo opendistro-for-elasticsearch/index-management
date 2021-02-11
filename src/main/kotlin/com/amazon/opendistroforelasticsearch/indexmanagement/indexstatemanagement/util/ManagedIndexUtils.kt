@@ -159,7 +159,9 @@ fun getDeleteManagedIndexRequests(
     }.map { deleteManagedIndexRequest(it.value.uuid) }
 }
 
-fun getDeleteManagedIndices(
+// if managed index exist but the index is not existing any more
+// then we should delete this managed index
+fun getManagedIndicesToDelete(
     currentIndices: List<IndexMetadata>,
     currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>
 ): List<Index> {

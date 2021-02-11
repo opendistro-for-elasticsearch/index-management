@@ -39,7 +39,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexMetadataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDeleteManagedIndexRequests
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDeleteManagedIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getManagedIndicesToDelete
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getSweptManagedIndexSearchRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isPolicyCompleted
@@ -388,9 +388,9 @@ class ManagedIndexCoordinator(
         )
 
         // clean metadata of un-managed index
-        val indicesToDeleteMetadata =
-            getIndicesToRemoveMetadataFrom(unManagedIndices) + getDeleteManagedIndices(currentIndices, currentManagedIndices)
-        clearManagedIndexMetaData(indicesToDeleteMetadata.map { deleteManagedIndexMetadataRequest(it.uuid) })
+        val indicesToDeleteMetadataFrom =
+            getIndicesToRemoveMetadataFrom(unManagedIndices) + getManagedIndicesToDelete(currentIndices, currentManagedIndices)
+        clearManagedIndexMetaData(indicesToDeleteMetadataFrom.map { deleteManagedIndexMetadataRequest(it.uuid) })
 
         lastFullSweepTimeNano = System.nanoTime()
     }
@@ -476,8 +476,8 @@ class ManagedIndexCoordinator(
     }
 
     /**
-     * If this index is unmanaged but [ManagedIndexMetaData] is not null
-     * then this metadata should be cleaned.
+     * Returns [Index]es not being managed by ISM
+     * but still has ISM metadata
      */
     suspend fun getIndicesToRemoveMetadataFrom(unManagedIndices: List<Index>): List<Index> {
         val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
@@ -488,12 +488,13 @@ class ManagedIndexCoordinator(
         return indicesToRemoveManagedIndexMetaDataFrom
     }
 
-    /** Removes the [ManagedIndexMetaData] from the given list of [Index]es. */
+    /**
+     * Removes the [ManagedIndexMetaData] from the given list of [Index]es.
+     */
     @OpenForTesting
     @Suppress("TooGenericExceptionCaught")
     suspend fun clearManagedIndexMetaData(deleteRequests: List<DocWriteRequest<*>>) {
         try {
-            // If list of indices is empty, no request necessary
             if (deleteRequests.isEmpty()) return
 
             retryPolicy.retry(logger) {

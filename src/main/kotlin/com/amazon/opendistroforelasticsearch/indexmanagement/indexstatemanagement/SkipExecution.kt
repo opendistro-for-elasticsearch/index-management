@@ -57,16 +57,15 @@ class SkipExecution(
 
                 response.nodes.map { it.getInfo(PluginsAndModules::class.java).pluginInfos }
                     .forEach { it.forEach { nodePlugin ->
-                        if (nodePlugin.name == "opendistro-index-management") {
+                        if (nodePlugin.name == "opendistro-index-management" ||
+                            nodePlugin.name == "opendistro_index_management") {
                             versionSet.add(nodePlugin.version)
                         }
                     } }
 
-                logger.info("plugin versions: $versionSet")
-
                 if (versionSet.size > 1) {
                     flag = true
-                    logger.info("There are multiple versions in the cluster: $versionSet")
+                    logger.info("There are multiple versions of Index Management plugins in the cluster: $versionSet")
                 }
             }
 

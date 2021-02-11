@@ -137,9 +137,9 @@ class ManagedIndexRunnerTests : ESTestCase() {
                 info = mapOf("message" to "hello"))
 
         runBlocking {
-            assertEquals(true, runner.metadataDeleted)
+            assertEquals(true, runner.getMetadataDeleted())
             runner.handleClusterStateMetadata(metadata, metadata2)
-            assertEquals(false, runner.metadataDeleted)
+            assertEquals(false, runner.getMetadataDeleted())
         }
     }
 }

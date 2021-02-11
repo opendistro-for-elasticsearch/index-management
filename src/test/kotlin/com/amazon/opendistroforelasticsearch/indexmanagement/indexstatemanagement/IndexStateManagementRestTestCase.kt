@@ -506,7 +506,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             if (cn == "total_managed_indices") continue
 
             metadata = ManagedIndexMetaData.parse(xcp)
-            break
+            break // bypass roles field
         }
 
         // make sure metadata is initialised

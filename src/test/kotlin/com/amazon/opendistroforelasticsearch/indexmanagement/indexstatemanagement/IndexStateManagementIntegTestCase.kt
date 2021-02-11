@@ -61,7 +61,7 @@ import java.io.IOException
 import java.time.Duration
 import java.time.Instant
 
-abstract class IndexStateManagementITTestCase : ESIntegTestCase() {
+abstract class IndexStateManagementIntegTestCase : ESIntegTestCase() {
 
     protected val isMixedNodeRegressionTest = System.getProperty("cluster.mixed", "false")!!.toBoolean()
 

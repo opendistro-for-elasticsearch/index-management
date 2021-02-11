@@ -194,7 +194,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertNull("Policy has already initialized", managedIndexConfig.policy)
         assertEquals("Policy id does not match", policy.id, managedIndexConfig.policyID)
 
-        // if we try to change policy now, it haven't actually run so have no ManagedIndexMetaData yet, should succeed then
+        // If we try to change the policy now, it hasn't actually run and has no ManagedIndexMetaData yet so it should succeed
         val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())

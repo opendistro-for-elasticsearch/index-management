@@ -134,7 +134,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private var jobInterval: Int = DEFAULT_JOB_INTERVAL
     private var allowList: List<String> = ALLOW_LIST_NONE
     // whether old metadata in cluster state is delete successful last time
-    var metadataDeleted: Boolean = true
+    private var metadataDeleted: Boolean = true
+    fun getMetadataDeleted() = metadataDeleted
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
         this.clusterService = clusterService
@@ -620,8 +621,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
         try {
             updateMetaDataRetryPolicy.retry(logger) {
                 val indexResponse: IndexResponse = client.suspendUntil { index(indexRequest, it) }
-                result.savedMetadata = indexResponse.status() ==
-                        RestStatus.OK || indexResponse.status() == RestStatus.CREATED
+                result.savedMetadata = indexResponse.status() == RestStatus.OK ||
+                    indexResponse.status() == RestStatus.CREATED
                 result.seqNo = indexResponse.seqNo
                 result.primaryTerm = indexResponse.primaryTerm
             }

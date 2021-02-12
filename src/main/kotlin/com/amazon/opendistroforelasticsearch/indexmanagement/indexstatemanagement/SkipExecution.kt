@@ -72,6 +72,7 @@ class SkipExecution(
 
             override fun onFailure(e: Exception) {
                 logger.error("Failed sweeping nodes for ISM plugin versions: $e")
+                flag = false
             }
         })
     }

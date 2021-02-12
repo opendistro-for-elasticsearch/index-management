@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator.Companion.MAX_HITS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
@@ -225,7 +226,7 @@ class TransportExplainAction @Inject constructor(
             val indices = state.metadata.indices.map { it.key to it.value.indexUUID }.toMap()
             val mgetMetadataReq = MultiGetRequest()
             indices.map { it.value }.forEach { uuid ->
-                mgetMetadataReq.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, uuid + "metadata").routing(uuid))
+                mgetMetadataReq.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(uuid)).routing(uuid))
             }
             client.multiGet(mgetMetadataReq, object : ActionListener<MultiGetResponse> {
                 override fun onResponse(response: MultiGetResponse) {
@@ -239,7 +240,7 @@ class TransportExplainAction @Inject constructor(
             })
         }
 
-        // metadataMap: doc id -> metadataMap, doc id for metadata is indexUuid + "metadata"
+        // metadataMap: doc id -> metadataMap, doc id for metadata is [managedIndexMetadataID(indexUuid)]
         fun buildResponse(indices: Map<String, String>, metadataMap: Map<String, Map<String, String>?>) {
             val indexPolicyIDs = mutableListOf<String?>()
             val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
@@ -251,7 +252,7 @@ class TransportExplainAction @Inject constructor(
                 indexPolicyIDs.add(managedIndexMetadataMap?.get("policy_id")) // use policyID from metadata
 
                 var managedIndexMetadata: ManagedIndexMetaData? = null
-                val configIndexMetadata = metadataMap[indices[indexName] + "metadata"]
+                val configIndexMetadata = metadataMap[indices[indexName]?.let { managedIndexMetadataID(it) }]
                 if (managedIndexMetadataMap != null) {
                     if (configIndexMetadata != null) { // if has metadata saved, use that
                         managedIndexMetadataMap = configIndexMetadata

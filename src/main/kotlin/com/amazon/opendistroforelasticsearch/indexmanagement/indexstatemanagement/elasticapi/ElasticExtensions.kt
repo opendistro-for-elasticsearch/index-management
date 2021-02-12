@@ -25,6 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
@@ -110,7 +111,7 @@ fun <K, V> Map<K, V?>.filterNotNullValues(): Map<K, V> =
 @Suppress("ReturnCount")
 suspend fun IndexMetadata.getManagedIndexMetaData(client: Client): ManagedIndexMetaData? {
     try {
-        val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, indexUUID + "metadata")
+        val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(indexUUID))
             .routing(this.indexUUID)
         val getResponse: GetResponse = client.suspendUntil { get(getRequest, it) }
         if (!getResponse.isExists || getResponse.isSourceEmpty) {
@@ -149,7 +150,7 @@ suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<ManagedI
     val mgetRequest = MultiGetRequest()
     indices.forEach {
         mgetRequest.add(MultiGetRequest.Item(
-            INDEX_MANAGEMENT_INDEX, it.uuid + "metadata").routing(it.uuid))
+            INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(it.uuid)).routing(it.uuid))
     }
     var mgetMetadataList = mutableListOf<ManagedIndexMetaData?>()
     try {
@@ -183,7 +184,7 @@ fun buildMgetMetadataRequest(clusterState: ClusterState): MultiGetRequest {
     val mgetMetadataRequest = MultiGetRequest()
     clusterState.metadata.indices.map { it.value.index }.forEach {
         mgetMetadataRequest.add(MultiGetRequest.Item(
-            INDEX_MANAGEMENT_INDEX, it.uuid + "metadata").routing(it.uuid))
+            INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(it.uuid)).routing(it.uuid))
     }
     return mgetMetadataRequest
 }
@@ -192,18 +193,8 @@ fun buildMgetMetadataRequest(clusterState: ClusterState): MultiGetRequest {
 // which only show meaningful partial metadata
 @Suppress("ReturnCount")
 fun XContentBuilder.addObject(name: String, metadata: ToXContentFragment?, params: ToXContent.Params, forIndex: Boolean = false): XContentBuilder {
-    if (!forIndex) { // for explain and history
-        return if (metadata != null) {
-            return this.buildMetadata(name, metadata, params)
-        } else {
-            this // omit this field
-        }
-    }
-    // else: save to config index
-    if (metadata != null) {
-        return this.buildMetadata(name, metadata, params)
-    }
-    return nullField(name)
+    if (metadata != null) return this.buildMetadata(name, metadata, params)
+    return if (forIndex) nullField(name) else this
 }
 
 fun XContentBuilder.buildMetadata(name: String, metadata: ToXContentFragment, params: ToXContent.Params): XContentBuilder {

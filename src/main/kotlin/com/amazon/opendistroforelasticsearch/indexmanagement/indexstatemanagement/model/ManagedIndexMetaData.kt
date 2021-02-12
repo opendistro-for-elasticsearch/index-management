@@ -256,7 +256,6 @@ data class ManagedIndexMetaData(
                     ROLLED_OVER -> rolledOver = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.booleanValue()
                     TRANSITION_TO -> transitionTo = if (xcp.currentToken() == Token.VALUE_NULL) null else xcp.text()
                     StateMetaData.STATE -> {
-                        // check null for invalid policy situation
                         state = if (xcp.currentToken() == Token.VALUE_NULL) null else StateMetaData.parse(xcp)
                     }
                     ActionMetaData.ACTION -> {

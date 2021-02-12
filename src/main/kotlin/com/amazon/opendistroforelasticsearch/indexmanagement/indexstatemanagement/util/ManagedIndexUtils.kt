@@ -93,11 +93,13 @@ fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): Inde
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
+fun managedIndexMetadataID(indexUuid: String) = "$indexUuid#metadata"
+
 fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData): IndexRequest {
     // routing set using managed index's uuid
     // so that metadata doc and managed-index doc are in the same place
     return IndexRequest(INDEX_MANAGEMENT_INDEX)
-            .id(managedIndexMetadata.indexUuid + "metadata")
+            .id(managedIndexMetadataID(managedIndexMetadata.indexUuid))
             .setIfPrimaryTerm(managedIndexMetadata.primaryTerm)
             .setIfSeqNo(managedIndexMetadata.seqNo)
             .routing(managedIndexMetadata.indexUuid)
@@ -130,7 +132,7 @@ fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
 }
 
 fun deleteManagedIndexMetadataRequest(uuid: String): DeleteRequest {
-    return DeleteRequest(INDEX_MANAGEMENT_INDEX, uuid + "metadata")
+    return DeleteRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(uuid))
 }
 
 fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig, user: User): UpdateRequest {
@@ -165,9 +167,9 @@ fun getManagedIndicesToDelete(
     currentIndices: List<IndexMetadata>,
     currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>
 ): List<Index> {
-    return currentManagedIndexConfigs.filter { currentManagedIndex ->
-        !currentIndices.map { it.index.uuid }.contains(currentManagedIndex.key)
-    }.map { Index(it.value.index, it.value.uuid) }
+    val currentIndicesSet = currentIndices.map { it.index }.toSet()
+    val managedIndicesSet = currentManagedIndexConfigs.values.map { Index(it.index, it.uuid) }.toSet()
+    return (managedIndicesSet - currentIndicesSet).toList()
 }
 
 fun getSweptManagedIndexSearchRequest(): SearchRequest {

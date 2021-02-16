@@ -33,8 +33,7 @@ import org.elasticsearch.search.aggregations.AggregatorFactories
 import java.io.IOException
 import java.time.Instant
 
-
-data class Transform (
+data class Transform(
     val id: String = NO_ID,
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
@@ -58,7 +57,7 @@ data class Transform (
 
     init {
         aggregations.aggregatorFactories.forEach {
-            require (supportedAggregations.contains(it.type)) { "Unsupported aggregation [${it.type}]" }
+            require(supportedAggregations.contains(it.type)) { "Unsupported aggregation [${it.type}]" }
         }
         when (jobSchedule) {
             is CronSchedule -> {}
@@ -66,8 +65,8 @@ data class Transform (
                 require(jobSchedule.interval >= MINIMUM_JOB_INTERVAL) { "Transform job schedule interval must be greater than 0" }
             }
         }
-        require (groups.isNotEmpty()) { "Groupings are Empty" }
-        require (sourceIndex != targetIndex) { "Source and target indices cannot be the same" }
+        require(groups.isNotEmpty()) { "Groupings are Empty" }
+        require(sourceIndex != targetIndex) { "Source and target indices cannot be the same" }
         require(pageSize in MINIMUM_PAGE_SIZE..MAXIMUM_PAGE_SIZE) { "Page size must be between 1 and 10,000" }
     }
 
@@ -138,7 +137,7 @@ data class Transform (
     }
 
     @Throws(IOException::class)
-    constructor(sin: StreamInput): this(
+    constructor(sin: StreamInput) : this(
         id = sin.readString(),
         seqNo = sin.readLong(),
         primaryTerm = sin.readLong(),
@@ -229,7 +228,7 @@ data class Transform (
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
 
-            while(xcp.nextToken() != Token.END_OBJECT) {
+            while (xcp.nextToken() != Token.END_OBJECT) {
                 val fieldName = xcp.currentName()
                 xcp.nextToken()
 

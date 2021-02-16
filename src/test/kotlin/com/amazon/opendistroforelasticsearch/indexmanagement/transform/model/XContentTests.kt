@@ -13,7 +13,7 @@ import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESTestCase
 
-class XContentTests: ESTestCase() {
+class XContentTests : ESTestCase() {
 
     fun `test transform metadata parsing without type`() {
         val transformMetadata = randomTransformMetadata()

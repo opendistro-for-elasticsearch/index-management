@@ -1,3 +1,18 @@
+/*
+ * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
@@ -37,13 +52,13 @@ data class Transform(
     val id: String = NO_ID,
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
-    override val schemaVersion: Long,
-    override val jobSchedule: Schedule,
+    val schemaVersion: Long,
+    val jobSchedule: Schedule,
     val metadataId: String?,
     val updatedAt: Instant,
-    override val enabled: Boolean,
-    override val enabledAt: Instant?,
-    override val description: String,
+    val enabled: Boolean,
+    val enabledAt: Instant?,
+    val description: String,
     val sourceIndex: String,
     val dataSelectionQuery: QueryBuilder = MatchAllQueryBuilder(),
     val targetIndex: String,
@@ -51,19 +66,11 @@ data class Transform(
     val pageSize: Int,
     val groups: List<Dimension>,
     val aggregations: AggregatorFactories.Builder
-) : ScheduleJob(schemaVersion = schemaVersion, jobSchedule = jobSchedule, enabled = enabled, enabledAt = enabledAt, description = description),
-    ScheduledJobParameter,
-    Writeable {
+) : ScheduledJobParameter, Writeable {
 
     init {
         aggregations.aggregatorFactories.forEach {
             require(supportedAggregations.contains(it.type)) { "Unsupported aggregation [${it.type}]" }
-        }
-        when (jobSchedule) {
-            is CronSchedule -> {}
-            is IntervalSchedule -> {
-                require(jobSchedule.interval >= MINIMUM_JOB_INTERVAL) { "Transform job schedule interval must be greater than 0" }
-            }
         }
         require(groups.isNotEmpty()) { "Groupings are Empty" }
         require(sourceIndex != targetIndex) { "Source and target indices cannot be the same" }
@@ -244,7 +251,6 @@ data class Transform(
                     DESCRIPTION_FIELD -> description = xcp.text()
                     SOURCE_INDEX_FIELD -> sourceIndex = xcp.text()
                     DATA_SELECTION_QUERY_FIELD -> {
-                        // dataSelectionQuery = AbstractQueryBuilder.parseInnerQueryBuilder(xcp)
                         val registry = xcp.xContentRegistry
                         val source = xcp.mapOrdered()
                         val xContentBuilder = XContentFactory.jsonBuilder().map(source)
@@ -307,11 +313,3 @@ data class Transform(
         }
     }
 }
-
-abstract class ScheduleJob(
-    open val jobSchedule: Schedule,
-    open val schemaVersion: Long,
-    open val enabled: Boolean,
-    open val enabledAt: Instant?,
-    open val description: String
-)

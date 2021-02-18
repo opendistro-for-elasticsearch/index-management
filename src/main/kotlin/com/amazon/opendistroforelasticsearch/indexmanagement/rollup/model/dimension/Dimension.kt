@@ -20,6 +20,7 @@ import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder
 import java.io.IOException
 
 abstract class Dimension(
@@ -36,6 +37,8 @@ abstract class Dimension(
             return type
         }
     }
+
+    abstract fun toSourceBuilder(): CompositeValuesSourceBuilder<*>
 
     companion object {
         const val DIMENSION_SOURCE_FIELD_FIELD = "source_field"

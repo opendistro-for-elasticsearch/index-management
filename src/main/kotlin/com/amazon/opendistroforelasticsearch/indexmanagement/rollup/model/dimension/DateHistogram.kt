@@ -23,7 +23,10 @@ import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.search.aggregations.AggregatorFactories
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder
+import org.elasticsearch.search.aggregations.bucket.composite.DateHistogramValuesSourceBuilder
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval
 import java.io.IOException
 import java.time.ZoneId
 
@@ -34,6 +37,23 @@ data class DateHistogram(
     val calendarInterval: String? = null,
     val timezone: ZoneId = ZoneId.of(UTC)
 ) : Dimension(Type.DATE_HISTOGRAM, sourceField, targetField) {
+
+    override fun toSourceBuilder(): CompositeValuesSourceBuilder<*> {
+        val calendarInterval = this.calendarInterval
+        val fixedInterval = this.fixedInterval
+
+        return DateHistogramValuesSourceBuilder(this.targetField)
+            .field(this.sourceField)
+            .timeZone(this.timezone)
+            .apply {
+                calendarInterval?.let {
+                    this.calendarInterval(DateHistogramInterval(it))
+                }
+                fixedInterval?.let {
+                    this.fixedInterval(DateHistogramInterval(it))
+                }
+            }
+    }
 
     init {
         require(sourceField.isNotEmpty() && targetField.isNotEmpty()) { "Source and target field must not be empty" }

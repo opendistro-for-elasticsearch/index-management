@@ -96,6 +96,18 @@ data class TransformMetadata(
         stats.writeTo(out)
     }
 
+    fun mergeStats(stats: TransformStats): TransformMetadata {
+        return this.copy(
+            stats = this.stats.copy(
+                pagesProcessed = this.stats.pagesProcessed + stats.pagesProcessed,
+                documentsIndexed = this.stats.documentsIndexed + stats.documentsIndexed,
+                documentsProcessed = this.stats.documentsProcessed + stats.documentsProcessed,
+                indexTimeInMillis = this.stats.indexTimeInMillis + stats.indexTimeInMillis,
+                searchTimeInMillis = this.stats.searchTimeInMillis + stats.searchTimeInMillis
+            )
+        )
+    }
+
     companion object {
         const val NO_ID = ""
         const val TRANSFORM_METADATA_TYPE = "transform_metadata"

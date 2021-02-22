@@ -37,15 +37,7 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-    fun `test still have metadata saved in cluster state`() {
-        /**
-         *  simulate the situation: new version of ISM plugin can handle metadata in cluster state
-         *      when job hasn't started
-         *
-         *  create index, manually save metadata into this index's cluster state;
-         *  configure and start a job, check if metadata moved from cluster state to config index;
-         */
-
+    fun `test move metadata service`() {
         val indexName = "${testIndexName}_index_1"
         val policyID = "${testIndexName}_testPolicyName_1"
         val actionConfig = ReplicaCountActionConfig(10, 0)
@@ -82,15 +74,32 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
         indexMetadata = getIndexMetadata(indexName)
         logger.info("check if metadata is saved in cluster state: ${indexMetadata.getCustomData("managed_index_metadata")}")
 
-        // start a job run
+        // create a job
         addPolicyToIndex(indexName, policyID)
+
+        waitFor {
+            assertEquals(
+                "Metadata is moving...",
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
+
+        Thread.sleep(60_000)
+
+        waitFor {
+            assertEquals(
+                "Happy moving",
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+            assertEquals(null, getIndexMetadata(indexName).getCustomData("managed_index_metadata"))
+        }
+
+        logger.info("metadata has moved")
 
         val managedIndexConfig = getExistingManagedIndexConfig(indexName)
         // Change the start time so the job will trigger in 2 seconds, this will trigger the first initialization of the policy
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        // cluster state metadata is removed, explain API can get metadata from config index
-        waitFor { assertEquals(null, getIndexMetadata(indexName).getCustomData("managed_index_metadata")) }
         waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
         waitFor {
             assertEquals(
@@ -111,8 +120,8 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
 
     fun `test job can continue run from cluster state metadata`() {
         /**
-         *  simulate the situation: new version of ISM plugin can handle metadata in cluster state
-         *      when job already started
+         *  new version of ISM plugin can handle metadata in cluster state
+         *  when job already started
          *
          *  create index, add policy to it
          *  manually add policy field to managed-index so runner won't do initialisation itself
@@ -162,6 +171,25 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
         logger.info(response.isAcknowledged)
         indexMetadata = getIndexMetadata(indexName)
         logger.info("check if metadata is saved in cluster state: ${indexMetadata.getCustomData("managed_index_metadata")}")
+
+        waitFor {
+            assertEquals(
+                "Metadata is moving...",
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+        }
+
+        Thread.sleep(60_000)
+
+        waitFor {
+            assertEquals(
+                "Happy moving",
+                getExplainManagedIndexMetaData(indexName).info?.get("message")
+            )
+            assertEquals(null, getIndexMetadata(indexName).getCustomData("managed_index_metadata"))
+        }
+
+        logger.info("metadata has moved")
 
         // start the job run
         updateManagedIndexConfigStartTime(managedIndexConfig)

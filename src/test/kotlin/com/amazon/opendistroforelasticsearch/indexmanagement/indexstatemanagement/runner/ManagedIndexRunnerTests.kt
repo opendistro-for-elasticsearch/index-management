@@ -18,18 +18,10 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.SkipExecution
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope
-import com.nhaarman.mockitokotlin2.any
-import com.nhaarman.mockitokotlin2.doAnswer
-import com.nhaarman.mockitokotlin2.whenever
-import kotlinx.coroutines.runBlocking
 import org.elasticsearch.Version
-import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.index.IndexResponse
-import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.node.DiscoveryNode
 import org.elasticsearch.cluster.service.ClusterService
@@ -38,7 +30,6 @@ import org.elasticsearch.common.settings.Setting
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.env.Environment
-import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.test.ClusterServiceUtils
 import org.elasticsearch.test.ESTestCase
@@ -97,49 +88,5 @@ class ManagedIndexRunnerTests : ESTestCase() {
                 .registerConsumers()
                 .registerHistoryIndex(indexStateManagementHistory)
                 .registerSkipFlag(skipFlag)
-    }
-
-    fun `test fail to delete metadata in cluster state`() {
-        /**
-         * if delete metadata in cluster state not successful
-         * check `metadataDeleted` is false
-         */
-
-        val acknowledgedResponse = AcknowledgedResponse(false)
-        indexResponse = Mockito.mock(IndexResponse::class.java)
-        Mockito.`when`(indexResponse.status()).thenReturn(RestStatus.CREATED)
-        client = Mockito.mock(Client::class.java)
-        doAnswer { invocationOnMock ->
-            val listener = invocationOnMock.getArgument<ActionListener<AcknowledgedResponse>>(2)
-            listener.onResponse(acknowledgedResponse)
-        }.whenever(client).execute(any(), any<UpdateManagedIndexMetaDataRequest>(), any<ActionListener<AcknowledgedResponse>>())
-        doAnswer { invocationOnMock ->
-            val listener = invocationOnMock.getArgument<ActionListener<IndexResponse>>(1)
-            listener.onResponse(indexResponse)
-        }.whenever(client).index(any(), any())
-
-        runner.registerClient(client)
-
-        val metadata = null
-        val metadata2 = ManagedIndexMetaData(
-                index = "test",
-                indexUuid = "123",
-                policyID = "456",
-                policySeqNo = null,
-                policyPrimaryTerm = null,
-                policyCompleted = false,
-                rolledOver = false,
-                transitionTo = null,
-                stateMetaData = null,
-                actionMetaData = null,
-                stepMetaData = null,
-                policyRetryInfo = null,
-                info = mapOf("message" to "hello"))
-
-        runBlocking {
-            assertEquals(true, runner.getMetadataDeleted())
-            runner.handleClusterStateMetadata(metadata, metadata2)
-            assertEquals(false, runner.getMetadataDeleted())
-        }
     }
 }

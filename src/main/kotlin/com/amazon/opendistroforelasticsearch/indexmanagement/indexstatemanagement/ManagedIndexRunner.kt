@@ -53,13 +53,13 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.hasVersionConflict
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isAllowed
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isMetadataMoved
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isSafeToChange
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isSuccessfulDelete
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.shouldBackoff
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.shouldChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateDisableManagedIndexRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -133,9 +133,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private val errorNotificationRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     private var jobInterval: Int = DEFAULT_JOB_INTERVAL
     private var allowList: List<String> = ALLOW_LIST_NONE
-    // whether old metadata in cluster state is delete successful last time
-    private var metadataDeleted: Boolean = true
-    fun getMetadataDeleted() = metadataDeleted
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
         this.clusterService = clusterService
@@ -247,9 +244,14 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.warn("Failed to retrieve IndexMetadata.")
             return
         }
-        var managedIndexMetaData = indexMetaData.getManagedIndexMetaData(client)
+        val managedIndexMetaData = indexMetaData.getManagedIndexMetaData(client)
         val clusterStateMetadata = indexMetaData.getManagedIndexMetaData()
-        managedIndexMetaData = handleClusterStateMetadata(managedIndexMetaData, clusterStateMetadata)
+
+        if (!isMetadataMoved(clusterStateMetadata, managedIndexMetaData)) {
+            logger.info("Cluster state metadata for job [${managedIndexConfig.jobName}] " +
+                "has not been moved to config index, [$clusterStateMetadata]")
+            return
+        }
 
         // If policy or managedIndexMetaData is null then initialize
         val policy = managedIndexConfig.policy
@@ -622,33 +624,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
         val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
     )
-
-    /**
-     *  only if metadata from config index is null and metadata from cluster state is not null
-     *  then try to move metadata from cluster state to config index
-     *  if having metadata in config index, try to clear metadata in cluster state if we
-     *  haven't cleared it successfully at last time
-     */
-    @OpenForTesting
-    suspend fun handleClusterStateMetadata(input: ManagedIndexMetaData?, metadataFromClusterState: ManagedIndexMetaData?): ManagedIndexMetaData? {
-        var metadata: ManagedIndexMetaData? = input
-        if (metadataFromClusterState != null) {
-            if (metadata == null) {
-                // move metadata from cluster state metadata to config index
-                metadata = metadataFromClusterState
-                if (updateManagedIndexMetaData(metadata).metadataSaved) {
-                    metadataDeleted = deleteManagedIndexMetaData(metadataFromClusterState)
-                }
-            } else {
-                if (!metadataDeleted) {
-                    // fail to delete cluster state metadata last time
-                    metadataDeleted = deleteManagedIndexMetaData(metadataFromClusterState)
-                }
-            }
-        }
-
-        return metadata
-    }
 
     /**
      * Initializes the change policy process where we will get the policy using the change policy's policyID, update the [ManagedIndexMetaData]

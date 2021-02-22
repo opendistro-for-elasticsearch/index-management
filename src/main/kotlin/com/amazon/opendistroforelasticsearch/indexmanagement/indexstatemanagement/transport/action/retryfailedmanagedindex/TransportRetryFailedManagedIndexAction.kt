@@ -17,13 +17,14 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.buildMgetMetadataRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.mgetResponseToList
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataID
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismMetadataID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateEnableManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
@@ -143,13 +144,20 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
             val metadataList = mgetResponseToList(mgetResponse)
             clusterState.metadata.indices.forEachIndexed { ind, it ->
                 val indexMetaData = it.value
+                val clusterStateMetadata = it.value.getManagedIndexMetaData()
                 val managedIndexMetaData = metadataList[ind]
                 when {
                     indicesManagedState[indexMetaData.indexUUID] == false ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
-                    managedIndexMetaData == null ->
-                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
+                    managedIndexMetaData == null -> {
+                        if (clusterStateMetadata != null) {
+                            failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
+                                "Metadata is moving..."))
+                        } else {
+                            failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
                             "This index has no metadata information"))
+                        }
+                    }
                     !managedIndexMetaData.isFailed ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
                             "This index is not in failed state."))
@@ -202,7 +210,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
 
                 val updateMetadataRequests = listOfIndexToMetadata.map { (index, metadata) ->
                     val builder = metadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true)
-                    UpdateRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(index.uuid)).doc(builder)
+                    UpdateRequest(INDEX_MANAGEMENT_INDEX, ismMetadataID(index.uuid)).doc(builder)
                 }
                 val bulkUpdateMetadataRequest = BulkRequest().add(updateMetadataRequests)
 

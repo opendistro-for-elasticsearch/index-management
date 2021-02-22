@@ -25,7 +25,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataID
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismMetadataID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
@@ -111,7 +111,7 @@ fun <K, V> Map<K, V?>.filterNotNullValues(): Map<K, V> =
 @Suppress("ReturnCount")
 suspend fun IndexMetadata.getManagedIndexMetaData(client: Client): ManagedIndexMetaData? {
     try {
-        val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(indexUUID))
+        val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, ismMetadataID(indexUUID))
             .routing(this.indexUUID)
         val getResponse: GetResponse = client.suspendUntil { get(getRequest, it) }
         if (!getResponse.isExists || getResponse.isSourceEmpty) {
@@ -150,7 +150,7 @@ suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<ManagedI
     val mgetRequest = MultiGetRequest()
     indices.forEach {
         mgetRequest.add(MultiGetRequest.Item(
-            INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(it.uuid)).routing(it.uuid))
+            INDEX_MANAGEMENT_INDEX, ismMetadataID(it.uuid)).routing(it.uuid))
     }
     var mgetMetadataList = mutableListOf<ManagedIndexMetaData?>()
     try {
@@ -184,7 +184,7 @@ fun buildMgetMetadataRequest(clusterState: ClusterState): MultiGetRequest {
     val mgetMetadataRequest = MultiGetRequest()
     clusterState.metadata.indices.map { it.value.index }.forEach {
         mgetMetadataRequest.add(MultiGetRequest.Item(
-            INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(it.uuid)).routing(it.uuid))
+            INDEX_MANAGEMENT_INDEX, ismMetadataID(it.uuid)).routing(it.uuid))
     }
     return mgetMetadataRequest
 }

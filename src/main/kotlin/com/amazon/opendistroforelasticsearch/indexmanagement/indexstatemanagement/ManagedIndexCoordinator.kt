@@ -103,7 +103,8 @@ class ManagedIndexCoordinator(
     private val client: Client,
     private val clusterService: ClusterService,
     private val threadPool: ThreadPool,
-    indexManagementIndices: IndexManagementIndices
+    indexManagementIndices: IndexManagementIndices,
+    private val metadataService: MetadataService
 ) : ClusterStateListener,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexCoordinator")),
     LifecycleListener() {
@@ -112,6 +113,7 @@ class ManagedIndexCoordinator(
     private val ismIndices = indexManagementIndices
 
     private var scheduledFullSweep: Scheduler.Cancellable? = null
+    private var scheduledMoveMetadata: Scheduler.Cancellable? = null
 
     @Volatile private var lastFullSweepTimeNano = System.nanoTime()
     @Volatile private var indexStateManagementEnabled = INDEX_STATE_MANAGEMENT_ENABLED.get(settings)
@@ -148,11 +150,15 @@ class ManagedIndexCoordinator(
     fun onMaster() {
         // Init background sweep when promoted to being master
         initBackgroundSweep()
+
+        initMoveMetadata()
     }
 
     fun offMaster() {
         // Cancel background sweep when demoted from being master
         scheduledFullSweep?.cancel()
+
+        scheduledMoveMetadata?.cancel()
     }
 
     @Suppress("ReturnCount")
@@ -182,15 +188,21 @@ class ManagedIndexCoordinator(
 
     override fun afterStart() {
         initBackgroundSweep()
+
+        initMoveMetadata()
     }
 
     override fun beforeStop() {
         scheduledFullSweep?.cancel()
+
+        scheduledMoveMetadata?.cancel()
     }
 
     private fun enable() {
         initBackgroundSweep()
         indexStateManagementEnabled = true
+
+        initMoveMetadata()
 
         // Calling initBackgroundSweep() beforehand runs a sweep ensuring that policies removed from indices
         // and indices being deleted are accounted for prior to re-enabling jobs
@@ -207,6 +219,8 @@ class ManagedIndexCoordinator(
     private fun disable() {
         scheduledFullSweep?.cancel()
         indexStateManagementEnabled = false
+
+        scheduledMoveMetadata?.cancel()
     }
 
     private suspend fun reenableJobs() {
@@ -345,6 +359,11 @@ class ManagedIndexCoordinator(
                     try {
                         logger.debug("Performing background sweep of managed indices")
                         sweep()
+
+                        if (metadataService.isFinished()) {
+                            logger.info("Cancel background move metadata process.")
+                            scheduledMoveMetadata?.cancel()
+                        }
                     } catch (e: Exception) {
                         logger.error("Failed to sweep managed indices", e)
                     }
@@ -353,6 +372,25 @@ class ManagedIndexCoordinator(
         }
 
         scheduledFullSweep = threadPool.scheduleWithFixedDelay(scheduledSweep, sweepPeriod, executorName())
+    }
+
+    fun initMoveMetadata() {
+        if (!isIndexStateManagementEnabled()) return
+        if (!clusterService.state().nodes().isLocalNodeElectedMaster) return
+        scheduledMoveMetadata?.cancel()
+
+        val scheduledJob = Runnable {
+            launch {
+                try {
+                    logger.info("Performing move cluster state metadata.")
+                    metadataService.moveMetadata()
+                } catch (e: Exception) {
+                    logger.error("Failed to move cluster state metadata", e)
+                }
+            }
+        }
+
+        scheduledMoveMetadata = threadPool.scheduleWithFixedDelay(scheduledJob, TimeValue.timeValueMinutes(1), executorName())
     }
 
     private fun getFullSweepElapsedTime(): TimeValue =

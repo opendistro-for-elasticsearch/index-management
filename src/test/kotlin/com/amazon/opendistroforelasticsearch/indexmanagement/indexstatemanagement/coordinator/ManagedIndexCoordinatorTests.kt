@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.MetadataService
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import org.elasticsearch.Version
 import org.elasticsearch.client.Client
@@ -45,6 +46,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
     private lateinit var settings: Settings
 
     private lateinit var indexManagementIndices: IndexManagementIndices
+    private lateinit var metadataService: MetadataService
     private lateinit var coordinator: ManagedIndexCoordinator
 
     private lateinit var discoveryNode: DiscoveryNode
@@ -55,6 +57,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         client = Mockito.mock(Client::class.java)
         threadPool = Mockito.mock(ThreadPool::class.java)
         indexManagementIndices = Mockito.mock(IndexManagementIndices::class.java)
+        metadataService = Mockito.mock(MetadataService::class.java)
 
         val namedXContentRegistryEntries = arrayListOf<NamedXContentRegistry.Entry>()
         xContentRegistry = NamedXContentRegistry(namedXContentRegistryEntries)
@@ -75,12 +78,12 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         val originClusterService: ClusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings)
         clusterService = Mockito.spy(originClusterService)
 
-        coordinator = ManagedIndexCoordinator(settings, client, clusterService, threadPool, indexManagementIndices)
+        coordinator = ManagedIndexCoordinator(settings, client, clusterService, threadPool, indexManagementIndices, metadataService)
     }
 
     fun `test after start`() {
         coordinator.afterStart()
-        Mockito.verify(threadPool).scheduleWithFixedDelay(Mockito.any(), Mockito.any(), Mockito.anyString())
+        Mockito.verify(threadPool, Mockito.times(2)).scheduleWithFixedDelay(Mockito.any(), Mockito.any(), Mockito.anyString())
     }
 
     fun `test before stop`() {
@@ -97,7 +100,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
 
     fun `test on master`() {
         coordinator.onMaster()
-        Mockito.verify(threadPool).scheduleWithFixedDelay(Mockito.any(), Mockito.any(), Mockito.anyString())
+        Mockito.verify(threadPool, Mockito.times(2)).scheduleWithFixedDelay(Mockito.any(), Mockito.any(), Mockito.anyString())
     }
 
     fun `test off master`() {

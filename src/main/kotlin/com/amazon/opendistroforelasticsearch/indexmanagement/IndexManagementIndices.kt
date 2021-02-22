@@ -103,6 +103,18 @@ class IndexManagementIndices(
         }
     }
 
+    suspend fun attemptUpdateConfigIndexMapping(): Boolean {
+        return try {
+            val response: AcknowledgedResponse = client.suspendUntil { IndexUtils.checkAndUpdateConfigIndexMapping(clusterService.state(), client, it) }
+            if (response.isAcknowledged) return true
+            logger.error("Trying to update config index mapping not acknowledged.")
+            return false
+        } catch (e: Exception) {
+            logger.error("Failed when trying to update config index mapping.", e)
+            false
+        }
+    }
+
     /**
      * ============== History =============
      */

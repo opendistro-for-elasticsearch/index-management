@@ -93,18 +93,23 @@ fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): Inde
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
-fun managedIndexMetadataID(indexUuid: String) = "$indexUuid#metadata"
+fun ismMetadataID(indexUuid: String) = "$indexUuid#metadata"
 
-fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData): IndexRequest {
+fun revertISMMetadataID(metadataID: String) = metadataID.dropLast(9)
+
+fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData, waitRefresh: Boolean = true): IndexRequest {
     // routing set using managed index's uuid
     // so that metadata doc and managed-index doc are in the same place
-    return IndexRequest(INDEX_MANAGEMENT_INDEX)
-            .id(managedIndexMetadataID(managedIndexMetadata.indexUuid))
+    val req = IndexRequest(INDEX_MANAGEMENT_INDEX)
+            .id(ismMetadataID(managedIndexMetadata.indexUuid))
             .setIfPrimaryTerm(managedIndexMetadata.primaryTerm)
             .setIfSeqNo(managedIndexMetadata.seqNo)
             .routing(managedIndexMetadata.indexUuid)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL)
             .source(managedIndexMetadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true))
+
+    if (waitRefresh)
+        return req.setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL)
+    return req
 }
 
 private fun updateEnabledField(uuid: String, enabled: Boolean, enabledTime: Long?): UpdateRequest {
@@ -132,7 +137,7 @@ fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
 }
 
 fun deleteManagedIndexMetadataRequest(uuid: String): DeleteRequest {
-    return DeleteRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(uuid))
+    return DeleteRequest(INDEX_MANAGEMENT_INDEX, ismMetadataID(uuid))
 }
 
 fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig, user: User): UpdateRequest {
@@ -529,3 +534,13 @@ fun Policy.getDisallowedActions(allowList: List<String>): List<String> {
  * Allowed actions are ones that are specified in the [ManagedIndexSettings.ALLOW_LIST] setting.
  */
 fun Action.isAllowed(allowList: List<String>): Boolean = allowList.contains(this.type.type)
+
+fun isMetadataMoved(
+    clusterStateMetadata: ManagedIndexMetaData?,
+    configIndexMetadata: Any?
+): Boolean {
+    if (clusterStateMetadata != null && configIndexMetadata == null) {
+        return false
+    }
+    return true
+}

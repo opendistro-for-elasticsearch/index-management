@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.buildMgetMetadataRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.mgetResponseToList
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -168,6 +169,7 @@ class TransportChangePolicyAction @Inject constructor(
 
             clusterState.metadata.indices.forEachIndexed { ind, it ->
                 val indexMetaData = it.value
+                val clusterStateMetadata = it.value.getManagedIndexMetaData()
                 val managedIndexMetadata: ManagedIndexMetaData? = metadataList[ind]
 
                 val currentState = managedIndexMetadata?.stateMetaData?.name
@@ -183,8 +185,14 @@ class TransportChangePolicyAction @Inject constructor(
                             RestChangePolicyAction.INDEX_IN_TRANSITION
                         ))
                     // else if there is no ManagedIndexMetaData yet then the managed index has not initialized and we can change the policy safely
-                    managedIndexMetadata == null ->
-                        managedIndicesToUpdate.add(indexMetaData.index.name to indexMetaData.index.uuid)
+                    managedIndexMetadata == null -> {
+                        if (clusterStateMetadata != null) {
+                            failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
+                            "Metadata is moving..."))
+                        } else {
+                            managedIndicesToUpdate.add(indexMetaData.index.name to indexMetaData.index.uuid)
+                        }
+                    }
                     // else if the includedStates is empty (i.e. not being used) then we will always try to update the managed index
                     includedStates.isEmpty() -> managedIndicesToUpdate.add(indexMetaData.index.name to indexMetaData.index.uuid)
                     // else only update the managed index if its currently in one of the included states

@@ -31,6 +31,7 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.search.aggregations.AggregationBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilders

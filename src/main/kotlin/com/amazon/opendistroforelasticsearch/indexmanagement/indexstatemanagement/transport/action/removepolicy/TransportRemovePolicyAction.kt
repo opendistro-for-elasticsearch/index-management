@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexMetadataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
@@ -54,9 +53,7 @@ class TransportRemovePolicyAction @Inject constructor(
         RemovePolicyAction.NAME, transportService, actionFilters, ::RemovePolicyRequest
 ) {
     override fun doExecute(task: Task, request: RemovePolicyRequest, listener: ActionListener<ISMStatusResponse>) {
-        client.threadPool().threadContext.stashContext().use {
-            RemovePolicyHandler(client, listener, request).start()
-        }
+        RemovePolicyHandler(client, listener, request).start()
     }
 
     inner class RemovePolicyHandler(

@@ -21,7 +21,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isMetadataMoved
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismMetadataID
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.index.IndexNotFoundException
@@ -63,9 +62,7 @@ class TransportExplainAction @Inject constructor(
         ExplainAction.NAME, transportService, actionFilters, ::ExplainRequest
 ) {
     override fun doExecute(task: Task, request: ExplainRequest, listener: ActionListener<ExplainResponse>) {
-        client.threadPool().threadContext.stashContext().use {
-            ExplainHandler(client, listener, request).start()
-        }
+        ExplainHandler(client, listener, request).start()
     }
 
     /**
@@ -280,10 +277,10 @@ class TransportExplainAction @Inject constructor(
             managedIndicesMetaDataMap.clear()
 
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, rolesMap, totalManagedIndices, enabledState))
+                actionListener.onResponse(ExplainAllResponse(indexNames, indexPolicyIDs, indexMetadatas, totalManagedIndices, enabledState))
                 return
             }
-            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas, rolesMap))
+            actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
         }
 
         private fun getMetadata(response: GetResponse?): ManagedIndexMetaData? {
@@ -301,10 +298,10 @@ class TransportExplainAction @Inject constructor(
 
         private fun emptyResponse(size: Int = 0) {
             if (explainAll) {
-                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), emptyMap(), size, emptyMap()))
+                actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), size, emptyMap()))
                 return
             }
-            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList(), emptyMap()))
+            actionListener.onResponse(ExplainResponse(emptyList(), emptyList(), emptyList()))
         }
     }
 }

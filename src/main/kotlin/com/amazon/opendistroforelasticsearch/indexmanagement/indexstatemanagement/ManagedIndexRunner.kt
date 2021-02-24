@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
@@ -26,7 +25,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.withCloseableContext
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
@@ -106,7 +104,6 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.script.TemplateScript
-import org.elasticsearch.threadpool.ThreadPool
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -123,7 +120,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private lateinit var settings: Settings
     private lateinit var ismHistory: IndexStateManagementHistory
     private lateinit var skipExecFlag: SkipExecution
-    private lateinit var threadPool: ThreadPool
     private var indexStateManagementEnabled: Boolean = DEFAULT_ISM_ENABLED
     @Suppress("MagicNumber")
     private val savePolicyRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
@@ -188,11 +184,6 @@ object ManagedIndexRunner : ScheduledJobRunner,
         return this
     }
 
-    fun registerThreadPool(threadPool: ThreadPool): ManagedIndexRunner {
-        this.threadPool = threadPool
-        return this
-    }
-
     override fun runJob(job: ScheduledJobParameter, context: JobExecutionContext) {
         if (job !is ManagedIndexConfig) {
             throw IllegalArgumentException("Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}")
@@ -228,17 +219,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
             return
         }
 
-        /*
-         * We need to handle 3 cases:
-         * 1. ISM jobs that are created by older versions and never updated wont have User details in the
-         * job object. `managedIndexConfig.user` will be null. Insert `all_access` role.
-         * 2. ISM jobs that are created when security plugin is disabled will have empty User object.
-         * (`managedIndexConfig.user.name`, `managedIndexConfig.user.roles` are empty )
-         * 3. ISM jobs that are created when security plugin is enabled will have an User object.
-         */
-        val roles = managedIndexConfig.getRoles()
-        logger.debug("Running ISM job: ${managedIndexConfig.name} with roles: $roles Thread: ${Thread.currentThread().name}")
-
+        // Get current IndexMetaData and ManagedIndexMetaData
         val indexMetaData = getIndexMetadata(managedIndexConfig.index)
         if (indexMetaData == null) {
             logger.warn("Failed to retrieve IndexMetadata.")
@@ -342,10 +323,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         @Suppress("ComplexCondition")
         if (updateResult.metadataSaved && state != null && action != null && step != null && currentActionMetaData != null) {
             // Step null check is done in getStartingManagedIndexMetaData
-            withCloseableContext(InjectorContextElement(managedIndexConfig.id, settings, threadPool.threadContext, roles)) {
-                step.preExecute(logger).execute().postExecute(logger)
-            }
-
+            step.preExecute(logger).execute().postExecute(logger)
             var executedManagedIndexMetaData = startingManagedIndexMetaData.getCompletedManagedIndexMetaData(action, step)
 
             if (executedManagedIndexMetaData.isFailed) {

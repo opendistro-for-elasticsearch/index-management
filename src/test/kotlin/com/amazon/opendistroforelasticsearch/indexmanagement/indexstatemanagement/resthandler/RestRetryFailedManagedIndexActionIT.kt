@@ -68,8 +68,8 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName3, null)
 
         val response = client().makeRequest(
-                RestRequest.Method.POST.toString(),
-                "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName,$indexName1"
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName,$indexName1"
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()
@@ -103,8 +103,8 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName3, null)
 
         val response = client().makeRequest(
-                RestRequest.Method.POST.toString(),
-                "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName*"
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName*"
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
 
@@ -161,8 +161,8 @@ class RestRetryFailedManagedIndexActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName, "somePolicy")
 
         val response = client().makeRequest(
-                RestRequest.Method.POST.toString(),
-                "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
+            RestRequest.Method.POST.toString(),
+            "${RestRetryFailedManagedIndexAction.RETRY_BASE_URI}/$indexName"
         )
         assertEquals("Unexpected RestStatus", RestStatus.OK, response.restStatus())
         val actualMessage = response.asMap()

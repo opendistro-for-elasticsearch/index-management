@@ -31,26 +31,22 @@ open class ExplainResponse : ActionResponse, ToXContentObject {
     val indexNames: List<String>
     val indexPolicyIDs: List<String?>
     val indexMetadatas: List<ManagedIndexMetaData?>
-    val rolesMap: Map<String, List<String>?>
 
     constructor(
         indexNames: List<String>,
         indexPolicyIDs: List<String?>,
-        indexMetadatas: List<ManagedIndexMetaData?>,
-        rolesMap: Map<String, List<String>?>
+        indexMetadatas: List<ManagedIndexMetaData?>
     ) : super() {
         this.indexNames = indexNames
         this.indexPolicyIDs = indexPolicyIDs
         this.indexMetadatas = indexMetadatas
-        this.rolesMap = rolesMap
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         indexNames = sin.readStringList(),
         indexPolicyIDs = sin.readStringList(),
-        indexMetadatas = sin.readList { ManagedIndexMetaData.fromStreamInput(it) },
-        rolesMap = sin.readMap() as Map<String, List<String>?>
+        indexMetadatas = sin.readList { ManagedIndexMetaData.fromStreamInput(it) }
     )
 
     @Throws(IOException::class)
@@ -58,7 +54,6 @@ open class ExplainResponse : ActionResponse, ToXContentObject {
         out.writeStringCollection(indexNames)
         out.writeStringCollection(indexPolicyIDs)
         out.writeCollection(indexMetadatas)
-        out.writeMap(rolesMap)
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
@@ -67,10 +62,6 @@ open class ExplainResponse : ActionResponse, ToXContentObject {
             builder.startObject(name)
             builder.field(ManagedIndexSettings.POLICY_ID.key, indexPolicyIDs[ind])
             indexMetadatas[ind]?.toXContent(builder, ToXContent.EMPTY_PARAMS)
-            val roles = rolesMap[name]
-            if (roles != null && roles.isNotEmpty()) {
-                builder.field("roles", roles)
-            }
             builder.endObject()
         }
         return builder.endObject()

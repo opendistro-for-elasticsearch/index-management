@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Conditions
@@ -277,22 +276,8 @@ fun randomManagedIndexConfig(
         policySeqNo = policy?.seqNo,
         policyPrimaryTerm = policy?.primaryTerm,
         policy = policy?.copy(id = ManagedIndexConfig.NO_ID, seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO, primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM),
-        changePolicy = changePolicy,
-        user = null
+        changePolicy = changePolicy
     )
-}
-
-fun randomUser(): User {
-    return User(
-        ESRestTestCase.randomAlphaOfLength(10),
-        listOf(ESRestTestCase.randomAlphaOfLength(10),
-            ESRestTestCase.randomAlphaOfLength(10)),
-        listOf(ESRestTestCase.randomAlphaOfLength(10), "all_access"), listOf("test_attr=test")
-    )
-}
-
-fun emptyUser(): User {
-    return User("", listOf(), listOf(), listOf())
 }
 
 fun randomClusterStateManagedIndexConfig(
@@ -339,8 +324,7 @@ fun randomISMTemplate(
     return ISMTemplate(
         indexPatterns = indexPatterns,
         priority = priority,
-        lastUpdatedTime = lastUpdatedTime,
-        user = null
+        lastUpdatedTime = lastUpdatedTime
     )
 }
 

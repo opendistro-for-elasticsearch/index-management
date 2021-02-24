@@ -291,9 +291,9 @@ class ManagedIndexCoordinator(
                 val indexUuid = indexMetadatas[index].indexUUID
                 val ismTemplate = templates[policyID]
                 if (indexUuid != null && ismTemplate != null) {
-                    logger.info("index [$index] will be managed by policy [$policyID] of roles [${ismTemplate.user?.roles}]")
+                    logger.info("Index [$index] will be managed by policy [$policyID]")
                     updateManagedIndexReqs.add(
-                        managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval, ismTemplate.user)
+                        managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval)
                     )
                 } else {
                     logger.warn("Index [$index] has index uuid [$indexUuid] and/or " +

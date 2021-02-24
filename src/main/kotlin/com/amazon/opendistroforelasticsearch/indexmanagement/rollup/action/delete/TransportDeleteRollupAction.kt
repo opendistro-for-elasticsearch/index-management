@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.delete
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.delete.DeleteResponse
@@ -38,9 +37,6 @@ class TransportDeleteRollupAction @Inject constructor(
     override fun doExecute(task: Task, request: DeleteRollupRequest, actionListener: ActionListener<DeleteResponse>) {
         val deleteRequest = DeleteRequest(INDEX_MANAGEMENT_INDEX, request.id())
             .setRefreshPolicy(request.refreshPolicy)
-
-        client.threadPool().threadContext.stashContext().use {
-            client.delete(deleteRequest, actionListener)
-        }
+        client.delete(deleteRequest, actionListener)
     }
 }

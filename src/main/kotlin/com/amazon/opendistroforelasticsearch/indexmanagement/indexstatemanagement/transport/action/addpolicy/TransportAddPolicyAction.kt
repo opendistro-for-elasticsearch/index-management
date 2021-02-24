@@ -15,8 +15,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
  * permissions and limitations under the License.
  */
 
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getUuidsForClosedIndices
@@ -24,8 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexConfigIndexRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ElasticsearchTimeoutException
@@ -77,23 +73,13 @@ class TransportAddPolicyAction @Inject constructor(
     }
 
     override fun doExecute(task: Task, request: AddPolicyRequest, listener: ActionListener<ISMStatusResponse>) {
-        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
-        val user = resolveUser(User.parse(userStr))
-
-        /*
-         * Remove security context before you call elasticsearch api's. By this time, permissions required
-         * to call this api are validated.
-         */
-        client.threadPool().threadContext.stashContext().use {
-            AddPolicyHandler(client, listener, request, user).start()
-        }
+        AddPolicyHandler(client, listener, request).start()
     }
 
     inner class AddPolicyHandler(
         private val client: NodeClient,
         private val actionListener: ActionListener<ISMStatusResponse>,
-        private val request: AddPolicyRequest,
-        private val user: User
+        private val request: AddPolicyRequest
     ) {
         private lateinit var startTime: Instant
         private val indicesToAdd = mutableMapOf<String, String>() // uuid: name
@@ -203,7 +189,7 @@ class TransportAddPolicyAction @Inject constructor(
 
                 val bulkReq = BulkRequest().timeout(TimeValue.timeValueMillis(bulkReqTimeout))
                 indicesToAdd.forEach { (uuid, name) ->
-                    bulkReq.add(managedIndexConfigIndexRequest(name, uuid, request.policyID, jobInterval, user))
+                    bulkReq.add(managedIndexConfigIndexRequest(name, uuid, request.policyID, jobInterval))
                 }
 
                 client.bulk(bulkReq, object : ActionListener<BulkResponse> {

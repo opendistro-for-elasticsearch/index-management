@@ -45,8 +45,10 @@ data class ISMRollup(
 
     // TODO: This can be moved to a common place, since this is shared between Rollup and ISMRollup
     init {
-        require(pageSize in Rollup.MINIMUM_PAGE_SIZE..Rollup.MAXIMUM_PAGE_SIZE) { "Page size must be between ${Rollup.MINIMUM_PAGE_SIZE} " +
-                "and ${Rollup.MAXIMUM_PAGE_SIZE}" }
+        require(pageSize in Rollup.MINIMUM_PAGE_SIZE..Rollup.MAXIMUM_PAGE_SIZE) {
+            "Page size must be between ${Rollup.MINIMUM_PAGE_SIZE} " +
+                "and ${Rollup.MAXIMUM_PAGE_SIZE}"
+        }
         require(description.isNotEmpty()) { "Description cannot be empty" }
         require(targetIndex.isNotEmpty()) { "Target Index cannot be empty" }
         require(dimensions.filter { it.type == Dimension.Type.DATE_HISTOGRAM }.size == 1) {
@@ -57,11 +59,11 @@ data class ISMRollup(
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
-                .field(Rollup.DESCRIPTION_FIELD, description)
-                .field(Rollup.TARGET_INDEX_FIELD, targetIndex)
-                .field(Rollup.PAGE_SIZE_FIELD, pageSize)
-                .field(Rollup.DIMENSIONS_FIELD, dimensions)
-                .field(Rollup.METRICS_FIELD, metrics)
+            .field(Rollup.DESCRIPTION_FIELD, description)
+            .field(Rollup.TARGET_INDEX_FIELD, targetIndex)
+            .field(Rollup.PAGE_SIZE_FIELD, pageSize)
+            .field(Rollup.DIMENSIONS_FIELD, dimensions)
+            .field(Rollup.METRICS_FIELD, metrics)
         builder.endObject()
         return builder
     }
@@ -82,36 +84,36 @@ data class ISMRollup(
             sourceIndex = sourceIndex,
             targetIndex = this.targetIndex,
             metadataID = null,
+            roles = roles,
             pageSize = pageSize,
             delay = null,
             continuous = false,
             dimensions = dimensions,
-            metrics = metrics,
-            user = null
+            metrics = metrics
         )
     }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-            description = sin.readString(),
-            targetIndex = sin.readString(),
-            pageSize = sin.readInt(),
-            dimensions = sin.let {
-                val dimensionsList = mutableListOf<Dimension>()
-                val size = it.readVInt()
-                for (i in 0 until size) {
-                    val type = it.readEnum(Dimension.Type::class.java)
-                    dimensionsList.add(
-                            when (requireNotNull(type) { "Dimension type cannot be null" }) {
-                                Dimension.Type.DATE_HISTOGRAM -> DateHistogram(sin)
-                                Dimension.Type.TERMS -> Terms(sin)
-                                Dimension.Type.HISTOGRAM -> Histogram(sin)
-                            }
-                    )
-                }
-                dimensionsList.toList()
-            },
-            metrics = sin.readList(::RollupMetrics)
+        description = sin.readString(),
+        targetIndex = sin.readString(),
+        pageSize = sin.readInt(),
+        dimensions = sin.let {
+            val dimensionsList = mutableListOf<Dimension>()
+            val size = it.readVInt()
+            for (i in 0 until size) {
+                val type = it.readEnum(Dimension.Type::class.java)
+                dimensionsList.add(
+                    when (requireNotNull(type) { "Dimension type cannot be null" }) {
+                        Dimension.Type.DATE_HISTOGRAM -> DateHistogram(sin)
+                        Dimension.Type.TERMS -> Terms(sin)
+                        Dimension.Type.HISTOGRAM -> Histogram(sin)
+                    }
+                )
+            }
+            dimensionsList.toList()
+        },
+        metrics = sin.readList(::RollupMetrics)
     )
 
     override fun toString(): String {
@@ -124,8 +126,8 @@ data class ISMRollup(
         }
         metrics.forEach {
             sb.append(it.sourceField)
-            it.metrics.forEach {
-                metric -> sb.append(metric.type)
+            it.metrics.forEach { metric ->
+                sb.append(metric.type)
             }
         }
 
@@ -172,13 +174,21 @@ data class ISMRollup(
                     Rollup.TARGET_INDEX_FIELD -> targetIndex = xcp.text()
                     Rollup.PAGE_SIZE_FIELD -> pageSize = xcp.intValue()
                     Rollup.DIMENSIONS_FIELD -> {
-                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp)
+                        XContentParserUtils.ensureExpectedToken(
+                            XContentParser.Token.START_ARRAY,
+                            xcp.currentToken(),
+                            xcp
+                        )
                         while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
                             dimensions.add(Dimension.parse(xcp))
                         }
                     }
                     Rollup.METRICS_FIELD -> {
-                        XContentParserUtils.ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp)
+                        XContentParserUtils.ensureExpectedToken(
+                            XContentParser.Token.START_ARRAY,
+                            xcp.currentToken(),
+                            xcp
+                        )
                         while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
                             metrics.add(RollupMetrics.parse(xcp))
                         }
@@ -188,11 +198,11 @@ data class ISMRollup(
             }
 
             return ISMRollup(
-                    description = description,
-                    pageSize = pageSize,
-                    dimensions = dimensions,
-                    metrics = metrics,
-                    targetIndex = targetIndex
+                description = description,
+                pageSize = pageSize,
+                dimensions = dimensions,
+                metrics = metrics,
+                targetIndex = targetIndex
             )
         }
     }

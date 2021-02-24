@@ -16,7 +16,6 @@
 @file:Suppress("TopLevelPropertyNaming", "MatchingDeclarationName")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
@@ -31,12 +30,6 @@ import java.time.Instant
 
 const val WITH_TYPE = "with_type"
 val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
-const val HAS_USER = "has_user"
-val XCONTENT_HAS_USER = ToXContent.MapParams(mapOf(HAS_USER to "true"))
-val XCONTENT_WITHOUT_TYPE_HAS_USER = ToXContent.MapParams(
-    mapOf(WITH_TYPE to "false",
-        HAS_USER to "true")
-)
 
 const val FAILURES = "failures"
 const val FAILED_INDICES = "failed_indices"
@@ -102,15 +95,13 @@ data class FailedIndex(val name: String, val uuid: String, val reason: String) :
  * Gets the XContentBuilder for partially updating a [ManagedIndexConfig]'s ChangePolicy
  */
 fun getPartialChangePolicyBuilder(
-    changePolicy: ChangePolicy?,
-    user: User
+    changePolicy: ChangePolicy?
 ): XContentBuilder {
     return XContentFactory.jsonBuilder()
         .startObject()
         .startObject(ManagedIndexConfig.MANAGED_INDEX_TYPE)
         .optionalTimeField(ManagedIndexConfig.LAST_UPDATED_TIME_FIELD, Instant.now())
         .field(ManagedIndexConfig.CHANGE_POLICY_FIELD, changePolicy)
-        .field(ManagedIndexConfig.USER_FIELD, user)
         .endObject()
         .endObject()
 }

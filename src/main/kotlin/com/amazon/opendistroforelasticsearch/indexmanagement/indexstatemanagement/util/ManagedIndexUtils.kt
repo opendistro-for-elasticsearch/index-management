@@ -16,7 +16,6 @@
 @file:JvmName("ManagedIndexUtils")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.Action
@@ -60,7 +59,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String, jobInterval: Int, user: User?): IndexRequest {
+fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String, jobInterval: Int): IndexRequest {
     val managedIndexConfig = ManagedIndexConfig(
         jobName = index,
         index = index,
@@ -73,8 +72,7 @@ fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String
         policy = null,
         policySeqNo = null,
         policyPrimaryTerm = null,
-        changePolicy = null,
-        user = user
+        changePolicy = null
     )
 
     return IndexRequest(INDEX_MANAGEMENT_INDEX)
@@ -140,11 +138,11 @@ fun deleteManagedIndexMetadataRequest(uuid: String): DeleteRequest {
     return DeleteRequest(INDEX_MANAGEMENT_INDEX, ismMetadataID(uuid))
 }
 
-fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig, user: User): UpdateRequest {
+fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig): UpdateRequest {
     return UpdateRequest(INDEX_MANAGEMENT_INDEX, sweptManagedIndexConfig.uuid)
         .setIfPrimaryTerm(sweptManagedIndexConfig.primaryTerm)
         .setIfSeqNo(sweptManagedIndexConfig.seqNo)
-        .doc(getPartialChangePolicyBuilder(sweptManagedIndexConfig.changePolicy, user))
+        .doc(getPartialChangePolicyBuilder(sweptManagedIndexConfig.changePolicy))
 }
 
 /**

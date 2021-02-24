@@ -15,12 +15,9 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.ALL_ACCESS_ROLE
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.Schedule
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.ScheduleParser
@@ -48,8 +45,7 @@ data class ManagedIndexConfig(
     val policySeqNo: Long?,
     val policyPrimaryTerm: Long?,
     val policy: Policy?,
-    val changePolicy: ChangePolicy?,
-    val user: User?
+    val changePolicy: ChangePolicy?
 ) : ScheduledJobParameter {
 
     init {
@@ -88,16 +84,9 @@ data class ManagedIndexConfig(
                     .field(POLICY_PRIMARY_TERM_FIELD, policyPrimaryTerm)
                     .field(POLICY_FIELD, policy, XCONTENT_WITHOUT_TYPE)
                     .field(CHANGE_POLICY_FIELD, changePolicy)
-                    .optionalUserField(USER_FIELD, user)
                 .endObject()
             .endObject()
         return builder
-    }
-
-    fun getRoles(): List<String> {
-        return if (user == null) {
-            ALL_ACCESS_ROLE
-        } else user.roles
     }
 
     companion object {
@@ -115,7 +104,6 @@ data class ManagedIndexConfig(
         const val POLICY_SEQ_NO_FIELD = "policy_seq_no"
         const val POLICY_PRIMARY_TERM_FIELD = "policy_primary_term"
         const val CHANGE_POLICY_FIELD = "change_policy"
-        const val USER_FIELD = "user"
 
         @Suppress("ComplexMethod", "LongMethod")
         @JvmStatic
@@ -139,7 +127,6 @@ data class ManagedIndexConfig(
             var enabled = true
             var policyPrimaryTerm: Long? = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
             var policySeqNo: Long? = SequenceNumbers.UNASSIGNED_SEQ_NO
-            var user: User? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -167,7 +154,6 @@ data class ManagedIndexConfig(
                     CHANGE_POLICY_FIELD -> {
                         changePolicy = if (xcp.currentToken() == Token.VALUE_NULL) null else ChangePolicy.parse(xcp)
                     }
-                    USER_FIELD -> user = if (xcp.currentToken() == Token.VALUE_NULL) null else User.parse(xcp)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in ManagedIndexConfig.")
                 }
             }
@@ -193,8 +179,7 @@ data class ManagedIndexConfig(
                 policyPrimaryTerm = policyPrimaryTerm,
                 policy = policy?.copy(seqNo = policySeqNo ?: SequenceNumbers.UNASSIGNED_SEQ_NO,
                     primaryTerm = policyPrimaryTerm ?: SequenceNumbers.UNASSIGNED_PRIMARY_TERM),
-                changePolicy = changePolicy,
-                user = user
+                changePolicy = changePolicy
             )
         }
     }

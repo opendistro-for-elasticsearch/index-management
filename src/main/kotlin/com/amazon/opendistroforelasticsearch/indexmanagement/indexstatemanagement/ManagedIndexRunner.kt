@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.convertT
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
@@ -225,8 +225,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
             logger.warn("Failed to retrieve IndexMetadata.")
             return
         }
-        val managedIndexMetaData = indexMetaData.getManagedIndexMetaData(client)
-        val clusterStateMetadata = indexMetaData.getManagedIndexMetaData()
+        val managedIndexMetaData = indexMetaData.getManagedIndexMetadata(client)
+        val clusterStateMetadata = indexMetaData.getManagedIndexMetadata()
 
         if (!isMetadataMoved(clusterStateMetadata, managedIndexMetaData)) {
             logger.info("Cluster state metadata for job [${managedIndexConfig.jobName}] " +

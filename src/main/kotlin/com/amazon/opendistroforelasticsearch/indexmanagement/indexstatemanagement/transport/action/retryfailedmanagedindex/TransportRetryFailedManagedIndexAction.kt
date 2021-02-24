@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.buildMgetMetadataRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.mgetResponseToList
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
@@ -141,12 +141,16 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
             val metadataList = mgetResponseToList(mgetResponse)
             clusterState.metadata.indices.forEachIndexed { ind, it ->
                 val indexMetaData = it.value
-                val clusterStateMetadata = it.value.getManagedIndexMetaData()
-                val managedIndexMetaData = metadataList[ind]
+                val clusterStateMetadata = it.value.getManagedIndexMetadata()
+                val mgetFailure = metadataList[ind]?.second
+                val managedIndexMetadata: ManagedIndexMetaData? = metadataList[ind]?.first
                 when {
                     indicesManagedState[indexMetaData.indexUUID] == false ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid, "This index is not being managed."))
-                    managedIndexMetaData == null -> {
+                    mgetFailure != null ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
+                            "Failed to get managed index metadata, $mgetFailure"))
+                    managedIndexMetadata == null -> {
                         if (clusterStateMetadata != null) {
                             failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
                                 "Metadata is moving..."))
@@ -155,11 +159,11 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                             "This index has no metadata information"))
                         }
                     }
-                    !managedIndexMetaData.isFailed ->
+                    !managedIndexMetadata.isFailed ->
                         failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
                             "This index is not in failed state."))
                     else ->
-                        listOfMetadata.add(managedIndexMetaData)
+                        listOfMetadata.add(managedIndexMetadata)
                 }
             }
 

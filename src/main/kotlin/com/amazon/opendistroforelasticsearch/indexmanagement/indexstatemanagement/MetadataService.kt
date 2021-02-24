@@ -3,7 +3,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataIndexRequest
@@ -45,7 +45,8 @@ class MetadataService(
     private var failedToCleanIndices = mutableListOf<Index>()
 
     private var counter = 0
-    private var finishFlag = false // used in coordinator to cancel scheduled process
+    @Volatile private var finishFlag = false
+    // used in coordinator sweep to cancel scheduled process
     fun isFinished() = finishFlag
 
     @Volatile
@@ -69,7 +70,7 @@ class MetadataService(
 
         val indicesMetadata = clusterService.state().metadata.indices
         val clusterStateMetadata = indicesMetadata.map {
-            it.key to it.value.getManagedIndexMetaData()
+            it.key to it.value.getManagedIndexMetadata()
         }.filter { it.second != null }.distinct().toMap()
         // filter out previous failedToClean indices which already been indexed
         clusterStateMetadata.filter { it.key !in failedToCleanIndices.map { index -> index.name } }

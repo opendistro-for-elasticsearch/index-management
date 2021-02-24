@@ -233,14 +233,15 @@ class ManagedIndexCoordinator(
          */
         val currentManagedIndices = sweepManagedIndexJobs(client, ismIndices.indexManagementIndexExists())
         val metadataList = client.mgetManagedIndexMetadata(currentManagedIndices.map { Index(it.key, it.value.uuid) })
-        val enableManagedIndicesRequests = mutableListOf<UpdateRequest>()
+        val managedIndicesToEnableReq = mutableListOf<UpdateRequest>()
         metadataList.forEach {
-            if (it != null && !(it.isPolicyCompleted || it.isFailed)) {
-                enableManagedIndicesRequests.add(updateEnableManagedIndexRequest(it.indexUuid))
+            val metadata = it?.first
+            if (metadata != null && !(metadata.isPolicyCompleted || metadata.isFailed)) {
+                managedIndicesToEnableReq.add(updateEnableManagedIndexRequest(metadata.indexUuid))
             }
         }
 
-        updateManagedIndices(enableManagedIndicesRequests, false)
+        updateManagedIndices(managedIndicesToEnableReq, false)
     }
 
     private fun isIndexStateManagementEnabled(): Boolean = indexStateManagementEnabled == true
@@ -427,7 +428,7 @@ class ManagedIndexCoordinator(
 
         // clean metadata of un-managed index
         val indicesToDeleteMetadataFrom =
-            getIndicesToRemoveMetadataFrom(unManagedIndices) + getManagedIndicesToDelete(currentIndices, currentManagedIndices)
+            unManagedIndices + getManagedIndicesToDelete(currentIndices, currentManagedIndices)
         clearManagedIndexMetaData(indicesToDeleteMetadataFrom.map { deleteManagedIndexMetadataRequest(it.uuid) })
 
         lastFullSweepTimeNano = System.nanoTime()
@@ -521,7 +522,9 @@ class ManagedIndexCoordinator(
         val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
         val metadataList = client.mgetManagedIndexMetadata(unManagedIndices)
         metadataList.forEach {
-            if (it != null) indicesToRemoveManagedIndexMetaDataFrom.add(Index(it.index, it.indexUuid))
+            val metadata = it?.first
+            if (metadata != null)
+                indicesToRemoveManagedIndexMetaDataFrom.add(Index(metadata.index, metadata.indexUuid))
         }
         return indicesToRemoveManagedIndexMetaDataFrom
     }

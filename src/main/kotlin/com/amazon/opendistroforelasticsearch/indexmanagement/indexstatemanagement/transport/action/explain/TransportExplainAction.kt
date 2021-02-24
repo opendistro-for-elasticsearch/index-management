@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator.Companion.MAX_HITS
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isMetadataMoved
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismMetadataID
@@ -255,7 +255,7 @@ class TransportExplainAction @Inject constructor(
                 var managedIndexMetadataMap = managedIndicesMetaDataMap[indexName]
                 indexPolicyIDs.add(managedIndexMetadataMap?.get("policy_id")) // use policyID from metadata
 
-                val clusterStateMetadata = clusterStateIndexMetadatas[indexName]?.getManagedIndexMetaData()
+                val clusterStateMetadata = clusterStateIndexMetadatas[indexName]?.getManagedIndexMetadata()
                 var managedIndexMetadata: ManagedIndexMetaData? = null
                 val configIndexMetadataMap = metadataMap[indices[indexName]?.let { ismMetadataID(it) } ]
                 if (managedIndexMetadataMap != null) {

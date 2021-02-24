@@ -61,7 +61,7 @@ fun IndexMetadata.getRolloverAlias(): String? {
     return this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key)
 }
 
-fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
+fun IndexMetadata.getManagedIndexMetadata(): ManagedIndexMetaData? {
     val existingMetaDataMap = this.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA_TYPE)
 
     if (existingMetaDataMap != null) {
@@ -109,7 +109,7 @@ fun <K, V> Map<K, V?>.filterNotNullValues(): Map<K, V> =
 
 // get metadata from config index using doc id
 @Suppress("ReturnCount")
-suspend fun IndexMetadata.getManagedIndexMetaData(client: Client): ManagedIndexMetaData? {
+suspend fun IndexMetadata.getManagedIndexMetadata(client: Client): ManagedIndexMetaData? {
     try {
         val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, ismMetadataID(indexUUID))
             .routing(this.indexUUID)
@@ -142,7 +142,7 @@ suspend fun IndexMetadata.getManagedIndexMetaData(client: Client): ManagedIndexM
  *
  * @return list of metadata
  */
-suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<ManagedIndexMetaData?> {
+suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<Pair<ManagedIndexMetaData?, Exception?>?> {
     log.debug("trying to get back metadata for indices ${indices.map { it.name }}")
 
     if (indices.isEmpty()) return emptyList()
@@ -152,26 +152,36 @@ suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<ManagedI
         mgetRequest.add(MultiGetRequest.Item(
             INDEX_MANAGEMENT_INDEX, ismMetadataID(it.uuid)).routing(it.uuid))
     }
-    var mgetMetadataList = mutableListOf<ManagedIndexMetaData?>()
+    var mgetMetadataList = listOf<Pair<ManagedIndexMetaData?, Exception?>?>()
     try {
         val response: MultiGetResponse = this.suspendUntil { multiGet(mgetRequest, it) }
         mgetMetadataList = mgetResponseToList(response)
     } catch (e: ActionRequestValidationException) {
-        log.info("No documents to get back metadata, ${e.message}")
+        log.info("No managed index metadata for indices [$indices], ${e.message}")
+    } catch (e: Exception) {
+        log.error("Failed to multi-get managed index metadata for indices [$indices]", e)
     }
     return mgetMetadataList
 }
 
 /**
  * transform multi-get response to list for ManagedIndexMetaData
+ *
+ * when this function used in change and retry API, if exception is
+ * not null, the API will abort and show get metadata failed
+ *
+ * @return list of Pair of metadata or exception
  */
-fun mgetResponseToList(mgetResponse: MultiGetResponse): MutableList<ManagedIndexMetaData?> {
-    val mgetList = mutableListOf<ManagedIndexMetaData?>()
+fun mgetResponseToList(mgetResponse: MultiGetResponse):
+    List<Pair<ManagedIndexMetaData?, Exception?>?> {
+    val mgetList = mutableListOf<Pair<ManagedIndexMetaData?, Exception?>?>()
     mgetResponse.responses.forEach {
-        if (it.response != null && !it.response.isSourceEmpty) {
+        if (it.isFailed) {
+            mgetList.add(Pair(null, it.failure.failure))
+        } else if (it.response != null && !it.response.isSourceEmpty) {
             val xcp = contentParser(it.response.sourceAsBytesRef)
-            mgetList.add(ManagedIndexMetaData.parseWithType(
-                    xcp, it.response.id, it.response.seqNo, it.response.primaryTerm))
+            mgetList.add(Pair(ManagedIndexMetaData.parseWithType(
+                xcp, it.response.id, it.response.seqNo, it.response.primaryTerm), null))
         } else {
             mgetList.add(null)
         }

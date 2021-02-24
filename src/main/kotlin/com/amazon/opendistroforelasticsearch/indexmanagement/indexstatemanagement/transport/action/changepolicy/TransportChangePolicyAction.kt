@@ -19,7 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.buildMgetMetadataRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.mgetResponseToList
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
@@ -158,8 +158,9 @@ class TransportChangePolicyAction @Inject constructor(
 
             clusterState.metadata.indices.forEachIndexed { ind, it ->
                 val indexMetaData = it.value
-                val clusterStateMetadata = it.value.getManagedIndexMetaData()
-                val managedIndexMetadata: ManagedIndexMetaData? = metadataList[ind]
+                val clusterStateMetadata = it.value.getManagedIndexMetadata()
+                val mgetFailure = metadataList[ind]?.second
+                val managedIndexMetadata: ManagedIndexMetaData? = metadataList[ind]?.first
 
                 val currentState = managedIndexMetadata?.stateMetaData?.name
                 if (currentState != null) {
@@ -167,6 +168,10 @@ class TransportChangePolicyAction @Inject constructor(
                 }
 
                 when {
+                    mgetFailure != null ->
+                        failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
+                            "Failed to get managed index metadata, $mgetFailure"
+                        ))
                     // if there exists a transitionTo on the ManagedIndexMetaData then we will
                     // fail as they might not of meant to add a ChangePolicy when its on the next state
                     managedIndexMetadata?.transitionTo != null ->

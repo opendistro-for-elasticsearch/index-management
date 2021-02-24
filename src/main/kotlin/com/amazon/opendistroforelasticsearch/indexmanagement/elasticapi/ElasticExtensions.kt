@@ -23,8 +23,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.NO_ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.utils.LockService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
@@ -36,7 +34,6 @@ import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.DefaultShardOperationFailedException
 import org.elasticsearch.client.ElasticsearchClient
 import org.elasticsearch.common.bytes.BytesReference
-import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.util.concurrent.ThreadContext
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
@@ -54,7 +51,6 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.transport.RemoteTransportException
 import java.io.IOException
 import java.time.Instant
-import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -87,13 +83,6 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
         return nullField(name)
     }
     return this.timeField(name, "${name}_in_millis", instant.toEpochMilli())
-}
-
-fun XContentBuilder.optionalUserField(name: String, user: User?): XContentBuilder {
-    if (user == null) {
-        return nullField(name)
-    }
-    return this.field(name, user)
 }
 
 fun XContentBuilder.optionalISMTemplateField(name: String, ismTemplate: ISMTemplate?): XContentBuilder {
@@ -202,56 +191,4 @@ fun <T> XContentParser.parseWithType(
     val parsed = parse(this, id, seqNo, primaryTerm)
     ensureExpectedToken(Token.END_OBJECT, this.nextToken(), this)
     return parsed
-}
-
-val log = LogManager.getLogger("IndexManagementElasticExtention")
-const val INDEX_MANAGEMENT_PLUGIN_INTERNAL = "index_management_plugin_internal"
-/**
- * @param internalReq: used as flag to indicate if the request is from
- * outside user or plugin runner. if the value of this element is true
- * then we will not update user object.
- */
-class InjectorContextElement(
-    private val id: String,
-    settings: Settings,
-    private val threadContext: ThreadContext,
-    private val roles: List<String>?,
-    private val internalReq: Boolean = false
-) : ThreadContextElement<Unit> {
-
-    companion object Key : CoroutineContext.Key<InjectorContextElement>
-    override val key: CoroutineContext.Key<*>
-        get() = Key
-
-    var rolesInjectorHelper = InjectSecurity(id, settings, threadContext)
-
-    override fun updateThreadContext(context: CoroutineContext) {
-        rolesInjectorHelper.injectRoles(roles)
-        if (threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL) != internalReq) {
-            threadContext.putTransient(INDEX_MANAGEMENT_PLUGIN_INTERNAL, internalReq)
-            log.debug("Job [$id], rollup internal request: $internalReq;" +
-                " Thread: ${Thread.currentThread().name}")
-        } else {
-            log.error("Job [$id], rollup internal request [$internalReq] not cleaned up;" +
-                " Thread: ${Thread.currentThread().name}")
-        }
-    }
-
-    override fun restoreThreadContext(context: CoroutineContext, oldState: Unit) {
-        rolesInjectorHelper.close()
-        log.debug("Job [$id], rollup internal request cleaned: " +
-            "${threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL)};" +
-            " Thread: ${Thread.currentThread().name}")
-    }
-}
-
-suspend fun <T> withCloseableContext(
-    context: CoroutineContext,
-    block: suspend CoroutineScope.() -> T
-): T {
-    try {
-        return withContext(context) { block() }
-    } finally {
-        (context[InjectorContextElement.Key] as InjectorContextElement).rolesInjectorHelper.close()
-    }
 }

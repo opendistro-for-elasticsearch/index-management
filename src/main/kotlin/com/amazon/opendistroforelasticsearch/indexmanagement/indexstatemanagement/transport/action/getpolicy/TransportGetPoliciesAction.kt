@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
@@ -82,32 +81,30 @@ class TransportGetPoliciesAction @Inject constructor(
             .source(searchSourceBuilder)
             .indices(INDEX_MANAGEMENT_INDEX)
 
-        client.threadPool().threadContext.stashContext().use {
-            client.search(searchRequest, object : ActionListener<SearchResponse> {
-                override fun onResponse(response: SearchResponse) {
-                    val totalPolicies = response.hits.totalHits?.value ?: 0
-                    val policies = response.hits.hits.map {
-                        val id = it.id
-                        val seqNo = it.seqNo
-                        val primaryTerm = it.primaryTerm
-                        val xcp = XContentFactory.xContent(XContentType.JSON)
+        client.search(searchRequest, object : ActionListener<SearchResponse> {
+            override fun onResponse(response: SearchResponse) {
+                val totalPolicies = response.hits.totalHits?.value ?: 0
+                val policies = response.hits.hits.map {
+                    val id = it.id
+                    val seqNo = it.seqNo
+                    val primaryTerm = it.primaryTerm
+                    val xcp = XContentFactory.xContent(XContentType.JSON)
                             .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, it.sourceAsString)
-                        xcp.parseWithType(id, seqNo, primaryTerm, Policy.Companion::parse)
+                    xcp.parseWithType(id, seqNo, primaryTerm, Policy.Companion::parse)
                             .copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
-                    }
-
-                    actionListener.onResponse(GetPoliciesResponse(policies, totalPolicies.toInt()))
                 }
 
-                override fun onFailure(t: Exception) {
-                    if (t is IndexNotFoundException) {
-                        // config index hasn't been initialized, catch this here and show empty result on Kibana
-                        actionListener.onResponse(GetPoliciesResponse(emptyList(), 0))
-                        return
-                    }
-                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
+                actionListener.onResponse(GetPoliciesResponse(policies, totalPolicies.toInt()))
+            }
+
+            override fun onFailure(t: Exception) {
+                if (t is IndexNotFoundException) {
+                    // config index hasn't been initialized, catch this here and show empty result on Kibana
+                    actionListener.onResponse(GetPoliciesResponse(emptyList(), 0))
+                    return
                 }
-            })
-        }
+                actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
+            }
+        })
     }
 }

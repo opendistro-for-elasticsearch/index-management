@@ -83,6 +83,7 @@ class RestGetRollupActionIT : RollupRestTestCase() {
             assertEquals(testRollup.targetIndex, innerRollup["target_index"] as String)
             assertEquals(testRollup.sourceIndex, innerRollup["source_index"] as String)
             assertEquals(testRollup.metadataID, innerRollup["metadata_id"] as String?)
+            assertEquals(testRollup.roles, innerRollup["roles"] as List<String>)
             assertEquals(testRollup.pageSize, innerRollup["page_size"] as Int)
             assertEquals(testRollup.description, innerRollup["description"] as String)
             assertEquals(testRollup.delay, (innerRollup["delay"] as Number?)?.toLong())

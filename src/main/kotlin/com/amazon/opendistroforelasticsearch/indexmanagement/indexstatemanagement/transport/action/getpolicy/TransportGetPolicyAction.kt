@@ -18,7 +18,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
@@ -45,9 +44,7 @@ class TransportGetPolicyAction @Inject constructor(
     GetPolicyAction.NAME, transportService, actionFilters, ::GetPolicyRequest
 ) {
     override fun doExecute(task: Task, request: GetPolicyRequest, listener: ActionListener<GetPolicyResponse>) {
-        client.threadPool().threadContext.stashContext().use {
-            GetPolicyHandler(client, listener, request).start()
-        }
+        GetPolicyHandler(client, listener, request).start()
     }
 
     inner class GetPolicyHandler(

@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.emptyUser
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Conditions
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Transition
@@ -26,7 +25,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomChangePolicy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomClusterStateManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomSweptManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomUser
 import com.nhaarman.mockitokotlin2.doReturn
 import com.nhaarman.mockitokotlin2.mock
 import com.nhaarman.mockitokotlin2.whenever
@@ -49,8 +47,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         val index = randomAlphaOfLength(10)
         val uuid = randomAlphaOfLength(10)
         val policyID = randomAlphaOfLength(10)
-        val user = randomUser()
-        val createRequest = managedIndexConfigIndexRequest(index, uuid, policyID, 5, user)
+        val createRequest = managedIndexConfigIndexRequest(index, uuid, policyID, 5)
 
         assertNotNull("IndexRequest not created", createRequest)
         assertEquals("Incorrect ism index used in request", INDEX_MANAGEMENT_INDEX, createRequest.index())
@@ -62,7 +59,6 @@ class ManagedIndexUtilsTests : ESTestCase() {
         assertEquals("Incorrect name on ManagedIndexConfig source", index, managedIndexConfig.name)
         assertEquals("Incorrect index uuid on ManagedIndexConfig source", uuid, managedIndexConfig.indexUuid)
         assertEquals("Incorrect policy_id on ManagedIndexConfig source", policyID, managedIndexConfig.policyID)
-        assertEquals("Incorrect user on ManagedIndexConfig source", user, managedIndexConfig.user)
     }
 
     fun `test delete managed index request`() {
@@ -81,7 +77,7 @@ class ManagedIndexUtilsTests : ESTestCase() {
         val policyID = randomAlphaOfLength(10)
         val sweptManagedIndexConfig = SweptManagedIndexConfig(index = index, uuid = uuid, policyID = policyID,
                 primaryTerm = 1, seqNo = 1, changePolicy = randomChangePolicy(policyID = policyID), policy = null)
-        val updateRequest = updateManagedIndexRequest(sweptManagedIndexConfig, emptyUser())
+        val updateRequest = updateManagedIndexRequest(sweptManagedIndexConfig)
 
         assertNotNull("UpdateRequest not created", updateRequest)
         assertEquals("Incorrect ism index used in request", INDEX_MANAGEMENT_INDEX, updateRequest.index())

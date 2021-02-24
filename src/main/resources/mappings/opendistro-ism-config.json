@@ -454,43 +454,6 @@
             "last_updated_time": {
               "type": "date",
               "format": "strict_date_time||epoch_millis"
-            },
-            "user": {
-              "properties": {
-                "name": {
-                  "type": "text",
-                  "fields": {
-                    "keyword": {
-                      "type": "keyword",
-                      "ignore_above": 256
-                    }
-                  }
-                },
-                "backend_roles": {
-                  "type": "text",
-                  "fields": {
-                    "keyword": {
-                      "type": "keyword"
-                    }
-                  }
-                },
-                "roles": {
-                  "type": "text",
-                  "fields": {
-                    "keyword": {
-                      "type": "keyword"
-                    }
-                  }
-                },
-                "custom_attribute_names": {
-                  "type": "text",
-                  "fields": {
-                    "keyword": {
-                      "type": "keyword"
-                    }
-                  }
-                }
-              }
             }
           }
         }
@@ -573,43 +536,6 @@
                 },
                 "timezone": {
                   "type": "keyword"
-                }
-              }
-            }
-          }
-        },
-        "user": {
-          "properties": {
-            "name": {
-              "type": "text",
-              "fields": {
-                "keyword": {
-                  "type": "keyword",
-                  "ignore_above": 256
-                }
-              }
-            },
-            "backend_roles": {
-              "type" : "text",
-              "fields" : {
-                "keyword" : {
-                  "type" : "keyword"
-                }
-              }
-            },
-            "roles": {
-              "type" : "text",
-              "fields" : {
-                "keyword" : {
-                  "type" : "keyword"
-                }
-              }
-            },
-            "custom_attribute_names": {
-              "type" : "text",
-              "fields" : {
-                "keyword" : {
-                  "type" : "keyword"
                 }
               }
             }
@@ -703,40 +629,12 @@
         "continuous": {
           "type": "boolean"
         },
-        "user": {
-          "properties": {
-            "name": {
-              "type": "text",
-              "fields": {
-                "keyword": {
-                  "type": "keyword",
-                  "ignore_above": 256
-                }
-              }
-            },
-            "backend_roles": {
-              "type": "text",
-              "fields": {
-                "keyword": {
-                  "type": "keyword"
-                }
-              }
-            },
-            "roles": {
-              "type": "text",
-              "fields": {
-                "keyword": {
-                  "type": "keyword"
-                }
-              }
-            },
-            "custom_attribute_names": {
-              "type": "text",
-              "fields": {
-                "keyword": {
-                  "type": "keyword"
-                }
-              }
+        "roles": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
             }
           }
         },

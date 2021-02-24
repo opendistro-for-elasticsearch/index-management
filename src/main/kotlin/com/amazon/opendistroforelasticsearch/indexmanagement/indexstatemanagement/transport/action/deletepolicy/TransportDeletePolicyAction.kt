@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.deletepolicy
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.delete.DeleteResponse
@@ -38,8 +37,6 @@ class TransportDeletePolicyAction @Inject constructor(
         val deleteRequest = DeleteRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, request.policyID)
                 .setRefreshPolicy(request.refreshPolicy)
 
-        client.threadPool().threadContext.stashContext().use {
-            client.delete(deleteRequest, listener)
-        }
+        client.delete(deleteRequest, listener)
     }
 }

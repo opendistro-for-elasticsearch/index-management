@@ -30,8 +30,7 @@ class ResponseTests : ESTestCase() {
 
     fun `test explain rollup response`() {
         val idsToExplain = randomList(10) { randomAlphaOfLength(10) to randomExplainRollup() }.toMap()
-        val rolesMap = idsToExplain.map { it.key to null }.toMap()
-        val res = ExplainRollupResponse(idsToExplain, rolesMap)
+        val res = ExplainRollupResponse(idsToExplain)
         val out = BytesStreamOutput().apply { res.writeTo(this) }
         val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
         val streamedRes = ExplainRollupResponse(sin)

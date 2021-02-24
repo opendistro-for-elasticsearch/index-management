@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain
 
-import com.amazon.opendistroforelasticsearch.commons.authuser.User.ROLES_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ExplainRollup
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.common.io.stream.StreamInput
@@ -27,14 +26,9 @@ import java.io.IOException
 
 class ExplainRollupResponse : ActionResponse, ToXContentObject {
     val idsToExplain: Map<String, ExplainRollup?>
-    val rolesMap: Map<String, List<String>?>
 
-    constructor(
-        idsToExplain: Map<String, ExplainRollup?>,
-        rolesMap: Map<String, List<String>?>
-    ) : super() {
+    constructor(idsToExplain: Map<String, ExplainRollup?>) : super() {
         this.idsToExplain = idsToExplain
-        this.rolesMap = rolesMap
     }
 
     internal fun getIdsToExplain(): Map<String, ExplainRollup?> {
@@ -50,8 +44,7 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
                 idsToExplain[it.readString()] = if (sin.readBoolean()) ExplainRollup(it) else null
             }
             idsToExplain.toMap()
-        },
-        rolesMap = sin.readMap() as Map<String, List<String>?>
+        }
     )
 
     @Throws(IOException::class)
@@ -62,22 +55,13 @@ class ExplainRollupResponse : ActionResponse, ToXContentObject {
             out.writeBoolean(metadata != null)
             metadata?.writeTo(out)
         }
-        out.writeMap(rolesMap)
     }
 
     @Throws(IOException::class)
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         idsToExplain.entries.forEach { (id, explain) ->
-            if (explain != null) {
-                builder.startObject(id)
-                explain.toXContent(builder, ToXContent.EMPTY_PARAMS)
-                val roles = rolesMap[id]
-                if (roles != null && roles.isNotEmpty()) {
-                    builder.field(ROLES_FIELD, roles)
-                }
-                builder.endObject()
-            } else builder.nullField(id)
+            builder.field(id, explain)
         }
         return builder.endObject()
     }

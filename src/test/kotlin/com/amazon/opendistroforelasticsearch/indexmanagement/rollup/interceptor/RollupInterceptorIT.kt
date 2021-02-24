@@ -52,20 +52,20 @@ class RollupInterceptorIT : RollupRestTestCase() {
             sourceIndex = "source_rollup_search",
             targetIndex = "target_rollup_search",
             metadataID = null,
+            roles = emptyList(),
             pageSize = 10,
             delay = 0,
             continuous = false,
             dimensions = listOf(
-                    DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
-                    Terms("RatecodeID", "RatecodeID"),
-                    Terms("PULocationID", "PULocationID")
+                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
+                Terms("RatecodeID", "RatecodeID"),
+                Terms("PULocationID", "PULocationID")
             ),
             metrics = listOf(
-                    RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
-                            ValueCount(), Average())),
-                    RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
-            ),
-            user = null
+                RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
+                    ValueCount(), Average())),
+                RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
+            )
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)
@@ -104,9 +104,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
         var rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         var rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         assertEquals(
-                "Source and rollup index did not return same min results",
-                rawAggRes.getValue("min_passenger_count")["value"],
-                rollupAggRes.getValue("min_passenger_count")["value"]
+            "Source and rollup index did not return same min results",
+            rawAggRes.getValue("min_passenger_count")["value"],
+            rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
         // Terms query
@@ -134,9 +134,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         assertEquals(
-                "Source and rollup index did not return same min results",
-                rawAggRes.getValue("min_passenger_count")["value"],
-                rollupAggRes.getValue("min_passenger_count")["value"]
+            "Source and rollup index did not return same min results",
+            rawAggRes.getValue("min_passenger_count")["value"],
+            rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
         // Range query
@@ -164,9 +164,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         assertEquals(
-                "Source and rollup index did not return same min results",
-                rawAggRes.getValue("min_passenger_count")["value"],
-                rollupAggRes.getValue("min_passenger_count")["value"]
+            "Source and rollup index did not return same min results",
+            rawAggRes.getValue("min_passenger_count")["value"],
+            rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
         // Bool query
@@ -197,9 +197,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         assertEquals(
-                "Source and rollup index did not return same min results",
-                rawAggRes.getValue("min_passenger_count")["value"],
-                rollupAggRes.getValue("min_passenger_count")["value"]
+            "Source and rollup index did not return same min results",
+            rawAggRes.getValue("min_passenger_count")["value"],
+            rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
         // Boost query
@@ -229,9 +229,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         assertEquals(
-                "Source and rollup index did not return same min results",
-                rawAggRes.getValue("min_passenger_count")["value"],
-                rollupAggRes.getValue("min_passenger_count")["value"]
+            "Source and rollup index did not return same min results",
+            rawAggRes.getValue("min_passenger_count")["value"],
+            rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
         // Const score query
@@ -260,9 +260,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         assertEquals(
-                "Source and rollup index did not return same min results",
-                rawAggRes.getValue("min_passenger_count")["value"],
-                rollupAggRes.getValue("min_passenger_count")["value"]
+            "Source and rollup index did not return same min results",
+            rawAggRes.getValue("min_passenger_count")["value"],
+            rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
         // Dis max query
@@ -294,9 +294,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         assertEquals(
-                "Source and rollup index did not return same min results",
-                rawAggRes.getValue("min_passenger_count")["value"],
-                rollupAggRes.getValue("min_passenger_count")["value"]
+            "Source and rollup index did not return same min results",
+            rawAggRes.getValue("min_passenger_count")["value"],
+            rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
         // Match phrase query
@@ -324,9 +324,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
         rawAggRes = rawRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         rollupAggRes = rollupRes.asMap()["aggregations"] as Map<String, Map<String, Any>>
         assertEquals(
-                "Source and rollup index did not return same min results",
-                rawAggRes.getValue("min_passenger_count")["value"],
-                rollupAggRes.getValue("min_passenger_count")["value"]
+            "Source and rollup index did not return same min results",
+            rawAggRes.getValue("min_passenger_count")["value"],
+            rollupAggRes.getValue("min_passenger_count")["value"]
         )
 
         // Unsupported query
@@ -352,9 +352,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals(
-                    "Wrong error message",
-                    "The match query is currently not supported in rollups",
-                    (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
+                "Wrong error message",
+                "The match query is currently not supported in rollups",
+                (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
             )
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
         }
@@ -383,10 +383,10 @@ class RollupInterceptorIT : RollupRestTestCase() {
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals(
-                    "Wrong error message",
-                    "Could not find a rollup job that can answer this query because [missing field RateCodeID, missing field timestamp, " +
-                            "missing sum aggregation on total_amount]",
-                    (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
+                "Wrong error message",
+                "Could not find a rollup job that can answer this query because [missing field RateCodeID, missing field timestamp, " +
+                    "missing sum aggregation on total_amount]",
+                (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
             )
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
         }
@@ -448,9 +448,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals(
-                    "Wrong error message",
-                    "Rollup search must have size explicitly set to 0, but found 3",
-                    (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
+                "Wrong error message",
+                "Rollup search must have size explicitly set to 0, but found 3",
+                (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
             )
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
         }
@@ -462,9 +462,9 @@ class RollupInterceptorIT : RollupRestTestCase() {
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals(
-                    "Wrong error message",
-                    "Rollup search must have size explicitly set to 0, but found -1",
-                    (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
+                "Wrong error message",
+                "Rollup search must have size explicitly set to 0, but found -1",
+                (e.response.asMap() as Map<String, Map<String, Map<String, String>>>)["error"]!!["caused_by"]!!["reason"]
             )
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
         }
@@ -483,20 +483,20 @@ class RollupInterceptorIT : RollupRestTestCase() {
             sourceIndex = "source_rollup_bucket_and_sub",
             targetIndex = "target_rollup_bucket_and_sub",
             metadataID = null,
+            roles = emptyList(),
             pageSize = 10,
             delay = 0,
             continuous = false,
             dimensions = listOf(
-                    DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
-                    Terms("RatecodeID", "RatecodeID"),
-                    Terms("PULocationID", "PULocationID")
+                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
+                Terms("RatecodeID", "RatecodeID"),
+                Terms("PULocationID", "PULocationID")
             ),
             metrics = listOf(
-                    RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
-                            ValueCount(), Average())),
-                    RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
-            ),
-            user = null
+                RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
+                    ValueCount(), Average())),
+                RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
+            )
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)
@@ -539,15 +539,15 @@ class RollupInterceptorIT : RollupRestTestCase() {
         rawAggBuckets.forEachIndexed { idx, rawAggBucket ->
             val rollupAggBucket = rollupAggBuckets[idx]
             assertEquals("The sum aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["sum"]!!["value"], rollupAggBucket["sum"]!!["value"])
+                rawAggBucket["sum"]!!["value"], rollupAggBucket["sum"]!!["value"])
             assertEquals("The max aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["max"]!!["value"], rollupAggBucket["max"]!!["value"])
+                rawAggBucket["max"]!!["value"], rollupAggBucket["max"]!!["value"])
             assertEquals("The min aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["min"]!!["value"], rollupAggBucket["min"]!!["value"])
+                rawAggBucket["min"]!!["value"], rollupAggBucket["min"]!!["value"])
             assertEquals("The value_count aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["value_count"]!!["value"], rollupAggBucket["value_count"]!!["value"])
+                rawAggBucket["value_count"]!!["value"], rollupAggBucket["value_count"]!!["value"])
             assertEquals("The avg aggregation had a different value raw[$rawAggBucket] rollup[$rollupAggBucket]",
-                    rawAggBucket["avg"]!!["value"], rollupAggBucket["avg"]!!["value"])
+                rawAggBucket["avg"]!!["value"], rollupAggBucket["avg"]!!["value"])
         }
     }
 
@@ -564,6 +564,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
             sourceIndex = "source_continuous_rollup_search",
             targetIndex = "target_continuous_rollup_search",
             metadataID = null,
+            roles = emptyList(),
             pageSize = 10,
             delay = 0,
             continuous = true,
@@ -576,8 +577,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
                     ValueCount(), Average())),
                 RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
-            ),
-            user = null
+            )
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)

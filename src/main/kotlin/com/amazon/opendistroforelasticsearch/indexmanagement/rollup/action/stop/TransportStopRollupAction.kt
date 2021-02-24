@@ -22,7 +22,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.G
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
@@ -72,31 +71,26 @@ class TransportStopRollupAction @Inject constructor(
     override fun doExecute(task: Task, request: StopRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {
         log.debug("Executing StopRollupAction on ${request.id()}")
         val getReq = GetRollupRequest(request.id(), null)
-        client.threadPool().threadContext.stashContext().use {
-            client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
-                override fun onResponse(response: GetRollupResponse) {
-                    val rollup = response.rollup
-                    if (rollup == null) {
-                        return actionListener.onFailure(
-                            ElasticsearchStatusException(
-                                "Could not find rollup [${request.id()}]",
-                                RestStatus.NOT_FOUND
-                            )
-                        )
-                    }
-
-                    if (rollup.metadataID != null) {
-                        getRollupMetadata(rollup, request, actionListener)
-                    } else {
-                        updateRollupJob(rollup, request, actionListener)
-                    }
+        client.execute(GetRollupAction.INSTANCE, getReq, object : ActionListener<GetRollupResponse> {
+            override fun onResponse(response: GetRollupResponse) {
+                val rollup = response.rollup
+                if (rollup == null) {
+                    return actionListener.onFailure(
+                        ElasticsearchStatusException("Could not find rollup [${request.id()}]", RestStatus.NOT_FOUND)
+                    )
                 }
 
-                override fun onFailure(e: Exception) {
-                    actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
+                if (rollup.metadataID != null) {
+                    getRollupMetadata(rollup, request, actionListener)
+                } else {
+                    updateRollupJob(rollup, request, actionListener)
                 }
-            })
-        }
+            }
+
+            override fun onFailure(e: Exception) {
+                actionListener.onFailure(ExceptionsHelper.unwrapCause(e) as Exception)
+            }
+        })
     }
 
     private fun getRollupMetadata(rollup: Rollup, request: StopRollupRequest, actionListener: ActionListener<AcknowledgedResponse>) {

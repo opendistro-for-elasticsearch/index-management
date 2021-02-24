@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -46,7 +46,6 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
-import java.util.stream.Collectors
 
 private val log = LogManager.getLogger(TransportIndexPolicyAction::class.java)
 
@@ -116,10 +115,8 @@ class TransportIndexPolicyAction @Inject constructor(
                     val policyToTemplateMap = getPolicyToTemplateMap(response, xContentRegistry).filterNotNullValues()
                     val conflictingPolicyTemplates = policyToTemplateMap.findConflictingPolicyTemplates(request.policyID, indexPatterns, priority)
                     if (conflictingPolicyTemplates.isNotEmpty()) {
-                        val errorMessage = "new policy ${request.policyID} has an ism template with index pattern $indexPatterns " +
-                            "matching existing policy templates ${conflictingPolicyTemplates.entries.stream()
-                                .map { "policy [${it.key}] => ${it.value}" }.collect(
-                                Collectors.joining(","))}," +
+                        val errorMessage = "New policy ${request.policyID} has an ISM template with index pattern $indexPatterns " +
+                            "matching existing policy templates," +
                             " please use a different priority than $priority"
                         actionListener.onFailure(IndexManagementException.wrap(IllegalArgumentException(errorMessage)))
                         return

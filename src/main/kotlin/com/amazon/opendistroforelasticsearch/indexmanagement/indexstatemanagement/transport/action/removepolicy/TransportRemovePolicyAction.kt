@@ -155,7 +155,6 @@ class TransportRemovePolicyAction @Inject constructor(
 
                         // clean metadata for indicesToRemove
                         val indicesToRemoveMetadata = indicesToRemove.map { Index(it.value, it.key) }
-                        log.info("remove metadata for $indicesToRemoveMetadata")
                         removeMetadatas(indicesToRemoveMetadata)
                     }
 

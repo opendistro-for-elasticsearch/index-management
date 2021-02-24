@@ -196,6 +196,8 @@ afterEvaluate {
             node.setting("opendistro_security.enable_snapshot_restore_privilege", "true")
             node.setting("opendistro_security.check_snapshot_restore_write_privileges", "true")
             node.setting("opendistro_security.restapi.roles_enabled", "[\"all_access\", \"security_rest_api_access\"]")
+            node.setting("opendistro_security.system_indices.enabled", "true")
+            node.setting("opendistro_security.system_indices.indices", "[\".opendistro-ism-config\"]")
         }
     }
 }
@@ -232,7 +234,7 @@ testClusters.integTest {
         plugin(provider({
             new RegularFile() {
                 @Override
-                File getAsFile() { fileTree("src/test/resources/security") { include "opendistro_security*" }.getSingleFile() }
+                File getAsFile() { fileTree("src/test/resources/security") { include "opendistro-security*" }.getSingleFile() }
             }
         }))
     }

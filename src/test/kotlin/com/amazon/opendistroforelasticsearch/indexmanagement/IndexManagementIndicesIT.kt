@@ -24,7 +24,7 @@ import java.util.Locale
 class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
-    private val configSchemaVersion = 7
+    private val configSchemaVersion = 8
     private val historySchemaVersion = 3
 
     /*

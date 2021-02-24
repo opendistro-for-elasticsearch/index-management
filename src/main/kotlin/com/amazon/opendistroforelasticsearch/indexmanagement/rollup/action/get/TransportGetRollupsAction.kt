@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import org.elasticsearch.ElasticsearchStatusException
@@ -26,13 +27,8 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.ExistsQueryBuilder
 import org.elasticsearch.index.query.WildcardQueryBuilder
@@ -88,10 +84,5 @@ class TransportGetRollupsAction @Inject constructor(
 
             override fun onFailure(e: Exception) = listener.onFailure(e)
         })
-    }
-
-    private fun contentParser(bytesReference: BytesReference): XContentParser {
-        return XContentHelper.createParser(NamedXContentRegistry.EMPTY,
-            LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
     }
 }

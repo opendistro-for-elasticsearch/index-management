@@ -197,7 +197,7 @@ class TransportAddPolicyAction @Inject constructor(
                         response.forEach {
                             val docId = it.id // docId is managed index uuid
                             if (it.isFailed) {
-                                failedIndices.add(FailedIndex(indicesToAdd[docId] as String, docId, "failed to add policy"))
+                                failedIndices.add(FailedIndex(indicesToAdd[docId] as String, docId, "Failed to add policy due to: ${it.failureMessage}"))
                                 indicesToAdd.remove(docId)
                             }
                         }

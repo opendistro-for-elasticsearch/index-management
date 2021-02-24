@@ -53,7 +53,6 @@ import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
-import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchParseException
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
@@ -80,8 +79,6 @@ import java.time.Instant
 import java.util.Locale
 
 abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() {
-
-    val log = LogManager.getLogger(IndexStateManagementRestTestCase::class.java)
 
     protected fun createPolicy(
         policy: Policy,

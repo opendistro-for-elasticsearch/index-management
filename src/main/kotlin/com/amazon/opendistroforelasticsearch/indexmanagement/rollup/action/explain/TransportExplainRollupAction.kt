@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.explain
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ExplainRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
@@ -29,13 +30,7 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
-import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentHelper
-import org.elasticsearch.common.xcontent.XContentParser
-import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.IdsQueryBuilder
 import org.elasticsearch.index.query.WildcardQueryBuilder
@@ -123,10 +118,5 @@ class TransportExplainRollupAction @Inject constructor(
                 }
             }
         })
-    }
-
-    private fun contentParser(bytesReference: BytesReference): XContentParser {
-        return XContentHelper.createParser(NamedXContentRegistry.EMPTY,
-                LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
     }
 }

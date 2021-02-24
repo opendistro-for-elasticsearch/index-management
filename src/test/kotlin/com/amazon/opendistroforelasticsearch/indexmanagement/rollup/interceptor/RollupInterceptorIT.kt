@@ -42,30 +42,30 @@ class RollupInterceptorIT : RollupRestTestCase() {
     fun `test roll up search`() {
         generateNYCTaxiData("source_rollup_search")
         val rollup = Rollup(
-            id = "basic_term_query_rollup_search",
-            enabled = true,
-            schemaVersion = 1L,
-            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
-            jobLastUpdatedTime = Instant.now(),
-            jobEnabledTime = Instant.now(),
-            description = "basic search test",
-            sourceIndex = "source_rollup_search",
-            targetIndex = "target_rollup_search",
-            metadataID = null,
-            pageSize = 10,
-            delay = 0,
-            continuous = false,
-            dimensions = listOf(
-                    DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
-                    Terms("RatecodeID", "RatecodeID"),
-                    Terms("PULocationID", "PULocationID")
-            ),
-            metrics = listOf(
-                    RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
-                            ValueCount(), Average())),
-                    RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
-            ),
-            user = null
+                id = "basic_term_query_rollup_search",
+                schemaVersion = 1L,
+                enabled = true,
+                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                jobLastUpdatedTime = Instant.now(),
+                jobEnabledTime = Instant.now(),
+                description = "basic search test",
+                sourceIndex = "source_rollup_search",
+                targetIndex = "target_rollup_search",
+                metadataID = null,
+                roles = emptyList(),
+                pageSize = 10,
+                delay = 0,
+                continuous = false,
+                dimensions = listOf(
+                        DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
+                        Terms("RatecodeID", "RatecodeID"),
+                        Terms("PULocationID", "PULocationID")
+                ),
+                metrics = listOf(
+                        RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
+                                ValueCount(), Average())),
+                        RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
+                )
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)
@@ -473,30 +473,30 @@ class RollupInterceptorIT : RollupRestTestCase() {
     fun `test bucket and sub aggregations have correct values`() {
         generateNYCTaxiData("source_rollup_bucket_and_sub")
         val rollup = Rollup(
-            id = "basic_term_query_rollup_bucket_and_sub",
-            enabled = true,
-            schemaVersion = 1L,
-            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
-            jobLastUpdatedTime = Instant.now(),
-            jobEnabledTime = Instant.now(),
-            description = "basic search test",
-            sourceIndex = "source_rollup_bucket_and_sub",
-            targetIndex = "target_rollup_bucket_and_sub",
-            metadataID = null,
-            pageSize = 10,
-            delay = 0,
-            continuous = false,
-            dimensions = listOf(
-                    DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
-                    Terms("RatecodeID", "RatecodeID"),
-                    Terms("PULocationID", "PULocationID")
-            ),
-            metrics = listOf(
-                    RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
-                            ValueCount(), Average())),
-                    RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
-            ),
-            user = null
+                id = "basic_term_query_rollup_bucket_and_sub",
+                schemaVersion = 1L,
+                enabled = true,
+                jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+                jobLastUpdatedTime = Instant.now(),
+                jobEnabledTime = Instant.now(),
+                description = "basic search test",
+                sourceIndex = "source_rollup_bucket_and_sub",
+                targetIndex = "target_rollup_bucket_and_sub",
+                metadataID = null,
+                roles = emptyList(),
+                pageSize = 10,
+                delay = 0,
+                continuous = false,
+                dimensions = listOf(
+                        DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
+                        Terms("RatecodeID", "RatecodeID"),
+                        Terms("PULocationID", "PULocationID")
+                ),
+                metrics = listOf(
+                        RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
+                                ValueCount(), Average())),
+                        RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
+                )
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)
@@ -555,8 +555,8 @@ class RollupInterceptorIT : RollupRestTestCase() {
         generateNYCTaxiData("source_continuous_rollup_search")
         val rollup = Rollup(
             id = "basic_term_query_continuous_rollup_search",
-            enabled = true,
             schemaVersion = 1L,
+            enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -564,6 +564,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
             sourceIndex = "source_continuous_rollup_search",
             targetIndex = "target_continuous_rollup_search",
             metadataID = null,
+            roles = emptyList(),
             pageSize = 10,
             delay = 0,
             continuous = true,
@@ -576,8 +577,7 @@ class RollupInterceptorIT : RollupRestTestCase() {
                 RollupMetrics(sourceField = "passenger_count", targetField = "passenger_count", metrics = listOf(Sum(), Min(), Max(),
                     ValueCount(), Average())),
                 RollupMetrics(sourceField = "total_amount", targetField = "total_amount", metrics = listOf(Max(), Min()))
-            ),
-            user = null
+            )
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)

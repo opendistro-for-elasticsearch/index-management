@@ -30,12 +30,6 @@ import java.time.Instant
 
 const val WITH_TYPE = "with_type"
 val XCONTENT_WITHOUT_TYPE = ToXContent.MapParams(mapOf(WITH_TYPE to "false"))
-const val HAS_USER = "has_user"
-val XCONTENT_HAS_USER = ToXContent.MapParams(mapOf(HAS_USER to "true"))
-val XCONTENT_WITHOUT_TYPE_HAS_USER = ToXContent.MapParams(
-    mapOf(WITH_TYPE to "false",
-        HAS_USER to "true")
-)
 
 const val FAILURES = "failures"
 const val FAILED_INDICES = "failed_indices"

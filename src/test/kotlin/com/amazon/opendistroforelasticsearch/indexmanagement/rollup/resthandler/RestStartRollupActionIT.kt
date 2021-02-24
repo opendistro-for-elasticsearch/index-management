@@ -89,8 +89,8 @@ class RestStartRollupActionIT : RollupRestTestCase() {
     fun `test starting a failed rollup`() {
         val rollup = Rollup(
             id = "restart_failed_rollup",
-            enabled = true,
             schemaVersion = 1L,
+            enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -98,12 +98,12 @@ class RestStartRollupActionIT : RollupRestTestCase() {
             sourceIndex = "source_restart_failed_rollup",
             targetIndex = "target_restart_failed_rollup",
             metadataID = null,
+            roles = emptyList(),
             pageSize = 10,
             delay = 0,
             continuous = false,
             dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h")),
-            metrics = emptyList(),
-            user = null
+            metrics = emptyList()
         ).let { createRollup(it, it.id) }
 
         // This should fail because we did not create a source index
@@ -151,8 +151,8 @@ class RestStartRollupActionIT : RollupRestTestCase() {
         generateNYCTaxiData("source_restart_finished_rollup")
         val rollup = Rollup(
             id = "restart_finished_rollup",
-            enabled = true,
             schemaVersion = 1L,
+            enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             jobLastUpdatedTime = Instant.now(),
             jobEnabledTime = Instant.now(),
@@ -160,12 +160,12 @@ class RestStartRollupActionIT : RollupRestTestCase() {
             sourceIndex = "source_restart_finished_rollup",
             targetIndex = "target_restart_finished_rollup",
             metadataID = null,
+            roles = emptyList(),
             pageSize = 10,
             delay = 0,
             continuous = false,
             dimensions = listOf(DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h")),
-            metrics = emptyList(),
-            user = null
+            metrics = emptyList()
         ).let { createRollup(it, it.id) }
 
         updateRollupStartTime(rollup)

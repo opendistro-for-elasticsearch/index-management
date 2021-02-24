@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE_HAS_USER
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion._META
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
 import org.apache.logging.log4j.LogManager
@@ -87,7 +87,7 @@ class TransportUpdateRollupMappingAction @Inject constructor(
         }
 
         val rollup = XContentHelper.convertToMap(
-            BytesReference.bytes(request.rollup.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITHOUT_TYPE_HAS_USER)),
+            BytesReference.bytes(request.rollup.toXContent(XContentFactory.jsonBuilder(), XCONTENT_WITHOUT_TYPE)),
             false,
             XContentType.JSON
         ).v2()

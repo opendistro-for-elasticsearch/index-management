@@ -25,9 +25,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.cluster.metadata.IndexMetadata
+import org.elasticsearch.common.bytes.BytesReference
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
 
 /**
@@ -84,3 +87,8 @@ fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXCon
 @Suppress("UNCHECKED_CAST")
 fun <K, V> Map<K, V?>.filterNotNullValues(): Map<K, V> =
     filterValues { it != null } as Map<K, V>
+
+fun contentParser(bytesReference: BytesReference): XContentParser {
+    return XContentHelper.createParser(NamedXContentRegistry.EMPTY,
+        LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
+}

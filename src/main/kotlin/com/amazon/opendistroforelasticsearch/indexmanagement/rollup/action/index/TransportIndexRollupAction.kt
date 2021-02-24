@@ -15,19 +15,13 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.index
 
-import com.amazon.opendistroforelasticsearch.commons.ConfigConstants
-import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.INDEX_MANAGEMENT_PLUGIN_INTERNAL
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_HAS_USER
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.resolveUser
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.use
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
@@ -40,6 +34,7 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
@@ -59,22 +54,13 @@ class TransportIndexRollupAction @Inject constructor(
     private val log = LogManager.getLogger(javaClass)
 
     override fun doExecute(task: Task, request: IndexRollupRequest, listener: ActionListener<IndexRollupResponse>) {
-        val userStr = client.threadPool().threadContext.getTransient<String>(ConfigConstants.OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT)
-        val user = resolveUser(User.parse(userStr))
-        val internalReq = client.threadPool().threadContext.getTransient<Boolean>(INDEX_MANAGEMENT_PLUGIN_INTERNAL)
-        log.debug("Internal request: $internalReq")
-
-        client.threadPool().threadContext.stashContext().use {
-            IndexRollupHandler(client, listener, request, user, internalReq).start()
-        }
+        IndexRollupHandler(client, listener, request).start()
     }
 
     inner class IndexRollupHandler(
         private val client: Client,
         private val actionListener: ActionListener<IndexRollupResponse>,
-        private val request: IndexRollupRequest,
-        private val user: User,
-        private val internalRequest: Boolean?
+        private val request: IndexRollupRequest
     ) {
 
         fun start() {
@@ -122,18 +108,15 @@ class TransportIndexRollupAction @Inject constructor(
             if (rollup.metrics != newRollup.metrics) modified.add(Rollup.METRICS_FIELD)
             if (rollup.sourceIndex != newRollup.sourceIndex) modified.add(Rollup.SOURCE_INDEX_FIELD)
             if (rollup.targetIndex != newRollup.targetIndex) modified.add(Rollup.TARGET_INDEX_FIELD)
+            if (rollup.roles != newRollup.roles) modified.add(Rollup.ROLES_FIELD)
             return modified.toList()
         }
 
         private fun putRollup() {
-            var rollup = request.rollup.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
-
-            if (internalRequest == null || !internalRequest)
-                rollup = rollup.copy(user = user)
-
+            val rollup = request.rollup.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
             request.index(INDEX_MANAGEMENT_INDEX)
                 .id(request.rollup.id)
-                .source(rollup.toXContent(jsonBuilder(), XCONTENT_HAS_USER))
+                .source(rollup.toXContent(jsonBuilder(), ToXContent.EMPTY_PARAMS))
                 .timeout(IndexRequest.DEFAULT_TIMEOUT)
             client.index(request, object : ActionListener<IndexResponse> {
                 override fun onResponse(response: IndexResponse) {

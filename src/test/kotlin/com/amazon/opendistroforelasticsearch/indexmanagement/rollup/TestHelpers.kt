@@ -111,12 +111,12 @@ fun randomRollup(): Rollup {
         sourceIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
         targetIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
         metadataID = if (ESRestTestCase.randomBoolean()) null else ESRestTestCase.randomAlphaOfLength(10),
+        roles = ESRestTestCase.randomList(10) { ESRestTestCase.randomAlphaOfLength(10) },
         pageSize = ESRestTestCase.randomIntBetween(1, 10000),
         delay = ESRestTestCase.randomNonNegativeLong(),
         continuous = ESRestTestCase.randomBoolean(),
         dimensions = randomRollupDimensions(),
-        metrics = ESRestTestCase.randomList(20, ::randomRollupMetrics).distinctBy { it.targetField },
-        user = null
+        metrics = ESRestTestCase.randomList(20, ::randomRollupMetrics).distinctBy { it.targetField }
     )
 }
 

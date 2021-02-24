@@ -18,14 +18,12 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 import com.amazon.opendistroforelasticsearch.commons.authuser.User
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.instant
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalUserField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.HAS_USER
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.WITH_TYPE
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.ALL_ACCESS_ROLE
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -202,12 +200,6 @@ data class Rollup(
         }
         out.writeCollection(metrics)
         out.writeOptionalWriteable(user)
-    }
-
-    fun getRoles(): List<String> {
-        return if (user == null) {
-            ALL_ACCESS_ROLE
-        } else user.roles
     }
 
     companion object {

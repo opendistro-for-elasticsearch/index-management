@@ -15,10 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.InjectorContextElement
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.withCloseableContext
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupResponse

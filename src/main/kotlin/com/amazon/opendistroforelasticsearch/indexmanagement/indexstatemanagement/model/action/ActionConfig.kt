@@ -22,6 +22,7 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentFragment
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -51,6 +52,7 @@ abstract class ActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
+        settings: Settings,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action
 

@@ -22,6 +22,7 @@ import com.amazon.opendistroforelasticsearch.alerting.destination.message.Custom
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.SlackMessage
 import com.amazon.opendistroforelasticsearch.alerting.destination.response.DestinationResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.convertToMap
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isHostInDenylist
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -115,7 +116,7 @@ data class Destination(
     }
 
     @Throws(IOException::class)
-    fun publish(compiledSubject: String?, compiledMessage: String): DestinationResponse {
+    fun publish(compiledSubject: String?, compiledMessage: String, denyHostRanges: List<String>): DestinationResponse {
         val destinationMessage: BaseMessage
         when (type) {
             DestinationType.CHIME -> {
@@ -144,6 +145,7 @@ data class Destination(
                         .withMessage(compiledMessage).build()
             }
         }
+        validateDestinationUri(destinationMessage, denyHostRanges)
         val response = Notification.publish(destinationMessage) as DestinationResponse
         logger.info("Message published for action type: $type, messageid: ${response.responseContent}, statuscode: ${response.statusCode}")
         return response
@@ -160,5 +162,11 @@ data class Destination(
             throw IllegalArgumentException("Content is NULL for destination type ${type.value}")
         }
         return content
+    }
+
+    private fun validateDestinationUri(destinationMessage: BaseMessage, denyHostRanges: List<String>) {
+        if (destinationMessage.isHostInDenylist(denyHostRanges)) {
+            throw IllegalArgumentException("The destination address is invalid.")
+        }
     }
 }

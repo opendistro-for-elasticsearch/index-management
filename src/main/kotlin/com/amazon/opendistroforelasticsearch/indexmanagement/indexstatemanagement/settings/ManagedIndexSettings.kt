@@ -28,6 +28,8 @@ class ManagedIndexSettings {
         private val ALLOW_LIST_ALL = ActionConfig.ActionType.values().toList().map { it.type }
         val ALLOW_LIST_NONE = emptyList<String>()
         val SNAPSHOT_DENY_LIST_NONE = emptyList<String>()
+        const val HOST_DENY_LIST = "opendistro.destination.host.deny_list"
+
 
         val INDEX_STATE_MANAGEMENT_ENABLED: Setting<Boolean> = Setting.boolSetting(
             "opendistro.index_state_management.enabled",

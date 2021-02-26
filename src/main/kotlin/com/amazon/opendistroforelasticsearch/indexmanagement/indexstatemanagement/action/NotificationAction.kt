@@ -22,17 +22,19 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.notification.AttemptNotificationStep
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.script.ScriptService
 
 class NotificationAction(
     clusterService: ClusterService,
     scriptService: ScriptService,
     client: Client,
+    settings: Settings,
     managedIndexMetaData: ManagedIndexMetaData,
     config: NotificationActionConfig
 ) : Action(ActionConfig.ActionType.NOTIFICATION, config, managedIndexMetaData) {
 
-    private val attemptNotificationStep = AttemptNotificationStep(clusterService, scriptService, client, config, managedIndexMetaData)
+    private val attemptNotificationStep = AttemptNotificationStep(clusterService, scriptService, client, settings, config, managedIndexMetaData)
     private val steps = listOf(attemptNotificationStep)
 
     override fun getSteps(): List<Step> = steps

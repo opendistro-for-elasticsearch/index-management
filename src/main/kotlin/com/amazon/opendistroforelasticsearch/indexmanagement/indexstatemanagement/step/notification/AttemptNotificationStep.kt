@@ -19,12 +19,14 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.convertT
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.NotificationActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StepMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.script.Script
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.script.TemplateScript
@@ -33,6 +35,7 @@ class AttemptNotificationStep(
     val clusterService: ClusterService,
     val scriptService: ScriptService,
     val client: Client,
+    val settings: Settings,
     val config: NotificationActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
 ) : Step("attempt_notification", managedIndexMetaData) {
@@ -40,6 +43,7 @@ class AttemptNotificationStep(
     private val logger = LogManager.getLogger(javaClass)
     private var stepStatus = StepStatus.STARTING
     private var info: Map<String, Any>? = null
+    private val hostDenyList = settings.getAsList(ManagedIndexSettings.HOST_DENY_LIST)
 
     override fun isIdempotent() = false
 
@@ -47,7 +51,7 @@ class AttemptNotificationStep(
     override suspend fun execute(): AttemptNotificationStep {
         try {
             withContext(Dispatchers.IO) {
-                config.destination.publish(null, compileTemplate(config.messageTemplate, managedIndexMetaData))
+                config.destination.publish(null, compileTemplate(config.messageTemplate, managedIndexMetaData), hostDenyList)
             }
 
             // publish internally throws an error for any invalid responses so its safe to assume if we reach this point it was successful

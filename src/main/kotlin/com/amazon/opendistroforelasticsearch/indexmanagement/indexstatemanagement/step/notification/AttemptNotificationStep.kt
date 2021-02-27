@@ -49,7 +49,6 @@ class AttemptNotificationStep(
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun execute(): AttemptNotificationStep {
-        clusterService.settings
         try {
             withContext(Dispatchers.IO) {
                 config.destination.publish(null, compileTemplate(config.messageTemplate, managedIndexMetaData), hostDenyList)

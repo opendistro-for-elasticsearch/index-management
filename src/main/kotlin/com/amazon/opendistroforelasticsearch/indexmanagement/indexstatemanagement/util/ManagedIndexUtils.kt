@@ -100,7 +100,7 @@ fun ismMetadataID(indexUuid: String) = "$indexUuid#metadata"
 
 fun revertISMMetadataID(metadataID: String) = metadataID.dropLast(9)
 
-fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData, waitRefresh: Boolean = true): IndexRequest {
+fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData, waitRefresh: Boolean = true, create: Boolean = false): IndexRequest {
     // routing set using managed index's uuid
     // so that metadata doc and managed-index doc are in the same place
     val req = IndexRequest(INDEX_MANAGEMENT_INDEX)
@@ -108,6 +108,7 @@ fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData,
             .setIfPrimaryTerm(managedIndexMetadata.primaryTerm)
             .setIfSeqNo(managedIndexMetadata.seqNo)
             .routing(managedIndexMetadata.indexUuid)
+            .create(create)
             .source(managedIndexMetadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true))
 
     if (waitRefresh)

@@ -593,7 +593,8 @@
               }
             },
             "start_time": {
-              "type": "long"
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
             }
           }
         },
@@ -609,7 +610,8 @@
               }
             },
             "start_time": {
-              "type": "long"
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
             },
             "index": {
               "type": "integer"
@@ -621,7 +623,8 @@
               "type": "integer"
             },
             "last_retry_time": {
-              "type": "long"
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
             },
             "action_properties": {
               "properties": {
@@ -653,7 +656,8 @@
               }
             },
             "start_time": {
-              "type": "long"
+              "type": "date",
+              "format": "strict_date_time||epoch_millis"
             },
             "step_status": {
               "type": "keyword"

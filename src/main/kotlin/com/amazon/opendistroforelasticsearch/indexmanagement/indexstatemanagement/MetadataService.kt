@@ -92,9 +92,12 @@ class MetadataService(
         } else {
             counter = 0; finishFlag = false // index metadata for indices which metadata hasn't been indexed
             val bulkIndexReq =
-                clusterStateMetadata.mapNotNull { it.value }.map { managedIndexMetadataIndexRequest(it, false) }
+                clusterStateMetadata.mapNotNull { it.value }.map { managedIndexMetadataIndexRequest(it,
+                    waitRefresh = false, // should be set at bulk request level
+                    create = true // restrict this as create operation
+                ) }
             // remove the part which gonna be indexed from last time failedToIndex
-            failedToIndexIndices = failedToIndexIndices.filterKeys { it !in indexUuidMap.values }.toMutableMap()
+            failedToIndexIndices = failedToIndexIndices.filterKeys { it !in indexUuidMap.keys }.toMutableMap()
             successIndexedIndices.clear()
             indexMetadatas(bulkIndexReq)
 
@@ -105,7 +108,7 @@ class MetadataService(
 
         // clean metadata for indices which metadata already been indexed
         val indicesToCleanMetadata =
-            indexUuidMap.filter { it.value in successIndexedIndices }.map { Index(it.key, it.value) }
+            indexUuidMap.filter { it.key in successIndexedIndices }.map { Index(it.value, it.key) }
                 .toList() + failedToCleanIndices
 
         cleanMetadatas(indicesToCleanMetadata.distinct())

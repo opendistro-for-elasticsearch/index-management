@@ -24,8 +24,14 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDimens
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformStats
+import org.elasticsearch.common.io.stream.BytesStreamOutput
+import org.elasticsearch.common.io.stream.NamedWriteableAwareStreamInput
+import org.elasticsearch.common.io.stream.NamedWriteableRegistry
+import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.search.SearchModule
 import org.elasticsearch.search.aggregations.AggregationBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.AggregatorFactories
@@ -113,3 +119,9 @@ fun Transform.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS):
 
 fun TransformMetadata.toJsonString(params: ToXContent.Params = ToXContent.EMPTY_PARAMS): String = this.toXContent(XContentFactory.jsonBuilder(), params)
     .string()
+
+// Builds the required stream input for transforms by wrapping the stream input with required NamedWriteableRegistry.
+fun buildStreamInputForTransforms(out: BytesStreamOutput): NamedWriteableAwareStreamInput {
+    val namedWriteableRegistry = NamedWriteableRegistry(SearchModule(Settings.EMPTY, false, emptyList()).namedWriteables)
+    return NamedWriteableAwareStreamInput(out.bytes().streamInput(), namedWriteableRegistry)
+}

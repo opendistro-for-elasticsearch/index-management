@@ -74,43 +74,42 @@ class MetadataService(
         }.filter { it.second != null }.distinct().toMap()
         // filter out previous failedToClean indices which already been indexed
         clusterStateMetadata.filter { it.key !in failedToCleanIndices.map { index -> index.name } }
-        val indexUuidMap = clusterStateMetadata.map { it.key to indicesMetadata[it.key].indexUUID }.toMap()
+        val indexUuidMap = clusterStateMetadata.map { indicesMetadata[it.key].indexUUID to it.key }.toMap()
 
-        logger.info("cluster state metadata: ${clusterStateMetadata.keys}")
-
-        // index metadata for indices which metadata hasn't been indexed
-        val bulkIndexReq =
-            clusterStateMetadata.mapNotNull { it.value }.map { managedIndexMetadataIndexRequest(it, false) }
-        // remove the part which gonna be indexed from last time failedToIndex
-        failedToIndexIndices = failedToIndexIndices.filterKeys { it !in indexUuidMap.values }.toMutableMap()
-        if (bulkIndexReq.isEmpty()) {
+        if (clusterStateMetadata.isEmpty()) {
             logger.info("Index metadata request is empty.")
+            if (failedToCleanIndices.isNotEmpty()) {
+                logger.info("Failed to clean indices: $failedToCleanIndices. Only clean cluster state metadata in this run.")
+                cleanMetadatas(failedToCleanIndices)
+                finishFlag = false; runningLock = false
+                return
+            }
             if (counter++ > 2) {
-                logger.info("Move Metadata succeed, set finish flag to true. Failed to index indices: $failedToIndexIndices")
-                finishFlag = true
-                runningLock = false
+                logger.info("Move Metadata succeed, set finish flag to true. Indices failed to get indexed: $failedToIndexIndices")
+                finishFlag = true; runningLock = false
                 return
             }
         } else {
-            counter = 0; finishFlag = false
+            counter = 0; finishFlag = false // index metadata for indices which metadata hasn't been indexed
+            val bulkIndexReq =
+                clusterStateMetadata.mapNotNull { it.value }.map { managedIndexMetadataIndexRequest(it, false) }
+            // remove the part which gonna be indexed from last time failedToIndex
+            failedToIndexIndices = failedToIndexIndices.filterKeys { it !in indexUuidMap.values }.toMutableMap()
+            successIndexedIndices.clear()
+            indexMetadatas(bulkIndexReq)
+
+            logger.debug("success indexed: ${successIndexedIndices.map { indexUuidMap[it] }}")
+            logger.debug("failed indexed: ${failedToIndexIndices.map { indexUuidMap[it.key] }};" +
+                    "failed reason: ${failedToIndexIndices.values.distinct()}")
         }
-
-        successIndexedIndices.clear()
-        indexMetadatas(bulkIndexReq)
-
-        logger.info("index uuid map: $indexUuidMap")
-        logger.info("success indexed: $successIndexedIndices")
-        logger.info("failed indexed: $failedToIndexIndices")
 
         // clean metadata for indices which metadata already been indexed
         val indicesToCleanMetadata =
             indexUuidMap.filter { it.value in successIndexedIndices }.map { Index(it.key, it.value) }
                 .toList() + failedToCleanIndices
 
-        logger.info("clean metadata for indices: $indicesToCleanMetadata")
         cleanMetadatas(indicesToCleanMetadata.distinct())
-
-        logger.info("failed clean: ${failedToCleanIndices.map { it.name }}")
+        logger.debug("Failed to clean cluster metadata for: ${failedToCleanIndices.map { it.name }}")
 
         runningLock = false
     }

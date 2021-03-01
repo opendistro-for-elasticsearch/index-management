@@ -498,6 +498,12 @@ class ManagedIndexCoordinator(
                 logger.error("Failed to create $INDEX_MANAGEMENT_INDEX")
                 return
             }
+
+            val updated = ismIndices.attemptUpdateConfigIndexMapping()
+            if (!updated) {
+                logger.error("Failed to update mapping for $INDEX_MANAGEMENT_INDEX")
+                return
+            }
         }
 
         retryPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {

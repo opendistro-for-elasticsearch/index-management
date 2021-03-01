@@ -182,6 +182,11 @@ fun randomISMRollup(): ISMRollup {
     )
 }
 
+fun randomDimension(): Dimension {
+    val dimensions = listOf(randomTerms(), randomHistogram(), randomDateHistogram())
+    return ESRestTestCase.randomSubsetOf(1, dimensions).first()
+}
+
 fun randomTermQuery(): TermQueryBuilder { return TermQueryBuilder(ESRestTestCase.randomAlphaOfLength(5), ESRestTestCase.randomAlphaOfLength(5)) }
 
 fun DateHistogram.toJsonString(): String = this.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).string()

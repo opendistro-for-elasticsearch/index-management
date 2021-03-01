@@ -132,6 +132,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         const val OPEN_DISTRO_BASE_URI = "/_opendistro"
         const val ISM_BASE_URI = "$OPEN_DISTRO_BASE_URI/_ism"
         const val ROLLUP_BASE_URI = "$OPEN_DISTRO_BASE_URI/_rollup"
+        const val TRANSFORM_BASE_URI = "$OPEN_DISTRO_BASE_URI/_transform"
         const val POLICY_BASE_URI = "$ISM_BASE_URI/policies"
         const val ROLLUP_JOBS_BASE_URI = "$ROLLUP_BASE_URI/jobs"
         const val INDEX_MANAGEMENT_INDEX = ".opendistro-ism-config"

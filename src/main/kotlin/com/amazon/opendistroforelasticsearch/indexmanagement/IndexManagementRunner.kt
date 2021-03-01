@@ -19,6 +19,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRunner
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRunner
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
@@ -32,6 +34,7 @@ object IndexManagementRunner : ScheduledJobRunner {
         when (job) {
             is ManagedIndexConfig -> ManagedIndexRunner.runJob(job, context)
             is Rollup -> RollupRunner.runJob(job, context)
+            is Transform -> TransformRunner.runJob(job, context)
             else -> {
                 val errorMessage = "Invalid job type, found ${job.javaClass.simpleName} with id: ${context.jobId}"
                 logger.error(errorMessage)

@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Transition
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.script.ScriptService
 
 data class TransitionsActionConfig(
@@ -31,6 +32,7 @@ data class TransitionsActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
+        settings: Settings,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = TransitionsAction(clusterService, client, managedIndexMetaData, this)
 }

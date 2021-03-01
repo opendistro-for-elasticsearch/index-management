@@ -22,6 +22,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.ToXContentObject
 import org.elasticsearch.common.xcontent.XContentBuilder
@@ -52,6 +53,7 @@ data class SnapshotActionConfig(
         clusterService: ClusterService,
         scriptService: ScriptService,
         client: Client,
+        settings: Settings,
         managedIndexMetaData: ManagedIndexMetaData
     ): Action = SnapshotAction(clusterService, client, managedIndexMetaData, this)
 

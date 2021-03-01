@@ -129,6 +129,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
     private val errorNotificationRetryPolicy = BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(250), 3)
     private var jobInterval: Int = DEFAULT_JOB_INTERVAL
     private var allowList: List<String> = ALLOW_LIST_NONE
+    private var hostDenyList: List<String> = emptyList()
 
     fun registerClusterService(clusterService: ClusterService): ManagedIndexRunner {
         this.clusterService = clusterService
@@ -171,6 +172,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
         clusterService.clusterSettings.addSettingsUpdateConsumer(ALLOW_LIST) {
             allowList = it
         }
+
+        hostDenyList = settings.getAsList(ManagedIndexSettings.HOST_DENY_LIST)
         return this
     }
 
@@ -262,7 +265,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         }
 
         val state = policy.getStateToExecute(managedIndexMetaData)
-        val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, managedIndexMetaData)
+        val action: Action? = state?.getActionToExecute(clusterService, scriptService, client, settings, managedIndexMetaData)
         val step: Step? = action?.getStepToExecute()
         val currentActionMetaData = action?.getUpdatedActionMetaData(managedIndexMetaData, state)
 
@@ -732,7 +735,7 @@ object ManagedIndexRunner : ScheduledJobRunner,
         policy.errorNotification?.run {
             errorNotificationRetryPolicy.retry(logger) {
                 withContext(Dispatchers.IO) {
-                    destination.publish(null, compileTemplate(messageTemplate, managedIndexMetaData))
+                    destination.publish(null, compileTemplate(messageTemplate, managedIndexMetaData), hostDenyList)
                 }
             }
         }

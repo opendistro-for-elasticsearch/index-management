@@ -16,6 +16,7 @@
 @file:JvmName("ManagedIndexUtils")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util
 
+import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.Action
@@ -38,6 +39,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.Step
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.delete.AttemptDeleteStep
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
+import inet.ipaddr.IPAddressString
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -47,6 +50,7 @@ import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
@@ -56,6 +60,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.builder.SearchSourceBuilder
+import java.net.InetAddress
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -271,6 +276,7 @@ fun State.getActionToExecute(
     clusterService: ClusterService,
     scriptService: ScriptService,
     client: Client,
+    settings: Settings,
     managedIndexMetaData: ManagedIndexMetaData
 ): Action? {
     var actionConfig: ActionConfig?
@@ -292,14 +298,14 @@ fun State.getActionToExecute(
         // TODO: Refactor so we can get isLastStep from somewhere besides an instantiated Action class so we can simplify this to a when block
         // If stepCompleted is true and this is the last step of the action then we should get the next action
         if (managedIndexMetaData.stepMetaData != null && managedIndexMetaData.stepMetaData.stepStatus == Step.StepStatus.COMPLETED) {
-            val action = actionConfig.toAction(clusterService, scriptService, client, managedIndexMetaData)
+            val action = actionConfig.toAction(clusterService, scriptService, client, settings, managedIndexMetaData)
             if (action.isLastStep(managedIndexMetaData.stepMetaData.name)) {
                 actionConfig = this.actions.getOrNull(managedIndexMetaData.actionMetaData.index + 1) ?: TransitionsActionConfig(this.transitions)
             }
         }
     }
 
-    return actionConfig.toAction(clusterService, scriptService, client, managedIndexMetaData)
+    return actionConfig.toAction(clusterService, scriptService, client, settings, managedIndexMetaData)
 }
 
 fun State.getUpdatedStateMetaData(managedIndexMetaData: ManagedIndexMetaData): StateMetaData {
@@ -541,4 +547,18 @@ fun isMetadataMoved(
         return false
     }
     return true
+}
+
+private val baseMessageLogger = LogManager.getLogger(BaseMessage::class.java)
+
+fun BaseMessage.isHostInDenylist(networks: List<String>): Boolean {
+    val ipStr = IPAddressString(this.uri.host)
+    for (network in networks) {
+        val netStr = IPAddressString(network)
+        if (netStr.contains(ipStr)) {
+            baseMessageLogger.error("Host: {} resolves to: {} which is in denylist: {}.", uri.host, InetAddress.getByName(uri.host), netStr)
+            return true
+        }
+    }
+    return false
 }

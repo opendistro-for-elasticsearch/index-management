@@ -20,16 +20,17 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
 class RestIndexTransformActionIT : TransformRestTestCase() {
+    // TODO: Once GET API written, add update transform tests (required for createTransform helper)
 
     @Throws(Exception::class)
     fun `test creating a transform`() {
-        // TODO: Currently failing
         val transform = randomTransform()
         val response = client().makeRequest(
             "PUT",
@@ -43,5 +44,37 @@ class RestIndexTransformActionIT : TransformRestTestCase() {
         assertNotEquals("Response is missing Id", Transform.NO_ID, createdId)
         assertEquals("Not same id", transform.id, createdId)
         assertEquals("Incorrect Location header", "$TRANSFORM_BASE_URI/$createdId", response.getHeader("Location"))
+    }
+
+    @Throws(Exception::class)
+    fun `test creating a transform with no id fails`() {
+        try {
+            val transform = randomTransform()
+            client().makeRequest(
+                "PUT",
+                TRANSFORM_BASE_URI,
+                emptyMap(),
+                transform.toHttpEntity()
+            )
+            fail("Expected 400 Method BAD_REQUEST response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test creating a transform with POST fails`() {
+        try {
+            val transform = randomTransform()
+            client().makeRequest(
+                "POST",
+                "$TRANSFORM_BASE_URI/some_transform",
+                emptyMap(),
+                transform.toHttpEntity()
+            )
+            fail("Expected 405 Method Not Allowed response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.METHOD_NOT_ALLOWED, e.response.restStatus())
+        }
     }
 }

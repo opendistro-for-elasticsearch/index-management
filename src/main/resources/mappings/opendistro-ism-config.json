@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 6
+    "schema_version": 7
   },
   "dynamic": "strict",
   "properties": {
@@ -755,6 +755,151 @@
           "type": "text"
         },
         "stats": {
+          "type": "object",
+          "enabled": false
+        }
+      }
+    },
+    "transform": {
+      "properties": {
+        "transform_id": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "enabled_at": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "updated_at": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "schema_version": {
+          "type": "long"
+        },
+        "schedule": {
+          "properties": {
+            "interval": {
+              "properties": {
+                "period": {
+                  "type": "integer"
+                },
+                "unit": {
+                  "type": "keyword"
+                },
+                "start_time": {
+                  "type": "date",
+                  "format": "strict_date_time||epoch_millis"
+                }
+              }
+            },
+            "cron": {
+              "properties": {
+                "expression": {
+                  "type": "keyword"
+                },
+                "timezone": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        },
+        "description": {
+          "type": "text"
+        },
+        "source_index": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "target_index": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "page_size": {
+          "type": "long"
+        },
+        "metadata_id": {
+          "type": "keyword"
+        },
+        "roles": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "groups": {
+          "properties": {
+            "date_histogram": {
+              "properties": {
+                "source_field": {
+                  "type": "keyword"
+                },
+                "target_field": {
+                  "type": "keyword"
+                },
+                "fixed_interval": {
+                  "type": "keyword"
+                },
+                "calendar_interval": {
+                  "type": "keyword"
+                },
+                "timezone": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "terms": {
+              "properties": {
+                "source_field": {
+                  "type": "keyword"
+                },
+                "target_field": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "histogram": {
+              "properties": {
+                "source_field": {
+                  "type": "keyword"
+                },
+                "target_field": {
+                  "type": "keyword"
+                },
+                "interval": {
+                  "type": "double"
+                }
+              }
+            }
+          }
+        },
+        "aggregations": {
+          "type": "object",
+          "enabled": false
+        },
+        "data_selection_query": {
           "type": "object",
           "enabled": false
         }

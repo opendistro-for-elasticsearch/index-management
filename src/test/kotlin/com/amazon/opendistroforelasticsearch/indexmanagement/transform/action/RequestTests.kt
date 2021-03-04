@@ -23,7 +23,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTra
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.BytesStreamOutput
-import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.index.seqno.SequenceNumbers
 
 class RequestTests : ESTestCase() {

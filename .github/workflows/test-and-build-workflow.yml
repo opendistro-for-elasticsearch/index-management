@@ -5,10 +5,12 @@ on:
     branches:
       - master
       - opendistro-*
+      - development-*
   push:
     branches:
       - master
       - opendistro-*
+      - development-*
 
 jobs:
   build:

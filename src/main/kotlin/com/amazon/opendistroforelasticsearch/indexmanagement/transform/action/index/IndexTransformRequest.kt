@@ -31,8 +31,6 @@ class IndexTransformRequest : IndexRequest {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : super(sin) {
-        // Modifications to fix Transform are causing issues here because there are fewer reads to the StreamInput
-        // than there are writes, so the Refresh Policy ends up reading the tail of the Transform, not the refresh policy
         transform = Transform(sin)
         super.setRefreshPolicy(WriteRequest.RefreshPolicy.readFrom(sin))
     }

@@ -31,29 +31,14 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.rest.RestStatus
 import java.io.IOException
 
-class IndexTransformResponse : ActionResponse, ToXContentObject {
-    var id: String
-    var version: Long
-    var seqNo: Long
-    var primaryTerm: Long
-    var status: RestStatus
-    var transform: Transform
-
-    constructor(
-        id: String,
-        version: Long,
-        seqNo: Long,
-        primaryTerm: Long,
-        status: RestStatus,
-        transform: Transform
-    ) : super() {
-        this.id = id
-        this.version = version
-        this.seqNo = seqNo
-        this.primaryTerm = primaryTerm
-        this.status = status
-        this.transform = transform
-    }
+class IndexTransformResponse(
+    val id: String,
+    val version: Long,
+    val seqNo: Long,
+    val primaryTerm: Long,
+    val status: RestStatus,
+    val transform: Transform
+) : ActionResponse(), ToXContentObject {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(

@@ -39,7 +39,6 @@ import org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
-import java.lang.Exception
 
 class TransportIndexTransformAction @Inject constructor(
     transportService: TransportService,
@@ -64,26 +63,26 @@ class TransportIndexTransformAction @Inject constructor(
     ) {
 
         fun start() {
-            indexManagementIndices.checkAndUpdateIMConfigIndex(ActionListener.wrap(::onCreateTransformResponse, actionListener::onFailure))
+            indexManagementIndices.checkAndUpdateIMConfigIndex(ActionListener.wrap(::onConfigIndexAcknowledgedResponse, actionListener::onFailure))
         }
 
-        private fun onCreateTransformResponse(response: AcknowledgedResponse) {
+        private fun onConfigIndexAcknowledgedResponse(response: AcknowledgedResponse) {
             if (response.isAcknowledged) {
-                log.info("Successfully created or updated $INDEX_MANAGEMENT_INDEX with newest transform.")
+                log.info("Successfully created or updated $INDEX_MANAGEMENT_INDEX with newest mappings.")
                 if (request.opType() == DocWriteRequest.OpType.CREATE) {
-                    putTransform()
+                    updateTransform()
                 } else {
                     getTransform()
                 }
             } else {
-                val message = "Unable to create or update $INDEX_MANAGEMENT_INDEX with newest transform."
+                val message = "Unable to create or update $INDEX_MANAGEMENT_INDEX with newest mappings."
                 log.error(message)
                 actionListener.onFailure(ElasticsearchStatusException(message, RestStatus.INTERNAL_SERVER_ERROR))
             }
         }
 
         private fun getTransform() {
-            val getReq = GetTransformRequest(request.transform.id, null)
+            val getReq = GetTransformRequest(request.transform.id, null, null)
             client.execute(GetTransformAction.INSTANCE, getReq, ActionListener.wrap(::onGetTransform, actionListener::onFailure))
         }
 
@@ -98,7 +97,7 @@ class TransportIndexTransformAction @Inject constructor(
             if (modified.isNotEmpty()) {
                 return actionListener.onFailure(ElasticsearchStatusException("Not allowed to modify $modified", RestStatus.BAD_REQUEST))
             }
-            putTransform()
+            updateTransform()
         }
 
         private fun modifiedImmutableProperties(transform: Transform, newTransform: Transform): List<String> {
@@ -112,7 +111,7 @@ class TransportIndexTransformAction @Inject constructor(
             return modified.toList()
         }
 
-        private fun putTransform() {
+        private fun updateTransform() {
             val transform = request.transform.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
             request.index(INDEX_MANAGEMENT_INDEX)
                 .id(request.transform.id)

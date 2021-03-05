@@ -64,10 +64,11 @@ class MetadataService(
     @Volatile final var finishFlag = false
         private set
 
-    @Volatile
-    private var retryPolicy =
+    @Suppress("MagicNumber")
+    @Volatile private var retryPolicy =
         BackoffPolicy.constantBackoff(TimeValue.timeValueMillis(50), 3)
 
+    @Suppress("ReturnCount", "LongMethod", "ComplexMethod")
     suspend fun moveMetadata() {
         if (runningLock) {
             logger.info("There is a move metadata process running...")

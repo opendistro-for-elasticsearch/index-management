@@ -97,9 +97,13 @@ fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): Inde
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
-fun managedIndexMetadataID(indexUuid: String) = "$indexUuid#metadata"
+const val METADATA_POST_FIX = "#metadata"
 
-fun revertManagedIndexMetadataID(metadataID: String) = metadataID.dropLast(9)
+fun managedIndexMetadataID(indexUuid: String) =
+    indexUuid + METADATA_POST_FIX
+
+fun revertManagedIndexMetadataID(metadataID: String) =
+    metadataID.dropLast(METADATA_POST_FIX.length)
 
 fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData, waitRefresh: Boolean = true, create: Boolean = false): IndexRequest {
     // routing set using managed index's uuid
@@ -562,7 +566,7 @@ fun isMetadataMoved(
                 val stepMetadata = configIndexMetadata["step"] as Map<String, Any>?
                 stepMetadata?.get("start_time")
             }
-            else ->  null
+            else -> null
         } as Long?
         if (t1 != null && t2 != null && t1 > t2) {
             logger.warn("Cluster state metadata get updates after moved for [${clusterStateMetadata.index}]")

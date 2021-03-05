@@ -137,6 +137,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
             })
         }
 
+        @Suppress("ComplexMethod")
         private fun onMgetMetadataResponse(mgetResponse: MultiGetResponse) {
             val metadataList = mgetResponseToList(mgetResponse)
             clusterState.metadata.indices.forEachIndexed { ind, it ->

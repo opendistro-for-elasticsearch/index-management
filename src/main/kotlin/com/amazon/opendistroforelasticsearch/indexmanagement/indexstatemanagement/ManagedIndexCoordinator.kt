@@ -13,6 +13,7 @@
  * permissions and limitations under the License.
  */
 
+@file:Suppress("ReturnCount")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
@@ -165,7 +166,6 @@ class ManagedIndexCoordinator(
         scheduledMoveMetadata?.cancel()
     }
 
-    @Suppress("ReturnCount")
     override fun clusterChanged(event: ClusterChangedEvent) {
         // Instead of using a LocalNodeMasterListener to track master changes, this service will
         // track them here to avoid conditions where master listener events run after other
@@ -466,7 +466,6 @@ class ManagedIndexCoordinator(
      *
      * @return map of IndexUuid to [ManagedIndexConfig]
      */
-    @Suppress("ReturnCount")
     suspend fun getManagedIndices(indexUuids: List<String>): Map<String, ManagedIndexConfig?> {
         if (indexUuids.isEmpty()) return emptyMap()
 

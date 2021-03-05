@@ -79,7 +79,7 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
 
         waitFor {
             assertEquals(
-                "Metadata is moving...",
+                "Metadata is pending migration",
                 getExplainManagedIndexMetaData(indexName).info?.get("message")
             )
         }
@@ -172,7 +172,7 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
 
         waitFor {
             assertEquals(
-                "Metadata is moving...",
+                "Metadata is pending migration",
                 getExplainManagedIndexMetaData(indexName).info?.get("message")
             )
         }

@@ -161,7 +161,7 @@ data class Transform(
         enabledAt = sin.readOptionalInstant(),
         description = sin.readString(),
         sourceIndex = sin.readString(),
-        dataSelectionQuery = requireNotNull(sin.readNamedWriteable(QueryBuilder::class.java)) { "Query cannot be null" },
+        dataSelectionQuery = requireNotNull(sin.readOptionalNamedWriteable(QueryBuilder::class.java)) { "Query cannot be null" },
         targetIndex = sin.readString(),
         roles = sin.readStringArray().toList(),
         pageSize = sin.readInt(),
@@ -180,7 +180,7 @@ data class Transform(
             }
             dimensionList.toList()
         },
-        aggregations = sin.readOptionalWriteable { AggregatorFactories.Builder(it) }!!
+        aggregations = requireNotNull(sin.readOptionalWriteable { AggregatorFactories.Builder(it) }) { "Aggregations cannot be null" }
     )
 
     companion object {

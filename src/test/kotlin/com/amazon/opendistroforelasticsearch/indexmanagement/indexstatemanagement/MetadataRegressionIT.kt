@@ -28,7 +28,6 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.Index
-import org.elasticsearch.test.ESIntegTestCase
 import org.junit.After
 import org.junit.Assume
 import org.junit.Before
@@ -41,14 +40,14 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
-//    @Before
-//    fun startMetadataService() {
-//        // metadata service could be stopped before following tests start run
-//        // this will enable metadata service again
-//        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, "false")
-//        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, "true")
-//    }
-//
+    @Before
+    fun startMetadataService() {
+        // metadata service could be stopped before following tests start run
+        // this will enable metadata service again
+        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, "false")
+        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, "true")
+    }
+
     @After
     fun cleanClusterSetting() {
         // need to clean up otherwise will throw error

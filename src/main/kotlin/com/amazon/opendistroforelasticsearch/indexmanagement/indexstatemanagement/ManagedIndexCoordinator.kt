@@ -143,13 +143,8 @@ class ManagedIndexCoordinator(
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(METADATA_SERVICE_ENABLED) {
             metadataServiceEnabled = it
-            if (!metadataServiceEnabled) {
-                scheduledMoveMetadata?.cancel()
-                logger.info("metadata service setting $metadataServiceEnabled; cancel")
-            } else {
-                initMoveMetadata()
-                logger.info("metadata service setting $metadataServiceEnabled; init")
-            }
+            if (!metadataServiceEnabled) scheduledMoveMetadata?.cancel()
+            else initMoveMetadata()
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
@@ -387,6 +382,11 @@ class ManagedIndexCoordinator(
         if (!isIndexStateManagementEnabled()) return
         if (!clusterService.state().nodes().isLocalNodeElectedMaster) return
         scheduledMoveMetadata?.cancel()
+
+        if (metadataService.finishFlag) {
+            logger.info("Re-enable Metadata Service.")
+            metadataService.reenableMetadataService()
+        }
 
         val scheduledJob = Runnable {
             launch {

@@ -63,6 +63,7 @@ class MetadataService(
     // used in coordinator sweep to cancel scheduled process
     @Volatile final var finishFlag = false
         private set
+    fun reenableMetadataService() { finishFlag = false }
 
     @Suppress("MagicNumber")
     @Volatile private var retryPolicy =

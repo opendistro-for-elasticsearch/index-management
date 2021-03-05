@@ -330,4 +330,18 @@ abstract class IndexStateManagementIntegTestCase : ESIntegTestCase() {
         request.setJsonEntity(Strings.toString(settings))
         getRestClient().performRequest(request)
     }
+
+    fun updateClusterSetting(key: String, value: String?, escapeValue: Boolean = true) {
+        val formattedValue = if (escapeValue) "\"$value\"" else value
+        val request = """
+            {
+                "persistent": {
+                    "$key": $formattedValue
+                }
+            }
+        """.trimIndent()
+        val res = getRestClient().makeRequest("PUT", "_cluster/settings", emptyMap(),
+            StringEntity(request, ContentType.APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, res.restStatus())
+    }
 }

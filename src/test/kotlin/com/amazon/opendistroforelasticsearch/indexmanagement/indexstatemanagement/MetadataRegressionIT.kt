@@ -19,6 +19,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ReplicaCountActionConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
@@ -27,7 +28,10 @@ import org.elasticsearch.action.support.master.AcknowledgedResponse
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.Index
+import org.elasticsearch.test.ESIntegTestCase
+import org.junit.After
 import org.junit.Assume
+import org.junit.Before
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -37,7 +41,24 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
 
+//    @Before
+//    fun startMetadataService() {
+//        // metadata service could be stopped before following tests start run
+//        // this will enable metadata service again
+//        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, "false")
+//        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, "true")
+//    }
+//
+    @After
+    fun cleanClusterSetting() {
+        // need to clean up otherwise will throw error
+        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, null, false)
+    }
+
     fun `test move metadata service`() {
+        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, "false")
+        updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, "true")
+
         val indexName = "${testIndexName}_index_1"
         val policyID = "${testIndexName}_testPolicyName_1"
         val actionConfig = ReplicaCountActionConfig(10, 0)

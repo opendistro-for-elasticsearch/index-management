@@ -143,7 +143,13 @@ class ManagedIndexCoordinator(
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(METADATA_SERVICE_ENABLED) {
             metadataServiceEnabled = it
-            if (!metadataServiceEnabled) scheduledMoveMetadata?.cancel() else initMoveMetadata()
+            if (!metadataServiceEnabled) {
+                scheduledMoveMetadata?.cancel()
+                logger.info("metadata service setting $metadataServiceEnabled; cancel")
+            } else {
+                initMoveMetadata()
+                logger.info("metadata service setting $metadataServiceEnabled; init")
+            }
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)

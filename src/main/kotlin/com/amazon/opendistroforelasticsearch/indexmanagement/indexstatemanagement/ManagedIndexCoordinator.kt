@@ -119,6 +119,7 @@ class ManagedIndexCoordinator(
 
     @Volatile private var lastFullSweepTimeNano = System.nanoTime()
     @Volatile private var indexStateManagementEnabled = INDEX_STATE_MANAGEMENT_ENABLED.get(settings)
+    @Volatile private var metadataServiceEnabled = METADATA_SERVICE_ENABLED.get(settings)
     @Volatile private var sweepPeriod = SWEEP_PERIOD.get(settings)
     @Volatile private var retryPolicy =
             BackoffPolicy.constantBackoff(COORDINATOR_BACKOFF_MILLIS.get(settings), COORDINATOR_BACKOFF_COUNT.get(settings))
@@ -141,7 +142,8 @@ class ManagedIndexCoordinator(
             if (!indexStateManagementEnabled) disable() else enable()
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(METADATA_SERVICE_ENABLED) {
-            if (!it) scheduledMoveMetadata?.cancel() else initMoveMetadata()
+            metadataServiceEnabled = it
+            if (!metadataServiceEnabled) scheduledMoveMetadata?.cancel() else initMoveMetadata()
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
@@ -375,6 +377,7 @@ class ManagedIndexCoordinator(
     }
 
     fun initMoveMetadata() {
+        if (!metadataServiceEnabled) return
         if (!isIndexStateManagementEnabled()) return
         if (!clusterService.state().nodes().isLocalNodeElectedMaster) return
         scheduledMoveMetadata?.cancel()

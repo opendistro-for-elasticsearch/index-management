@@ -24,7 +24,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.ISMStatusResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FailedIndex
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isFailed
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismMetadataID
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataID
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.updateEnableManagedIndexRequest
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
@@ -153,7 +153,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
                     managedIndexMetadata == null -> {
                         if (clusterStateMetadata != null) {
                             failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
-                                "Metadata is moving..."))
+                                "Cannot retry until metadata has finished migrating"))
                         } else {
                             failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
                             "This index has no metadata information"))
@@ -211,7 +211,7 @@ class TransportRetryFailedManagedIndexAction @Inject constructor(
 
                 val updateMetadataRequests = listOfIndexToMetadata.map { (index, metadata) ->
                     val builder = metadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true)
-                    UpdateRequest(INDEX_MANAGEMENT_INDEX, ismMetadataID(index.uuid)).doc(builder)
+                    UpdateRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(index.uuid)).doc(builder)
                 }
                 val bulkUpdateMetadataRequest = BulkRequest().add(updateMetadataRequests)
 

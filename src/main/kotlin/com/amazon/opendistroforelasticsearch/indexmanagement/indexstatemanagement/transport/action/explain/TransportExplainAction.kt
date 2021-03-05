@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isMetadataMoved
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ismMetadataID
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataID
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.index.IndexNotFoundException
@@ -226,7 +226,7 @@ class TransportExplainAction @Inject constructor(
             val indices = clusterStateIndexMetadatas.map { it.key to it.value.indexUUID }.toMap()
             val mgetMetadataReq = MultiGetRequest()
             indices.map { it.value }.forEach { uuid ->
-                mgetMetadataReq.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, ismMetadataID(uuid)).routing(uuid))
+                mgetMetadataReq.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(uuid)).routing(uuid))
             }
             client.multiGet(mgetMetadataReq, object : ActionListener<MultiGetResponse> {
                 override fun onResponse(response: MultiGetResponse) {
@@ -257,7 +257,7 @@ class TransportExplainAction @Inject constructor(
 
                 val clusterStateMetadata = clusterStateIndexMetadatas[indexName]?.getManagedIndexMetadata()
                 var managedIndexMetadata: ManagedIndexMetaData? = null
-                val configIndexMetadataMap = metadataMap[indices[indexName]?.let { ismMetadataID(it) } ]
+                val configIndexMetadataMap = metadataMap[indices[indexName]?.let { managedIndexMetadataID(it) } ]
                 if (managedIndexMetadataMap != null) {
                     if (configIndexMetadataMap != null) { // if has metadata saved, use that
                         managedIndexMetadataMap = configIndexMetadataMap
@@ -266,9 +266,8 @@ class TransportExplainAction @Inject constructor(
                         managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetadataMap)
                     }
 
-                    if (!isMetadataMoved(clusterStateMetadata, configIndexMetadataMap)) {
-                        log.info("cluster state metadata hasn't been moved.")
-                        val info = mapOf("message" to "Metadata is moving...")
+                    if (!isMetadataMoved(clusterStateMetadata, configIndexMetadataMap, log)) {
+                        val info = mapOf("message" to "Metadata is pending migration")
                         managedIndexMetadata = clusterStateMetadata?.copy(info = info)
                     }
                 }

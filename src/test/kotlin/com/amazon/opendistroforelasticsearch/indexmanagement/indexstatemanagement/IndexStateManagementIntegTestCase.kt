@@ -197,14 +197,6 @@ abstract class IndexStateManagementIntegTestCase : ESIntegTestCase() {
         }
     }
 
-    protected fun seeConfigIndex() {
-        val response = getRestClient().makeRequest("GET", "${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX}/_search")
-        val searchResponse =
-            SearchResponse.fromXContent(createParser(JsonXContent.jsonXContent, response.entity.content))
-        val hits = searchResponse.hits.hits
-        hits.forEach { logger.info("what is inside config index? $it") }
-    }
-
     protected fun updateManagedIndexConfigStartTime(update: ManagedIndexConfig, desiredStartTimeMillis: Long? = null) {
         val intervalSchedule = (update.jobSchedule as IntervalSchedule)
         val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()

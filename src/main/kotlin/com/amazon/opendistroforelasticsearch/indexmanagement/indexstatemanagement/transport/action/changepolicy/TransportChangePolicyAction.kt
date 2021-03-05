@@ -182,7 +182,7 @@ class TransportChangePolicyAction @Inject constructor(
                     managedIndexMetadata == null -> {
                         if (clusterStateMetadata != null) {
                             failedIndices.add(FailedIndex(indexMetaData.index.name, indexMetaData.index.uuid,
-                            "Metadata is moving..."))
+                            "Cannot change policy until metadata has finished migrating"))
                         } else {
                             managedIndicesToUpdate.add(indexMetaData.index.name to indexMetaData.index.uuid)
                         }

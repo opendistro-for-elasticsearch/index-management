@@ -84,9 +84,7 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
             )
         }
 
-        Thread.sleep(60_000)
-
-        waitFor {
+        waitFor(Instant.ofEpochSecond(60)) {
             assertEquals(
                 "Happy moving",
                 getExplainManagedIndexMetaData(indexName).info?.get("message")
@@ -179,9 +177,7 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
             )
         }
 
-        Thread.sleep(60_000)
-
-        waitFor {
+        waitFor(Instant.ofEpochSecond(60)) {
             assertEquals(
                 "Happy moving",
                 getExplainManagedIndexMetaData(indexName).info?.get("message")

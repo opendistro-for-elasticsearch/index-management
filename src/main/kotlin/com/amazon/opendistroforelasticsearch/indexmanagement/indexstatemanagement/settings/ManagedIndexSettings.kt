@@ -24,6 +24,7 @@ import java.util.function.Function
 class ManagedIndexSettings {
     companion object {
         const val DEFAULT_ISM_ENABLED = true
+        const val DEFAULT_METADATA_SERVICE_ENABLED = true
         const val DEFAULT_JOB_INTERVAL = 5
         private val ALLOW_LIST_ALL = ActionConfig.ActionType.values().toList().map { it.type }
         val ALLOW_LIST_NONE = emptyList<String>()
@@ -33,6 +34,13 @@ class ManagedIndexSettings {
         val INDEX_STATE_MANAGEMENT_ENABLED: Setting<Boolean> = Setting.boolSetting(
             "opendistro.index_state_management.enabled",
             DEFAULT_ISM_ENABLED,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val METADATA_SERVICE_ENABLED: Setting<Boolean> = Setting.boolSetting(
+            "opendistro.index_state_management.metadata_service.enabled",
+            DEFAULT_METADATA_SERVICE_ENABLED,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )

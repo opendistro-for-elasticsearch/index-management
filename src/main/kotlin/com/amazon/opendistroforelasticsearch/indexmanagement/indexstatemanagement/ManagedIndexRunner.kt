@@ -231,9 +231,8 @@ object ManagedIndexRunner : ScheduledJobRunner,
         val managedIndexMetaData = indexMetaData.getManagedIndexMetadata(client)
         val clusterStateMetadata = indexMetaData.getManagedIndexMetadata()
 
-        if (!isMetadataMoved(clusterStateMetadata, managedIndexMetaData)) {
-            logger.info("Cluster state metadata for job [${managedIndexConfig.jobName}] " +
-                "has not been moved to config index, [$clusterStateMetadata]")
+        if (!isMetadataMoved(clusterStateMetadata, managedIndexMetaData, logger)) {
+            logger.info("Skipping execution while pending migration of metadata for ${managedIndexConfig.jobName}")
             return
         }
 

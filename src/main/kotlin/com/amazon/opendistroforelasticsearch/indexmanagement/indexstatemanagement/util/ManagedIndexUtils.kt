@@ -41,6 +41,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import inet.ipaddr.IPAddressString
 import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -96,15 +97,15 @@ fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): Inde
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
-fun ismMetadataID(indexUuid: String) = "$indexUuid#metadata"
+fun managedIndexMetadataID(indexUuid: String) = "$indexUuid#metadata"
 
-fun revertISMMetadataID(metadataID: String) = metadataID.dropLast(9)
+fun revertManagedIndexMetadataID(metadataID: String) = metadataID.dropLast(9)
 
 fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData, waitRefresh: Boolean = true, create: Boolean = false): IndexRequest {
     // routing set using managed index's uuid
     // so that metadata doc and managed-index doc are in the same place
     val req = IndexRequest(INDEX_MANAGEMENT_INDEX)
-            .id(ismMetadataID(managedIndexMetadata.indexUuid))
+            .id(managedIndexMetadataID(managedIndexMetadata.indexUuid))
             .setIfPrimaryTerm(managedIndexMetadata.primaryTerm)
             .setIfSeqNo(managedIndexMetadata.seqNo)
             .routing(managedIndexMetadata.indexUuid)
@@ -141,7 +142,7 @@ fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
 }
 
 fun deleteManagedIndexMetadataRequest(uuid: String): DeleteRequest {
-    return DeleteRequest(INDEX_MANAGEMENT_INDEX, ismMetadataID(uuid))
+    return DeleteRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(uuid))
 }
 
 fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig): UpdateRequest {
@@ -540,12 +541,32 @@ fun Policy.getDisallowedActions(allowList: List<String>): List<String> {
  */
 fun Action.isAllowed(allowList: List<String>): Boolean = allowList.contains(this.type.type)
 
+/**
+ * Check if cluster state metadata has been moved to config index
+ *
+ * log warning if remaining cluster state metadata has newer last_updated_time
+ */
 fun isMetadataMoved(
     clusterStateMetadata: ManagedIndexMetaData?,
-    configIndexMetadata: Any?
+    configIndexMetadata: Any?,
+    logger: Logger
 ): Boolean {
-    if (clusterStateMetadata != null && configIndexMetadata == null) {
-        return false
+    if (clusterStateMetadata != null) {
+        if (configIndexMetadata == null) return false
+
+        // compare last updated time between 2 metadatas
+        val t1 = clusterStateMetadata.stepMetaData?.startTime
+        val t2 = when (configIndexMetadata) {
+            is ManagedIndexMetaData? -> configIndexMetadata.stepMetaData?.startTime
+            is Map<*, *>? -> {
+                val stepMetadata = configIndexMetadata["step"] as Map<String, Any>?
+                stepMetadata?.get("start_time")
+            }
+            else ->  null
+        } as Long?
+        if (t1 != null && t2 != null && t1 > t2) {
+            logger.warn("Cluster state metadata get updates after moved for [${clusterStateMetadata.index}]")
+        }
     }
     return true
 }

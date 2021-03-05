@@ -34,6 +34,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.COORDINATOR_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.INDEX_STATE_MANAGEMENT_ENABLED
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.METADATA_SERVICE_ENABLED
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexMetadataRequest
@@ -137,6 +138,9 @@ class ManagedIndexCoordinator(
         clusterService.clusterSettings.addSettingsUpdateConsumer(INDEX_STATE_MANAGEMENT_ENABLED) {
             indexStateManagementEnabled = it
             if (!indexStateManagementEnabled) disable() else enable()
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(METADATA_SERVICE_ENABLED) {
+            if (!it) scheduledMoveMetadata?.cancel() else initMoveMetadata()
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
@@ -360,11 +364,6 @@ class ManagedIndexCoordinator(
                     try {
                         logger.debug("Performing background sweep of managed indices")
                         sweep()
-
-                        if (metadataService.isFinished()) {
-                            logger.info("Cancel background move metadata process.")
-                            scheduledMoveMetadata?.cancel()
-                        }
                     } catch (e: Exception) {
                         logger.error("Failed to sweep managed indices", e)
                     }
@@ -383,6 +382,11 @@ class ManagedIndexCoordinator(
         val scheduledJob = Runnable {
             launch {
                 try {
+                    if (metadataService.finishFlag) {
+                        logger.info("Cancel background move metadata process.")
+                        scheduledMoveMetadata?.cancel()
+                    }
+
                     logger.info("Performing move cluster state metadata.")
                     metadataService.moveMetadata()
                 } catch (e: Exception) {

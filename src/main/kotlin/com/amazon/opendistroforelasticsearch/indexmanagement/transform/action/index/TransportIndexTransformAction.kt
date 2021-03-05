@@ -70,9 +70,9 @@ class TransportIndexTransformAction @Inject constructor(
             if (response.isAcknowledged) {
                 log.info("Successfully created or updated $INDEX_MANAGEMENT_INDEX with newest mappings.")
                 if (request.opType() == DocWriteRequest.OpType.CREATE) {
-                    updateTransform()
+                    putTransform()
                 } else {
-                    getTransform()
+                    updateTransform()
                 }
             } else {
                 val message = "Unable to create or update $INDEX_MANAGEMENT_INDEX with newest mappings."
@@ -81,7 +81,7 @@ class TransportIndexTransformAction @Inject constructor(
             }
         }
 
-        private fun getTransform() {
+        private fun updateTransform() {
             val getReq = GetTransformRequest(request.transform.id, null, null)
             client.execute(GetTransformAction.INSTANCE, getReq, ActionListener.wrap(::onGetTransform, actionListener::onFailure))
         }
@@ -97,7 +97,7 @@ class TransportIndexTransformAction @Inject constructor(
             if (modified.isNotEmpty()) {
                 return actionListener.onFailure(ElasticsearchStatusException("Not allowed to modify $modified", RestStatus.BAD_REQUEST))
             }
-            updateTransform()
+            putTransform()
         }
 
         private fun modifiedImmutableProperties(transform: Transform, newTransform: Transform): List<String> {
@@ -111,7 +111,7 @@ class TransportIndexTransformAction @Inject constructor(
             return modified.toList()
         }
 
-        private fun updateTransform() {
+        private fun putTransform() {
             val transform = request.transform.copy(schemaVersion = IndexUtils.indexManagementConfigSchemaVersion)
             request.index(INDEX_MANAGEMENT_INDEX)
                 .id(request.transform.id)

@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.g
 
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
+import org.elasticsearch.action.ValidateActions
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext
@@ -36,9 +37,22 @@ class GetTransformRequest(
     )
 
     override fun validate(): ActionRequestValidationException? {
-        return null
+        var validationException: ActionRequestValidationException? = null
+        if (id.isBlank()) {
+            validationException = ValidateActions.addValidationError("id is missing", validationException)
+        }
+        return validationException
     }
 
     @Throws(IOException::class)
-    override fun writeTo(out: StreamOutput) {}
+    override fun writeTo(out: StreamOutput) {
+        out.writeString(id)
+        if (srcContext == null) {
+            out.writeBoolean(false)
+        } else {
+            out.writeBoolean(true)
+            srcContext.writeTo(out)
+        }
+        out.writeOptionalString(preference)
+    }
 }

@@ -16,14 +16,16 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.buildStreamInputForTransforms
-import org.elasticsearch.test.ESTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.index.seqno.SequenceNumbers
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext
+import org.elasticsearch.test.ESTestCase
 
 class RequestTests : ESTestCase() {
 
@@ -57,5 +59,29 @@ class RequestTests : ESTestCase() {
         assertEquals(transform.primaryTerm, streamedReq.ifPrimaryTerm())
         assertEquals(WriteRequest.RefreshPolicy.IMMEDIATE, streamedReq.refreshPolicy)
         assertEquals(DocWriteRequest.OpType.INDEX, streamedReq.opType())
+    }
+
+    fun `test get transform request`() {
+        val id = "some_id"
+        val srcContext = null
+        val preference = "_local"
+        val req = GetTransformRequest(id, srcContext, preference)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = GetTransformRequest(buildStreamInputForTransforms(out))
+        assertEquals(id, streamedReq.id)
+        assertEquals(srcContext, streamedReq.srcContext)
+        assertEquals(preference, streamedReq.preference)
+    }
+
+    fun `test head get rollup request`() {
+        val id = "some_id"
+        val srcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
+        val req = GetTransformRequest(id, srcContext)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = GetTransformRequest(buildStreamInputForTransforms(out))
+        assertEquals(id, streamedReq.id)
+        assertEquals(srcContext, streamedReq.srcContext)
     }
 }

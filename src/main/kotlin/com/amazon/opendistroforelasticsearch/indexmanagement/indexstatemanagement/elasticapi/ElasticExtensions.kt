@@ -17,18 +17,40 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.contentParser
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.ActionRequestValidationException
+import org.elasticsearch.action.NoShardAvailableActionException
+import org.elasticsearch.action.get.GetRequest
+import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.get.MultiGetRequest
+import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.ToXContent
+import org.elasticsearch.common.xcontent.ToXContentFragment
+import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.Index
+import org.elasticsearch.index.IndexNotFoundException
+
+private val log = LogManager.getLogger("Index Management Helper")
 
 /**
  * Returns the current rollover_alias if it exists otherwise returns null.
@@ -39,8 +61,8 @@ fun IndexMetadata.getRolloverAlias(): String? {
     return this.settings.get(ManagedIndexSettings.ROLLOVER_ALIAS.key)
 }
 
-fun IndexMetadata.getManagedIndexMetaData(): ManagedIndexMetaData? {
-    val existingMetaDataMap = this.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+fun IndexMetadata.getManagedIndexMetadata(): ManagedIndexMetaData? {
+    val existingMetaDataMap = this.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA_TYPE)
 
     if (existingMetaDataMap != null) {
         return ManagedIndexMetaData.fromMap(existingMetaDataMap)
@@ -84,3 +106,110 @@ fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXCon
 @Suppress("UNCHECKED_CAST")
 fun <K, V> Map<K, V?>.filterNotNullValues(): Map<K, V> =
     filterValues { it != null } as Map<K, V>
+
+// get metadata from config index using doc id
+@Suppress("ReturnCount")
+suspend fun IndexMetadata.getManagedIndexMetadata(client: Client): ManagedIndexMetaData? {
+    try {
+        val getRequest = GetRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(indexUUID))
+            .routing(this.indexUUID)
+        val getResponse: GetResponse = client.suspendUntil { get(getRequest, it) }
+        if (!getResponse.isExists || getResponse.isSourceEmpty) {
+            return null
+        }
+
+        return withContext(Dispatchers.IO) {
+            val xcp = XContentHelper.createParser(
+                NamedXContentRegistry.EMPTY,
+                LoggingDeprecationHandler.INSTANCE,
+                getResponse.sourceAsBytesRef, XContentType.JSON)
+            ManagedIndexMetaData.parseWithType(xcp, getResponse.id, getResponse.seqNo, getResponse.primaryTerm)
+        }
+    } catch (e: Exception) {
+        when (e) {
+            is IndexNotFoundException, is NoShardAvailableActionException -> {
+                log.error("Failed to get metadata because no index or shard not available")
+            }
+            else -> log.error("Failed to get metadata", e)
+        }
+
+        return null
+    }
+}
+
+/**
+ * multi-get metadata for indices
+ *
+ * @return list of metadata
+ */
+suspend fun Client.mgetManagedIndexMetadata(indices: List<Index>): List<Pair<ManagedIndexMetaData?, Exception?>?> {
+    log.debug("trying to get back metadata for indices ${indices.map { it.name }}")
+
+    if (indices.isEmpty()) return emptyList()
+
+    val mgetRequest = MultiGetRequest()
+    indices.forEach {
+        mgetRequest.add(MultiGetRequest.Item(
+            INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(it.uuid)).routing(it.uuid))
+    }
+    var mgetMetadataList = listOf<Pair<ManagedIndexMetaData?, Exception?>?>()
+    try {
+        val response: MultiGetResponse = this.suspendUntil { multiGet(mgetRequest, it) }
+        mgetMetadataList = mgetResponseToList(response)
+    } catch (e: ActionRequestValidationException) {
+        log.info("No managed index metadata for indices [$indices], ${e.message}")
+    } catch (e: Exception) {
+        log.error("Failed to multi-get managed index metadata for indices [$indices]", e)
+    }
+    return mgetMetadataList
+}
+
+/**
+ * transform multi-get response to list for ManagedIndexMetaData
+ *
+ * when this function used in change and retry API, if exception is
+ * not null, the API will abort and show get metadata failed
+ *
+ * @return list of Pair of metadata or exception
+ */
+fun mgetResponseToList(mgetResponse: MultiGetResponse):
+    List<Pair<ManagedIndexMetaData?, Exception?>?> {
+    val mgetList = mutableListOf<Pair<ManagedIndexMetaData?, Exception?>?>()
+    mgetResponse.responses.forEach {
+        if (it.isFailed) {
+            mgetList.add(Pair(null, it.failure.failure))
+        } else if (it.response != null && !it.response.isSourceEmpty) {
+            val xcp = contentParser(it.response.sourceAsBytesRef)
+            mgetList.add(Pair(ManagedIndexMetaData.parseWithType(
+                xcp, it.response.id, it.response.seqNo, it.response.primaryTerm), null))
+        } else {
+            mgetList.add(null)
+        }
+    }
+
+    return mgetList
+}
+
+fun buildMgetMetadataRequest(clusterState: ClusterState): MultiGetRequest {
+    val mgetMetadataRequest = MultiGetRequest()
+    clusterState.metadata.indices.map { it.value.index }.forEach {
+        mgetMetadataRequest.add(MultiGetRequest.Item(
+            INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(it.uuid)).routing(it.uuid))
+    }
+    return mgetMetadataRequest
+}
+
+// forIndex means saving to config index, distinguish from Explain and History,
+// which only show meaningful partial metadata
+@Suppress("ReturnCount")
+fun XContentBuilder.addObject(name: String, metadata: ToXContentFragment?, params: ToXContent.Params, forIndex: Boolean = false): XContentBuilder {
+    if (metadata != null) return this.buildMetadata(name, metadata, params)
+    return if (forIndex) nullField(name) else this
+}
+
+fun XContentBuilder.buildMetadata(name: String, metadata: ToXContentFragment, params: ToXContent.Params): XContentBuilder {
+    this.startObject(name)
+    metadata.toXContent(this, params)
+    this.endObject()
+    return this
+}

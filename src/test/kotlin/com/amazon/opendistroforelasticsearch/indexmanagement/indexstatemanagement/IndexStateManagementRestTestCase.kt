@@ -33,6 +33,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.PolicyRetryInfoMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StateMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.StepMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestExplainAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.FAILED_INDICES
@@ -167,6 +168,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         shards: String? = null,
         mapping: String = ""
     ): Pair<String, String?> {
+        val waitForActiveShards = if (isMultiNode) "all" else "1"
         val settings = Settings.builder().let {
             if (alias == null) {
                 it.putNull(ManagedIndexSettings.ROLLOVER_ALIAS.key)
@@ -175,6 +177,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             }
             it.put(INDEX_NUMBER_OF_REPLICAS, replicas ?: "1")
             it.put(INDEX_NUMBER_OF_SHARDS, shards ?: "1")
+            it.put("index.write.wait_for_active_shards", waitForActiveShards)
         }.build()
         val aliases = if (alias == null) "" else "\"$alias\": { \"is_write_index\": true }"
         createIndex(index, settings, mapping, aliases)
@@ -500,7 +503,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             if (cn == "total_managed_indices") continue
 
             metadata = ManagedIndexMetaData.parse(xcp)
-            break
+            break // bypass roles field
         }
 
         // make sure metadata is initialised
@@ -726,6 +729,16 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         if (expectedStartTime != null) {
             assertTrue((actualActionMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         }
+        return true
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    protected fun assertStepEquals(expectedStep: StepMetaData, actualStepMap: Any?): Boolean {
+        actualStepMap as Map<String, Any>
+        assertEquals(expectedStep.name, actualStepMap[ManagedIndexMetaData.NAME] as String)
+        assertEquals(expectedStep.stepStatus.toString(), actualStepMap[StepMetaData.STEP_STATUS])
+        val expectedStartTime = expectedStep.startTime
+        assertTrue((actualStepMap[ManagedIndexMetaData.START_TIME] as Long) < expectedStartTime)
         return true
     }
 

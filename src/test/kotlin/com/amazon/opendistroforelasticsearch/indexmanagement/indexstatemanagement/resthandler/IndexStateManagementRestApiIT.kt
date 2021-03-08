@@ -47,25 +47,25 @@ class IndexStateManagementRestApiIT : IndexStateManagementRestTestCase() {
     fun `test plugins are loaded`() {
         val response = entityAsMap(client().makeRequest("GET", "_nodes/plugins"))
         val nodesInfo = response["nodes"] as Map<String, Map<String, Any>>
-        var hasIndexStateMangementPlugin = false
+        var hasIndexStateManagementPlugin = false
         var hasJobSchedulerPlugin = false
         for (nodeInfo in nodesInfo.values) {
             val plugins = nodeInfo["plugins"] as List<Map<String, Any>>
 
             for (plugin in plugins) {
                 if (plugin["name"] == "opendistro-index-management") {
-                    hasIndexStateMangementPlugin = true
+                    hasIndexStateManagementPlugin = true
                 }
                 if (plugin["name"] == "opendistro-job-scheduler") {
                     hasJobSchedulerPlugin = true
                 }
             }
 
-            if (hasIndexStateMangementPlugin && hasJobSchedulerPlugin) {
+            if (hasIndexStateManagementPlugin && hasJobSchedulerPlugin) {
                 return
             }
         }
-        fail("Plugins not installed, ISMPlugin loaded: $hasIndexStateMangementPlugin, JobScheduler loaded: $hasJobSchedulerPlugin")
+        fail("Plugins not installed, ISMPlugin loaded: $hasIndexStateManagementPlugin, JobScheduler loaded: $hasJobSchedulerPlugin")
     }
 
     @Throws(Exception::class)

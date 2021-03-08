@@ -228,7 +228,7 @@ data class Rollup(
         const val ROLLUP_DOC_COUNT_FIELD = "$ROLLUP_TYPE._doc_count"
         const val ROLLUP_DOC_SCHEMA_VERSION_FIELD = "$ROLLUP_TYPE._$SCHEMA_VERSION_FIELD"
 
-        @Suppress("ComplexMethod", "LongMethod")
+        @Suppress("ComplexMethod", "LongMethod", "NestedBlockDepth")
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)

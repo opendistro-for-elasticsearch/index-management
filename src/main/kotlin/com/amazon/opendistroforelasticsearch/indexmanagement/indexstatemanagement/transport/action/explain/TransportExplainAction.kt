@@ -17,20 +17,31 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator.Companion.MAX_HITS
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getManagedIndexMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.isMetadataMoved
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.managedIndexMetadataID
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse
+import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.get.MultiGetRequest
+import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.node.NodeClient
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
+import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.common.xcontent.XContentHelper
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.Operator
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
@@ -45,7 +56,8 @@ private val log = LogManager.getLogger(TransportExplainAction::class.java)
 class TransportExplainAction @Inject constructor(
     val client: NodeClient,
     transportService: TransportService,
-    actionFilters: ActionFilters
+    actionFilters: ActionFilters,
+    val xContentRegistry: NamedXContentRegistry
 ) : HandledTransportAction<ExplainRequest, ExplainResponse>(
         ExplainAction.NAME, transportService, actionFilters, ::ExplainRequest
 ) {
@@ -77,7 +89,7 @@ class TransportExplainAction @Inject constructor(
         private val rolesMap: MutableMap<String, List<String>?> = mutableMapOf()
         private var totalManagedIndices = 0
 
-        @Suppress("SpreadOperator")
+        @Suppress("SpreadOperator", "NestedBlockDepth")
         fun start() {
             val params = request.searchParams
 
@@ -204,36 +216,63 @@ class TransportExplainAction @Inject constructor(
         }
 
         fun onClusterStateResponse(clusterStateResponse: ClusterStateResponse) {
-            val state = clusterStateResponse.state
-            val indexPolicyIDs = mutableListOf<String?>()
-            val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
+            val clusterStateIndexMetadatas = clusterStateResponse.state.metadata.indices.map { it.key to it.value }.toMap()
 
             if (wildcard) {
                 indexNames.clear() // clear wildcard (index*) from indexNames
-                state.metadata.indices.forEach { indexNames.add(it.key) }
+                clusterStateIndexMetadatas.forEach { indexNames.add(it.key) }
             }
+
+            val indices = clusterStateIndexMetadatas.map { it.key to it.value.indexUUID }.toMap()
+            val mgetMetadataReq = MultiGetRequest()
+            indices.map { it.value }.forEach { uuid ->
+                mgetMetadataReq.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(uuid)).routing(uuid))
+            }
+            client.multiGet(mgetMetadataReq, object : ActionListener<MultiGetResponse> {
+                override fun onResponse(response: MultiGetResponse) {
+                    val metadataMap = response.responses.map { it.id to getMetadata(it.response)?.toMap() }.toMap()
+                    buildResponse(indices, metadataMap, clusterStateIndexMetadatas)
+                }
+
+                override fun onFailure(t: Exception) {
+                    actionListener.onFailure(ExceptionsHelper.unwrapCause(t) as Exception)
+                }
+            })
+        }
+
+        // metadataMap: doc id -> metadataMap, doc id for metadata is [managedIndexMetadataID(indexUuid)]
+        fun buildResponse(
+            indices: Map<String, String>,
+            metadataMap: Map<String, Map<String, String>?>,
+            clusterStateIndexMetadatas: Map<String, IndexMetadata>
+        ) {
+            val indexPolicyIDs = mutableListOf<String?>()
+            val indexMetadatas = mutableListOf<ManagedIndexMetaData?>()
 
             // cluster state response will not resisting the sort order
             // so use the order from previous search result saved in indexNames
             for (indexName in indexNames) {
-                val indexMetadata = state.metadata.indices[indexName]
-
                 var managedIndexMetadataMap = managedIndicesMetaDataMap[indexName]
                 indexPolicyIDs.add(managedIndexMetadataMap?.get("policy_id")) // use policyID from metadata
 
+                val clusterStateMetadata = clusterStateIndexMetadatas[indexName]?.getManagedIndexMetadata()
                 var managedIndexMetadata: ManagedIndexMetaData? = null
-                val clusterStateMetadata = indexMetadata.getCustomData(ManagedIndexMetaData.MANAGED_INDEX_METADATA)
+                val configIndexMetadataMap = metadataMap[indices[indexName]?.let { managedIndexMetadataID(it) } ]
                 if (managedIndexMetadataMap != null) {
-                    if (clusterStateMetadata != null) { // if has metadata saved, use that
-                        managedIndexMetadataMap = clusterStateMetadata
+                    if (configIndexMetadataMap != null) { // if has metadata saved, use that
+                        managedIndexMetadataMap = configIndexMetadataMap
                     }
                     if (managedIndexMetadataMap.isNotEmpty()) {
                         managedIndexMetadata = ManagedIndexMetaData.fromMap(managedIndexMetadataMap)
                     }
+
+                    if (!isMetadataMoved(clusterStateMetadata, configIndexMetadataMap, log)) {
+                        val info = mapOf("message" to "Metadata is pending migration")
+                        managedIndexMetadata = clusterStateMetadata?.copy(info = info)
+                    }
                 }
                 indexMetadatas.add(managedIndexMetadata)
             }
-
             managedIndicesMetaDataMap.clear()
 
             if (explainAll) {
@@ -243,7 +282,20 @@ class TransportExplainAction @Inject constructor(
             actionListener.onResponse(ExplainResponse(indexNames, indexPolicyIDs, indexMetadatas))
         }
 
-        fun emptyResponse(size: Int = 0) {
+        private fun getMetadata(response: GetResponse?): ManagedIndexMetaData? {
+            if (response == null || response.sourceAsBytesRef == null)
+                return null
+
+            val xcp = XContentHelper.createParser(
+                xContentRegistry,
+                LoggingDeprecationHandler.INSTANCE,
+                response.sourceAsBytesRef,
+                XContentType.JSON)
+            return ManagedIndexMetaData.parseWithType(xcp,
+                response.id, response.seqNo, response.primaryTerm)
+        }
+
+        private fun emptyResponse(size: Int = 0) {
             if (explainAll) {
                 actionListener.onResponse(ExplainAllResponse(emptyList(), emptyList(), emptyList(), size, emptyMap()))
                 return

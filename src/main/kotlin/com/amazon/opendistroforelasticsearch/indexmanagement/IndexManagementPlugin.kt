@@ -18,9 +18,12 @@ package com.amazon.opendistroforelasticsearch.indexmanagement
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.MetadataService
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.SkipExecution
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.TransportUpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.UpdateManagedIndexMetaDataAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestAddPolicyAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.resthandler.RestChangePolicyAction
@@ -165,6 +168,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
                     RollupMetadata.ROLLUP_METADATA_TYPE -> {
                         return@ScheduledJobParser null
                     }
+                    ManagedIndexMetaData.MANAGED_INDEX_METADATA_TYPE -> {
+                        return@ScheduledJobParser null
+                    }
                     else -> {
                         logger.warn("Unsupported document was indexed in $INDEX_MANAGEMENT_INDEX with type: $fieldName")
                         xcp.skipChildren()
@@ -218,13 +224,6 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     ): Collection<Any> {
         val settings = environment.settings()
         this.clusterService = clusterService
-        val managedIndexRunner = ManagedIndexRunner
-            .registerClient(client)
-            .registerClusterService(clusterService)
-            .registerNamedXContentRegistry(xContentRegistry)
-            .registerScriptService(scriptService)
-            .registerSettings(settings)
-            .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
         val rollupRunner = RollupRunner
             .registerClient(client)
             .registerClusterService(clusterService)
@@ -239,6 +238,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerConsumers()
         rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
         this.indexNameExpressionResolver = indexNameExpressionResolver
+
+        val skipFlag = SkipExecution(client, clusterService)
         indexManagementIndices = IndexManagementIndices(settings, client.admin().indices(), clusterService)
         val indexStateManagementHistory =
             IndexStateManagementHistory(
@@ -249,8 +250,20 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
                 indexManagementIndices
             )
 
+        val managedIndexRunner = ManagedIndexRunner
+            .registerClient(client)
+            .registerClusterService(clusterService)
+            .registerNamedXContentRegistry(xContentRegistry)
+            .registerScriptService(scriptService)
+            .registerSettings(settings)
+            .registerConsumers() // registerConsumers must happen after registerSettings/clusterService
+            .registerHistoryIndex(indexStateManagementHistory)
+            .registerSkipFlag(skipFlag)
+
+        val metadataService = MetadataService(client, clusterService, skipFlag, indexManagementIndices)
+
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
-            client, clusterService, threadPool, indexManagementIndices)
+            client, clusterService, threadPool, indexManagementIndices, metadataService)
 
         return listOf(managedIndexRunner, rollupRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
     }
@@ -267,6 +280,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ManagedIndexSettings.POLICY_ID,
             ManagedIndexSettings.ROLLOVER_ALIAS,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
+            ManagedIndexSettings.METADATA_SERVICE_ENABLED,
             ManagedIndexSettings.JOB_INTERVAL,
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,

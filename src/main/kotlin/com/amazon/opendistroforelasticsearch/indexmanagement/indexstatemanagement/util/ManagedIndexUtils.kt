@@ -41,10 +41,12 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import inet.ipaddr.IPAddressString
 import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.Logger
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
+import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexMetadata
@@ -54,6 +56,7 @@ import org.elasticsearch.common.unit.ByteSizeValue
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.Index
 import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.script.ScriptService
@@ -81,6 +84,7 @@ fun managedIndexConfigIndexRequest(index: String, uuid: String, policyID: String
     return IndexRequest(INDEX_MANAGEMENT_INDEX)
             .id(uuid)
             .create(true)
+            .routing(managedIndexConfig.indexUuid)
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
 }
 
@@ -89,7 +93,32 @@ fun managedIndexConfigIndexRequest(managedIndexConfig: ManagedIndexConfig): Inde
             .id(managedIndexConfig.indexUuid)
             .setIfPrimaryTerm(managedIndexConfig.primaryTerm)
             .setIfSeqNo(managedIndexConfig.seqNo)
+            .routing(managedIndexConfig.indexUuid) // we want job doc and its metadata doc be routed to same shard
             .source(managedIndexConfig.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS))
+}
+
+const val METADATA_POST_FIX = "#metadata"
+
+fun managedIndexMetadataID(indexUuid: String) =
+    indexUuid + METADATA_POST_FIX
+
+fun revertManagedIndexMetadataID(metadataID: String) =
+    metadataID.dropLast(METADATA_POST_FIX.length)
+
+fun managedIndexMetadataIndexRequest(managedIndexMetadata: ManagedIndexMetaData, waitRefresh: Boolean = true, create: Boolean = false): IndexRequest {
+    // routing set using managed index's uuid
+    // so that metadata doc and managed-index doc are in the same place
+    val req = IndexRequest(INDEX_MANAGEMENT_INDEX)
+            .id(managedIndexMetadataID(managedIndexMetadata.indexUuid))
+            .setIfPrimaryTerm(managedIndexMetadata.primaryTerm)
+            .setIfSeqNo(managedIndexMetadata.seqNo)
+            .routing(managedIndexMetadata.indexUuid)
+            .create(create)
+            .source(managedIndexMetadata.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS, true))
+
+    if (waitRefresh)
+        return req.setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL)
+    return req
 }
 
 private fun updateEnabledField(uuid: String, enabled: Boolean, enabledTime: Long?): UpdateRequest {
@@ -116,6 +145,10 @@ fun deleteManagedIndexRequest(uuid: String): DeleteRequest {
     return DeleteRequest(INDEX_MANAGEMENT_INDEX, uuid)
 }
 
+fun deleteManagedIndexMetadataRequest(uuid: String): DeleteRequest {
+    return DeleteRequest(INDEX_MANAGEMENT_INDEX, managedIndexMetadataID(uuid))
+}
+
 fun updateManagedIndexRequest(sweptManagedIndexConfig: SweptManagedIndexConfig): UpdateRequest {
     return UpdateRequest(INDEX_MANAGEMENT_INDEX, sweptManagedIndexConfig.uuid)
         .setIfPrimaryTerm(sweptManagedIndexConfig.primaryTerm)
@@ -140,6 +173,17 @@ fun getDeleteManagedIndexRequests(
     return currentManagedIndexConfigs.filter { currentManagedIndex ->
         !currentIndices.map { it.index.uuid }.contains(currentManagedIndex.key)
     }.map { deleteManagedIndexRequest(it.value.uuid) }
+}
+
+// if managed index exist but the index is not existing any more
+// then we should delete this managed index
+fun getManagedIndicesToDelete(
+    currentIndices: List<IndexMetadata>,
+    currentManagedIndexConfigs: Map<String, SweptManagedIndexConfig>
+): List<Index> {
+    val currentIndicesSet = currentIndices.map { it.index }.toSet()
+    val managedIndicesSet = currentManagedIndexConfigs.values.map { Index(it.index, it.uuid) }.toSet()
+    return (managedIndicesSet - currentIndicesSet).toList()
 }
 
 fun getSweptManagedIndexSearchRequest(): SearchRequest {
@@ -285,6 +329,7 @@ fun Action.getUpdatedActionMetaData(managedIndexMetaData: ManagedIndexMetaData, 
     val actionMetaData = managedIndexMetaData.actionMetaData
 
     return when {
+        // start a new action
         stateMetaData?.name != state.name ->
             ActionMetaData(this.type.type, Instant.now().toEpochMilli(), this.config.actionIndex, false, 0, 0, null)
         actionMetaData?.index != this.config.actionIndex ->
@@ -499,6 +544,36 @@ fun Policy.getDisallowedActions(allowList: List<String>): List<String> {
  * Allowed actions are ones that are specified in the [ManagedIndexSettings.ALLOW_LIST] setting.
  */
 fun Action.isAllowed(allowList: List<String>): Boolean = allowList.contains(this.type.type)
+
+/**
+ * Check if cluster state metadata has been moved to config index
+ *
+ * log warning if remaining cluster state metadata has newer last_updated_time
+ */
+fun isMetadataMoved(
+    clusterStateMetadata: ManagedIndexMetaData?,
+    configIndexMetadata: Any?,
+    logger: Logger
+): Boolean {
+    if (clusterStateMetadata != null) {
+        if (configIndexMetadata == null) return false
+
+        // compare last updated time between 2 metadatas
+        val t1 = clusterStateMetadata.stepMetaData?.startTime
+        val t2 = when (configIndexMetadata) {
+            is ManagedIndexMetaData? -> configIndexMetadata.stepMetaData?.startTime
+            is Map<*, *>? -> {
+                val stepMetadata = configIndexMetadata["step"] as Map<String, Any>?
+                stepMetadata?.get("start_time")
+            }
+            else -> null
+        } as Long?
+        if (t1 != null && t2 != null && t1 > t2) {
+            logger.warn("Cluster state metadata get updates after moved for [${clusterStateMetadata.index}]")
+        }
+    }
+    return true
+}
 
 private val baseMessageLogger = LogManager.getLogger(BaseMessage::class.java)
 

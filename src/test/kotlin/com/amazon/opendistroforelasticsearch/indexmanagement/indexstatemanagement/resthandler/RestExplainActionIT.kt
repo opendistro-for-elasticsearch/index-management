@@ -81,14 +81,14 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
         createIndex(indexName2, null)
 
         val expected = mapOf(
-                indexName1 to mapOf<String, Any>(
-                        ManagedIndexSettings.POLICY_ID.key to policy.id,
-                        "index" to indexName1,
-                        "index_uuid" to getUuid(indexName1),
-                        "policy_id" to policy.id,
-                        "enabled" to true
-                ),
-                "total_managed_indices" to 1
+            indexName1 to mapOf<String, Any>(
+                ManagedIndexSettings.POLICY_ID.key to policy.id,
+                "index" to indexName1,
+                "index_uuid" to getUuid(indexName1),
+                "policy_id" to policy.id,
+                "enabled" to true
+            ),
+            "total_managed_indices" to 1
         )
         waitFor {
             assertResponseMap(expected, getExplainMap(null))
@@ -147,9 +147,12 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                         ManagedIndexMetaData.POLICY_SEQ_NO to policy.seqNo.toInt()::equals,
                         ManagedIndexMetaData.POLICY_PRIMARY_TERM to policy.primaryTerm.toInt()::equals,
                         StateMetaData.STATE to fun(stateMetaDataMap: Any?): Boolean =
-                                assertStateEquals(StateMetaData(policy.defaultState, Instant.now().toEpochMilli()), stateMetaDataMap),
+                            assertStateEquals(
+                                StateMetaData(policy.defaultState, Instant.now().toEpochMilli()),
+                                stateMetaDataMap
+                            ),
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
-                                assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
+                            assertRetryInfoEquals(PolicyRetryInfoMetaData(false, 0), retryInfoMetaDataMap),
                         ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                     )
                 ), getExplainMap(indexName))
@@ -175,7 +178,7 @@ class RestExplainActionIT : IndexStateManagementRestTestCase() {
                         ManagedIndexMetaData.INDEX_UUID to managedIndexConfig.indexUuid::equals,
                         ManagedIndexMetaData.POLICY_ID to managedIndexConfig.policyID::equals,
                         PolicyRetryInfoMetaData.RETRY_INFO to fun(retryInfoMetaDataMap: Any?): Boolean =
-                                assertRetryInfoEquals(PolicyRetryInfoMetaData(true, 0), retryInfoMetaDataMap),
+                            assertRetryInfoEquals(PolicyRetryInfoMetaData(true, 0), retryInfoMetaDataMap),
                         ManagedIndexMetaData.INFO to fun(info: Any?): Boolean = expectedInfoString == info.toString()
                     )
                 ), getExplainMap(indexName))

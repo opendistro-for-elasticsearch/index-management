@@ -121,7 +121,7 @@ ext {
 }
 
 group = "com.amazon.opendistroforelasticsearch"
-version = "${opendistroVersion}.0"
+version = "${opendistroVersion}.1"
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${es_version}"
@@ -315,3 +315,46 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
 compileKotlin { kotlinOptions.freeCompilerArgs = ['-Xjsr305=strict'] }
 
 apply from: 'build-tools/pkgbuild.gradle'
+
+// This IT is to simulate the situation
+// when there are old version (without metadata change)
+// and new version mixed in one cluster
+import org.elasticsearch.gradle.test.RestIntegTestTask
+
+def mixedClusterTest = project.tasks.create('mixedCluster', RestIntegTestTask.class)
+def mixedClusterFlag = findProperty('mixed') as Boolean ?: false
+println("mixed cluster flag: $mixedClusterFlag")
+mixedClusterTest.dependsOn(bundlePlugin)
+
+testClusters.mixedCluster {
+    testDistribution = "OSS"
+    if (_numNodes > 1) numberOfNodes = _numNodes
+    getNodes().each { node ->
+        node.plugin(provider({
+            new RegularFile() {
+                @Override
+                File getAsFile() { fileTree("src/test/resources/job-scheduler").getSingleFile() }
+            }
+        }))
+
+        if (mixedClusterFlag && node.name == "mixedCluster-1") {
+            node.plugin(provider({
+                new RegularFile() {
+                    @Override
+                    File getAsFile() { fileTree("src/test/resources/index-management").getSingleFile() }
+                }
+            }))
+        } else {
+            node.plugin(project.tasks.bundlePlugin.archiveFile)
+        }
+        node.plugins.each { println("plugin in the node: ${it.get()}") }
+    }
+    setting 'path.repo', repo.absolutePath
+}
+
+mixedCluster {
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'tests.path.repo', repo.absolutePath
+    systemProperty 'cluster.mixed', "$mixedClusterFlag"
+    systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+}

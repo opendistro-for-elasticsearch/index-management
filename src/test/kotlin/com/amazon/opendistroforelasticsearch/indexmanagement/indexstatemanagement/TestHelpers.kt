@@ -422,3 +422,22 @@ fun ISMTemplate.toJsonString(): String {
     val builder = XContentFactory.jsonBuilder()
     return this.toXContent(builder, ToXContent.EMPTY_PARAMS).string()
 }
+
+fun <T> wait(
+    timeout: Instant = Instant.ofEpochSecond(10),
+    block: () -> T
+) {
+    val startTime = Instant.now().toEpochMilli()
+    do {
+        try {
+            block()
+            if ((Instant.now().toEpochMilli() - startTime) > timeout.toEpochMilli()) {
+                return
+            } else {
+                Thread.sleep(100L)
+            }
+        } catch (e: Throwable) {
+            throw e
+        }
+    } while (true)
+}

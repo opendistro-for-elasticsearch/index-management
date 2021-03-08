@@ -13,6 +13,7 @@
  * permissions and limitations under the License.
  */
 
+@file:Suppress("ReturnCount")
 package com.amazon.opendistroforelasticsearch.indexmanagement
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
@@ -84,7 +85,6 @@ class IndexManagementIndices(
     /**
      * Attempt to create [INDEX_MANAGEMENT_INDEX] and return whether it exists
      */
-    @Suppress("ReturnCount")
     suspend fun attemptInitStateManagementIndex(client: Client): Boolean {
         if (indexManagementIndexExists()) return true
 
@@ -99,6 +99,19 @@ class IndexManagementIndices(
             true
         } catch (e: Exception) {
             logger.error("Error trying to create $INDEX_MANAGEMENT_INDEX", e)
+            false
+        }
+    }
+
+    suspend fun attemptUpdateConfigIndexMapping(): Boolean {
+        return try {
+            val response: AcknowledgedResponse = client.suspendUntil {
+                IndexUtils.checkAndUpdateConfigIndexMapping(clusterService.state(), client, it) }
+            if (response.isAcknowledged) return true
+            logger.error("Trying to update config index mapping not acknowledged.")
+            return false
+        } catch (e: Exception) {
+            logger.error("Failed when trying to update config index mapping.", e)
             false
         }
     }

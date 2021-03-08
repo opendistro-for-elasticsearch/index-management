@@ -48,11 +48,12 @@ data class StepMetaData(
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
-        return builder.startObject(STEP)
+        builder
             .field(NAME, name)
             .field(START_TIME, startTime)
             .field(STEP_STATUS, stepStatus.toString())
-            .endObject()
+
+        return builder
     }
 
     fun getMapValueString(): String {
@@ -76,9 +77,9 @@ data class StepMetaData(
         }
 
         fun fromManagedIndexMetaDataMap(map: Map<String, String?>): StepMetaData? {
-            val stateJsonString = map[STEP]
-            return if (stateJsonString != null) {
-                val inputStream = ByteArrayInputStream(stateJsonString.toByteArray(StandardCharsets.UTF_8))
+            val stepJsonString = map[STEP]
+            return if (stepJsonString != null) {
+                val inputStream = ByteArrayInputStream(stepJsonString.toByteArray(StandardCharsets.UTF_8))
                 val parser = XContentType.JSON.xContent().createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, inputStream)
                 parser.nextToken()
                 parse(parser)

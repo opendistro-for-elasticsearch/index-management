@@ -194,7 +194,7 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         assertNull("Policy has already initialized", managedIndexConfig.policy)
         assertEquals("Policy id does not match", policy.id, managedIndexConfig.policyID)
 
-        // if we try to change policy now, it'll have no ManagedIndexMetaData yet and should succeed
+        // If we try to change the policy now, it hasn't actually run and has no ManagedIndexMetaData yet so it should succeed
         val changePolicy = ChangePolicy(newPolicy.id, null, emptyList(), false)
         val response = client().makeRequest(RestRequest.Method.POST.toString(),
                 "${RestChangePolicyAction.CHANGE_POLICY_BASE_URI}/$index", emptyMap(), changePolicy.toHttpEntity())
@@ -206,10 +206,14 @@ class RestChangePolicyActionIT : IndexStateManagementRestTestCase() {
         // speed up to first execution where we initialize the policy on the job
         updateManagedIndexConfigStartTime(managedIndexConfig)
 
-        waitFor { assertEquals(newPolicy.id, getManagedIndexConfigByDocId(managedIndexConfig.id)?.policyID) }
+        val updatedManagedIndexConfig = waitFor {
+            // TODO: get by docID could get older version of the doc which could cause flaky failure
+            val config = getManagedIndexConfigByDocId(managedIndexConfig.id)
+            assertEquals(newPolicy.id, config?.policyID)
+            config
+        }
 
         // The initialized policy should be the change policy one
-        val updatedManagedIndexConfig = getManagedIndexConfigByDocId(managedIndexConfig.id)
         assertNotNull("Updated managed index config is null", updatedManagedIndexConfig)
         assertNull("Updated change policy is not null", updatedManagedIndexConfig!!.changePolicy)
         assertEquals("Initialized policyId is not the change policy id", newPolicy.id, updatedManagedIndexConfig.policyID)

@@ -24,8 +24,6 @@ import java.util.Locale
 class IndexManagementIndicesIT : IndexStateManagementRestTestCase() {
 
     private val testIndexName = javaClass.simpleName.toLowerCase(Locale.ROOT)
-    private val configSchemaVersion = 8
-    private val historySchemaVersion = 3
 
     /*
     * If this test fails it means you changed the config mappings

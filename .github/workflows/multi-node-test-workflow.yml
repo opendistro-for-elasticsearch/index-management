@@ -3,10 +3,12 @@ name: Multi node test workflow
 on:
   pull_request:
     branches:
-      - master
+      - main
+      - development-*
   push:
     branches:
-      - master
+      - main
+      - development-*
 
 jobs:
   build:

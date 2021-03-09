@@ -16,7 +16,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupMetadataException
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformResponse
@@ -75,12 +74,16 @@ object TransformRunner : ScheduledJobRunner,
 
         launch {
             try {
-                val metadata = transformMetadataService.getMetadata(job)
-                if (shouldProcessTransform(job, metadata)) {
-                    executeJob(job, metadata, context)
+                if (job.enabled) {
+                    val metadata = transformMetadataService.getMetadata(job)
+                    var transform = job
+                    if (job.metadataId == null) {
+                        transform = updateTransform(job.copy(metadataId = metadata.id))
+                    }
+                    executeJob(transform, metadata, context)
                 }
-            } catch (e: RollupMetadataException) {
-                logger.error("Failed to run job [${job.id}] because ${e.localizedMessage}")
+            } catch (e: Exception) {
+                logger.error("Failed to run job [${job.id}] because ${e.localizedMessage}", e)
                 return@launch
             }
         }
@@ -88,78 +91,75 @@ object TransformRunner : ScheduledJobRunner,
 
     private suspend fun executeJob(transform: Transform, metadata: TransformMetadata, context: JobExecutionContext) {
         var currentMetadata = metadata
-        var updatableTransform = transform
         val backoffPolicy = BackoffPolicy.exponentialBackoff(
             TimeValue.timeValueMillis(TransformSettings.DEFAULT_RENEW_LOCK_RETRY_DELAY),
             TransformSettings.DEFAULT_RENEW_LOCK_RETRY_COUNT
         )
-        var lock = acquireLockForScheduledJob(updatableTransform, context, backoffPolicy)
-        do {
-            if (lock == null) {
-                logger.warn("Cannot acquire lock for transform job ${updatableTransform.id}")
-                // If we fail to get the lock we won't fail the job, instead we return early
-                return
-            } else {
-                // TODO: Should we check if the transform job is valid every execute (?)
-                // TODO: Check things about executing the job further or not
-                try {
-                    val (meta, docsToIndex) = transformSearchService.executeCompositeSearch(transform, metadata)
-                    val (stats, afterKey) = meta
-                    val indexTimeInMillis = transformIndexer.index(docsToIndex)
-                    val updatedStats = stats.copy(indexTimeInMillis = stats.indexTimeInMillis + indexTimeInMillis)
-                    currentMetadata = currentMetadata.mergeStats(updatedStats).copy(
-                        afterKey = afterKey,
-                        lastUpdatedAt = Instant.now(),
-                        status = if (afterKey == null) TransformMetadata.Status.FINISHED else TransformMetadata.Status.STARTED
-                    )
-                    if (transform.metadataId == null) {
-                        updatableTransform = transform.copy(
-                            metadataId = metadata.id,
-                            updatedAt = Instant.now()
-                        )
-                        updatableTransform = updateTransform(updatableTransform)
+        var lock = acquireLockForScheduledJob(transform, context, backoffPolicy)
+        try {
+            do {
+                when {
+                    lock == null -> {
+                        logger.warn("Cannot acquire lock for transform job ${transform.id}")
+                        // If we fail to get the lock we won't fail the job, instead we return early
+                        return
                     }
-                    transformMetadataService.writeMetadata(metadata, true)
-                } catch (e: Exception) {
-                    logger.error(e.localizedMessage)
-                    currentMetadata = metadata.copy(
-                        lastUpdatedAt = Instant.now(),
-                        status = TransformMetadata.Status.FAILED,
-                        failureReason = e.localizedMessage
-                    )
-                    transformMetadataService.writeMetadata(currentMetadata, true)
-                    releaseLockForScheduledJob(context, lock)
+                    listOf(TransformMetadata.Status.STOPPED, TransformMetadata.Status.FINISHED).contains(metadata.status) -> {
+                        logger.warn("Transform job ${transform.id} is in ${metadata.status} status. Skipping execution")
+                        return
+                    }
+                    else -> {
+                        currentMetadata = executeJobIteration(transform, currentMetadata)
+                        // we attempt to renew lock for every loop of transform
+                        val renewedLock = renewLockForScheduledJob(context, lock, backoffPolicy)
+                        if (renewedLock == null) {
+                            releaseLockForScheduledJob(context, lock)
+                        }
+                        lock = renewedLock
+                    }
                 }
+            } while (currentMetadata.afterKey != null)
+        } catch (e: Exception) {
+            logger.error("Failed to execute the transform job because of exception [${e.localizedMessage}]", e)
+            currentMetadata = currentMetadata.copy(
+                lastUpdatedAt = Instant.now(),
+                status = TransformMetadata.Status.FAILED,
+                failureReason = e.localizedMessage
+            )
+        } finally {
+            transformMetadataService.writeMetadata(currentMetadata, true)
+            logger.info("Disabling the transform job ${transform.id}")
+            updateTransform(transform.copy(enabled = false, enabledAt = null))
+            lock?.let { releaseLockForScheduledJob(context, it) }
+        }
+    }
 
-                // we attempt to renew lock for every loop of transform
-                val renewedLock = renewLockForScheduledJob(context, lock, backoffPolicy)
-                if (renewedLock == null) {
-                    releaseLockForScheduledJob(context, lock)
-                }
-                lock = renewedLock
-            }
-        } while (currentMetadata.afterKey != null)
+    private suspend fun executeJobIteration(transform: Transform, metadata: TransformMetadata): TransformMetadata {
+        // TODO: Should we check if the transform job is valid(?)
+        val transformSearchResult = transformSearchService.executeCompositeSearch(transform, metadata.afterKey)
+        val indexTimeInMillis = transformIndexer.index(transformSearchResult.docsToIndex)
+        val afterKey = transformSearchResult.afterKey
+        val stats = transformSearchResult.stats
+        val updatedStats = stats.copy(
+            indexTimeInMillis = stats.indexTimeInMillis + indexTimeInMillis, documentsIndexed = transformSearchResult.docsToIndex.size.toLong()
+        )
+        val updatedMetadata = metadata.mergeStats(updatedStats).copy(
+            afterKey = afterKey,
+            lastUpdatedAt = Instant.now(),
+            status = if (afterKey == null) TransformMetadata.Status.FINISHED else TransformMetadata.Status.STARTED
+        )
+        return transformMetadataService.writeMetadata(updatedMetadata, true)
     }
 
     private suspend fun updateTransform(transform: Transform): Transform {
-        try {
-            val request = IndexTransformRequest(transform = transform, refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE)
-            val response: IndexTransformResponse = esClient.suspendUntil { execute(IndexTransformAction.INSTANCE, request, it) }
-            return transform.copy(
-                seqNo = response.seqNo,
-                primaryTerm = response.primaryTerm
-            )
-        } catch (e: Exception) {
-            throw Exception("Failed to update the transform job because of [${e.localizedMessage}]")
-        }
-    }
-
-    private fun shouldProcessTransform(transform: Transform, metadata: TransformMetadata): Boolean {
-        if (!transform.enabled ||
-            listOf(TransformMetadata.Status.STOPPED, TransformMetadata.Status.FAILED, TransformMetadata.Status.FINISHED).contains(metadata.status)) {
-            return false
-        }
-
-        return true
+        val request = IndexTransformRequest(
+            transform = transform.copy(updatedAt = Instant.now()),
+            refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE
+        )
+        val response: IndexTransformResponse = esClient.suspendUntil { execute(IndexTransformAction.INSTANCE, request, it) }
+        return transform.copy(
+            seqNo = response.seqNo,
+            primaryTerm = response.primaryTerm
+        )
     }
 }

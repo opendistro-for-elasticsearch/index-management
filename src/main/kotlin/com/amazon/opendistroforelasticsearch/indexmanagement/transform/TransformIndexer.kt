@@ -30,6 +30,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.transport.RemoteTransportException
 
 class TransformIndexer(
     settings: Settings,
@@ -55,27 +56,31 @@ class TransformIndexer(
     }
 
     suspend fun index(docsToIndex: List<DocWriteRequest<*>>): Long {
-        var requests = docsToIndex
+        var updatableDocsToIndex = docsToIndex
         var indexTimeInMillis = 0L
         try {
-            if (requests.isNotEmpty()) {
+            if (updatableDocsToIndex.isNotEmpty()) {
+                logger.debug("Attempting to index ${updatableDocsToIndex.size} documents to ${updatableDocsToIndex.first().index()}")
                 backoffPolicy.retry(logger, listOf(RestStatus.TOO_MANY_REQUESTS)) {
-                    val bulkRequest = BulkRequest().add(docsToIndex)
+                    val bulkRequest = BulkRequest().add(updatableDocsToIndex)
                     val bulkResponse: BulkResponse = esClient.suspendUntil { bulk(bulkRequest, it) }
                     indexTimeInMillis += bulkResponse.took.millis
+
                     val failed = (bulkResponse.items ?: arrayOf()).filter { item -> item.isFailed }
-                    requests = failed.filter { itemResponse ->
-                        itemResponse.status() == RestStatus.TOO_MANY_REQUESTS
-                    }.map { itemResponse ->
+
+                    updatableDocsToIndex = failed.map { itemResponse ->
                         bulkRequest.requests()[itemResponse.itemId] as IndexRequest
                     }
-                    if (requests.isNotEmpty()) {
-                        val retryCause = failed.first { it.status() == RestStatus.TOO_MANY_REQUESTS }.failure.cause
+                    if (updatableDocsToIndex.isNotEmpty()) {
+                        val retryCause = failed.first().failure.cause
                         throw ExceptionsHelper.convertToElastic(retryCause)
                     }
                 }
             }
             return indexTimeInMillis
+        } catch (e: RemoteTransportException) {
+            val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
+            throw TransformIndexException("Failed to index the documents", unwrappedException)
         } catch (e: Exception) {
             throw TransformIndexException("Failed to index the documents", e)
         }

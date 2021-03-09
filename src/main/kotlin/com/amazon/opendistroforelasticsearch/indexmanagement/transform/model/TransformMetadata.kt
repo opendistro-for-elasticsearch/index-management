@@ -32,7 +32,7 @@ import java.time.Instant
 import java.util.Locale
 
 data class TransformMetadata(
-    val id: String = NO_ID,
+    val id: String,
     val seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
     val primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM,
     val transformId: String,
@@ -109,7 +109,6 @@ data class TransformMetadata(
     }
 
     companion object {
-        const val NO_ID = ""
         const val TRANSFORM_METADATA_TYPE = "transform_metadata"
         const val TRANSFORM_ID_FIELD = "transform_id"
         const val AFTER_KEY_FIELD = "after_key"
@@ -123,7 +122,7 @@ data class TransformMetadata(
         @Throws(IOException::class)
         fun parse(
             xcp: XContentParser,
-            id: String = NO_ID,
+            id: String,
             seqNo: Long = SequenceNumbers.UNASSIGNED_SEQ_NO,
             primaryTerm: Long = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
         ): TransformMetadata {

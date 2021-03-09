@@ -87,6 +87,8 @@ data class Transform(
 
     override fun isEnabled() = enabled
 
+    override fun getLockDurationSeconds() = LOCK_DURATION_SECONDS
+
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(TRANSFORM_TYPE)
@@ -146,8 +148,7 @@ data class Transform(
     fun convertToDoc(docCount: Long): MutableMap<String, Any?> =
         mutableMapOf(
             TRANSFORM_DOC_ID_FIELD to this.id,
-            TRANSFORM_DOC_COUNT_FIELD to docCount,
-            TRANSFORM_DOC_SCHEMA_VERSION_FIELD to this.schemaVersion
+            TRANSFORM_DOC_COUNT_FIELD to docCount
         )
 
     @Throws(IOException::class)
@@ -195,7 +196,8 @@ data class Transform(
             CRON, INTERVAL;
         }
 
-        val supportedAggregations = listOf("sum", "max", "min", "value_count", "avg", "scripted_metric")
+        val supportedAggregations = listOf("sum", "max", "min", "value_count", "avg", "scripted_metric", "percentiles")
+        const val LOCK_DURATION_SECONDS = 1800L // 30 minutes
         const val NO_ID = ""
         const val TRANSFORM_TYPE = "transform"
         const val TRANSFORM_ID_FIELD = "transform_id"

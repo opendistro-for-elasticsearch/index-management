@@ -17,12 +17,14 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.transform
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupIndexer
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.exceptions.TransformSearchServiceException
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
-import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformSearchResult
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.settings.TransformSettings.Companion.TRANSFORM_JOB_SEARCH_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.settings.TransformSettings.Companion.TRANSFORM_JOB_SEARCH_BACKOFF_MILLIS
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.ODFE_MAGIC_NULL
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.hashToFixedSize
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.DocWriteRequest
@@ -32,7 +34,6 @@ import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.hash.MurmurHash3
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.search.aggregations.Aggregation
@@ -48,9 +49,6 @@ import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregation
 import org.elasticsearch.search.aggregations.metrics.Percentiles
 import org.elasticsearch.search.aggregations.metrics.ScriptedMetric
 import org.elasticsearch.search.builder.SearchSourceBuilder
-import java.lang.IllegalStateException
-import java.nio.ByteBuffer
-import java.util.Base64
 import kotlin.math.max
 import kotlin.math.pow
 import org.elasticsearch.index.query.QueryBuilder
@@ -62,39 +60,43 @@ class TransformSearchService(
 ) {
 
     private var logger = LogManager.getLogger(javaClass)
-    private var retryPolicy =
+
+    @Volatile private var backoffPolicy =
         BackoffPolicy.constantBackoff(TRANSFORM_JOB_SEARCH_BACKOFF_MILLIS.get(settings), TRANSFORM_JOB_SEARCH_BACKOFF_COUNT.get(settings))
 
     init {
         clusterService.clusterSettings.addSettingsUpdateConsumer(TRANSFORM_JOB_SEARCH_BACKOFF_MILLIS, TRANSFORM_JOB_SEARCH_BACKOFF_COUNT) {
-            millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
+            millis, count -> backoffPolicy = BackoffPolicy.constantBackoff(millis, count)
         }
     }
 
-    suspend fun executeCompositeSearch(
-        transform: Transform,
-        metadata: TransformMetadata
-    ): Pair<Pair<TransformStats, Map<String, Any>?>, List<DocWriteRequest<*>>> {
+    suspend fun executeCompositeSearch(transform: Transform, afterKey: Map<String, Any>? = null): TransformSearchResult {
+        val errorMessage = "Failed to search data in source indices in transform job ${transform.id}"
         try {
             var retryAttempt = 0
-            val searchResponse = retryPolicy.retry(logger) {
+            val searchResponse = backoffPolicy.retry(logger) {
                 // TODO: Should we store the value of the past successful page size (?)
                 val pageSizeDecay = 2f.pow(retryAttempt++)
                 esClient.suspendUntil { listener: ActionListener<SearchResponse> ->
                     val pageSize = max(1, transform.pageSize.div(pageSizeDecay.toInt()))
                     if (retryAttempt > 1) {
-                        logger.warn("Attempt [${retryAttempt - 1}] of composite search failed for transform [${transform.id}]. Attempting " +
-                            "again with reduced page size [$pageSize]")
-                        val aggregationBuilder = getAggregationBuilder(transform, metadata, pageSize)
-                        val request = getSearchServiceRequest(transform.sourceIndex, transform.dataSelectionQuery, aggregationBuilder)
-                        search(request, listener)
+                        logger.debug(
+                            "Attempt [${retryAttempt - 1}] of composite search failed for transform [${transform.id}]. Attempting " +
+                                "again with reduced page size [$pageSize]"
+                        )
                     }
+                    val aggregationBuilder = getAggregationBuilder(transform, afterKey, pageSize)
+                    val request = getSearchServiceRequest(transform.sourceIndex, transform.dataSelectionQuery, aggregationBuilder)
+                    search(request, listener)
                 }
             }
             return convertResponse(transform, searchResponse)
-        } catch (e: Exception) {
-            logger.error("Failed to execute the internal search for the ")
+        } catch (e: TransformSearchServiceException) {
+            logger.error(errorMessage)
             throw e
+        } catch (e: Exception) {
+            logger.error(errorMessage)
+            throw TransformSearchServiceException(errorMessage, e)
         }
     }
 
@@ -109,39 +111,30 @@ class TransformSearchService(
             .allowPartialSearchResults(false)
     }
 
-    private fun getAggregationBuilder(transform: Transform, metadata: TransformMetadata, pageSize: Int): CompositeAggregationBuilder {
+    private fun getAggregationBuilder(transform: Transform, afterKey: Map<String, Any>?, pageSize: Int): CompositeAggregationBuilder {
         val sources = mutableListOf<CompositeValuesSourceBuilder<*>>()
         transform.groups.forEach { group -> sources.add(group.toSourceBuilder()) }
         return CompositeAggregationBuilder(transform.id, sources)
             .size(pageSize)
             .subAggregations(transform.aggregations)
-            .apply {
-                metadata.afterKey?.let { this.aggregateAfter(it) }
-            }
+            .apply { afterKey?.let { this.aggregateAfter(it) } }
     }
 
-    private fun convertResponse(
-        transform: Transform,
-        searchResponse: SearchResponse
-    ): Pair<Pair<TransformStats, Map<String, Any>?>, List<DocWriteRequest<*>>> {
+    private fun convertResponse(transform: Transform, searchResponse: SearchResponse): TransformSearchResult {
         val aggs = searchResponse.aggregations.get(transform.id) as CompositeAggregation
         val documentsProcessed = aggs.buckets.fold(0L) { sum, it -> sum + it.docCount }
         val pagesProcessed = 1L
         val searchTime = searchResponse.took.millis
         val stats = TransformStats(pagesProcessed, documentsProcessed, 0, 0, searchTime)
         val afterKey = aggs.afterKey()
-        val metadata = Pair(stats, afterKey)
         val docsToIndex = mutableListOf<DocWriteRequest<*>>()
-        aggs.buckets.forEach {
-            val id = transform.id + "#" + it.key.entries.joinToString(":") { it.value?.toString() ?: "ODFE-NULL-ODFE" }
-            val docByteArray = id.toByteArray()
-            val hash = MurmurHash3.hash128(docByteArray, 0, docByteArray.size, RollupIndexer.DOCUMENT_ID_SEED, MurmurHash3.Hash128())
-            val byteArray = ByteBuffer.allocate(RollupIndexer.BYTE_ARRAY_SIZE).putLong(hash.h1).putLong(hash.h2).array()
-            val hashedId = Base64.getUrlEncoder().withoutPadding().encodeToString(byteArray)
+        aggs.buckets.forEach { aggregatedBucket ->
+            val id = transform.id + "#" + aggregatedBucket.key.entries.joinToString(":") { bucket -> bucket.value?.toString() ?: ODFE_MAGIC_NULL }
+            val hashedId = hashToFixedSize(id)
 
-            val document = transform.convertToDoc(it.docCount)
-            it.key.entries.forEach { document[it.key] = it.value }
-            it.aggregations.forEach { document[it.name] = getAggregationValue(it) }
+            val document = transform.convertToDoc(aggregatedBucket.docCount)
+            aggregatedBucket.key.entries.forEach { bucket -> document[bucket.key] = bucket.value }
+            aggregatedBucket.aggregations.forEach { aggregation -> document[aggregation.name] = getAggregationValue(aggregation) }
 
             val indexRequest = IndexRequest(transform.targetIndex)
                 .id(hashedId)
@@ -149,7 +142,7 @@ class TransformSearchService(
             docsToIndex.add(indexRequest)
         }
 
-        return Pair(metadata, docsToIndex)
+        return TransformSearchResult(stats, docsToIndex, afterKey)
     }
 
     private fun getAggregationValue(aggregation: Aggregation): Any {
@@ -168,8 +161,9 @@ class TransformSearchService(
             is ScriptedMetric -> {
                 aggregation.aggregation()
             }
-            else -> throw IllegalStateException("Found aggregation [${aggregation.name}] of type [${aggregation.type}] in composite result " +
-                "that is not currently supported")
+            else -> throw TransformSearchServiceException(
+                "Found aggregation [${aggregation.name}] of type [${aggregation.type}] in composite result that is not currently supported"
+            )
         }
     }
 }

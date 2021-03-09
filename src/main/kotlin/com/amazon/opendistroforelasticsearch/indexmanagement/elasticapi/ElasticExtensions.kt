@@ -81,7 +81,7 @@ fun XContentBuilder.optionalISMTemplateField(name: String, ismTemplate: ISMTempl
 
 /**
  * Retries the given [block] of code as specified by the receiver [BackoffPolicy],
- * if [block] throws an [ElasticsearchException] that is retriable (502, 503, 504).
+ * if [block] throws an [ElasticsearchException] that is retryable (502, 503, 504).
  *
  * If all retries fail the final exception will be rethrown. Exceptions caught during intermediate retries are
  * logged as warnings to [logger]. Similar to [org.elasticsearch.action.bulk.Retry], except this retries on

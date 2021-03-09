@@ -44,49 +44,29 @@ class TransformMetadataService(private val esClient: Client, val xContentRegistr
 
     private val logger = LogManager.getLogger(javaClass)
 
-    suspend fun init(transform: Transform) {
-        val metadata = getMetadata(transform)
-    }
-
     @Suppress("BlockingMethodInNonBlockingContext")
     suspend fun getMetadata(transform: Transform): TransformMetadata {
         try {
-            if (transform.metadataId != null) {
+            return if (transform.metadataId != null) {
                 // update metadata
                 val getRequest = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, transform.metadataId).routing(transform.id)
                 val response: GetResponse = esClient.suspendUntil { get(getRequest, it) }
-
-                if (!response.isExists) {
-                    // This is a weird case
-                    logger.warn("Expected the metadata to be present, but it was missing")
-                    return createMetadataWithId(transform, transform.metadataId)
-                }
-
                 val metadataSource = response.sourceAsBytesRef
-                var transformMetadata: TransformMetadata? = null
-                metadataSource?.let {
+                val transformMetadata = metadataSource?.let {
                     withContext(Dispatchers.IO) {
                         val xcp = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, metadataSource, XContentType.JSON)
-                        transformMetadata = xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, TransformMetadata.Companion::parse)
+                        xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, TransformMetadata.Companion::parse)
                     }
                 }
-                return transformMetadata!!
+                // TODO: Should we attempt to create a new document instead if failed to parse?
+                transformMetadata ?: throw Exception("Failed to parse the existing metadata document ${transform.metadataId}")
             } else {
-                return createMetadata(transform)
+                createMetadata(transform)
             }
-        } catch (e: TransformMetadataException) {
-            throw e
         } catch (e: Exception) {
             logger.debug("Error when getting transform metadata [${transform.metadataId}]: $e")
             throw TransformMetadataException("Failed to get the metadata for the transform", e)
         }
-    }
-
-    private suspend fun createMetadataWithId(transform: Transform, metadataId: String): TransformMetadata {
-        val metadata = TransformMetadata(id = metadataId, transformId = transform.id, lastUpdatedAt = Instant.now(), status = TransformMetadata.Status
-        .INIT, stats = TransformStats(0, 0, 0, 0, 0))
-        writeMetadata(metadata)
-        return metadata
     }
 
     private suspend fun createMetadata(transform: Transform): TransformMetadata {

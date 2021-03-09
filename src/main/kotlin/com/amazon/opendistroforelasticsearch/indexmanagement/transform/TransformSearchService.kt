@@ -53,10 +53,9 @@ import java.nio.ByteBuffer
 import java.util.Base64
 import kotlin.math.max
 import kotlin.math.pow
+import org.elasticsearch.index.query.QueryBuilder
 
 class TransformSearchService(
-    val transform: Transform,
-    val metadata: TransformMetadata,
     val settings: Settings,
     val clusterService: ClusterService,
     private val esClient: Client
@@ -72,7 +71,10 @@ class TransformSearchService(
         }
     }
 
-    suspend fun executeCompositeSearch(): Pair<Pair<TransformStats, Map<String, Any>?>, List<DocWriteRequest<*>>> {
+    suspend fun executeCompositeSearch(
+        transform: Transform,
+        metadata: TransformMetadata
+    ): Pair<Pair<TransformStats, Map<String, Any>?>, List<DocWriteRequest<*>>> {
         try {
             var retryAttempt = 0
             val searchResponse = retryPolicy.retry(logger) {
@@ -83,41 +85,45 @@ class TransformSearchService(
                     if (retryAttempt > 1) {
                         logger.warn("Attempt [${retryAttempt - 1}] of composite search failed for transform [${transform.id}]. Attempting " +
                             "again with reduced page size [$pageSize]")
-                        search(getSearchServiceRequest(pageSize), listener)
+                        val aggregationBuilder = getAggregationBuilder(transform, metadata, pageSize)
+                        val request = getSearchServiceRequest(transform.sourceIndex, transform.dataSelectionQuery, aggregationBuilder)
+                        search(request, listener)
                     }
                 }
             }
-            return convertResponse(searchResponse)
+            return convertResponse(transform, searchResponse)
         } catch (e: Exception) {
             logger.error("Failed to execute the internal search for the ")
             throw e
         }
     }
 
-    private fun getSearchServiceRequest(pageSize: Int): SearchRequest {
-        val query = transform.dataSelectionQuery
+    private fun getSearchServiceRequest(index: String, query: QueryBuilder, aggregationBuilder: CompositeAggregationBuilder): SearchRequest {
         val searchSourceBuilder = SearchSourceBuilder()
             .trackTotalHits(false)
             .size(0)
-            .aggregation(getAggregationBuilder(pageSize))
+            .aggregation(aggregationBuilder)
             .query(query)
-        return SearchRequest(transform.sourceIndex)
+        return SearchRequest(index)
             .source(searchSourceBuilder)
             .allowPartialSearchResults(false)
     }
 
-    private fun getAggregationBuilder(pageSize: Int): CompositeAggregationBuilder {
+    private fun getAggregationBuilder(transform: Transform, metadata: TransformMetadata, pageSize: Int): CompositeAggregationBuilder {
         val sources = mutableListOf<CompositeValuesSourceBuilder<*>>()
         transform.groups.forEach { group -> sources.add(group.toSourceBuilder()) }
         return CompositeAggregationBuilder(transform.id, sources)
             .size(pageSize)
             .subAggregations(transform.aggregations)
             .apply {
-                this@TransformSearchService.metadata.afterKey?.let { this.aggregateAfter(it) }
+                metadata.afterKey?.let { this.aggregateAfter(it) }
             }
     }
 
-    private fun convertResponse(searchResponse: SearchResponse): Pair<Pair<TransformStats, Map<String, Any>?>, List<DocWriteRequest<*>>> {
+    private fun convertResponse(
+        transform: Transform,
+        searchResponse: SearchResponse
+    ): Pair<Pair<TransformStats, Map<String, Any>?>, List<DocWriteRequest<*>>> {
         val aggs = searchResponse.aggregations.get(transform.id) as CompositeAggregation
         val documentsProcessed = aggs.buckets.fold(0L) { sum, it -> sum + it.docCount }
         val pagesProcessed = 1L

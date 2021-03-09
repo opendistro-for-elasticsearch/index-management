@@ -39,6 +39,8 @@ import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 
@@ -49,9 +51,22 @@ object TransformRunner : ScheduledJobRunner,
 
     private lateinit var esClient: Client
     private lateinit var xContentRegistry: NamedXContentRegistry
+    private lateinit var clusterService: ClusterService
+    private lateinit var settings: Settings
     private lateinit var transformMetadataService: TransformMetadataService
     private lateinit var transformSearchService: TransformSearchService
     private lateinit var transformIndexer: TransformIndexer
+
+    fun initialize(client: Client, clusterService: ClusterService, xContentRegistry: NamedXContentRegistry, settings: Settings): TransformRunner {
+        this.clusterService = clusterService
+        this.esClient = client
+        this.xContentRegistry = xContentRegistry
+        this.settings = settings
+        this.transformSearchService = TransformSearchService(settings, clusterService, client)
+        this.transformMetadataService = TransformMetadataService(client, xContentRegistry)
+        this.transformIndexer = TransformIndexer(settings, clusterService, client)
+        return this
+    }
 
     override fun runJob(job: ScheduledJobParameter, context: JobExecutionContext) {
         if (job !is Transform) {
@@ -88,7 +103,7 @@ object TransformRunner : ScheduledJobRunner,
                 // TODO: Should we check if the transform job is valid every execute (?)
                 // TODO: Check things about executing the job further or not
                 try {
-                    val (meta, docsToIndex) = transformSearchService.executeCompositeSearch()
+                    val (meta, docsToIndex) = transformSearchService.executeCompositeSearch(transform, metadata)
                     val (stats, afterKey) = meta
                     val indexTimeInMillis = transformIndexer.index(docsToIndex)
                     val updatedStats = stats.copy(indexTimeInMillis = stats.indexTimeInMillis + indexTimeInMillis)

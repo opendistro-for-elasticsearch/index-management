@@ -15,12 +15,14 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
 import org.elasticsearch.client.ResponseException
+import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 
@@ -76,5 +78,19 @@ class RestIndexTransformActionIT : TransformRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.METHOD_NOT_ALLOWED, e.response.restStatus())
         }
+    }
+
+    @Throws(Exception::class)
+    fun `test mappings after transform creation`() {
+        createRandomTransform()
+
+        val response = client().makeRequest("GET", "/$INDEX_MANAGEMENT_INDEX/_mapping")
+        val parserMap = createParser(XContentType.JSON.xContent(), response.entity.content).map() as Map<String, Map<String, Any>>
+        val mappingsMap = parserMap[INDEX_MANAGEMENT_INDEX]!!["mappings"] as Map<String, Any>
+        val expected = createParser(XContentType.JSON.xContent(), javaClass.classLoader.getResource("mappings/opendistro-ism-config.json")
+            .readText())
+        val expectedMap = expected.map()
+
+        assertEquals("Mappings are different", expectedMap, mappingsMap)
     }
 }

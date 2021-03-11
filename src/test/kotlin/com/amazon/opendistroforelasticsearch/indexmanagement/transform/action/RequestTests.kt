@@ -17,8 +17,10 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.buildStreamInputForTransforms
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.support.WriteRequest
@@ -74,7 +76,7 @@ class RequestTests : ESTestCase() {
         assertEquals(preference, streamedReq.preference)
     }
 
-    fun `test head get rollup request`() {
+    fun `test head get transform request`() {
         val id = "some_id"
         val srcContext = FetchSourceContext.DO_NOT_FETCH_SOURCE
         val req = GetTransformRequest(id, srcContext)
@@ -83,5 +85,29 @@ class RequestTests : ESTestCase() {
         val streamedReq = GetTransformRequest(buildStreamInputForTransforms(out))
         assertEquals(id, streamedReq.id)
         assertEquals(srcContext, streamedReq.srcContext)
+    }
+
+    fun `test get transforms request default`() {
+        val req = GetTransformsRequest()
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = GetTransformsRequest(buildStreamInputForTransforms(out))
+        assertEquals("", streamedReq.searchString)
+        assertEquals(0, streamedReq.from)
+        assertEquals(20, streamedReq.size)
+        assertEquals("${Transform.TRANSFORM_TYPE}.${Transform.TRANSFORM_ID_FIELD}.keyword", streamedReq.sortField)
+        assertEquals("asc", streamedReq.sortDirection)
+    }
+
+    fun `test get transforms request`() {
+        val req = GetTransformsRequest("searching", 10, 50, "sorted", "desc")
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = GetTransformsRequest(buildStreamInputForTransforms(out))
+        assertEquals("searching", streamedReq.searchString)
+        assertEquals(10, streamedReq.from)
+        assertEquals(50, streamedReq.size)
+        assertEquals("sorted", streamedReq.sortField)
+        assertEquals("desc", streamedReq.sortDirection)
     }
 }

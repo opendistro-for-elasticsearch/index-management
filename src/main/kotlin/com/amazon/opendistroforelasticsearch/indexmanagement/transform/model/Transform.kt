@@ -143,6 +143,12 @@ data class Transform(
         out.writeOptionalWriteable(aggregations)
     }
 
+    fun convertToDoc(docCount: Long): MutableMap<String, Any?> =
+        mutableMapOf(
+            TRANSFORM_DOC_ID_FIELD to this.id,
+            TRANSFORM_DOC_COUNT_FIELD to docCount
+        )
+
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         id = sin.readString(),
@@ -208,7 +214,8 @@ data class Transform(
         const val SCHEMA_VERSION_FIELD = "schema_version"
         const val MINIMUM_PAGE_SIZE = 1
         const val MAXIMUM_PAGE_SIZE = 10_000
-        const val MINIMUM_JOB_INTERVAL = 1
+        const val TRANSFORM_DOC_ID_FIELD = "$TRANSFORM_TYPE._id"
+        const val TRANSFORM_DOC_COUNT_FIELD = "$TRANSFORM_TYPE._doc_count"
 
         @JvmStatic
         @JvmOverloads

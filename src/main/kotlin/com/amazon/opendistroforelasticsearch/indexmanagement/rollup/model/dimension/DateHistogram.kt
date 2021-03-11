@@ -26,6 +26,9 @@ import org.elasticsearch.search.aggregations.AggregatorFactories
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder
 import java.io.IOException
 import java.time.ZoneId
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder
+import org.elasticsearch.search.aggregations.bucket.composite.DateHistogramValuesSourceBuilder
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval
 
 data class DateHistogram(
     override val sourceField: String,
@@ -68,6 +71,23 @@ data class DateHistogram(
         out.writeOptionalString(fixedInterval)
         out.writeOptionalString(calendarInterval)
         out.writeZoneId(timezone)
+    }
+
+    override fun toSourceBuilder(): CompositeValuesSourceBuilder<*> {
+        val calendarInterval = this.calendarInterval
+        val fixedInterval = this.fixedInterval
+
+        return DateHistogramValuesSourceBuilder(this.targetField)
+            .field(this.sourceField)
+            .timeZone(this.timezone)
+            .apply {
+                calendarInterval?.let {
+                    this.calendarInterval(DateHistogramInterval(it))
+                }
+                fixedInterval?.let {
+                    this.fixedInterval(DateHistogramInterval(it))
+                }
+            }
     }
 
     fun getRewrittenAggregation(

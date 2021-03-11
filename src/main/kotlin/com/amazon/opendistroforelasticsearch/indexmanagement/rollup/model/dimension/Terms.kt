@@ -25,6 +25,8 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.search.aggregations.AggregatorFactories
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder
 import java.io.IOException
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder
+import org.elasticsearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder
 
 data class Terms(
     override val sourceField: String,
@@ -53,6 +55,12 @@ data class Terms(
     override fun writeTo(out: StreamOutput) {
         out.writeString(sourceField)
         out.writeString(targetField)
+    }
+
+    override fun toSourceBuilder(): CompositeValuesSourceBuilder<*> {
+        return TermsValuesSourceBuilder(this.targetField)
+            .missingBucket(true)
+            .field(this.sourceField)
     }
 
     // TODO missing terms field

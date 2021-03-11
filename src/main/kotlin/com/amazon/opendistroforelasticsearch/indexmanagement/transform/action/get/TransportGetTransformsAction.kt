@@ -57,7 +57,7 @@ class TransportGetTransformsAction @Inject constructor(
                 val totalTransforms = response.hits.totalHits?.value ?: 0
 
                 if (response.shardFailures.isNotEmpty()) {
-                    val failure = response.shardFailures.reduce {s1, s2 ->
+                    val failure = response.shardFailures.reduce { s1, s2 ->
                         if (s1.status().status > s2.status().status) s1 else s2
                     }
                     listener.onFailure(ElasticsearchStatusException("Get transforms failed on some shards", failure.status(), failure.cause))

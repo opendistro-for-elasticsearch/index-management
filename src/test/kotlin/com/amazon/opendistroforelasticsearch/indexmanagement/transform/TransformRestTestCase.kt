@@ -133,9 +133,8 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
 
     protected fun Transform.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
 
-    protected fun newParser(response: Response) : XContentParser {
+    protected fun newParser(response: Response): XContentParser {
         return XContentType.JSON.xContent().createParser(NamedXContentRegistry(SearchModule(Settings.EMPTY, false, emptyList()).namedXContents),
             LoggingDeprecationHandler.INSTANCE, response.entity.content)
     }
 }
-

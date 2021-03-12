@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
@@ -30,6 +31,15 @@ import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.test.ESTestCase
 
 class RequestTests : ESTestCase() {
+
+    fun `test delete transform request`() {
+        val id = "some_id"
+        val req = DeleteTransformRequest(id).index(INDEX_MANAGEMENT_INDEX)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = DeleteTransformRequest(buildStreamInputForTransforms(out))
+        assertEquals(id, streamedReq.id())
+    }
 
     fun `test index transform post request`() {
         val transform = randomTransform().copy(seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO, primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM)

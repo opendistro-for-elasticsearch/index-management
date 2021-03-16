@@ -22,6 +22,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_COUNT
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings.Companion.ROLLUP_INGEST_BACKOFF_MILLIS
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getInitialDocValues
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.ODFE_MAGIC_NULL
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.hashToFixedSize
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
@@ -31,7 +33,6 @@ import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.hash.MurmurHash3
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
@@ -42,8 +43,6 @@ import org.elasticsearch.search.aggregations.metrics.InternalMin
 import org.elasticsearch.search.aggregations.metrics.InternalSum
 import org.elasticsearch.search.aggregations.metrics.InternalValueCount
 import org.elasticsearch.transport.RemoteTransportException
-import java.nio.ByteBuffer
-import java.util.Base64
 
 class RollupIndexer(
     settings: Settings,
@@ -104,11 +103,8 @@ class RollupIndexer(
     fun convertResponseToRequests(job: Rollup, internalComposite: InternalComposite): List<DocWriteRequest<*>> {
         val requests = mutableListOf<DocWriteRequest<*>>()
         internalComposite.buckets.forEach {
-            val docId = job.id + "#" + it.key.entries.joinToString("#") { it.value?.toString() ?: "#ODFE-MAGIC-NULL-MAGIC-ODFE#" }
-            val docByteArray = docId.toByteArray()
-            val hash = MurmurHash3.hash128(docByteArray, 0, docByteArray.size, DOCUMENT_ID_SEED, MurmurHash3.Hash128())
-            val byteArray = ByteBuffer.allocate(BYTE_ARRAY_SIZE).putLong(hash.h1).putLong(hash.h2).array()
-            val documentId = Base64.getUrlEncoder().withoutPadding().encodeToString(byteArray)
+            val docId = job.id + "#" + it.key.entries.joinToString("#") { it.value?.toString() ?: ODFE_MAGIC_NULL }
+            val documentId = hashToFixedSize(docId)
 
             val mapOfKeyValues = job.getInitialDocValues(it.docCount)
             val aggResults = mutableMapOf<String, Any?>()
@@ -130,11 +126,6 @@ class RollupIndexer(
             requests.add(indexRequest)
         }
         return requests
-    }
-
-    companion object {
-        const val BYTE_ARRAY_SIZE = 16
-        const val DOCUMENT_ID_SEED = 72390L
     }
 }
 

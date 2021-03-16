@@ -17,6 +17,8 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.util
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import java.nio.ByteBuffer
+import java.util.Base64
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
@@ -25,6 +27,7 @@ import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.metadata.IndexAbstraction
 import org.elasticsearch.cluster.metadata.IndexMetadata
+import org.elasticsearch.common.hash.MurmurHash3
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser.Token
@@ -38,6 +41,9 @@ class IndexUtils {
         const val FIELDS = "fields"
         const val SCHEMA_VERSION = "schema_version"
         const val DEFAULT_SCHEMA_VERSION = 1L
+        const val ODFE_MAGIC_NULL = "#ODFE-MAGIC-NULL-MAGIC-ODFE#"
+        private const val BYTE_ARRAY_SIZE = 16
+        private const val DOCUMENT_ID_SEED = 72390L
         val logger = LogManager.getLogger(IndexUtils::class.java)
 
         var indexManagementConfigSchemaVersion: Long
@@ -184,6 +190,13 @@ class IndexUtils {
             }
 
             return currMap
+        }
+
+        fun hashToFixedSize(id: String): String {
+            val docByteArray = id.toByteArray()
+            val hash = MurmurHash3.hash128(docByteArray, 0, docByteArray.size, DOCUMENT_ID_SEED, MurmurHash3.Hash128())
+            val byteArray = ByteBuffer.allocate(BYTE_ARRAY_SIZE).putLong(hash.h1).putLong(hash.h2).array()
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(byteArray)
         }
     }
 }

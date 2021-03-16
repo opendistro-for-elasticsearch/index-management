@@ -20,6 +20,10 @@ class TransportDeleteTransformAction @Inject constructor(
 
     override fun doExecute(task: Task, request: DeleteTransformRequest, actionListener: ActionListener<DeleteResponse>) {
         request.index(INDEX_MANAGEMENT_INDEX)
+        // TODO: get transport job and validate that job is disabled
+
+        // TODO: if metadata id exists delete the metadata doc else just delete transform
+
         client.delete(request, object : ActionListener<DeleteResponse> {
             override fun onResponse(response: DeleteResponse) {
                 actionListener.onResponse(response)

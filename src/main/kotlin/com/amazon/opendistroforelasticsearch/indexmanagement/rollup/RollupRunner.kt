@@ -15,7 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.retry
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.get.GetRollupRequest
@@ -30,6 +29,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.incrementStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.mergeStats
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.acquireLockForScheduledJob
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.releaseLockForScheduledJob
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.renewLockForScheduledJob
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobExecutionContext
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.LockModel
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParameter
@@ -57,6 +59,10 @@ object RollupRunner : ScheduledJobRunner,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("RollupRunner")) {
 
     private val logger = LogManager.getLogger(javaClass)
+    private val backoffPolicy = BackoffPolicy.exponentialBackoff(
+        TimeValue.timeValueMillis(RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_DELAY),
+        RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_COUNT
+    )
 
     private lateinit var clusterService: ClusterService
     private lateinit var client: Client
@@ -153,60 +159,29 @@ object RollupRunner : ScheduledJobRunner,
             // Check if rollup should be processed before acquiring the lock
             // If metadata does not exist, it will either be initialized for the first time or it will be recreated to communicate the failed state
             if (rollupSearchService.shouldProcessRollup(job, metadata)) {
-                val lock = acquireLockForRollupJob(job, context)
+                val lock = acquireLockForScheduledJob(job, context, backoffPolicy)
                 if (lock == null) {
                     logger.debug("Could not acquire lock for ${job.id}")
                 } else {
                     runRollupJob(job, context, lock)
-                    releaseLockForRollupJob(context, lock)
+                    releaseLockForScheduledJob(context, lock)
                 }
             } else if (job.isEnabled) {
                 // We are doing this outside of ShouldProcess as schedule job interval can be more frequent than rollup and we want to fail
                 // validation as soon as possible
                 when (val jobValidity = isJobValid(job)) {
                     is RollupJobValidationResult.Invalid -> {
-                        val lock = acquireLockForRollupJob(job, context)
+                        val lock = acquireLockForScheduledJob(job, context, backoffPolicy)
                         if (lock != null) {
                             setFailedMetadataAndDisableJob(job, jobValidity.reason)
                             logger.info("updating metadata service to disable the job [${job.id}]")
-                            releaseLockForRollupJob(context, lock)
+                            releaseLockForScheduledJob(context, lock)
                         }
                     }
                     else -> {}
                 }
             }
         }
-    }
-
-    private suspend fun acquireLockForRollupJob(rollupJob: ScheduledJobParameter, context: JobExecutionContext): LockModel? {
-        var lock: LockModel? = null
-        try {
-            // acquireLock will attempt to create the lock index if needed and then read/create a lock. This is purely for internal purposes
-            // and should not need the role's context to run
-            BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(
-                RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_DELAY),
-                RollupSettings.DEFAULT_ACQUIRE_LOCK_RETRY_COUNT
-            ).retry(logger) {
-                lock = context.lockService.suspendUntil { acquireLock(rollupJob, context, it) }
-            }
-        } catch (e: Exception) {
-            logger.error("Error trying to acquireLock", e)
-        }
-
-        return lock
-    }
-
-    private suspend fun releaseLockForRollupJob(context: JobExecutionContext, lock: LockModel): Boolean {
-        var released = false
-        try {
-            released = context.lockService.suspendUntil { release(lock, it) }
-            if (!released) {
-                logger.warn("Could not release lock for ${lock.jobId}")
-            }
-        } catch (e: Exception) {
-            logger.error("Failed to release lock", e)
-        }
-        return released
     }
 
     // TODO: Clean up runner
@@ -256,7 +231,7 @@ object RollupRunner : ScheduledJobRunner,
                     is RollupJobResult.Success -> updatableJob = updateRollupJobResult.rollup
                     is RollupJobResult.Failure -> {
                         logger.error("Failed to update the rollup job [${updatableJob.id}] with metadata id [${metadata.id}]",
-                            updateRollupJobResult.cause)
+                                     updateRollupJobResult.cause)
                         return // Exit runner early
                     }
                 }
@@ -304,19 +279,14 @@ object RollupRunner : ScheduledJobRunner,
                                 )
                             }
                         }
-                        try {
-                            BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(
-                                RollupSettings.DEFAULT_RENEW_LOCK_RETRY_DELAY),
-                                RollupSettings.DEFAULT_RENEW_LOCK_RETRY_COUNT
-                            ).retry(logger) {
-                                updatableLock = context.lockService.suspendUntil { renewLock(updatableLock, it) }
-                            }
-                        } catch (e: Exception) {
-                            logger.warn("Failed trying to renew lock on $updatableLock", e)
+                        val renewedLock = renewLockForScheduledJob(context, updatableLock, backoffPolicy)
+                        if (renewedLock == null) {
                             // If we fail to renew the lock it doesn't mean we need to perm fail the job, we can just return early
                             // and let the next execution try to process the data from where this one left off
-                            releaseLockForRollupJob(context, updatableLock)
+                            releaseLockForScheduledJob(context, updatableLock)
                             return
+                        } else {
+                            updatableLock = renewedLock
                         }
                     } catch (e: RollupMetadataException) {
                         // Rethrow this exception so it doesn't get consumed here
@@ -325,7 +295,7 @@ object RollupRunner : ScheduledJobRunner,
                     } catch (e: Exception) {
                         // TODO: Should update metadata and disable job here instead of allowing the rollup to keep going
                         logger.error("Failed to rollup ", e)
-                        releaseLockForRollupJob(context, updatableLock)
+                        releaseLockForScheduledJob(context, updatableLock)
                         return
                     }
                 } while (metadata.afterKey != null)
@@ -340,13 +310,13 @@ object RollupRunner : ScheduledJobRunner,
             // If we have been constantly renewing the lock then the seqNo/primaryTerm will have changed
             // and the releaseLock call outside of runRollupJob will fail, so release here with updatableLock
             // and outside just in case we returned early at a different point (attempting to release twice won't hurt)
-            releaseLockForRollupJob(context, updatableLock)
+            releaseLockForScheduledJob(context, updatableLock)
         } catch (e: RollupMetadataException) {
             // In most scenarios in the runner, the metadata will be used to communicate the result to the user
             // If change to the metadata itself fails, there is nothing else to relay state change
             // In these cases, the cause of the metadata operation will be logged here and the runner execution will exit
             logger.error(e.message, e.cause)
-            releaseLockForRollupJob(context, updatableLock)
+            releaseLockForScheduledJob(context, updatableLock)
         }
     }
 

@@ -43,6 +43,7 @@ class RestGetTransformActionIT : TransformRestTestCase() {
     fun `test getting all transforms`() {
         val transforms = randomList(1, 15) { createTransform(randomTransform()) }
 
+        // TODO: Delete existing transforms before test once delete API is available
         // Using a larger response size than the default in case leftover transforms prevent the ones created in this test from being returned
         val res = client().makeRequest("GET", "$TRANSFORM_BASE_URI?size=100")
         val map = res.asMap()

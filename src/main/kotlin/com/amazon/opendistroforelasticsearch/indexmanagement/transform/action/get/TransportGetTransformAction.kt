@@ -3,6 +3,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.g
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
+import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.get.GetRequest
@@ -48,7 +49,9 @@ class TransportGetTransformAction @Inject constructor(
                                 response.primaryTerm,
                                 Transform.Companion::parse)
                         }
-                    }
+                } else {
+                    ElasticsearchException("Missing source index", RestStatus.INTERNAL_SERVER_ERROR)
+                }
 
                 listener.onResponse(GetTransformResponse(
                     response.id,

@@ -37,7 +37,7 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
     ): Transform {
         val response = createTransformJson(transform.toJsonString(), transformId, refresh)
 
-        val transformJson = newParser(response)
+        val transformJson = createParser(XContentType.JSON.xContent(), response.entity.content)
             .map()
         val createdId = transformJson["_id"] as String
         assertEquals("Transform ids are not the same", transformId, createdId)
@@ -110,7 +110,7 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         val response = client().makeRequest("GET", "$TRANSFORM_BASE_URI/$transformId", null, header)
         assertEquals("Unable to get transform $transformId", RestStatus.OK, response.restStatus())
 
-        val parser = newParser(response)
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser)
 
         lateinit var id: String
@@ -136,5 +136,8 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
     protected fun newParser(response: Response): XContentParser {
         return XContentType.JSON.xContent().createParser(NamedXContentRegistry(SearchModule(Settings.EMPTY, false, emptyList()).namedXContents),
             LoggingDeprecationHandler.INSTANCE, response.entity.content)
+    }
+    override fun xContentRegistry(): NamedXContentRegistry {
+        return NamedXContentRegistry(SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }
 }

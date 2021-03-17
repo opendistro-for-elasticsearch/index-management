@@ -230,8 +230,9 @@ object RollupRunner : ScheduledJobRunner,
                 when (val updateRollupJobResult = updateRollupJob(updatableJob.copy(metadataID = metadata.id), metadata)) {
                     is RollupJobResult.Success -> updatableJob = updateRollupJobResult.rollup
                     is RollupJobResult.Failure -> {
-                        logger.error("Failed to update the rollup job [${updatableJob.id}] with metadata id [${metadata.id}]",
-                                     updateRollupJobResult.cause)
+                        logger.error(
+                            "Failed to update the rollup job [${updatableJob.id}] with metadata id [${metadata.id}]", updateRollupJobResult.cause
+                        )
                         return // Exit runner early
                     }
                 }

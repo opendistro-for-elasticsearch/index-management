@@ -50,7 +50,9 @@ import org.elasticsearch.search.aggregations.metrics.ScriptedMetric
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import kotlin.math.max
 import kotlin.math.pow
+import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.index.query.QueryBuilder
+import org.elasticsearch.transport.RemoteTransportException
 
 class TransformSearchService(
     val settings: Settings,
@@ -92,8 +94,12 @@ class TransformSearchService(
         } catch (e: TransformSearchServiceException) {
             logger.error(errorMessage)
             throw e
+        } catch (e: RemoteTransportException) {
+            val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
+            logger.error(errorMessage, unwrappedException)
+            throw TransformSearchServiceException(errorMessage, unwrappedException)
         } catch (e: Exception) {
-            logger.error(errorMessage)
+            logger.error(errorMessage, e)
             throw TransformSearchServiceException(errorMessage, e)
         }
     }

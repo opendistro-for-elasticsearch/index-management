@@ -1,7 +1,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
-import com.amazon.opendistroforelasticsearch.indexmanagement.util.executeJobsSearch
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.getJobs
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.action.support.ActionFilters
@@ -14,6 +14,11 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.index.query.BoolQueryBuilder
+import org.elasticsearch.index.query.ExistsQueryBuilder
+import org.elasticsearch.index.query.WildcardQueryBuilder
+import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
@@ -33,23 +38,24 @@ class TransportGetTransformsAction @Inject constructor(
         val sortField = request.sortField
         val sortDirection = request.sortDirection
 
-        executeJobsSearch(
-            listener as ActionListener<ActionResponse>,
-            ::contentParser,
+        val boolQueryBuilder = BoolQueryBuilder().filter(ExistsQueryBuilder(Transform.TRANSFORM_TYPE))
+        if (searchString.isNotEmpty()) {
+            boolQueryBuilder.filter(WildcardQueryBuilder("${Transform.TRANSFORM_TYPE}.${Transform.TRANSFORM_ID_FIELD}.keyword", "*$searchString*"))
+        }
+        val searchSourceBuilder = SearchSourceBuilder().query(boolQueryBuilder).from(from).size(size).seqNoAndPrimaryTerm(true)
+            .sort(sortField, SortOrder.fromString(sortDirection))
+
+        getJobs(
             client,
+            searchSourceBuilder,
+            listener as ActionListener<ActionResponse>,
             Transform.TRANSFORM_TYPE,
-            Transform.TRANSFORM_ID_FIELD,
-            searchString,
-            from,
-            size,
-            sortField,
-            sortDirection,
-            "transform",
-            Transform.Companion::parse
+            ::contentParser
         )
     }
 
     private fun contentParser(bytesReference: BytesReference): XContentParser {
-        return XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
+        return XContentHelper.createParser(xContentRegistry,
+            LoggingDeprecationHandler.INSTANCE, bytesReference, XContentType.JSON)
     }
 }

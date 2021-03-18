@@ -21,8 +21,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule

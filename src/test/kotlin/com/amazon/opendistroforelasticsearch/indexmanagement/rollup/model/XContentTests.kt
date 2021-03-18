@@ -17,7 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.parseWithType
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomAverage
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDateHistogram

@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.interceptor
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping.Companion.UNKNOWN_MAPPING
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getDateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.getRollupJobs

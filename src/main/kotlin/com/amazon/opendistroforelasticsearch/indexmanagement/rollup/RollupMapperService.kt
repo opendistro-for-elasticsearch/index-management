@@ -21,9 +21,9 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mappi
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.action.mapping.UpdateRollupMappingRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupJobValidationResult
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Histogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion._META
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.getFieldFromMappings

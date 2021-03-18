@@ -21,7 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRest
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO

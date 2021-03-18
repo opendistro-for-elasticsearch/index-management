@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension
+package com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension
 
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
@@ -63,8 +63,9 @@ data class Histogram(
         out.writeDouble(interval)
     }
 
-    override fun toSourceBuilder(): CompositeValuesSourceBuilder<*> {
-        return HistogramValuesSourceBuilder(this.targetField)
+    override fun toSourceBuilder(appendType: Boolean): CompositeValuesSourceBuilder<*> {
+        val name = if (appendType) "${this.targetField}.${Type.HISTOGRAM.type}" else this.targetField
+        return HistogramValuesSourceBuilder(name)
             .missingBucket(true)
             .field(this.sourceField)
             .interval(this.interval)

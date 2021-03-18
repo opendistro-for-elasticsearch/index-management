@@ -25,6 +25,8 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.search.aggregations.AggregatorFactories
 import org.elasticsearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder
 import java.io.IOException
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder
+import org.elasticsearch.search.aggregations.bucket.composite.HistogramValuesSourceBuilder
 
 // TODO: Verify if offset, missing value, min_doc_count, extended_bounds are usable in Composite histogram source
 data class Histogram(
@@ -59,6 +61,13 @@ data class Histogram(
         out.writeString(sourceField)
         out.writeString(targetField)
         out.writeDouble(interval)
+    }
+
+    override fun toSourceBuilder(): CompositeValuesSourceBuilder<*> {
+        return HistogramValuesSourceBuilder(this.targetField)
+            .missingBucket(true)
+            .field(this.sourceField)
+            .interval(this.interval)
     }
 
     fun getRewrittenAggregation(

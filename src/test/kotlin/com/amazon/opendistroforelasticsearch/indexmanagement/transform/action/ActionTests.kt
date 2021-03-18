@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformAction
 import org.elasticsearch.test.ESTestCase
 
 class ActionTests : ESTestCase() {
@@ -23,5 +24,10 @@ class ActionTests : ESTestCase() {
     fun `test index transform`() {
         assertNotNull(IndexTransformAction.INSTANCE.name())
         assertEquals(IndexTransformAction.INSTANCE.name(), IndexTransformAction.NAME)
+    }
+
+    fun `test preview transform`() {
+        assertNotNull(PreviewTransformAction.INSTANCE.name())
+        assertEquals(PreviewTransformAction.INSTANCE.name(), PreviewTransformAction.NAME)
     }
 }

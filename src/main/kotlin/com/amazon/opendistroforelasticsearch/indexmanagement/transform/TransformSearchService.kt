@@ -27,7 +27,6 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Com
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.hashToFixedSize
 import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.ActionListener
-import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
@@ -51,9 +50,7 @@ import org.elasticsearch.search.aggregations.metrics.ScriptedMetric
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import kotlin.math.max
 import kotlin.math.pow
-import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.index.query.QueryBuilder
-import org.elasticsearch.transport.RemoteTransportException
 
 class TransformSearchService(
     val settings: Settings,
@@ -87,88 +84,87 @@ class TransformSearchService(
                                 "again with reduced page size [$pageSize]"
                         )
                     }
-                    val aggregationBuilder = getAggregationBuilder(transform, afterKey, pageSize)
-                    val request = getSearchServiceRequest(transform.sourceIndex, transform.dataSelectionQuery, aggregationBuilder)
+                    val request = getSearchServiceRequest(transform, afterKey, pageSize)
                     search(request, listener)
                 }
             }
             return convertResponse(transform, searchResponse)
         } catch (e: TransformSearchServiceException) {
+            logger.error(errorMessage)
             throw e
-        } catch (e: RemoteTransportException) {
-            val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
-            logger.error(errorMessage, unwrappedException)
-            throw TransformSearchServiceException(errorMessage, unwrappedException)
         } catch (e: Exception) {
-            logger.error(errorMessage, e)
+            logger.error(errorMessage)
             throw TransformSearchServiceException(errorMessage, e)
         }
     }
 
-    private fun getSearchServiceRequest(index: String, query: QueryBuilder, aggregationBuilder: CompositeAggregationBuilder): SearchRequest {
-        val searchSourceBuilder = SearchSourceBuilder()
-            .trackTotalHits(false)
-            .size(0)
-            .aggregation(aggregationBuilder)
-            .query(query)
-        return SearchRequest(index)
-            .source(searchSourceBuilder)
-            .allowPartialSearchResults(false)
-    }
-
-    private fun getAggregationBuilder(transform: Transform, afterKey: Map<String, Any>?, pageSize: Int): CompositeAggregationBuilder {
-        val sources = mutableListOf<CompositeValuesSourceBuilder<*>>()
-        transform.groups.forEach { group -> sources.add(group.toSourceBuilder()) }
-        return CompositeAggregationBuilder(transform.id, sources)
-            .size(pageSize)
-            .subAggregations(transform.aggregations)
-            .apply { afterKey?.let { this.aggregateAfter(it) } }
-    }
-
-    private fun convertResponse(transform: Transform, searchResponse: SearchResponse): TransformSearchResult {
-        val aggs = searchResponse.aggregations.get(transform.id) as CompositeAggregation
-        val documentsProcessed = aggs.buckets.fold(0L) { sum, it -> sum + it.docCount }
-        val pagesProcessed = 1L
-        val searchTime = searchResponse.took.millis
-        val stats = TransformStats(pagesProcessed, documentsProcessed, 0, 0, searchTime)
-        val afterKey = aggs.afterKey()
-        val docsToIndex = mutableListOf<DocWriteRequest<*>>()
-        aggs.buckets.forEach { aggregatedBucket ->
-            val id = transform.id + "#" + aggregatedBucket.key.entries.joinToString(":") { bucket -> bucket.value?.toString() ?: ODFE_MAGIC_NULL }
-            val hashedId = hashToFixedSize(id)
-
-            val document = transform.convertToDoc(aggregatedBucket.docCount)
-            aggregatedBucket.key.entries.forEach { bucket -> document[bucket.key] = bucket.value }
-            aggregatedBucket.aggregations.forEach { aggregation -> document[aggregation.name] = getAggregationValue(aggregation) }
-
-            val indexRequest = IndexRequest(transform.targetIndex)
-                .id(hashedId)
-                .source(document, XContentType.JSON)
-            docsToIndex.add(indexRequest)
+    companion object {
+        fun getSearchServiceRequest(transform: Transform, afterKey: Map<String, Any>? = null, pageSize: Int): SearchRequest {
+            val sources = mutableListOf<CompositeValuesSourceBuilder<*>>()
+            transform.groups.forEach { group -> sources.add(group.toSourceBuilder()) }
+            val aggregationBuilder = CompositeAggregationBuilder(transform.id, sources)
+                .size(pageSize)
+                .subAggregations(transform.aggregations)
+                .apply { afterKey?.let { this.aggregateAfter(it) } }
+            return getSearchServiceRequest(transform.sourceIndex, transform.dataSelectionQuery, aggregationBuilder)
         }
 
-        return TransformSearchResult(stats, docsToIndex, afterKey)
-    }
+        private fun getSearchServiceRequest(index: String, query: QueryBuilder, aggregationBuilder: CompositeAggregationBuilder): SearchRequest {
+            val searchSourceBuilder = SearchSourceBuilder()
+                .trackTotalHits(false)
+                .size(0)
+                .aggregation(aggregationBuilder)
+                .query(query)
+            return SearchRequest(index)
+                .source(searchSourceBuilder)
+                .allowPartialSearchResults(false)
+        }
 
-    private fun getAggregationValue(aggregation: Aggregation): Any {
-        return when (aggregation) {
-            is InternalSum, is InternalMin, is InternalMax, is InternalAvg, is InternalValueCount -> {
-                val agg = aggregation as NumericMetricsAggregation.SingleValue
-                agg.value()
+        fun convertResponse(transform: Transform, searchResponse: SearchResponse, waterMarkDocuments: Boolean = true): TransformSearchResult {
+            val aggs = searchResponse.aggregations.get(transform.id) as CompositeAggregation
+            val documentsProcessed = aggs.buckets.fold(0L) { sum, it -> sum + it.docCount }
+            val pagesProcessed = 1L
+            val searchTime = searchResponse.took.millis
+            val stats = TransformStats(pagesProcessed, documentsProcessed, 0, 0, searchTime)
+            val afterKey = aggs.afterKey()
+            val docsToIndex = mutableListOf<IndexRequest>()
+            aggs.buckets.forEach { aggregatedBucket ->
+                val id = transform.id + "#" + aggregatedBucket.key.entries.joinToString(":") { bucket -> bucket.value?.toString() ?: ODFE_MAGIC_NULL }
+                val hashedId = hashToFixedSize(id)
+
+                val document = if (waterMarkDocuments) transform.convertToDoc(aggregatedBucket.docCount) else mutableMapOf()
+                aggregatedBucket.key.entries.forEach { bucket -> document[bucket.key] = bucket.value }
+                aggregatedBucket.aggregations.forEach { aggregation -> document[aggregation.name] = getAggregationValue(aggregation) }
+
+                val indexRequest = IndexRequest(transform.targetIndex)
+                    .id(hashedId)
+                    .source(document, XContentType.JSON)
+                docsToIndex.add(indexRequest)
             }
-            is Percentiles -> {
-                val percentiles = mutableMapOf<String, Double>()
-                aggregation.forEach { percentile ->
-                    percentiles[percentile.percent.toString()] = percentile.value
+
+            return TransformSearchResult(stats, docsToIndex, afterKey)
+        }
+
+        private fun getAggregationValue(aggregation: Aggregation): Any {
+            return when (aggregation) {
+                is InternalSum, is InternalMin, is InternalMax, is InternalAvg, is InternalValueCount -> {
+                    val agg = aggregation as NumericMetricsAggregation.SingleValue
+                    agg.value()
                 }
-                percentiles
+                is Percentiles -> {
+                    val percentiles = mutableMapOf<String, Double>()
+                    aggregation.forEach { percentile ->
+                        percentiles[percentile.percent.toString()] = percentile.value
+                    }
+                    percentiles
+                }
+                is ScriptedMetric -> {
+                    aggregation.aggregation()
+                }
+                else -> throw TransformSearchServiceException(
+                    "Found aggregation [${aggregation.name}] of type [${aggregation.type}] in composite result that is not currently supported"
+                )
             }
-            is ScriptedMetric -> {
-                aggregation.aggregation()
-            }
-            else -> throw TransformSearchServiceException(
-                "Found aggregation [${aggregation.name}] of type [${aggregation.type}] in composite result that is not currently supported"
-            )
         }
     }
 }

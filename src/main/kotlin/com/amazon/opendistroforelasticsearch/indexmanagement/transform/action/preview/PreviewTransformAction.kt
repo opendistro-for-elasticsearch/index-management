@@ -13,8 +13,13 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.transform.model
+package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview
 
-import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.action.ActionType
 
-data class TransformSearchResult(val stats: TransformStats, val docsToIndex: List<IndexRequest>, val afterKey: Map<String, Any>? = null)
+class PreviewTransformAction private constructor() : ActionType<PreviewTransformResponse>(NAME, ::PreviewTransformResponse) {
+    companion object {
+        val INSTANCE = PreviewTransformAction()
+        val NAME = "cluster:admin/opendistro/transform/preview"
+    }
+}

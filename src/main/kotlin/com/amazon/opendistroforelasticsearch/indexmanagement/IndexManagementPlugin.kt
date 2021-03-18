@@ -86,7 +86,10 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.TransportIndexTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.TransportPreviewTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestIndexTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestPreviewTransformAction
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
@@ -204,7 +207,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             RestStartRollupAction(),
             RestStopRollupAction(),
             RestExplainRollupAction(),
-            RestIndexTransformAction()
+            RestIndexTransformAction(),
+            RestPreviewTransformAction()
         )
     }
 
@@ -307,7 +311,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ActionPlugin.ActionHandler(StopRollupAction.INSTANCE, TransportStopRollupAction::class.java),
             ActionPlugin.ActionHandler(ExplainRollupAction.INSTANCE, TransportExplainRollupAction::class.java),
             ActionPlugin.ActionHandler(UpdateRollupMappingAction.INSTANCE, TransportUpdateRollupMappingAction::class.java),
-            ActionPlugin.ActionHandler(IndexTransformAction.INSTANCE, TransportIndexTransformAction::class.java)
+            ActionPlugin.ActionHandler(IndexTransformAction.INSTANCE, TransportIndexTransformAction::class.java),
+            ActionPlugin.ActionHandler(PreviewTransformAction.INSTANCE, TransportPreviewTransformAction::class.java)
         )
     }
 

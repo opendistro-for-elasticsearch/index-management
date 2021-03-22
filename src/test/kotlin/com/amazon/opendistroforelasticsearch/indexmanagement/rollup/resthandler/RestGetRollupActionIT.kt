@@ -23,6 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomRollup
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
+import org.elasticsearch.test.rest.ESRestTestCase.randomList
 
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
@@ -73,7 +74,7 @@ class RestGetRollupActionIT : RollupRestTestCase() {
             assertEquals(testRollup.seqNo, (foundRollup["_seq_no"] as Int).toLong())
             assertEquals(testRollup.primaryTerm, (foundRollup["_primary_term"] as Int).toLong())
             assertEquals(testRollup.id, innerRollup["rollup_id"] as String)
-            // Doesn't matter what rollup sets, current system is at schema version 5
+            // Doesn't matter what rollup sets, current system is at schema version 7
             assertEquals(7, (innerRollup["schema_version"] as Int).toLong())
             assertEquals(testRollup.enabled, innerRollup["enabled"] as Boolean)
             assertEquals(testRollup.enabledTime?.toEpochMilli(), (innerRollup["enabled_time"] as Number?)?.toLong())

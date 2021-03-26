@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.actionfilter
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.GuiceHolder
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupFieldMapping
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
@@ -39,13 +40,14 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.tasks.Task
+import org.elasticsearch.transport.RemoteClusterAware
 
 private val logger = LogManager.getLogger(FieldCapsFilter::class.java)
 
-@Suppress("UNCHECKED_CAST", "SpreadOperator", "TooManyFunctions")
+@Suppress("UNCHECKED_CAST", "SpreadOperator", "TooManyFunctions", "ComplexMethod", "NestedBlockDepth")
 class FieldCapsFilter(
     val clusterService: ClusterService,
-    val indexNameExpressionResolver: IndexNameExpressionResolver
+    private val indexNameExpressionResolver: IndexNameExpressionResolver
 ) : ActionFilter {
 
     override fun <Request : ActionRequest?, Response : ActionResponse?> apply(
@@ -57,17 +59,33 @@ class FieldCapsFilter(
     ) {
         if (request is FieldCapabilitiesRequest) {
             val indices = request.indices().map { it.toString() }.toTypedArray()
-            val concreteIndices = indexNameExpressionResolver.concreteIndexNames(clusterService.state(), request.indicesOptions(), *indices)
             val rollupIndices = mutableSetOf<String>()
             val nonRollupIndices = mutableSetOf<String>()
-            for (index in concreteIndices) {
-                val isRollupIndex = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(index).settings)
-                if (isRollupIndex) {
-                    rollupIndices.add(index)
-                } else {
-                    nonRollupIndices.add(index)
+            val remoteClusterIndices = GuiceHolder.remoteClusterService.groupIndices(request.indicesOptions(), indices) {
+                idx: String? -> indexNameExpressionResolver.hasIndexAbstraction(idx, clusterService.state())
+            }
+            val localIndices = remoteClusterIndices.remove(RemoteClusterAware.LOCAL_CLUSTER_GROUP_KEY)
+
+            localIndices?.let {
+                val concreteIndices = indexNameExpressionResolver.concreteIndexNames(clusterService.state(), request.indicesOptions(), it)
+                for (index in concreteIndices) {
+                    val isRollupIndex = RollupSettings.ROLLUP_INDEX.get(clusterService.state().metadata.index(index).settings)
+                    if (isRollupIndex) {
+                        rollupIndices.add(index)
+                    } else {
+                        nonRollupIndices.add(index)
+                    }
                 }
             }
+
+            remoteClusterIndices.entries.forEach {
+                val cluster = it.key
+                val clusterIndices = it.value
+                clusterIndices.indices().forEach { index ->
+                    nonRollupIndices.add("$cluster${RemoteClusterAware.REMOTE_CLUSTER_INDEX_SEPARATOR}$index")
+                }
+            }
+            logger.info("Resolved into rollup $rollupIndices and non rollup $nonRollupIndices indices")
 
             if (rollupIndices.isEmpty()) {
                 return chain.proceed(task, action, request, listener)
@@ -81,8 +99,13 @@ class FieldCapsFilter(
             request.indices(*nonRollupIndices.toTypedArray())
             chain.proceed(task, action, request, object : ActionListener<Response> {
                 override fun onResponse(response: Response) {
-                    logger.info("Has rollup indices will rewrite field caps response")
+                    logger.info("Found rollup indices will rewrite field caps response")
                     response as FieldCapabilitiesResponse
+                    // If request originated from remote cluster then rewrite will break
+                    if (isResponseUnmerged(response)) {
+                        logger.info("Rollup indices will not be included in response if its a remote cluster request")
+                        return listener.onResponse(response)
+                    }
                     val rewrittenResponse = rewriteResponse(response.get(), response.indices, rollupIndices)
                     listener.onResponse(rewrittenResponse as Response)
                 }
@@ -94,6 +117,10 @@ class FieldCapsFilter(
         } else {
             chain.proceed(task, action, request, listener)
         }
+    }
+
+    private fun isResponseUnmerged(fieldCapabilitiesResponse: FieldCapabilitiesResponse): Boolean {
+        return fieldCapabilitiesResponse.indices.isEmpty()
     }
 
     private fun rewriteResponse(

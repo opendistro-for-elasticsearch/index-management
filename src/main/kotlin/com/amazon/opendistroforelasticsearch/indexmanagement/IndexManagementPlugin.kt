@@ -121,6 +121,12 @@ import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportInterceptor
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
+import org.elasticsearch.common.component.Lifecycle
+import org.elasticsearch.common.component.LifecycleComponent
+import org.elasticsearch.common.component.LifecycleListener
+import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.transport.RemoteClusterService
+import org.elasticsearch.transport.TransportService
 
 internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, ActionPlugin, Plugin() {
 
@@ -327,5 +333,27 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
 
     override fun getActionFilters(): List<ActionFilter> {
         return listOf(FieldCapsFilter(clusterService, indexNameExpressionResolver))
+    }
+}
+
+class GuiceHolder @Inject constructor(
+    remoteClusterService: TransportService
+) : LifecycleComponent {
+    override fun close() {}
+    override fun lifecycleState(): Lifecycle.State? {
+        return null
+    }
+
+    override fun addLifecycleListener(listener: LifecycleListener) {}
+    override fun removeLifecycleListener(listener: LifecycleListener) {}
+    override fun start() {}
+    override fun stop() {}
+
+    companion object {
+        lateinit var remoteClusterService: RemoteClusterService
+    }
+
+    init {
+        Companion.remoteClusterService = remoteClusterService.remoteClusterService
     }
 }

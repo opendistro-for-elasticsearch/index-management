@@ -39,29 +39,31 @@ class TransportDeleteTransformsAction @Inject constructor(
 
         client.multiGet(mgetRequest, object : ActionListener<MultiGetResponse> {
             override fun onResponse(response: MultiGetResponse) {
-                var successIDs = checkEnabled(response, actionListener)
+                checkEnabled(response, actionListener)
 
                 var bulkDeleteRequest = BulkRequest()
-                for (id in successIDs) {
-                    bulkDeleteRequest.add(DeleteRequest(INDEX_MANAGEMENT_INDEX, id))
+                for (response in response.responses) {
+                    bulkDeleteRequest.add(DeleteRequest(INDEX_MANAGEMENT_INDEX, response.id))
                 }
+                bulkDelete(bulkDeleteRequest, actionListener)
             }
 
             override fun onFailure(e: Exception) = actionListener.onFailure(e)
         })
     }
 
-    private fun checkEnabled(response: MultiGetResponse, actionListener: ActionListener<BulkResponse>): MutableList<String> {
-        var successIDs = mutableListOf<String>()
+    private fun checkEnabled(response: MultiGetResponse, actionListener: ActionListener<BulkResponse>) {
+        var enabledIDs = mutableListOf<String>()
         for (getResponse in response.responses) {
             var itemResponse = getResponse.response
-            if (!getResponse.isFailed && (itemResponse.getField("enabled").getValue() as Boolean)) {
-                actionListener.onFailure(ElasticsearchStatusException("Transform ${itemResponse.id} is enabled! Please disable it before deleting.", RestStatus.CONFLICT))
-            } else if (!getResponse.isFailed) {
-                successIDs.add(itemResponse.id)
+            if ((itemResponse.getField("enabled").getValue() as Boolean)) {
+                // add to list of enabled, don't fail
+                enabledIDs.add(getResponse.id)
             }
         }
-        return successIDs
+        if (enabledIDs.isNotEmpty()) {
+            actionListener.onFailure(ElasticsearchStatusException("The following transform(s) are enabled. Please disable them before deleting: $enabledIDs", RestStatus.CONFLICT))
+        }
     }
 
     private fun bulkDelete(bulkDeleteRequest: BulkRequest, actionListener: ActionListener<BulkResponse>) {

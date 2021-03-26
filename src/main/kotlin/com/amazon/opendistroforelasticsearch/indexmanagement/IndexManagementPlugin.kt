@@ -85,8 +85,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestStopRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRunner
-import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformAction
-import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.TransportDeleteTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.TransportDeleteTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.TransportGetTransformAction
@@ -337,7 +337,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ActionPlugin.ActionHandler(IndexTransformAction.INSTANCE, TransportIndexTransformAction::class.java),
             ActionPlugin.ActionHandler(GetTransformAction.INSTANCE, TransportGetTransformAction::class.java),
             ActionPlugin.ActionHandler(GetTransformsAction.INSTANCE, TransportGetTransformsAction::class.java),
-            ActionPlugin.ActionHandler(DeleteTransformAction.INSTANCE, TransportDeleteTransformAction::class.java)
+            ActionPlugin.ActionHandler(DeleteTransformsAction.INSTANCE, TransportDeleteTransformsAction::class.java)
         )
     }
 

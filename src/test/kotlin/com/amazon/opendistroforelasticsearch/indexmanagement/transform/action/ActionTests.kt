@@ -15,7 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformAction
@@ -24,8 +24,8 @@ import org.elasticsearch.test.ESTestCase
 class ActionTests : ESTestCase() {
 
     fun `test delete transform name`() {
-        assertNotNull(DeleteTransformAction.INSTANCE.name())
-        assertEquals(DeleteTransformAction.INSTANCE.name(), DeleteTransformAction.NAME)
+        assertNotNull(DeleteTransformsAction.INSTANCE.name())
+        assertEquals(DeleteTransformsAction.INSTANCE.name(), DeleteTransformsAction.NAME)
     }
 
     fun `test index transform name`() {

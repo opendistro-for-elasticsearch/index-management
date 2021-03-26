@@ -16,7 +16,7 @@ class RestDeleteTransformActionIT : TransformRestTestCase() {
         val transform = createRandomTransform()
 
         val deleteResponse = client().makeRequest("DELETE",
-            "$TRANSFORM_BASE_URI/${transform.id}?refresh=true")
+            "$TRANSFORM_BASE_URI/${transform.id}")
         assertEquals("Delete failed", RestStatus.OK, deleteResponse.restStatus())
 
         val getResponse = client().makeRequest("HEAD", "$TRANSFORM_BASE_URI/${transform.id}")

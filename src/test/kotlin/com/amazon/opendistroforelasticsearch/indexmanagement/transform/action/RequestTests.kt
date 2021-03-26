@@ -16,7 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
@@ -32,13 +32,22 @@ import org.elasticsearch.test.ESTestCase
 
 class RequestTests : ESTestCase() {
 
-    fun `test delete transform request`() {
+    fun `test delete single transform request`() {
         val id = "some_id"
-        val req = DeleteTransformRequest(id).index(INDEX_MANAGEMENT_INDEX)
+        val req = DeleteTransformsRequest(listOf(id), index = INDEX_MANAGEMENT_INDEX)
 
         val out = BytesStreamOutput().apply { req.writeTo(this) }
-        val streamedReq = DeleteTransformRequest(buildStreamInputForTransforms(out))
-        assertEquals(id, streamedReq.id())
+        val streamedReq = DeleteTransformsRequest(buildStreamInputForTransforms(out))
+        assertEquals(listOf(id), streamedReq.ids)
+    }
+
+    fun `test delete multiple transform request`() {
+        val ids = mutableListOf("some_id", "some_other_id")
+        val req = DeleteTransformsRequest(ids, index = INDEX_MANAGEMENT_INDEX)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = DeleteTransformsRequest(buildStreamInputForTransforms(out))
+        assertEquals(ids, streamedReq.ids)
     }
 
     fun `test index transform post request`() {

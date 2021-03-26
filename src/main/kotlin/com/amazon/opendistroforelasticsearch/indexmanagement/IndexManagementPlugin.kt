@@ -154,6 +154,10 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
 
     override fun getJobRunner(): ScheduledJobRunner = IndexManagementRunner
 
+    override fun getGuiceServiceClasses(): Collection<Class<out LifecycleComponent?>> {
+        return mutableListOf<Class<out LifecycleComponent?>>(GuiceHolder::class.java)
+    }
+
     override fun getJobParser(): ScheduledJobParser {
         return ScheduledJobParser { xcp, id, jobDocVersion ->
             ensureExpectedToken(Token.START_OBJECT, xcp.nextToken(), xcp)

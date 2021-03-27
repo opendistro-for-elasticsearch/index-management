@@ -18,6 +18,10 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomSchedule
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.actionfilter.ISMFieldCapabilities
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.actionfilter.ISMFieldCapabilitiesIndexResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.actionfilter.ISMFieldCapabilitiesResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.actionfilter.ISMIndexFieldCapabilities
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ContinuousMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ExplainRollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.ISMRollup
@@ -179,6 +183,45 @@ fun randomISMRollup(): ISMRollup {
         pageSize = ESRestTestCase.randomIntBetween(1, 10000),
         dimensions = randomRollupDimensions(),
         metrics = ESRestTestCase.randomList(20, ::randomRollupMetrics).distinctBy { it.targetField }
+    )
+}
+
+fun randomISMFieldCapabilities(): ISMFieldCapabilities {
+    return ISMFieldCapabilities(
+        name = ESRestTestCase.randomAlphaOfLength(10),
+        type = ESRestTestCase.randomAlphaOfLength(10),
+        isSearchable = ESRestTestCase.randomBoolean(),
+        isAggregatable = ESRestTestCase.randomBoolean(),
+        indices = ESRestTestCase.generateRandomStringArray(10, 10, true, true),
+        nonSearchableIndices = ESRestTestCase.generateRandomStringArray(10, 10, true, true),
+        nonAggregatableIndices = ESRestTestCase.generateRandomStringArray(10, 10, true, true),
+        meta = mapOf(ESRestTestCase.randomAlphaOfLength(10) to setOf(ESRestTestCase.randomAlphaOfLength(10)) )
+    )
+}
+
+fun randomISMIndexFieldCapabilities(): ISMIndexFieldCapabilities {
+    return ISMIndexFieldCapabilities(
+        name = ESRestTestCase.randomAlphaOfLength(10),
+        type = ESRestTestCase.randomAlphaOfLength(10),
+        isSearchable = ESRestTestCase.randomBoolean(),
+        isAggregatable = ESRestTestCase.randomBoolean(),
+        meta = mapOf(ESRestTestCase.randomAlphaOfLength(10) to ESRestTestCase.randomAlphaOfLength(10))
+    )
+}
+
+fun randomISMFieldCapabilitiesIndexResponse(): ISMFieldCapabilitiesIndexResponse {
+    return ISMFieldCapabilitiesIndexResponse(
+        indexName = ESRestTestCase.randomAlphaOfLength(10),
+        responseMap = mapOf(ESRestTestCase.randomAlphaOfLength(10) to randomISMIndexFieldCapabilities()),
+        canMatch = ESRestTestCase.randomBoolean()
+    )
+}
+
+fun randomISMFieldCaps(): ISMFieldCapabilitiesResponse {
+    return ISMFieldCapabilitiesResponse(
+        indices = ESRestTestCase.generateRandomStringArray(10, 10, false),
+        responseMap = mapOf(ESRestTestCase.randomAlphaOfLength(10) to mapOf(ESRestTestCase.randomAlphaOfLength(10) to randomISMFieldCapabilities())),
+        indexResponses = ESRestTestCase.randomList(4, ::randomISMFieldCapabilitiesIndexResponse)
     )
 }
 

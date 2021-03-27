@@ -34,11 +34,7 @@ import org.elasticsearch.action.support.ActionFilterChain
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.service.ClusterService
-import org.elasticsearch.common.Strings
-import org.elasticsearch.common.xcontent.DeprecationHandler
-import org.elasticsearch.common.xcontent.NamedXContentRegistry
-import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.common.xcontent.json.JsonXContent
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.RemoteClusterAware
 
@@ -47,8 +43,17 @@ private val logger = LogManager.getLogger(FieldCapsFilter::class.java)
 @Suppress("UNCHECKED_CAST", "SpreadOperator", "TooManyFunctions", "ComplexMethod", "NestedBlockDepth")
 class FieldCapsFilter(
     val clusterService: ClusterService,
+    val settings: Settings,
     private val indexNameExpressionResolver: IndexNameExpressionResolver
 ) : ActionFilter {
+
+    @Volatile private var shouldIntercept = RollupSettings.ROLLUP_DASHBOARDS.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(RollupSettings.ROLLUP_DASHBOARDS) {
+            flag -> shouldIntercept = flag
+        }
+    }
 
     override fun <Request : ActionRequest?, Response : ActionResponse?> apply(
         task: Task,
@@ -57,7 +62,7 @@ class FieldCapsFilter(
         listener: ActionListener<Response>,
         chain: ActionFilterChain<Request, Response>
     ) {
-        if (request is FieldCapabilitiesRequest) {
+        if (request is FieldCapabilitiesRequest && shouldIntercept) {
             val indices = request.indices().map { it.toString() }.toTypedArray()
             val rollupIndices = mutableSetOf<String>()
             val nonRollupIndices = mutableSetOf<String>()
@@ -91,22 +96,15 @@ class FieldCapsFilter(
                 return chain.proceed(task, action, request, listener)
             }
 
-            if (nonRollupIndices.isEmpty()) {
-                val rewrittenResponse = rewriteResponse(mapOf(), arrayOf(), rollupIndices)
-                return listener.onResponse(rewrittenResponse as Response)
+            if (nonRollupIndices.isNotEmpty()) {
+                request.indices(*nonRollupIndices.toTypedArray())
             }
 
-            request.indices(*nonRollupIndices.toTypedArray())
             chain.proceed(task, action, request, object : ActionListener<Response> {
                 override fun onResponse(response: Response) {
-                    logger.info("Found rollup indices will rewrite field caps response")
+                    logger.info("Has rollup indices will rewrite field caps response")
                     response as FieldCapabilitiesResponse
-                    // If request originated from remote cluster then rewrite will break
-                    if (isResponseUnmerged(response)) {
-                        logger.info("Rollup indices will not be included in response if its a remote cluster request")
-                        return listener.onResponse(response)
-                    }
-                    val rewrittenResponse = rewriteResponse(response.get(), response.indices, rollupIndices)
+                    val rewrittenResponse = rewriteResponse(response, rollupIndices, nonRollupIndices.isEmpty())
                     listener.onResponse(rewrittenResponse as Response)
                 }
 
@@ -119,13 +117,55 @@ class FieldCapsFilter(
         }
     }
 
-    private fun isResponseUnmerged(fieldCapabilitiesResponse: FieldCapabilitiesResponse): Boolean {
-        return fieldCapabilitiesResponse.indices.isEmpty()
+    /**
+     * The FieldCapabilitiesResponse can contain merged or unmerged data. The response will hold unmerged data if its a cross cluster search.
+     *
+     * There is a boolean available in the FieldCapabilitiesRequest `isMergeResults` which indicates if the response is merged/unmerged.
+     * Unfortunately this is package private and when rewriting we can't access it from request. Instead will be relying on the response.
+     * If response has indexResponses then its unmerged else merged.
+     */
+    private fun rewriteResponse(response: FieldCapabilitiesResponse, rollupIndices: Set<String>, shouldDiscardResponse: Boolean): ActionResponse {
+        val ismFieldCapabilitiesResponse = ISMFieldCapabilitiesResponse.fromFieldCapabilitiesResponse(response)
+        val isMergedResponse = ismFieldCapabilitiesResponse.indexResponses.isEmpty()
+
+        // if original response contained only rollup indices we should discard it
+        val fields = if (shouldDiscardResponse) mapOf() else response.get()
+        val indices = if (shouldDiscardResponse) arrayOf() else response.indices
+        val indexResponses = if (shouldDiscardResponse) listOf() else ismFieldCapabilitiesResponse.indexResponses
+
+        return if (isMergedResponse) {
+            rewriteResponse(indices, fields, rollupIndices)
+        } else {
+            val rollupIndexResponses = populateRollupIndexResponses(rollupIndices)
+            val mergedIndexResponses = indexResponses + rollupIndexResponses
+
+            val rewrittenISMResponse = ISMFieldCapabilitiesResponse(arrayOf(), mapOf(), mergedIndexResponses)
+            rewrittenISMResponse.toFieldCapabilitiesResponse()
+        }
+    }
+
+    private fun populateRollupIndexResponses(rollupIndices: Set<String>): List<ISMFieldCapabilitiesIndexResponse> {
+        val indexResponses = mutableListOf<ISMFieldCapabilitiesIndexResponse>()
+        rollupIndices.forEach { rollupIndex ->
+            val rollupIsmFieldCapabilities = mutableMapOf<String, ISMIndexFieldCapabilities>()
+            val rollupFieldMappings = populateSourceFieldMappingsForRollupIndex(rollupIndex)
+
+            rollupFieldMappings.forEach { rollupFieldMapping ->
+                val fieldName = rollupFieldMapping.fieldName
+                val type = rollupFieldMapping.sourceType!!
+                val isSearchable = rollupFieldMapping.fieldType == RollupFieldMapping.Companion.FieldType.DIMENSION
+                rollupIsmFieldCapabilities[fieldName] = ISMIndexFieldCapabilities(fieldName, type, isSearchable, true, mapOf())
+            }
+
+            indexResponses.add(ISMFieldCapabilitiesIndexResponse(rollupIndex, rollupIsmFieldCapabilities, true))
+        }
+
+        return indexResponses
     }
 
     private fun rewriteResponse(
-        fields: Map<String, Map<String, FieldCapabilities>>,
         indices: Array<String>,
+        fields: Map<String, Map<String, FieldCapabilities>>,
         rollupIndices: Set<String>
     ): ActionResponse {
         val filteredIndicesFields = expandIndicesInFields(indices, fields)
@@ -133,20 +173,7 @@ class FieldCapsFilter(
         val mergedFields = mergeFields(filteredIndicesFields, rollupIndicesFields)
         val mergedIndices = indices + rollupIndices.toTypedArray()
 
-        return buildFieldCapsResponse(mergedIndices, mergedFields)
-    }
-
-    private fun buildFieldCapsResponse(indices: Array<String>, fields: Map<String, Map<String, FieldCapabilities>>): ActionResponse {
-        val builder = XContentFactory.jsonBuilder().prettyPrint()
-        builder.startObject()
-        builder.field("indices", indices)
-        builder.field("fields", fields as Map<String, Any>?)
-        builder.endObject()
-
-        val parser = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY, DeprecationHandler
-                .THROW_UNSUPPORTED_OPERATION, Strings.toString(builder))
-
-        return FieldCapabilitiesResponse.fromXContent(parser)
+        return FieldCapabilitiesResponse(mergedIndices, mergedFields)
     }
 
     private fun populateRollupIndicesFields(rollupIndices: Set<String>): Map<String, Map<String, FieldCapabilities>> {
@@ -161,7 +188,7 @@ class FieldCapsFilter(
             }
             val isSearchable = fieldMapping.fieldType == RollupFieldMapping.Companion.FieldType.DIMENSION
             response[fieldName]!![type] = FieldCapabilities(fieldName, type, isSearchable, true, fieldMappingIndexMap.getValue(fieldMapping)
-                    .toTypedArray(), null, null, mapOf<String, Set<String>>())
+                .toTypedArray(), null, null, mapOf<String, Set<String>>())
         }
 
         return response
@@ -183,14 +210,11 @@ class FieldCapsFilter(
         return rollupFieldMappings
     }
 
-    private fun populateSourceFieldMappingsForRollupIndex(rollupIndex: String): Map<String, Set<RollupFieldMapping>> {
-        val fieldMappings = mutableMapOf<String, MutableSet<RollupFieldMapping>>()
+    private fun populateSourceFieldMappingsForRollupIndex(rollupIndex: String): Set<RollupFieldMapping> {
+        val fieldMappings = mutableSetOf<RollupFieldMapping>()
         val rollupJobs = clusterService.state().metadata.index(rollupIndex).getRollupJobs() ?: return fieldMappings
         rollupJobs.forEach { rollup ->
-            if (fieldMappings[rollup.targetIndex] == null) {
-                fieldMappings[rollup.targetIndex] = mutableSetOf()
-            }
-            fieldMappings[rollup.targetIndex]!!.addAll(populateSourceFieldMappingsForRollupJob(rollup))
+            fieldMappings.addAll(populateSourceFieldMappingsForRollupJob(rollup))
         }
         return fieldMappings
     }
@@ -201,13 +225,11 @@ class FieldCapsFilter(
 
         rollupIndices.forEach { rollupIndex ->
             val fieldMappings = populateSourceFieldMappingsForRollupIndex(rollupIndex)
-            fieldMappings.forEach { rollupIndexFieldMappings ->
-                rollupIndexFieldMappings.value.forEach { fieldMapping ->
-                    if (fieldMappingsMap[fieldMapping] == null) {
-                        fieldMappingsMap[fieldMapping] = mutableSetOf()
-                    }
-                    fieldMappingsMap[fieldMapping]!!.add(rollupIndexFieldMappings.key)
+            fieldMappings.forEach { fieldMapping ->
+                if (fieldMappingsMap[fieldMapping] == null) {
+                    fieldMappingsMap[fieldMapping] = mutableSetOf()
                 }
+                fieldMappingsMap[fieldMapping]!!.add(rollupIndex)
             }
         }
 
@@ -232,7 +254,7 @@ class FieldCapsFilter(
                 val fieldCaps = fields.getValue(field).getValue(type)
                 val rewrittenIndices = if (fieldCaps.indices() != null && fieldCaps.indices().isNotEmpty()) fieldCaps.indices() else indices
                 expandedResponse[field]!![type] = FieldCapabilities(fieldCaps.name, fieldCaps.type, fieldCaps.isSearchable, fieldCaps
-                        .isAggregatable, rewrittenIndices, fieldCaps.nonSearchableIndices(), fieldCaps.nonAggregatableIndices(), fieldCaps.meta())
+                    .isAggregatable, rewrittenIndices, fieldCaps.nonSearchableIndices(), fieldCaps.nonAggregatableIndices(), fieldCaps.meta())
             }
         }
 
@@ -284,12 +306,12 @@ class FieldCapsFilter(
         val nonAggregatableIndices = mergeNonAggregatableIndices(fc1, fc2)
         val nonSearchableIndices = mergeNonSearchableIndices(fc1, fc2)
         val meta = (fc1.meta().keys + fc2.meta().keys)
-                .associateWith {
-                    val data = mutableSetOf<String>()
-                    data.addAll(fc1.meta().getOrDefault(it, mutableSetOf()))
-                    data.addAll(fc2.meta().getOrDefault(it, mutableSetOf()))
-                    data
-                }
+            .associateWith {
+                val data = mutableSetOf<String>()
+                data.addAll(fc1.meta().getOrDefault(it, mutableSetOf()))
+                data.addAll(fc2.meta().getOrDefault(it, mutableSetOf()))
+                data
+            }
 
         return FieldCapabilities(name, type, isSearchable, isAggregatable, indices, nonSearchableIndices, nonAggregatableIndices, meta)
     }

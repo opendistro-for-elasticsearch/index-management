@@ -135,6 +135,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     lateinit var clusterService: ClusterService
     lateinit var indexNameExpressionResolver: IndexNameExpressionResolver
     lateinit var rollupInterceptor: RollupInterceptor
+    lateinit var fieldCapsFilter: FieldCapsFilter
 
     companion object {
         const val PLUGIN_NAME = "opendistro-im"
@@ -247,6 +248,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
         rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
+        fieldCapsFilter = FieldCapsFilter(clusterService, settings, indexNameExpressionResolver)
         this.indexNameExpressionResolver = indexNameExpressionResolver
 
         val skipFlag = SkipExecution(client, clusterService)
@@ -303,7 +305,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             RollupSettings.ROLLUP_SEARCH_BACKOFF_MILLIS,
             RollupSettings.ROLLUP_INDEX,
             RollupSettings.ROLLUP_ENABLED,
-            RollupSettings.ROLLUP_SEARCH_ENABLED
+            RollupSettings.ROLLUP_SEARCH_ENABLED,
+            RollupSettings.ROLLUP_DASHBOARDS
         )
     }
 
@@ -336,7 +339,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     }
 
     override fun getActionFilters(): List<ActionFilter> {
-        return listOf(FieldCapsFilter(clusterService, indexNameExpressionResolver))
+        return listOf(fieldCapsFilter)
     }
 }
 

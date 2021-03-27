@@ -57,11 +57,7 @@ class ISMFieldCapabilitiesResponse(
     val indices: Array<String>,
     val responseMap: Map<String, Map<String, ISMFieldCapabilities>>,
     val indexResponses: List<ISMFieldCapabilitiesIndexResponse>
-) : Writeable {
-
-    override fun writeTo(out: StreamOutput?) {
-        TODO("Not yet implemented")
-    }
+) {
 
     fun toFieldCapabilitiesResponse(): FieldCapabilitiesResponse {
         val out = BytesStreamOutput()

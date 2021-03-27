@@ -195,7 +195,7 @@ fun randomISMFieldCapabilities(): ISMFieldCapabilities {
         indices = ESRestTestCase.generateRandomStringArray(10, 10, true, true),
         nonSearchableIndices = ESRestTestCase.generateRandomStringArray(10, 10, true, true),
         nonAggregatableIndices = ESRestTestCase.generateRandomStringArray(10, 10, true, true),
-        meta = mapOf(ESRestTestCase.randomAlphaOfLength(10) to setOf(ESRestTestCase.randomAlphaOfLength(10)) )
+        meta = mapOf(ESRestTestCase.randomAlphaOfLength(10) to setOf(ESRestTestCase.randomAlphaOfLength(10)))
     )
 }
 

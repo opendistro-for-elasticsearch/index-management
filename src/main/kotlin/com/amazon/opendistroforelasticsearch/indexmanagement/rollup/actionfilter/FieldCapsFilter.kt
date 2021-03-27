@@ -90,7 +90,7 @@ class FieldCapsFilter(
                     nonRollupIndices.add("$cluster${RemoteClusterAware.REMOTE_CLUSTER_INDEX_SEPARATOR}$index")
                 }
             }
-            logger.info("Resolved into rollup $rollupIndices and non rollup $nonRollupIndices indices")
+            logger.debug("Resolved into rollup $rollupIndices and non rollup $nonRollupIndices indices")
 
             if (rollupIndices.isEmpty()) {
                 return chain.proceed(task, action, request, listener)

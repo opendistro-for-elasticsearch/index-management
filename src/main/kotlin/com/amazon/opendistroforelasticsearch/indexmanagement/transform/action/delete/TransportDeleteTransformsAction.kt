@@ -12,6 +12,7 @@ import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
@@ -29,46 +30,57 @@ class TransportDeleteTransformsAction @Inject constructor(
         // TODO: if metadata id exists delete the metadata doc else just delete transform
 
         // Use Multi-Get Request
-        var mgetRequest = MultiGetRequest()
-        for (id in request.ids) {
-            mgetRequest.add(MultiGetRequest.Item(
-                INDEX_MANAGEMENT_INDEX,
-                id
-            ))
+        var getRequest = MultiGetRequest()
+        request.ids.forEach { id ->
+            getRequest.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, id))
         }
 
-        client.multiGet(mgetRequest, object : ActionListener<MultiGetResponse> {
+        client.multiGet(getRequest, object : ActionListener<MultiGetResponse> {
             override fun onResponse(response: MultiGetResponse) {
-                checkEnabled(response, actionListener)
-
-                var bulkDeleteRequest = BulkRequest()
-                for (response in response.responses) {
-                    bulkDeleteRequest.add(DeleteRequest(INDEX_MANAGEMENT_INDEX, response.id))
+                try {
+                    bulkDelete(response, request.ids, actionListener)
+                } catch (e: Exception) {
+                    actionListener.onFailure(e)
                 }
-                bulkDelete(bulkDeleteRequest, actionListener)
             }
 
             override fun onFailure(e: Exception) = actionListener.onFailure(e)
         })
     }
 
-    private fun checkEnabled(response: MultiGetResponse, actionListener: ActionListener<BulkResponse>) {
+    private fun bulkDelete(response: MultiGetResponse, ids: List<String>, actionListener: ActionListener<BulkResponse>) {
         var enabledIDs = mutableListOf<String>()
-        for (getResponse in response.responses) {
-            var itemResponse = getResponse.response
-            if ((itemResponse.getField("enabled").getValue() as Boolean)) {
-                // add to list of enabled, don't fail
-                enabledIDs.add(getResponse.id)
+        response.responses.forEach {
+            // TODO: Check if the source is actually transform document
+            if (it.response != null && it.response.isExists) {
+                val source = it.response.source
+                val transform = source["transform"] as Map<String, Any>
+                val enabled = transform["enabled"] as Boolean
+                if (enabled) {
+                    enabledIDs.add(it.id)
+                }
             }
         }
-        if (enabledIDs.isNotEmpty()) {
-            actionListener.onFailure(ElasticsearchStatusException("The following transform(s) are enabled. Please disable them before deleting: $enabledIDs", RestStatus.CONFLICT))
-        }
-    }
 
-    private fun bulkDelete(bulkDeleteRequest: BulkRequest, actionListener: ActionListener<BulkResponse>) {
+        if (enabledIDs.isNotEmpty()) {
+            actionListener.onFailure(ElasticsearchStatusException(
+                "[$enabledIDs] transform(s) are enabled, please disable them before deleting them", RestStatus.CONFLICT
+            ))
+        }
+
+        var bulkDeleteRequest = BulkRequest()
+        for (id in ids) {
+            bulkDeleteRequest.add(DeleteRequest(INDEX_MANAGEMENT_INDEX, id))
+        }
+
         client.bulk(bulkDeleteRequest, object : ActionListener<BulkResponse> {
             override fun onResponse(response: BulkResponse) {
+                response.items.forEach {
+                    if (it.failure != null && it.failure.cause::class == IndexNotFoundException::class) {
+                        actionListener.onFailure(ElasticsearchStatusException("Index not found", RestStatus.NOT_FOUND))
+                        return
+                    }
+                }
                 actionListener.onResponse(response)
             }
 

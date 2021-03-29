@@ -34,7 +34,7 @@ class RequestTests : ESTestCase() {
 
     fun `test delete single transform request`() {
         val id = "some_id"
-        val req = DeleteTransformsRequest(listOf(id), index = INDEX_MANAGEMENT_INDEX)
+        val req = DeleteTransformsRequest(listOf(id))
 
         val out = BytesStreamOutput().apply { req.writeTo(this) }
         val streamedReq = DeleteTransformsRequest(buildStreamInputForTransforms(out))
@@ -43,7 +43,7 @@ class RequestTests : ESTestCase() {
 
     fun `test delete multiple transform request`() {
         val ids = mutableListOf("some_id", "some_other_id")
-        val req = DeleteTransformsRequest(ids, index = INDEX_MANAGEMENT_INDEX)
+        val req = DeleteTransformsRequest(ids)
 
         val out = BytesStreamOutput().apply { req.writeTo(this) }
         val streamedReq = DeleteTransformsRequest(buildStreamInputForTransforms(out))

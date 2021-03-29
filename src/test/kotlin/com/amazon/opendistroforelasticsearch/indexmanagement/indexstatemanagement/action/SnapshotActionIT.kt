@@ -111,6 +111,44 @@ class SnapshotActionIT : IndexStateManagementRestTestCase() {
         waitFor { assertSnapshotFinishedWithSuccess(repository, indexName) }
     }
 
+    fun `test basic with invalid templated snapshot name default to indexName`() {
+        val indexName = "${testIndexName}_index_basic"
+        val policyID = "${testIndexName}_policy_basic"
+        val repository = "repository"
+        val snapshot = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, "{{ctx.someField}}", emptyMap())
+        val actionConfig = SnapshotActionConfig(repository, snapshot, 0)
+        val states = listOf(
+            State("Snapshot", listOf(actionConfig), listOf())
+        )
+
+        createRepository(repository)
+
+        val policy = Policy(
+            id = policyID,
+            description = "$testIndexName description",
+            schemaVersion = 1L,
+            lastUpdatedTime = Instant.now().truncatedTo(ChronoUnit.MILLIS),
+            errorNotification = randomErrorNotification(),
+            defaultState = states[0].name,
+            states = states
+        )
+        createPolicy(policy, policyID)
+        createIndex(indexName, policyID)
+
+        val managedIndexConfig = getExistingManagedIndexConfig(indexName)
+
+        // Change the start time so the job will trigger in 2 seconds.
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor { assertEquals(policyID, getExplainManagedIndexMetaData(indexName).policyID) }
+
+        // Need to wait two cycles for wait for snapshot step
+        updateManagedIndexConfigStartTime(managedIndexConfig)
+
+        waitFor { assertSnapshotExists(repository, indexName) }
+        waitFor { assertSnapshotFinishedWithSuccess(repository, indexName) }
+    }
+
     fun `test successful wait for snapshot step`() {
         val indexName = "${testIndexName}_index_success"
         val policyID = "${testIndexName}_policy_success"

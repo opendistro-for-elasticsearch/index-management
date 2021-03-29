@@ -214,7 +214,7 @@ fun randomTemplateScript(
 ): Script = Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, source, params)
 
 fun randomSnapshotActionConfig(repository: String = "repo", snapshot: String = "sp"): SnapshotActionConfig {
-    return SnapshotActionConfig(repository, snapshot, index = 0)
+    return SnapshotActionConfig(repository, Script(ScriptType.INLINE, Script.DEFAULT_TEMPLATE_LANG, snapshot, emptyMap()), index = 0)
 }
 
 /**

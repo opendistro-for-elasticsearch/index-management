@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.convertToMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendUntil
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.SnapshotActionConfig
@@ -36,9 +37,13 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptService
+import org.elasticsearch.script.TemplateScript
 
 class AttemptSnapshotStep(
     val clusterService: ClusterService,
+    val scriptService: ScriptService,
     val client: Client,
     val config: SnapshotActionConfig,
     managedIndexMetaData: ManagedIndexMetaData
@@ -63,13 +68,12 @@ class AttemptSnapshotStep(
                 info = mutableInfo.toMap()
                 return this
             }
+            val snapshotNamePrefix = "-".plus(
+                LocalDateTime.now(ZoneId.of("UTC"))
+                    .format(DateTimeFormatter.ofPattern("uuuu.MM.dd-HH:mm:ss.SSS", Locale.ROOT))
+            )
 
-            snapshotName = config
-                .snapshot
-                .plus("-")
-                .plus(LocalDateTime
-                    .now(ZoneId.of("UTC"))
-                    .format(DateTimeFormatter.ofPattern("uuuu.MM.dd-HH:mm:ss.SSS", Locale.ROOT)))
+            snapshotName = compileTemplate(config.snapshot, managedIndexMetaData).plus(snapshotNamePrefix)
 
             val createSnapshotRequest = CreateSnapshotRequest()
                 .userMetadata(mapOf("snapshot_created" to "Open Distro for Elasticsearch Index Management"))
@@ -133,6 +137,12 @@ class AttemptSnapshotStep(
         val errorMessage = e.message
         if (errorMessage != null) mutableInfo["cause"] = errorMessage
         info = mutableInfo.toMap()
+    }
+
+    private fun compileTemplate(template: Script, managedIndexMetaData: ManagedIndexMetaData): String {
+        return scriptService.compile(template, TemplateScript.CONTEXT)
+            .newInstance(template.params + mapOf("ctx" to managedIndexMetaData.convertToMap()))
+            .execute()
     }
 
     override fun getUpdatedManagedIndexMetaData(currentMetaData: ManagedIndexMetaData): ManagedIndexMetaData {

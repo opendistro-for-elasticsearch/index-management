@@ -4,6 +4,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.SnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.managedindexmetadata.ActionProperties
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.randomSnapshotActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SNAPSHOT_DENY_LIST
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.AttemptSnapshotStep
 import com.nhaarman.mockitokotlin2.any
@@ -20,7 +21,10 @@ import org.elasticsearch.client.ClusterAdminClient
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.ClusterSettings
 import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.ingest.TestTemplateService.MockTemplateScript
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.script.ScriptService
+import org.elasticsearch.script.TemplateScript
 import org.elasticsearch.snapshots.ConcurrentSnapshotExecutionException
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.transport.RemoteTransportException
@@ -29,12 +33,14 @@ import org.junit.Before
 class AttemptSnapshotStepTests : ESTestCase() {
 
     private val clusterService: ClusterService = mock()
-    private val config = SnapshotActionConfig("repo", "snapshot-name", 0)
+    private val scriptService: ScriptService = mock()
+    private val config = randomSnapshotActionConfig("repo", "snapshot-name")
     private val metadata = ManagedIndexMetaData("test", "indexUuid", "policy_id", null, null, null, null, null, null, ActionMetaData(AttemptSnapshotStep.name, 1, 0, false, 0, null, ActionProperties(snapshotName = "snapshot-name")), null, null, null)
 
     @Before
     fun settings() {
         whenever(clusterService.clusterSettings).doReturn(ClusterSettings(Settings.EMPTY, setOf(SNAPSHOT_DENY_LIST)))
+        whenever(scriptService.compile(config.snapshot, TemplateScript.CONTEXT)).doReturn(MockTemplateScript.Factory("snapshot-name"))
     }
 
     fun `test snapshot response when block`() {
@@ -43,7 +49,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
 
         whenever(response.status()).doReturn(RestStatus.ACCEPTED)
         runBlocking {
-            val step = AttemptSnapshotStep(clusterService, client, config, metadata)
+            val step = AttemptSnapshotStep(clusterService, scriptService, client, config, metadata)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
             assertEquals("Step status is not COMPLETED", Step.StepStatus.COMPLETED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
@@ -51,7 +57,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
 
         whenever(response.status()).doReturn(RestStatus.OK)
         runBlocking {
-            val step = AttemptSnapshotStep(clusterService, client, config, metadata)
+            val step = AttemptSnapshotStep(clusterService, scriptService, client, config, metadata)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
             assertEquals("Step status is not COMPLETED", Step.StepStatus.COMPLETED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
@@ -59,7 +65,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
 
         whenever(response.status()).doReturn(RestStatus.INTERNAL_SERVER_ERROR)
         runBlocking {
-            val step = AttemptSnapshotStep(clusterService, client, config, metadata)
+            val step = AttemptSnapshotStep(clusterService, scriptService, client, config, metadata)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
             assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
@@ -70,7 +76,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
         val exception = IllegalArgumentException("example")
         val client = getClient(getAdminClient(getClusterAdminClient(null, exception)))
         runBlocking {
-            val step = AttemptSnapshotStep(clusterService, client, config, metadata)
+            val step = AttemptSnapshotStep(clusterService, scriptService, client, config, metadata)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
             assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
@@ -82,7 +88,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
         val exception = ConcurrentSnapshotExecutionException("repo", "other-snapshot", "concurrent snapshot in progress")
         val client = getClient(getAdminClient(getClusterAdminClient(null, exception)))
         runBlocking {
-            val step = AttemptSnapshotStep(clusterService, client, config, metadata)
+            val step = AttemptSnapshotStep(clusterService, scriptService, client, config, metadata)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
             assertEquals("Step status is not CONDITION_NOT_MET", Step.StepStatus.CONDITION_NOT_MET, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
@@ -94,7 +100,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
         val exception = RemoteTransportException("rte", ConcurrentSnapshotExecutionException("repo", "other-snapshot", "concurrent snapshot in progress"))
         val client = getClient(getAdminClient(getClusterAdminClient(null, exception)))
         runBlocking {
-            val step = AttemptSnapshotStep(clusterService, client, config, metadata)
+            val step = AttemptSnapshotStep(clusterService, scriptService, client, config, metadata)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
             assertEquals("Step status is not CONDITION_NOT_MET", Step.StepStatus.CONDITION_NOT_MET, updatedManagedIndexMetaData.stepMetaData?.stepStatus)
@@ -106,7 +112,7 @@ class AttemptSnapshotStepTests : ESTestCase() {
         val exception = RemoteTransportException("rte", IllegalArgumentException("some error"))
         val client = getClient(getAdminClient(getClusterAdminClient(null, exception)))
         runBlocking {
-            val step = AttemptSnapshotStep(clusterService, client, config, metadata)
+            val step = AttemptSnapshotStep(clusterService, scriptService, client, config, metadata)
             step.execute()
             val updatedManagedIndexMetaData = step.getUpdatedManagedIndexMetaData(metadata)
             assertEquals("Step status is not FAILED", Step.StepStatus.FAILED, updatedManagedIndexMetaData.stepMetaData?.stepStatus)

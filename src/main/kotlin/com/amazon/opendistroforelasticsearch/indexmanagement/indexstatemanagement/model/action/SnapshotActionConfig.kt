@@ -31,10 +31,11 @@ import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.script.ScriptService
 import java.io.IOException
+import org.elasticsearch.script.Script
 
 data class SnapshotActionConfig(
     val repository: String,
-    val snapshot: String,
+    val snapshot: Script,
     val index: Int
 ) : ToXContentObject, ActionConfig(ActionType.SNAPSHOT, index) {
 
@@ -55,12 +56,12 @@ data class SnapshotActionConfig(
         client: Client,
         settings: Settings,
         managedIndexMetaData: ManagedIndexMetaData
-    ): Action = SnapshotAction(clusterService, client, managedIndexMetaData, this)
+    ): Action = SnapshotAction(clusterService, scriptService, client, managedIndexMetaData, this)
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         repository = sin.readString(),
-        snapshot = sin.readString(),
+        snapshot = Script(sin),
         index = sin.readInt()
     )
 
@@ -68,7 +69,7 @@ data class SnapshotActionConfig(
     override fun writeTo(out: StreamOutput) {
         super.writeTo(out)
         out.writeString(repository)
-        out.writeString(snapshot)
+        snapshot.writeTo(out)
         out.writeInt(index)
     }
 
@@ -81,7 +82,7 @@ data class SnapshotActionConfig(
         @Throws(IOException::class)
         fun parse(xcp: XContentParser, index: Int): SnapshotActionConfig {
             var repository: String? = null
-            var snapshot: String? = null
+            var snapshot: Script? = null
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != Token.END_OBJECT) {
@@ -90,7 +91,7 @@ data class SnapshotActionConfig(
 
                 when (fieldName) {
                     REPOSITORY_FIELD -> repository = xcp.text()
-                    SNAPSHOT_FIELD -> snapshot = xcp.text()
+                    SNAPSHOT_FIELD -> snapshot = Script.parse(xcp, Script.DEFAULT_TEMPLATE_LANG)
                     else -> throw IllegalArgumentException("Invalid field: [$fieldName] found in SnapshotActionConfig.")
                 }
             }

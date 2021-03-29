@@ -23,14 +23,16 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.step.snapshot.WaitForSnapshotStep
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.script.ScriptService
 
 class SnapshotAction(
     clusterService: ClusterService,
+    scriptService: ScriptService,
     client: Client,
     managedIndexMetaData: ManagedIndexMetaData,
     config: SnapshotActionConfig
 ) : Action(ActionType.SNAPSHOT, config, managedIndexMetaData) {
-    private val attemptSnapshotStep = AttemptSnapshotStep(clusterService, client, config, managedIndexMetaData)
+    private val attemptSnapshotStep = AttemptSnapshotStep(clusterService, scriptService, client, config, managedIndexMetaData)
     private val waitForSnapshotStep = WaitForSnapshotStep(clusterService, client, config, managedIndexMetaData)
 
     override fun getSteps(): List<Step> = listOf(attemptSnapshotStep, waitForSnapshotStep)

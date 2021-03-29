@@ -96,6 +96,14 @@ class FieldCapsFilter(
                 return chain.proceed(task, action, request, listener)
             }
 
+            /**
+             * The request can be one of two cases:
+             * 1  Just rollup indices
+             * 2  Rollup + NonRollup indices
+             * If 1 we forward the request to chain and discard the whole response from chain when rewriting.
+             * If 2 we forward the request to chain with only non rollup indices and append rollup data to response when rewriting.
+             * We are calling with rollup indices in 1 instead of an empty request since empty is defaulted to returning all indices in cluster.
+            **/
             if (nonRollupIndices.isNotEmpty()) {
                 request.indices(*nonRollupIndices.toTypedArray())
             }

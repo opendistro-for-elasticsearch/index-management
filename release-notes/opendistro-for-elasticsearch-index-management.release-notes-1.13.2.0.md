@@ -1,4 +1,4 @@
-## Version 1.13.1.0 2021-02-26
+## Version 1.13.2.0 2021-03-30
 
 Compatible with Elasticsearch 7.10.2
 

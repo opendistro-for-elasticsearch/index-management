@@ -15,8 +15,6 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.actionfilter
 
-import java.util.Objects
-import org.elasticsearch.action.fieldcaps.FieldCapabilitiesIndexResponse
 import org.elasticsearch.action.fieldcaps.FieldCapabilitiesResponse
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput

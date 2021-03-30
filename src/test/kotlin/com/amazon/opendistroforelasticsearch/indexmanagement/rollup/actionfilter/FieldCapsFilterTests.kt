@@ -34,7 +34,7 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.test.ESTestCase
 import org.junit.Before
 
-class FieldCapsFilterTests: ESTestCase() {
+class FieldCapsFilterTests : ESTestCase() {
     private val indexNameExpressionResolver: IndexNameExpressionResolver = mock()
     private val clusterService: ClusterService = mock()
     private val clusterState: ClusterState = mock()

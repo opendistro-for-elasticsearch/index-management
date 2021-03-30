@@ -132,7 +132,7 @@ class FieldCapsFilter(
      * Unfortunately this is package private and when rewriting we can't access it from request. Instead will be relying on the response.
      * If response has indexResponses then its unmerged else merged.
      */
-    private fun rewriteResponse(response: FieldCapabilitiesResponse, rollupIndices: Set<String>, shouldDiscardResponse: Boolean): ActionResponse {
+    internal fun rewriteResponse(response: FieldCapabilitiesResponse, rollupIndices: Set<String>, shouldDiscardResponse: Boolean): ActionResponse {
         val ismFieldCapabilitiesResponse = ISMFieldCapabilitiesResponse.fromFieldCapabilitiesResponse(response)
         val isMergedResponse = ismFieldCapabilitiesResponse.indexResponses.isEmpty()
 

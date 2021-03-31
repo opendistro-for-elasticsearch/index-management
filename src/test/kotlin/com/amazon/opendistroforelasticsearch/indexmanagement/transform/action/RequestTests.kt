@@ -129,4 +129,11 @@ class RequestTests : ESTestCase() {
         assertEquals("sorted", streamedReq.sortField)
         assertEquals("desc", streamedReq.sortDirection)
     }
+
+    fun `test empty ids delete transforms request`() {
+        val req = DeleteTransformsRequest(listOf())
+        val validated = req.validate()
+        assertNotNull("Expected validate to produce Exception", validated)
+        assertEquals("org.elasticsearch.action.ActionRequestValidationException: Validation Failed: 1: List of ids to delete is empty;", validated.toString())
+    }
 }

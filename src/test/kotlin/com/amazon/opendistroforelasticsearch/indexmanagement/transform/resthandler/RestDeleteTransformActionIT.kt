@@ -1,3 +1,18 @@
+/*
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
@@ -14,9 +29,7 @@ import org.elasticsearch.test.junit.annotations.TestLogging
 class RestDeleteTransformActionIT : TransformRestTestCase() {
     @Throws(Exception::class)
     fun `test deleting a transform`() {
-
-        var transform = randomTransform()
-        transform = transform.copy(enabled = false)
+        val transform = randomTransform().copy(enabled = false)
         createTransform(transform, transform.id, refresh = true)
 
         val deleteResponse = client().makeRequest("DELETE",
@@ -28,6 +41,20 @@ class RestDeleteTransformActionIT : TransformRestTestCase() {
 
         val getResponse = client().makeRequest("HEAD", "$TRANSFORM_BASE_URI/${transform.id}")
         assertEquals("Deleted transform still exists", RestStatus.NOT_FOUND, getResponse.restStatus())
+    }
+
+    @Throws(Exception::class)
+    fun `test deleting an enabled transform`() {
+        val transform = randomTransform().copy(enabled = true)
+        createTransform(transform, transform.id, refresh = true)
+
+        try {
+            val deleteResponse = client().makeRequest("DELETE",
+                "$TRANSFORM_BASE_URI/${transform.id}")
+            fail("Expected an Exception")
+        } catch (e: Exception) {
+            assertEquals("Expected ElasticsearchStatusException", ResponseException::class, e::class)
+        }
     }
 
     @Throws(Exception::class)

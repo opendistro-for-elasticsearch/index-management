@@ -1,3 +1,18 @@
+/*
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
@@ -30,7 +45,7 @@ class TransportDeleteTransformsAction @Inject constructor(
         // TODO: if metadata id exists delete the metadata doc else just delete transform
 
         // Use Multi-Get Request
-        var getRequest = MultiGetRequest()
+        val getRequest = MultiGetRequest()
         request.ids.forEach { id ->
             getRequest.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, id))
         }
@@ -49,11 +64,21 @@ class TransportDeleteTransformsAction @Inject constructor(
     }
 
     private fun bulkDelete(response: MultiGetResponse, ids: List<String>, actionListener: ActionListener<BulkResponse>) {
-        var enabledIDs = mutableListOf<String>()
+        val enabledIDs = mutableListOf<String>()
+        val sourceMissingIDs = mutableListOf<String>()
+        val notTransform = mutableListOf<String>()
+
         response.responses.forEach {
             // TODO: Check if the source is actually transform document
             if (it.response != null && it.response.isExists) {
+                if (it.response.isSourceEmpty) {
+                    sourceMissingIDs.add(it.id)
+                }
                 val source = it.response.source
+                if (!source.keys.contains("transform")) {
+                    notTransform.add(it.id)
+                }
+
                 val transform = source["transform"] as Map<String, Any>
                 val enabled = transform["enabled"] as Boolean
                 if (enabled) {
@@ -62,13 +87,25 @@ class TransportDeleteTransformsAction @Inject constructor(
             }
         }
 
+        if (notTransform.isNotEmpty()) {
+            actionListener.onFailure(ElasticsearchStatusException(
+                "[$notTransform] IDs are not transforms!", RestStatus.BAD_REQUEST
+            ))
+        }
+
+        if (sourceMissingIDs.isNotEmpty()) {
+            actionListener.onFailure(ElasticsearchStatusException(
+                "[$sourceMissingIDs] are missing their source documents!", RestStatus.NOT_FOUND
+            ))
+        }
+
         if (enabledIDs.isNotEmpty()) {
             actionListener.onFailure(ElasticsearchStatusException(
                 "[$enabledIDs] transform(s) are enabled, please disable them before deleting them", RestStatus.CONFLICT
             ))
         }
 
-        var bulkDeleteRequest = BulkRequest()
+        val bulkDeleteRequest = BulkRequest()
         for (id in ids) {
             bulkDeleteRequest.add(DeleteRequest(INDEX_MANAGEMENT_INDEX, id))
         }

@@ -84,14 +84,18 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestStartRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler.RestStopRollupAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.settings.RollupSettings
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRunner
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.TransportGetTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.TransportGetTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.TransportIndexTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestGetTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestIndexTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.settings.TransformSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobRunner
@@ -174,6 +178,12 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
                     RollupMetadata.ROLLUP_METADATA_TYPE -> {
                         return@ScheduledJobParser null
                     }
+                    Transform.TRANSFORM_TYPE -> {
+                        return@ScheduledJobParser Transform.parse(xcp, id, jobDocVersion.seqNo, jobDocVersion.primaryTerm)
+                    }
+                    TransformMetadata.TRANSFORM_METADATA_TYPE -> {
+                        return@ScheduledJobParser null
+                    }
                     else -> {
                         logger.warn("Unsupported document was indexed in $INDEX_MANAGEMENT_INDEX with type: $fieldName")
                         xcp.skipChildren()
@@ -249,6 +259,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
         rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
+        val transformRunner = TransformRunner.initialize(client, clusterService, xContentRegistry, settings)
         this.indexNameExpressionResolver = indexNameExpressionResolver
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =
@@ -263,7 +274,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
             client, clusterService, threadPool, indexManagementIndices)
 
-        return listOf(managedIndexRunner, rollupRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
+        return listOf(
+            managedIndexRunner, rollupRunner, transformRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory
+        )
     }
 
     override fun getSettings(): List<Setting<*>> {
@@ -288,7 +301,11 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             RollupSettings.ROLLUP_SEARCH_BACKOFF_MILLIS,
             RollupSettings.ROLLUP_INDEX,
             RollupSettings.ROLLUP_ENABLED,
-            RollupSettings.ROLLUP_SEARCH_ENABLED
+            RollupSettings.ROLLUP_SEARCH_ENABLED,
+            TransformSettings.TRANSFORM_JOB_INDEX_BACKOFF_COUNT,
+            TransformSettings.TRANSFORM_JOB_INDEX_BACKOFF_MILLIS,
+            TransformSettings.TRANSFORM_JOB_SEARCH_BACKOFF_COUNT,
+            TransformSettings.TRANSFORM_JOB_SEARCH_BACKOFF_MILLIS
         )
     }
 

@@ -55,6 +55,7 @@ class TransformIndexer(
         }
     }
 
+    @Suppress("ThrowsCount")
     suspend fun index(docsToIndex: List<DocWriteRequest<*>>): Long {
         var updatableDocsToIndex = docsToIndex
         var indexTimeInMillis = 0L

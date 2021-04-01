@@ -37,7 +37,6 @@ suspend fun acquireLockForScheduledJob(scheduledJob: ScheduledJobParameter, cont
         backoffPolicy.retry(logger) {
             lock = context.lockService.suspendUntil { acquireLock(scheduledJob, context, it) }
         }
-        scheduledJob.name
     } catch (e: Exception) {
         logger.error("Failed to acquireLock for job ${scheduledJob.name}", e)
     }

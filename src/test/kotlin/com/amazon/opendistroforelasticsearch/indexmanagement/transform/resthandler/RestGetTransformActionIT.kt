@@ -1,8 +1,8 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsRequest.Companion.DEFAULT_SIZE
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform

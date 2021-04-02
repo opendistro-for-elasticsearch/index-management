@@ -15,44 +15,46 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import org.elasticsearch.action.ActionRequest
 import org.elasticsearch.action.ActionRequestValidationException
-import org.elasticsearch.action.ValidateActions
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
-import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import java.io.IOException
 
-class GetTransformRequest(
-    val id: String,
-    val srcContext: FetchSourceContext? = null,
-    val preference: String? = null
+class GetTransformsRequest(
+    val searchString: String = DEFAULT_SEARCH_STRING,
+    val from: Int = DEFAULT_FROM,
+    val size: Int = DEFAULT_SIZE,
+    val sortField: String = DEFAULT_SORT_FIELD,
+    val sortDirection: String = DEFAULT_SORT_DIRECTION
 ) : ActionRequest() {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        id = sin.readString(),
-        srcContext = if (sin.readBoolean()) FetchSourceContext(sin) else null,
-        preference = sin.readOptionalString()
+        searchString = sin.readString(),
+        from = sin.readInt(),
+        size = sin.readInt(),
+        sortField = sin.readString(),
+        sortDirection = sin.readString()
     )
 
-    override fun validate(): ActionRequestValidationException? {
-        var validationException: ActionRequestValidationException? = null
-        if (id.isBlank()) {
-            validationException = ValidateActions.addValidationError("id is missing", validationException)
-        }
-        return validationException
-    }
+    override fun validate(): ActionRequestValidationException? = null
 
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
-        out.writeString(id)
-        if (srcContext == null) {
-            out.writeBoolean(false)
-        } else {
-            out.writeBoolean(true)
-            srcContext.writeTo(out)
-        }
-        out.writeOptionalString(preference)
+        out.writeString(searchString)
+        out.writeInt(from)
+        out.writeInt(size)
+        out.writeString(sortField)
+        out.writeString(sortDirection)
+    }
+
+    companion object {
+        const val DEFAULT_SEARCH_STRING = ""
+        const val DEFAULT_FROM = 0
+        const val DEFAULT_SIZE = 20
+        const val DEFAULT_SORT_FIELD = "${Transform.TRANSFORM_TYPE}.${Transform.TRANSFORM_ID_FIELD}.keyword"
+        const val DEFAULT_SORT_DIRECTION = "asc"
     }
 }

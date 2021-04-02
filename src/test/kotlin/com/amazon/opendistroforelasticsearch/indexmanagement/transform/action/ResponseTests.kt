@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.buildStreamInputForTransforms
@@ -23,6 +25,7 @@ import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
+import org.elasticsearch.test.ESTestCase.randomList
 
 class ResponseTests : ESTestCase() {
 
@@ -50,5 +53,45 @@ class ResponseTests : ESTestCase() {
         val streamedRes = PreviewTransformResponse(sin)
         assertEquals(RestStatus.OK, streamedRes.status)
         assertEquals(documents, streamedRes.documents)
+    }
+
+    fun `test get transform response null`() {
+        val res = GetTransformResponse("someid", 1L, 2L, 3L, RestStatus.OK, null)
+        val out = BytesStreamOutput().apply { res.writeTo(this) }
+        val streamedRes = GetTransformResponse(buildStreamInputForTransforms(out))
+        assertEquals("someid", streamedRes.id)
+        assertEquals(1L, streamedRes.version)
+        assertEquals(2L, streamedRes.seqNo)
+        assertEquals(3L, streamedRes.primaryTerm)
+        assertEquals(RestStatus.OK, streamedRes.status)
+        assertEquals(null, streamedRes.transform)
+    }
+
+    fun `test get transform response`() {
+        val transform = randomTransform()
+        val res = GetTransformResponse("someid", 1L, 2L, 3L, RestStatus.OK, transform)
+        val out = BytesStreamOutput().apply { res.writeTo(this) }
+        val streamedRes = GetTransformResponse(buildStreamInputForTransforms(out))
+        assertEquals("someid", streamedRes.id)
+        assertEquals(1L, streamedRes.version)
+        assertEquals(2L, streamedRes.seqNo)
+        assertEquals(3L, streamedRes.primaryTerm)
+        assertEquals(RestStatus.OK, streamedRes.status)
+        assertEquals(transform, streamedRes.transform)
+    }
+
+    fun `test get transforms response`() {
+        val transforms = randomList(1, 15) { randomTransform() }
+
+        val res = GetTransformsResponse(transforms, transforms.size, RestStatus.OK)
+        val out = BytesStreamOutput().apply { res.writeTo(this) }
+        val streamedRes = GetTransformsResponse(buildStreamInputForTransforms(out))
+
+        assertEquals(transforms.size, streamedRes.totalTransforms)
+        assertEquals(transforms.size, streamedRes.transforms.size)
+        assertEquals(RestStatus.OK, streamedRes.status)
+        for (i in 0 until transforms.size) {
+            assertEquals(transforms[i], streamedRes.transforms[i])
+        }
     }
 }

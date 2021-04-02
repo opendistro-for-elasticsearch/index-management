@@ -87,6 +87,8 @@ data class Transform(
 
     override fun isEnabled() = enabled
 
+    override fun getLockDurationSeconds(): Long = LOCK_DURATION_SECONDS
+
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.startObject(TRANSFORM_TYPE)
@@ -195,6 +197,7 @@ data class Transform(
         }
 
         val supportedAggregations = listOf("sum", "max", "min", "value_count", "avg", "scripted_metric")
+        const val LOCK_DURATION_SECONDS = 1800L
         const val NO_ID = ""
         const val TRANSFORM_TYPE = "transform"
         const val TRANSFORM_ID_FIELD = "transform_id"

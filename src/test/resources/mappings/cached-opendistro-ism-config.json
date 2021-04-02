@@ -904,6 +904,37 @@
           "enabled": false
         }
       }
+    },
+    "transform_metadata": {
+      "properties": {
+        "transform_id": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "after_key": {
+          "type": "object",
+          "enabled": false
+        },
+        "last_updated_at": {
+          "type": "date",
+          "format": "strict_date_time||epoch_millis"
+        },
+        "status": {
+          "type": "keyword"
+        },
+        "failure_reason": {
+          "type": "text"
+        },
+        "stats": {
+          "type": "object",
+          "enabled": false
+        }
+      }
     }
   }
 }

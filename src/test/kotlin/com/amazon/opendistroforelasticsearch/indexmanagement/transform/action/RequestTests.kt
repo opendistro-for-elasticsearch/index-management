@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.explain.ExplainTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
@@ -48,6 +49,15 @@ class RequestTests : ESTestCase() {
         val out = BytesStreamOutput().apply { req.writeTo(this) }
         val streamedReq = DeleteTransformsRequest(buildStreamInputForTransforms(out))
         assertEquals(ids, streamedReq.ids)
+    }
+
+    fun `test explain transform request`() {
+        val ids = listOf("oneid", "twoid", "threeid")
+        val req = ExplainTransformRequest(ids)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = ExplainTransformRequest(buildStreamInputForTransforms(out))
+        assertEquals(ids, streamedReq.transformIDs)
     }
 
     fun `test index transform post request`() {

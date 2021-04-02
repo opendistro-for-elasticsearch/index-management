@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomExplainTransform
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.explain.ExplainTransformResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformResponse
@@ -26,6 +28,15 @@ import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.ESTestCase.randomList
 
 class ResponseTests : ESTestCase() {
+
+    fun `test explain transform response`() {
+        val idsToExplain = randomList(10) { randomAlphaOfLength(10) to randomExplainTransform() }.toMap()
+        val res = ExplainTransformResponse(idsToExplain)
+        val out = BytesStreamOutput().apply { res.writeTo(this) }
+        val streamedRes = ExplainTransformResponse(buildStreamInputForTransforms(out))
+
+        assertEquals(idsToExplain, streamedRes.idsToExplain)
+    }
 
     fun `test index transform response`() {
         val transform = randomTransform()

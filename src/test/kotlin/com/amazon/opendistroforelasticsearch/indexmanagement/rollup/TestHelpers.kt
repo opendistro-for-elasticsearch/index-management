@@ -35,11 +35,13 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Min
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Sum
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.ValueCount
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.ExplainTransform
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransformMetadata
 import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.test.rest.ESRestTestCase
-import java.util.Locale
+import java.util.*
 
 fun randomInterval(): String = if (ESRestTestCase.randomBoolean()) randomFixedInterval() else randomCalendarInterval()
 
@@ -170,6 +172,11 @@ fun randomRollupMetadata(): RollupMetadata {
 fun randomExplainRollup(): ExplainRollup {
     val metadata = randomRollupMetadata()
     return ExplainRollup(metadataID = metadata.id, metadata = metadata)
+}
+
+fun randomExplainTransform(): ExplainTransform {
+    val metadata = randomTransformMetadata()
+    return ExplainTransform(metadataID = metadata.id, metadata = metadata)
 }
 
 fun randomISMRollup(): ISMRollup {

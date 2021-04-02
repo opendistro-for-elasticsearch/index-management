@@ -31,6 +31,8 @@ class ActionTests : ESTestCase() {
     fun `test preview transform`() {
         assertNotNull(PreviewTransformAction.INSTANCE.name())
         assertEquals(PreviewTransformAction.INSTANCE.name(), PreviewTransformAction.NAME)
+    }
+
     fun `test get transform`() {
         assertNotNull(GetTransformAction.INSTANCE.name())
         assertEquals(GetTransformAction.INSTANCE.name(), GetTransformAction.NAME)

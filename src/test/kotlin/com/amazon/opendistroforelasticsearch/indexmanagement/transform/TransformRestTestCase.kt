@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
@@ -8,12 +9,15 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Tra
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.client.Response
+import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -24,6 +28,7 @@ import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESTestCase
+import java.time.Duration
 import java.time.Instant
 
 abstract class TransformRestTestCase : IndexManagementRestTestCase() {
@@ -129,6 +134,33 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
             }
         }
         return transform
+    }
+
+    protected fun updateTransformStartTime(update: Transform, desiredStartTimeMillis: Long? = null) {
+        // Before updating start time of a job always make sure there are no unassigned shards that could cause the config
+        // index to move to a new node and negate this forced start
+        if (isMultiNode) {
+            waitFor {
+                try {
+                    client().makeRequest("GET", "_cluster/allocation/explain")
+                    fail("Expected 400 Bad Request when there are no unassigned shards to explain")
+                } catch (e: ResponseException) {
+                    assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
+                }
+            }
+        }
+        val intervalSchedule = (update.jobSchedule as IntervalSchedule)
+        val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
+        val startTimeMillis = desiredStartTimeMillis ?: Instant.now().toEpochMilli() - millis
+        val waitForActiveShards = if (isMultiNode) "all" else "1"
+        val response = client().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
+            StringEntity(
+                "{\"doc\":{\"rollup\":{\"schedule\":{\"interval\":{\"start_time\":" +
+                    "\"$startTimeMillis\"}}}}}",
+                APPLICATION_JSON
+            ))
+
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
     protected fun Transform.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)

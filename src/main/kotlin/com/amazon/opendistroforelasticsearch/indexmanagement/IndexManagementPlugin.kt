@@ -121,6 +121,12 @@ import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportInterceptor
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
+import org.elasticsearch.common.component.Lifecycle
+import org.elasticsearch.common.component.LifecycleComponent
+import org.elasticsearch.common.component.LifecycleListener
+import org.elasticsearch.common.inject.Inject
+import org.elasticsearch.transport.RemoteClusterService
+import org.elasticsearch.transport.TransportService
 
 internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, ActionPlugin, Plugin() {
 
@@ -129,6 +135,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     lateinit var clusterService: ClusterService
     lateinit var indexNameExpressionResolver: IndexNameExpressionResolver
     lateinit var rollupInterceptor: RollupInterceptor
+    lateinit var fieldCapsFilter: FieldCapsFilter
 
     companion object {
         const val PLUGIN_NAME = "opendistro-im"
@@ -147,6 +154,10 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     override fun getJobType(): String = INDEX_MANAGEMENT_JOB_TYPE
 
     override fun getJobRunner(): ScheduledJobRunner = IndexManagementRunner
+
+    override fun getGuiceServiceClasses(): Collection<Class<out LifecycleComponent?>> {
+        return mutableListOf<Class<out LifecycleComponent?>>(GuiceHolder::class.java)
+    }
 
     override fun getJobParser(): ScheduledJobParser {
         return ScheduledJobParser { xcp, id, jobDocVersion ->
@@ -237,6 +248,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
         rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
+        fieldCapsFilter = FieldCapsFilter(clusterService, settings, indexNameExpressionResolver)
         this.indexNameExpressionResolver = indexNameExpressionResolver
 
         val skipFlag = SkipExecution(client, clusterService)
@@ -293,7 +305,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             RollupSettings.ROLLUP_SEARCH_BACKOFF_MILLIS,
             RollupSettings.ROLLUP_INDEX,
             RollupSettings.ROLLUP_ENABLED,
-            RollupSettings.ROLLUP_SEARCH_ENABLED
+            RollupSettings.ROLLUP_SEARCH_ENABLED,
+            RollupSettings.ROLLUP_DASHBOARDS
         )
     }
 
@@ -326,6 +339,28 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
     }
 
     override fun getActionFilters(): List<ActionFilter> {
-        return listOf(FieldCapsFilter(clusterService, indexNameExpressionResolver))
+        return listOf(fieldCapsFilter)
+    }
+}
+
+class GuiceHolder @Inject constructor(
+    remoteClusterService: TransportService
+) : LifecycleComponent {
+    override fun close() {}
+    override fun lifecycleState(): Lifecycle.State? {
+        return null
+    }
+
+    override fun addLifecycleListener(listener: LifecycleListener) {}
+    override fun removeLifecycleListener(listener: LifecycleListener) {}
+    override fun start() {}
+    override fun stop() {}
+
+    companion object {
+        lateinit var remoteClusterService: RemoteClusterService
+    }
+
+    init {
+        Companion.remoteClusterService = remoteClusterService.remoteClusterService
     }
 }

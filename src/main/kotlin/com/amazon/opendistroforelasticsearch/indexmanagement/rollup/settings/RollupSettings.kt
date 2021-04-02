@@ -77,5 +77,12 @@ class RollupSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
+
+        val ROLLUP_DASHBOARDS: Setting<Boolean> = Setting.boolSetting(
+            "opendistro.rollup.dashboards.enabled",
+            DEFAULT_ROLLUP_ENABLED,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
     }
 }

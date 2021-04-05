@@ -772,4 +772,21 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         }
         return true
     }
+
+    protected fun createV1Template(templateName: String, indexPatterns: String, policyID: String) {
+        val response = client().makeRequest("PUT", "_template/$templateName",
+            StringEntity(
+        "{\n" +
+                "  \"index_patterns\": [\"$indexPatterns\"],\n" +
+                "  \"settings\": {\n" +
+                "    \"opendistro.index_state_management.policy_id\": \"$policyID\"\n" +
+                "  }\n" +
+                "}", APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
+
+    protected fun deleteV1Template(templateName: String) {
+        val response = client().makeRequest("DELETE", "_template/$templateName")
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
 }

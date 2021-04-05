@@ -25,6 +25,7 @@ class ManagedIndexSettings {
     companion object {
         const val DEFAULT_ISM_ENABLED = true
         const val DEFAULT_METADATA_SERVICE_ENABLED = true
+        const val DEFAULT_TEMPLATE_MIGRATION_TIMESTAMP = 0L
         const val DEFAULT_JOB_INTERVAL = 5
         private val ALLOW_LIST_ALL = ActionConfig.ActionType.values().toList().map { it.type }
         val ALLOW_LIST_NONE = emptyList<String>()
@@ -41,6 +42,14 @@ class ManagedIndexSettings {
         val METADATA_SERVICE_ENABLED: Setting<Boolean> = Setting.boolSetting(
             "opendistro.index_state_management.metadata_service.enabled",
             DEFAULT_METADATA_SERVICE_ENABLED,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val TEMPLATE_MIGRATION_ENABLED: Setting<Long> = Setting.longSetting(
+            "opendistro.index_state_management.template_migration.enabled",
+            DEFAULT_TEMPLATE_MIGRATION_TIMESTAMP,
+            -1L,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )

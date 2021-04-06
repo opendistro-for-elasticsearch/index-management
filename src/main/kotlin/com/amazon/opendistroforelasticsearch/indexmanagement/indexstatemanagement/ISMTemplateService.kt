@@ -13,6 +13,8 @@
  * permissions and limitations under the License.
  */
 
+@file:Suppress("MagicNumber", "ComplexMethod", "NestedBlockDepth")
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices

@@ -76,7 +76,8 @@ class TransportExplainTransformAction @Inject constructor(
                             response.hits.hits.forEach {
                                 val metadata = contentParser(it.sourceRef)
                                     .parseWithType(it.id, it.seqNo, it.primaryTerm, TransformMetadata.Companion::parse)
-                                idsToExplain.computeIfPresent(metadata.transformId) { _, explainTransform -> explainTransform.copy(metadata = metadata) }
+                                idsToExplain.computeIfPresent(metadata.transformId) { _, explainTransform ->
+                                    explainTransform.copy(metadata = metadata) }
                             }
                             actionListener.onResponse(ExplainTransformResponse(idsToExplain.toMap()))
                         } catch (e: Exception) {

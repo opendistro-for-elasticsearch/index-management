@@ -5,6 +5,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestStatus
@@ -30,7 +31,8 @@ class RestExplainTransformActionIT : TransformRestTestCase() {
         createTransformSourceIndex(transform)
         updateTransformStartTime(transform)
 
-        val updatedTransform = getTransform(transformId = transform.id)
+        waitFor {
+            val updatedTransform = getTransform(transformId = transform.id)
             assertNotNull("MetadataID on transform was null", updatedTransform.metadataId)
             val response = client().makeRequest("GET", "$TRANSFORM_BASE_URI/${updatedTransform.id}/_explain")
             assertEquals(RestStatus.OK, response.restStatus())
@@ -44,6 +46,7 @@ class RestExplainTransformActionIT : TransformRestTestCase() {
             assertNotNull("Did not have metadata in explain response", metadata)
             // Not sure if this is true for transforms
             assertEquals("Status should be finished", TransformMetadata.Status.FINISHED.type, metadata["status"])
+        }
     }
 
     @Throws(Exception::class)
@@ -63,5 +66,49 @@ class RestExplainTransformActionIT : TransformRestTestCase() {
         createTransform(transform = randomTransform(), transformId = "doesnt_exist_some_other_id")
         val response = client().makeRequest("GET", "$TRANSFORM_BASE_URI/doesnt_exist/_explain")
         assertNull("Nonexistent transform didn't return null", response.asMap()["doesnt_exist"])
+    }
+
+    @Throws(Exception::class)
+    fun `test explain transform for wildcard id`() {
+        // Creating a transform so the config index exists
+        createTransform(transform = randomTransform(), transformId = "wildcard_some_id")
+        createTransform(transform = randomTransform(), transformId = "wildcard_some_other_id")
+        val response = client().makeRequest("GET", "$TRANSFORM_BASE_URI/wildcard_some*/_explain")
+        // We don't expect there to always be metadata we are creating random transforms and the job isn't running
+        // but we do expect the wildcard some* to expand to the two jobs created above and have non-null values (meaning they exist)
+        val map = response.asMap()
+        assertNotNull("Non null wildcard_some_id value wasn't in the response", map["wildcard_some_id"])
+        assertNotNull("Non null wildcard_some_other_id value wasn't in the response", map["wildcard_some_other_id"])
+    }
+
+    @Throws(Exception::class)
+    fun `test explain transform for job that hasnt started`() {
+        createTransform(transform = randomTransform().copy(metadataId = null), transformId = "not_started_some_id")
+        val response = client().makeRequest("GET", "$TRANSFORM_BASE_URI/not_started_some_id/_explain")
+        val expectedMap = mapOf("not_started_some_id" to mapOf("metadata_id" to null, "transform_metadata" to null))
+        assertEquals("The explain response did not match expected", expectedMap, response.asMap())
+    }
+
+    @Throws(Exception::class)
+    fun `test explain transform for metadata_id but no metadata`() {
+        createTransform(transform = randomTransform().copy(metadataId = "some_metadata_id"), transformId = "no_meta_some_id")
+        val response = client().makeRequest("GET", "$TRANSFORM_BASE_URI/no_meta_some_id/_explain")
+        val expectedMap = mapOf("no_meta_some_id" to mapOf("metadata_id" to "some_metadata_id", "transform_metadata" to null))
+        assertEquals("The explain response did not match expected", expectedMap, response.asMap())
+    }
+
+    @Throws(Exception::class)
+    fun `test explain transform when config doesnt exist`() {
+        val responseExplicit = client().makeRequest("GET", "$TRANSFORM_BASE_URI/no_config_some_transform/_explain")
+        assertEquals("Non-existent transform didn't return null", mapOf("no_config_some_transform" to null), responseExplicit.asMap())
+
+        val responseExplicitMultiple = client().makeRequest("GET", "$TRANSFORM_BASE_URI/no_config_some_transform,no_config_another_transform/_explain")
+        assertEquals("Non-existent transform didn't return null", mapOf("no_config_some_transform" to null, "no_config_another_transform" to null), responseExplicitMultiple.asMap())
+
+        val responseWildcard = client().makeRequest("GET", "$TRANSFORM_BASE_URI/no_config_another_*/_explain")
+        assertEquals("Wildcard transform didn't return nothing", mapOf<String, Map<String, Any>?>(), responseWildcard.asMap())
+
+        val responseMultipleTypes = client().makeRequest("GET", "$TRANSFORM_BASE_URI/no_config_some_transform,no_config_another_*/_explain")
+        assertEquals("Non-existent and wildcard transform didn't return only non-existent as null", mapOf("no_config_some_transform" to null), responseMultipleTypes.asMap())
     }
 }

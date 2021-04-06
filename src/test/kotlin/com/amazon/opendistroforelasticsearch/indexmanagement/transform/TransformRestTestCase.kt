@@ -155,7 +155,7 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         val waitForActiveShards = if (isMultiNode) "all" else "1"
         val response = client().makeRequest("POST", "$INDEX_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
             StringEntity(
-                "{\"doc\":{\"rollup\":{\"schedule\":{\"interval\":{\"start_time\":" +
+                "{\"doc\":{\"transform\":{\"schedule\":{\"interval\":{\"start_time\":" +
                     "\"$startTimeMillis\"}}}}}",
                 APPLICATION_JSON
             ))

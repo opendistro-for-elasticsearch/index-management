@@ -1,5 +1,6 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.model
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.XCONTENT_WITHOUT_TYPE
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.io.stream.Writeable
@@ -30,7 +31,7 @@ data class ExplainTransform(
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         return builder.startObject()
             .field(Transform.METADATA_ID_FIELD, metadataID)
-            .field(TransformMetadata.TRANSFORM_METADATA_TYPE, metadata)
+            .field(TransformMetadata.TRANSFORM_METADATA_TYPE, metadata, XCONTENT_WITHOUT_TYPE)
             .endObject()
     }
 }

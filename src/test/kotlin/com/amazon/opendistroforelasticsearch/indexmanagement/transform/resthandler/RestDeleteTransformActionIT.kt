@@ -75,7 +75,7 @@ class RestDeleteTransformActionIT : TransformRestTestCase() {
             val res = client().makeRequest("DELETE", "$TRANSFORM_BASE_URI/foobarbaz")
             fail("expected 404 ResponseException: ${res.asMap()}")
         } catch (e: ResponseException) {
-            assertEquals(RestStatus.NOT_FOUND, e.response.restStatus())
+            assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
         }
     }
 }

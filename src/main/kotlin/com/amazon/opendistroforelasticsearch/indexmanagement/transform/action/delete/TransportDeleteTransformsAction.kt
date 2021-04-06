@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.bulk.BulkRequest
@@ -25,10 +26,11 @@ import org.elasticsearch.action.get.MultiGetRequest
 import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.support.ActionFilters
 import org.elasticsearch.action.support.HandledTransportAction
+import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.inject.Inject
-import org.elasticsearch.index.IndexNotFoundException
 import org.elasticsearch.rest.RestStatus
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext
 import org.elasticsearch.tasks.Task
 import org.elasticsearch.transport.TransportService
 
@@ -46,13 +48,27 @@ class TransportDeleteTransformsAction @Inject constructor(
 
         // Use Multi-Get Request
         val getRequest = MultiGetRequest()
+        val includes = arrayOf(
+            "${Transform.TRANSFORM_TYPE}.${Transform.ENABLED_FIELD}"
+        )
+        val fetchSourceContext = FetchSourceContext(true, includes, emptyArray())
         request.ids.forEach { id ->
-            getRequest.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, id))
+            getRequest.add(MultiGetRequest.Item(INDEX_MANAGEMENT_INDEX, id).fetchSourceContext(fetchSourceContext))
         }
 
         client.multiGet(getRequest, object : ActionListener<MultiGetResponse> {
             override fun onResponse(response: MultiGetResponse) {
                 try {
+                    // response is failed only if managed index is not present
+                    if (response.responses.first().isFailed) {
+                        actionListener.onFailure(
+                            ElasticsearchStatusException(
+                                "Cluster missing system index $INDEX_MANAGEMENT_INDEX, cannot execute the request", RestStatus.BAD_REQUEST
+                            )
+                        )
+                        return
+                    }
+
                     bulkDelete(response, request.ids, actionListener)
                 } catch (e: Exception) {
                     actionListener.onFailure(e)
@@ -65,23 +81,16 @@ class TransportDeleteTransformsAction @Inject constructor(
 
     private fun bulkDelete(response: MultiGetResponse, ids: List<String>, actionListener: ActionListener<BulkResponse>) {
         val enabledIDs = mutableListOf<String>()
-        val sourceMissingIDs = mutableListOf<String>()
         val notTransform = mutableListOf<String>()
 
         response.responses.forEach {
-            // TODO: Check if the source is actually transform document
-            if (it.response != null && it.response.isExists) {
-                if (it.response.isSourceEmpty) {
-                    sourceMissingIDs.add(it.id)
-                }
+            if (it.response.isExists) {
                 val source = it.response.source
-                if (!source.keys.contains("transform")) {
+                val enabled = (source["transform"] as Map<*, *>?)?.get("enabled") as Boolean?
+                if (enabled == null) {
                     notTransform.add(it.id)
                 }
-
-                val transform = source["transform"] as Map<String, Any>
-                val enabled = transform["enabled"] as Boolean
-                if (enabled) {
+                if (enabled == true) {
                     enabledIDs.add(it.id)
                 }
             }
@@ -89,35 +98,26 @@ class TransportDeleteTransformsAction @Inject constructor(
 
         if (notTransform.isNotEmpty()) {
             actionListener.onFailure(ElasticsearchStatusException(
-                "[$notTransform] IDs are not transforms!", RestStatus.BAD_REQUEST
+                "$notTransform IDs are not transforms!", RestStatus.BAD_REQUEST
             ))
-        }
-
-        if (sourceMissingIDs.isNotEmpty()) {
-            actionListener.onFailure(ElasticsearchStatusException(
-                "[$sourceMissingIDs] are missing their source documents!", RestStatus.NOT_FOUND
-            ))
+            return
         }
 
         if (enabledIDs.isNotEmpty()) {
             actionListener.onFailure(ElasticsearchStatusException(
-                "[$enabledIDs] transform(s) are enabled, please disable them before deleting them", RestStatus.CONFLICT
+                "$enabledIDs transform(s) are enabled, please disable them before deleting them", RestStatus.CONFLICT
             ))
+            return
         }
 
         val bulkDeleteRequest = BulkRequest()
+        bulkDeleteRequest.refreshPolicy = WriteRequest.RefreshPolicy.IMMEDIATE
         for (id in ids) {
             bulkDeleteRequest.add(DeleteRequest(INDEX_MANAGEMENT_INDEX, id))
         }
 
         client.bulk(bulkDeleteRequest, object : ActionListener<BulkResponse> {
             override fun onResponse(response: BulkResponse) {
-                response.items.forEach {
-                    if (it.failure != null && it.failure.cause::class == IndexNotFoundException::class) {
-                        actionListener.onFailure(ElasticsearchStatusException("Index not found", RestStatus.NOT_FOUND))
-                        return
-                    }
-                }
                 actionListener.onResponse(response)
             }
 

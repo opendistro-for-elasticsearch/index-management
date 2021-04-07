@@ -41,7 +41,7 @@ import org.elasticsearch.common.xcontent.ToXContent
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.test.rest.ESRestTestCase
-import java.util.*
+import java.util.Locale
 
 fun randomInterval(): String = if (ESRestTestCase.randomBoolean()) randomFixedInterval() else randomCalendarInterval()
 

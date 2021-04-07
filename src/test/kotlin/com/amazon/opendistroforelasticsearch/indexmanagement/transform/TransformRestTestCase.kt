@@ -74,7 +74,6 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         return getTransform(transformId = transformId)
     }
 
-
     protected fun getTransformMetadata(metadataId: String): TransformMetadata {
         val response = client().makeRequest(
             "GET", "$INDEX_MANAGEMENT_INDEX/_doc/$metadataId", null, BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")

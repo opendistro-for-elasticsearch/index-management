@@ -65,7 +65,7 @@ data class Terms(
     }
 
     override fun canBeRealizedInMappings(mappings: Map<String, Any>): Boolean {
-        val fieldType = getFieldFromMappings(sourceField, mappings)?.get("type")?: return false
+        val fieldType = getFieldFromMappings(sourceField, mappings)?.get("type") ?: return false
 
         return "keyword" == fieldType
     }

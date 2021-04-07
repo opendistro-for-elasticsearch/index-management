@@ -62,8 +62,8 @@ object TransformRunner : ScheduledJobRunner,
         client: Client,
         clusterService: ClusterService,
         xContentRegistry: NamedXContentRegistry,
-        settings: Settings, indexNameExpressionResolver:
-        IndexNameExpressionResolver
+        settings: Settings,
+        indexNameExpressionResolver: IndexNameExpressionResolver
     ): TransformRunner {
         this.clusterService = clusterService
         this.esClient = client

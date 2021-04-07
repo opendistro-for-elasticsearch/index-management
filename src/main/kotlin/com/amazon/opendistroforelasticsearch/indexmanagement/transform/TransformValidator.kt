@@ -59,8 +59,8 @@ class TransformValidator(
     private suspend fun validateIndex(index: String, transform: Transform): List<String> {
         val request = GetMappingsRequest().indices(index)
         val result: GetMappingsResponse =
-            esClient.admin().indices().suspendUntil { getMappings(request, it) }?:
-            throw IllegalStateException("GetMappingResponse for [$index] was null")
+            esClient.admin().indices().suspendUntil { getMappings(request, it) } ?: throw IllegalStateException("GetMappingResponse for [$index] " +
+                                                                                                                    "was null")
         val mappings = result.mappings[index][_DOC].sourceAsMap
 
         val issues = mutableListOf<String>()

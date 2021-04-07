@@ -53,9 +53,12 @@ class TransportGetTransformAction @Inject constructor(
                 }
 
                 try {
-                    val contentParser = XContentHelper.createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, response.sourceAsBytesRef, XContentType.JSON)
-                    val transform = contentParser.parseWithType(response.id, response.seqNo, response.primaryTerm, Transform.Companion::parse)
-                    listener.onResponse(GetTransformResponse(response.id, response.version, response.seqNo, response.primaryTerm, RestStatus.OK, transform))
+                    val contentParser = XContentHelper.createParser(xContentRegistry,
+                        LoggingDeprecationHandler.INSTANCE, response.sourceAsBytesRef, XContentType.JSON)
+                    val transform = contentParser.parseWithType(response.id, response.seqNo,
+                        response.primaryTerm, Transform.Companion::parse)
+                    listener.onResponse(GetTransformResponse(response.id, response.version, response.seqNo,
+                        response.primaryTerm, RestStatus.OK, transform))
                 } catch (e: Exception) {
                     listener.onFailure(
                         ElasticsearchStatusException("Failed to parse transform", RestStatus.INTERNAL_SERVER_ERROR, ExceptionsHelper.unwrapCause(e))

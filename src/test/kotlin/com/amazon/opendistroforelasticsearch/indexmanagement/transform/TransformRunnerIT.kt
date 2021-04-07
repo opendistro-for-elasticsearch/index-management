@@ -22,7 +22,13 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.index.query.TermQueryBuilder
+import org.elasticsearch.script.Script
+import org.elasticsearch.script.ScriptType
+import org.elasticsearch.search.aggregations.AggregationBuilders
+import org.elasticsearch.search.aggregations.AggregatorFactories
+import org.elasticsearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder
 
 class TransformRunnerIT : TransformRestTestCase() {
 
@@ -127,10 +133,175 @@ class TransformRunnerIT : TransformRestTestCase() {
             val job = getTransform(transformId = transform.id)
             assertNotNull("Transform job doesn't have metadata set", job.metadataId)
             val transformMetadata = getTransformMetadata(job.metadataId!!)
-            assertEquals("Transform has not finished", TransformMetadata.Status.FAILED, transformMetadata.status)
+            assertEquals("Transform has not failed", TransformMetadata.Status.FAILED, transformMetadata.status)
             transformMetadata
         }
 
         assertTrue("Expected failure message to be present", !metadata.failureReason.isNullOrBlank())
+
+        // With aggregations
+        var aggregatorFactories = AggregatorFactories.builder()
+        aggregatorFactories.addAggregator(AggregationBuilders.sum("revenue").field("total_amount"))
+        aggregatorFactories.addAggregator(AggregationBuilders.max("min_fare").field("fare_amount"))
+        aggregatorFactories.addAggregator(AggregationBuilders.min("max_fare").field("fare_amount"))
+        aggregatorFactories.addAggregator(AggregationBuilders.avg("avg_fare").field("fare_amount"))
+        aggregatorFactories.addAggregator(AggregationBuilders.count("count").field("orderID"))
+        aggregatorFactories.addAggregator(AggregationBuilders.percentiles("passenger_distribution").percentiles(90.0, 95.0).field("passenger_count"))
+        aggregatorFactories.addAggregator(
+            ScriptedMetricAggregationBuilder("average_revenue_per_passenger_per_trip")
+                .initScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, "state.count = 0; state.sum = 0;", emptyMap()))
+                .mapScript(Script(
+                    ScriptType.INLINE,
+                    Script.DEFAULT_SCRIPT_LANG,
+                    "state.sum += doc[\"total_amount\"].value; state.count += doc[\"passenger_count\"].value",
+                    emptyMap()))
+                .combineScript(Script(
+                    ScriptType.INLINE,
+                    Script.DEFAULT_SCRIPT_LANG,
+                    "def d = new long[2]; d[0] = state.sum; d[1] = state.count; return d",
+                    emptyMap()))
+                .reduceScript(Script(
+                    ScriptType.INLINE,
+                    Script.DEFAULT_SCRIPT_LANG,
+                    "double sum = 0; double count = 0; for (a in states) { sum += a[0]; count += a[1]; } return sum/count",
+                    emptyMap()
+                ))
+        )
+
+        transform = Transform(
+            id = "id_4",
+            schemaVersion = 1L,
+            enabled = true,
+            enabledAt = Instant.now(),
+            updatedAt = Instant.now(),
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            description = "test transform",
+            metadataId = null,
+            sourceIndex = "transform-source-index",
+            targetIndex = "transform-target-index",
+            roles = emptyList(),
+            pageSize = 1,
+            groups = listOf(
+                Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
+            ),
+            aggregations = aggregatorFactories
+        ).let { createTransform(it, it.id) }
+
+        updateTransformStartTime(transform)
+
+        metadata = waitFor {
+            val job = getTransform(transformId = transform.id)
+            assertNotNull("Transform job doesn't have metadata set", job.metadataId)
+            val transformMetadata = getTransformMetadata(job.metadataId!!)
+            assertEquals("Transform has not finished", TransformMetadata.Status.FINISHED, transformMetadata.status)
+            transformMetadata
+        }
+
+        assertEquals("More than expected pages processed", 3L, metadata.stats.pagesProcessed)
+        assertEquals("More than expected documents indexed", 2L, metadata.stats.documentsIndexed)
+        assertEquals("More than expected documents processed", 5000L, metadata.stats.documentsProcessed)
+        assertTrue("Doesn't capture indexed time", metadata.stats.indexTimeInMillis > 0)
+        assertTrue("Didn't capture search time", metadata.stats.searchTimeInMillis > 0)
+
+        // Indexing failure because target index is strictly mapped
+        createIndex("transform-target-strict-index", Settings.EMPTY, getStrictMappings())
+        waitFor {
+            assertTrue("Strict target index not created", indexExists("transform-target-strict-index"))
+        }
+        transform = Transform(
+            id = "id_5",
+            schemaVersion = 1L,
+            enabled = true,
+            enabledAt = Instant.now(),
+            updatedAt = Instant.now(),
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            description = "test transform",
+            metadataId = null,
+            sourceIndex = "transform-source-index",
+            targetIndex = "transform-target-strict-index",
+            roles = emptyList(),
+            pageSize = 1,
+            groups = listOf(
+                Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
+            ),
+            aggregations = aggregatorFactories
+        ).let { createTransform(it, it.id) }
+
+        updateTransformStartTime(transform)
+
+        metadata = waitFor {
+            val job = getTransform(transformId = transform.id)
+            assertNotNull("Transform job doesn't have metadata set", job.metadataId)
+            val transformMetadata = getTransformMetadata(job.metadataId!!)
+            assertEquals("Transform has not failed", TransformMetadata.Status.FAILED, transformMetadata.status)
+            transformMetadata
+        }
+
+        assertTrue("Expected failure message to be present", !metadata.failureReason.isNullOrBlank())
+
+        // Search failure because of invalid aggregation
+        aggregatorFactories = AggregatorFactories.builder()
+        aggregatorFactories.addAggregator(
+            ScriptedMetricAggregationBuilder("average_revenue_per_passenger_per_trip")
+                .initScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, "state.count = 0; state.sum = 0;", emptyMap()))
+                .mapScript(Script(
+                    ScriptType.INLINE,
+                    Script.DEFAULT_SCRIPT_LANG,
+                    "state.sum += doc[\"random_field\"].value; state.count += doc[\"passenger_count\"].value",
+                    emptyMap()))
+                .combineScript(Script(
+                    ScriptType.INLINE,
+                    Script.DEFAULT_SCRIPT_LANG,
+                    "def d = new long[2]; d[0] = state.sum; d[1] = state.count; return d",
+                    emptyMap()))
+                .reduceScript(Script(
+                    ScriptType.INLINE,
+                    Script.DEFAULT_SCRIPT_LANG,
+                    "double sum = 0; double count = 0; for (a in states) { sum += a[0]; count += a[1]; } return sum/count",
+                    emptyMap()
+                ))
+        )
+
+        transform = Transform(
+            id = "id_6",
+            schemaVersion = 1L,
+            enabled = true,
+            enabledAt = Instant.now(),
+            updatedAt = Instant.now(),
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            description = "test transform",
+            metadataId = null,
+            sourceIndex = "transform-source-index",
+            targetIndex = "transform-target-index",
+            roles = emptyList(),
+            pageSize = 1,
+            groups = listOf(
+                Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
+            ),
+            aggregations = aggregatorFactories
+        ).let { createTransform(it, it.id) }
+
+        updateTransformStartTime(transform)
+
+        metadata = waitFor {
+            val job = getTransform(transformId = transform.id)
+            assertNotNull("Transform job doesn't have metadata set", job.metadataId)
+            val transformMetadata = getTransformMetadata(job.metadataId!!)
+            assertEquals("Transform has not failed", TransformMetadata.Status.FAILED, transformMetadata.status)
+            transformMetadata
+        }
+
+        assertTrue("Expected failure message to be present", !metadata.failureReason.isNullOrBlank())
+    }
+
+    private fun getStrictMappings(): String {
+        return """
+            "dynamic": "strict",
+            "properties": {
+                "some-column": {
+                    "type": "keyword"
+                }
+            }
+        """.trimIndent()
     }
 }

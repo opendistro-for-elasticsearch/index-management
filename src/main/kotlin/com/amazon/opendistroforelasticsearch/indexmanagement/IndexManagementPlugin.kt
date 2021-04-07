@@ -259,7 +259,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
         rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
-        val transformRunner = TransformRunner.initialize(client, clusterService, xContentRegistry, settings)
+        val transformRunner = TransformRunner.initialize(client, clusterService, xContentRegistry, settings, indexNameExpressionResolver)
         this.indexNameExpressionResolver = indexNameExpressionResolver
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =

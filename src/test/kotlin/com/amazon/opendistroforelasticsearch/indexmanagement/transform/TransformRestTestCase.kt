@@ -1,13 +1,17 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
+import java.time.Duration
 import org.apache.http.HttpEntity
 import org.apache.http.HttpHeaders
 import org.apache.http.entity.ContentType.APPLICATION_JSON
@@ -15,7 +19,6 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHeader
 import org.elasticsearch.client.Response
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -25,6 +28,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESTestCase
 import java.time.Instant
+import org.elasticsearch.client.ResponseException
 
 abstract class TransformRestTestCase : IndexManagementRestTestCase() {
 
@@ -70,37 +74,57 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         return getTransform(transformId = transformId)
     }
 
-    protected fun createTransformSourceIndex(transform: Transform, settings: Settings = Settings.EMPTY) {
-        var mappingString = ""
-        var addCommaPrefix = false
-        transform.groups.forEach {
-            val fieldType = when (it.type) {
-                Dimension.Type.DATE_HISTOGRAM -> "date"
-                Dimension.Type.HISTOGRAM -> "long"
-                Dimension.Type.TERMS -> "keyword"
+
+    protected fun getTransformMetadata(metadataId: String): TransformMetadata {
+        val response = client().makeRequest(
+            "GET", "$INDEX_MANAGEMENT_INDEX/_doc/$metadataId", null, BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+        )
+        assertEquals("Unable to get transform metadata $metadataId", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser)
+
+        lateinit var id: String
+        var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
+        lateinit var metadata: TransformMetadata
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                _ID -> id = parser.text()
+                _SEQ_NO -> seqNo = parser.longValue()
+                _PRIMARY_TERM -> primaryTerm = parser.longValue()
+                TransformMetadata.TRANSFORM_METADATA_TYPE -> metadata = TransformMetadata.parse(parser, id, seqNo, primaryTerm)
             }
-            val string = "${if (addCommaPrefix) "," else ""}\"${it.sourceField}\":{\"type\": \"$fieldType\"}"
-            addCommaPrefix = true
-            mappingString += string
         }
-        mappingString = "\"properties\":{$mappingString}"
-        createIndex(transform.sourceIndex, settings, mappingString)
+
+        return metadata
     }
 
-    protected fun putDateDocumentInSourceIndex(transform: Transform) {
-        val dateHistogram = transform.groups.first()
-        val request = """
-            {
-              "${dateHistogram.sourceField}" : "${Instant.now()}"
+    protected fun updateTransformStartTime(update: Transform) {
+        if (isMultiNode) {
+            waitFor {
+                try {
+                    client().makeRequest("GET", "_cluster/allocation/explain")
+                    fail("Expected 400 Bad request when there are no unassigned shards to explain")
+                } catch (e: ResponseException) {
+                    assertEquals(RestStatus.BAD_REQUEST, e.response.restStatus())
+                }
             }
-        """.trimIndent()
+        }
+        val intervalSchedule = (update.jobSchedule as IntervalSchedule)
+        val millis = Duration.of(intervalSchedule.interval.toLong(), intervalSchedule.unit).minusSeconds(2).toMillis()
+        val startTimeMillis = Instant.now().toEpochMilli() - millis
+        val waitForActiveShards = if (isMultiNode) "all" else "1"
         val response = client().makeRequest(
             "POST",
-            "${transform.sourceIndex}/_doc?refresh=true",
-            emptyMap(),
-            StringEntity(request, APPLICATION_JSON)
+            "$INDEX_MANAGEMENT_INDEX/_update/${update.id}?wait_for_active_shards=$waitForActiveShards",
+            StringEntity("{\"doc\":{\"transform\":{\"schedule\":{\"interval\":{\"start_time\":\"$startTimeMillis\"}}}}}", APPLICATION_JSON)
         )
-        assertEquals("Request failed", RestStatus.CREATED, response.restStatus())
+
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
     protected fun getTransform(
@@ -133,10 +157,6 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
 
     protected fun Transform.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
 
-    protected fun newParser(response: Response): XContentParser {
-        return XContentType.JSON.xContent().createParser(NamedXContentRegistry(SearchModule(Settings.EMPTY, false, emptyList()).namedXContents),
-            LoggingDeprecationHandler.INSTANCE, response.entity.content)
-    }
     override fun xContentRegistry(): NamedXContentRegistry {
         return NamedXContentRegistry(SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }

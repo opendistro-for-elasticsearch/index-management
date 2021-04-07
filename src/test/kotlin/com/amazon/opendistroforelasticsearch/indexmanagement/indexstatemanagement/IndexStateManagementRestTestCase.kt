@@ -69,6 +69,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestRequest
@@ -788,5 +789,23 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
     protected fun deleteV1Template(templateName: String) {
         val response = client().makeRequest("DELETE", "_template/$templateName")
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
+
+    fun catIndexTemplates(): List<Any> {
+        val response = client().makeRequest("GET", "_cat/templates?format=json")
+
+        assertEquals("cat template request failed", RestStatus.OK, response.restStatus())
+
+        try {
+            return JsonXContent.jsonXContent
+                .createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    response.entity.content
+                )
+                .use { parser -> parser.list() }
+        } catch (e: IOException) {
+            throw ElasticsearchParseException("Failed to parse content to list", e)
+        }
     }
 }

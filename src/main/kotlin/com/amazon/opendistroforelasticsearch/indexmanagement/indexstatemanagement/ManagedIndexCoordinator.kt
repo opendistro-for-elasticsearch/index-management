@@ -301,11 +301,13 @@ class ManagedIndexCoordinator(
         clusterState: ClusterState,
         indexNames: List<String>
     ): List<DocWriteRequest<*>> {
+        logger.info("newly created index names: $indexNames")
         val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
         if (indexNames.isEmpty()) return updateManagedIndexReqs
 
         val indexMetadatas = clusterState.metadata.indices
         val templates = getISMTemplates()
+        logger.info("existing templates: $templates")
 
         val indexToMatchedPolicy = indexNames.map { indexName ->
             indexName to templates.findMatchingPolicy(indexMetadatas[indexName])
@@ -334,7 +336,7 @@ class ManagedIndexCoordinator(
             .source(
                 SearchSourceBuilder().query(
                     QueryBuilders.existsQuery(ISM_TEMPLATE_FIELD)
-                )
+                ).size(MAX_HITS)
             )
             .indices(INDEX_MANAGEMENT_INDEX)
 

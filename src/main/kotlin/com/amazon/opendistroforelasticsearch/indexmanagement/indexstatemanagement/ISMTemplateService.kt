@@ -31,6 +31,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.util.OpenForTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.apache.logging.log4j.LogManager
+import org.apache.lucene.util.automaton.Automaton
 import org.apache.lucene.util.automaton.Operations
 import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.ExceptionsHelper
@@ -61,6 +62,7 @@ import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.rest.RestStatus
 import java.time.Instant
+import java.util.ArrayList
 
 private val log = LogManager.getLogger("ISMTemplateService")
 
@@ -190,11 +192,24 @@ class ISMTemplateService(
         private set
     fun reenableTemplateMigration() { finishFlag = false }
 
-    private val ismTemplateMap = mutableMapOf<policyID, ISMTemplate>()
+    private val v1ISMTemplateMap = mutableMapOf<policyID, ISMTemplate>()
+    private val v2ISMTemplateMap = mutableMapOf<policyID, ISMTemplate>()
+    private var ismTemplateMap = mutableMapOf<policyID, ISMTemplate>()
+
+    private val v1CachedPriority = mutableMapOf<templateName, Int>()
+    private val v1ProcessedPriority = mutableMapOf<templateName, Int>()
+    private val v1ProcessedIndexPatterns = mutableMapOf<templateName, List<String>>()
+    private val v1TemplateToPolicyIDs = mutableMapOf<templateName, policyID>()
+
+    private val v1overlappingTemplatePairs = mutableSetOf<Pair<Set<templateName>, String>>()
+    private val v1v2overlappingTemplatePairs = mutableSetOf<Pair<Set<templateName>, String>>()
+
+    private val overlappingTemplateForSamePolicyID = mutableMapOf<policyID, MutableSet<templateName>>()
+
     // old v1 template may have negative priority that ISM template not allowed
     // use this map to cache the priority
-    private val policyIDToNegOrder = mutableMapOf<policyID, Int>()
     private val negOrderToPriority = mutableMapOf<Int, Int>()
+
     private val policiesToUpdate = mutableMapOf<policyID, seqNoPrimaryTerm>()
     private val policiesFailedToUpdate = mutableMapOf<policyID, BulkItemResponse.Failure>()
     private lateinit var lastUpdatedTime: Instant
@@ -206,27 +221,51 @@ class ISMTemplateService(
         lastUpdatedTime = timeStamp.minusSeconds(3600)
 
         getIndexTemplates()
-        logger.info("index templates: $ismTemplateMap")
+        logger.info("ism templates: $ismTemplateMap")
+        logger.info("v1 processed index pattern: $v1ProcessedIndexPatterns")
+        logger.info("v1 processed priority: $v1ProcessedPriority")
+//        logger.info("v1 overlapping: $v1overlappingTemplatePairs")
+//        logger.info("v1 v2 overlapping: $v1v2overlappingTemplatePairs")
 
         getISMPolicies()
         logger.info("policies to update: ${policiesToUpdate.keys}")
 
         updateISMPolicies()
 
-        if (policiesToUpdate.isEmpty())
+        if (policiesToUpdate.isEmpty()) {
             finishFlag = true
+            // TODO set template service enable cluster setting to -1 persistently
+        }
+
+        cleanCache()
+    }
+
+    private fun cleanCache() {
+        v1ISMTemplateMap.clear()
+        v2ISMTemplateMap.clear()
+        ismTemplateMap.clear()
+        v1CachedPriority.clear()
+        v1ProcessedPriority.clear()
+        v1ProcessedIndexPatterns.clear()
+        v1TemplateToPolicyIDs.clear()
+        v1overlappingTemplatePairs.clear()
+        v1v2overlappingTemplatePairs.clear()
+        negOrderToPriority.clear()
+        policiesToUpdate.clear()
+        policiesFailedToUpdate.clear()
     }
 
     private suspend fun getIndexTemplates() {
-        mapNegOrderToPriority()
+        cacheAndNormNegOrder()
 
         clusterService.state().metadata.templates.forEach {
+            logger.info("v1 template: ${it.key}")
             val template = it.value
             val indexPatterns = template.patterns()
             val priority = template.order
             val policyIDSetting = ManagedIndexSettings.POLICY_ID.get(template.settings())
             if (policyIDSetting != null) {
-                processV1Template(policyIDSetting, indexPatterns, priority)
+                resolveOverlappingV1Templates(it.key, indexPatterns, priority, policyIDSetting)
             }
         }
 
@@ -236,9 +275,12 @@ class ISMTemplateService(
             val priority = template.priorityOrZero().toInt()
             val policyIDSetting = simulateTemplate(it.key)
             if (policyIDSetting != null) {
-                processV2Template(policyIDSetting, indexPatterns, priority)
+                populateV2ISMTemplateMap(policyIDSetting, indexPatterns, priority, it.key)
             }
         }
+
+        populateV1ISMTemplateMap()
+        mergeV1V2ISMTemplateMap()
     }
 
     private suspend fun simulateTemplate(templateName: String): String? {
@@ -258,103 +300,239 @@ class ISMTemplateService(
         return policyIDSetting
     }
 
-    private fun processV1Template(policyID: String, indexPatterns: List<String>, priority: Int) {
-        val normalizedPriority = normTemplatePriority(priority)
-        var indexPatterns = indexPatterns
-        // find all existing templates with same priority
-        // check if current index pattern matches with any existing template index pattern
-        // and update the index pattern correspondingly
-        val templates = ismTemplateMap.filter { it.value.priority == normalizedPriority }
-        templates.forEach { (policyID, template) ->
-            template.indexPatterns.forEachIndexed { _, exist ->
-            val a1 = Regex.simpleMatchToAutomaton(exist)
-            indexPatterns.forEachIndexed { i2, current ->
-                val a2 = Regex.simpleMatchToAutomaton(current)
-                if (!Operations.isEmpty(Operations.intersection(a1, a2))) {
-                    if (current == exist) {
-                        indexPatterns = indexPatterns.drop(i2)
-                    } else if (current.length > exist.length) {
-                        val existIndexPatterns = template.indexPatterns.toMutableSet()
-                        existIndexPatterns.add("-$current")
-                        ismTemplateMap[policyID] = template.copy(indexPatterns = existIndexPatterns.toList())
-                    } else {
-                        indexPatterns = indexPatterns.plus("-$exist")
-                    }
-                }
-            }
-        } }
-
-        // if one policyID -> multiple templates
-        //  if priority is same, merge index pattern
-        //  if priority lower, discard
-        //  if priority higher, override
-        val existingPriority = policyIDToNegOrder[policyID] ?: priority
-        val existingEntry = ismTemplateMap[policyID]
-        if (existingEntry != null) {
-            if (existingPriority == priority) {
-                val existingIndexPatterns = existingEntry.indexPatterns
-                val mergedIndexPatterns = mutableSetOf<String>()
-                mergedIndexPatterns.addAll(existingIndexPatterns)
+    private fun populateV1ISMTemplateMap() {
+        // first populate overlappingTemplateForSamePolicyID
+        // merge all index patterns, use the highest priority
+        val allV1Templates = clusterService.state().metadata.templates
+        overlappingTemplateForSamePolicyID.forEach { (policyID, templates) ->
+            var highestPriority = 0
+            val mergedIndexPatterns = mutableSetOf<String>()
+            templates.forEach { tName ->
+                val indexPatterns = allV1Templates[tName].patterns()
+                val priority = v1ProcessedPriority[tName]
+                if (highestPriority < priority!!) highestPriority = priority
                 mergedIndexPatterns.addAll(indexPatterns)
-                ismTemplateMap[policyID] =
-                    ISMTemplate(mergedIndexPatterns.toList(), normalizedPriority, lastUpdatedTime)
-                return
-            } else if (existingPriority < priority) {
-                return
             }
+            v1ISMTemplateMap[policyID] = ISMTemplate(mergedIndexPatterns.toList(), highestPriority, lastUpdatedTime)
         }
 
-        ismTemplateMap[policyID] = ISMTemplate(indexPatterns,
-            normTemplatePriority(priority), lastUpdatedTime)
+
+        v1ProcessedIndexPatterns.forEach { (tName, indexPatterns) ->
+            val policyID = v1TemplateToPolicyIDs[tName]
+            val priority = v1ProcessedPriority[tName]
+            if (policyID != null && priority != null && indexPatterns.isNotEmpty()) {
+                val existingTemplate = v1ISMTemplateMap[policyID]
+                if (existingTemplate != null) {
+                    val a1 = Regex.simpleMatchToAutomaton(*indexPatterns.toTypedArray())
+                    val a2 = Regex.simpleMatchToAutomaton(*existingTemplate.indexPatterns.toTypedArray())
+                    if (!Operations.isEmpty(Operations.intersection(a1, a2))) {
+                        // index pattern overlapping
+                        if (existingTemplate.priority < priority) {
+                            // override existing template if priority higher
+                            v1ISMTemplateMap[policyID] = ISMTemplate(indexPatterns, priority, lastUpdatedTime)
+                        }
+                    } else {
+                        // not overlapping -> merge together, use higher priority
+                        val existingIndexPatterns = existingTemplate.indexPatterns
+                        val mergedIndexPatterns = existingIndexPatterns + indexPatterns
+                        logger.info("merged pattern: $mergedIndexPatterns")
+                        v1ISMTemplateMap[policyID] = ISMTemplate(mergedIndexPatterns,
+                             if (priority < existingTemplate.priority) existingTemplate.priority else priority,
+                            lastUpdatedTime)
+                    }
+                } else {
+                    v1ISMTemplateMap[policyID] = ISMTemplate(indexPatterns, priority, lastUpdatedTime)
+                }
+            }
+        }
     }
 
-    private fun processV2Template(policyID: String, indexPatterns: List<String>, priority: Int) {
-        // if current index pattern overlap with any v1 template
-        // it will override it; if existing index pattern is shorter, minus
-        // if existing index pattern is longer, discard
-        val templates = ismTemplateMap.filter { it.value.priority == priority }
-        templates.forEach { (policyID, template) ->
-            template.indexPatterns.forEachIndexed { _, exist ->
-                val a1 = Regex.simpleMatchToAutomaton(exist)
-                indexPatterns.forEachIndexed { _, current ->
-                    val a2 = Regex.simpleMatchToAutomaton(current)
-                    if (!Operations.isEmpty(Operations.intersection(a1, a2))) {
-                        if (current.length > exist.length) {
-                            val existIndexPatterns = template.indexPatterns.toMutableSet()
-                            existIndexPatterns.add("-$current")
-                            ismTemplateMap[policyID] = template.copy(indexPatterns = existIndexPatterns.toList())
+    private fun mergeV1V2ISMTemplateMap() {
+        ismTemplateMap = v1ISMTemplateMap
+        v2ISMTemplateMap.forEach { (policyID, ismTemplate) ->
+            val existingISMTemplate = ismTemplateMap[policyID]
+            if (existingISMTemplate != null) {
+                val existingPriority = existingISMTemplate.priority
+                if (existingPriority == ismTemplate.priority) {
+                    // merge index pattern
+                    val mergedIndexPatterns = existingISMTemplate.indexPatterns + ismTemplate.indexPatterns
+                    ismTemplateMap[policyID] = ismTemplate.copy(indexPatterns = mergedIndexPatterns)
+                } else if (existingPriority < ismTemplate.priority) {
+                    ismTemplateMap[policyID] = ismTemplate
+                }
+            } else {
+                ismTemplateMap[policyID] = ismTemplate
+            }
+        }
+    }
+
+    private fun resolveOverlappingV1Templates(templateName: String, rawIndexPatterns: List<String>, rawPriority: Int, policyID: String) {
+        val indexPatterns = rawIndexPatterns.toMutableList()
+        val priority = normalizePriority(rawPriority)
+        val allV1Templates = clusterService.state().metadata.templates
+
+        // for all previous saved templates with the same priority
+        // try to help resolving index pattern overlapping
+        // based on how current index pattern overlaps previous index pattern
+        // either increase priority or discard the subset index pattern
+        var previousIncreaseFlag = false
+        val previousTemplateNamesWithSamePriority = v1CachedPriority
+            .filter { it.value == priority }.keys
+        previousTemplateNamesWithSamePriority.forEach { tName ->
+            logger.info("tName: $tName")
+            val template = allV1Templates[tName]
+            rawIndexPatterns.forEach { current ->
+                template.patterns().forEach { previous ->
+                    if (overlapping(current, previous)) {
+                        val currentStarPos = current.indexOf("*")
+                        val previousStarPos = previous.indexOf("*")
+                        if (currentStarPos < current.length - 1 || previousStarPos < previous.length - 1) {
+                            // star not in the end; a-b-*, a-*-c
+                            // record overlapping Pair because this may not be what user expected
+                            v1overlappingTemplatePairs.add(Pair(setOf(templateName, tName), current))
+                            indexPatterns.remove(current)
+                        } else if (currentStarPos < previousStarPos) {
+                            // a* ab*, current contains previous index pattern
+                            // previous template with index pattern ab* priority ++
+                            previousOrderIncreaseHelper(tName)
+                            previousIncreaseFlag = true
+
+                            // if overlapping index pattern points to same policyID
+                            // there could be unwanted result
+                            if (v1TemplateToPolicyIDs[tName] == policyID) {
+                                v1overlappingTemplatePairs.add(Pair(setOf(templateName, tName), current))
+                                recordOverlappingTemplatesForSamePolicyID(tName, templateName, policyID)
+                            }
                         } else {
-                            val existIndexPatterns = template.indexPatterns.toMutableSet()
-                            existIndexPatterns.remove(exist)
-                            ismTemplateMap[policyID] = template.copy(indexPatterns = existIndexPatterns.toList())
+                            // current contained by previous index pattern
+                            // discard current index pattern because it wont be used
+                            logger.info("before drop: $indexPatterns")
+                            indexPatterns.remove(current)
+                            logger.info("after drop: $indexPatterns")
                         }
                     }
                 }
-            } }
-
-        // if one policyID -> multiple templates
-        //  if priority is same, merge index pattern
-        //  if priority lower, discard
-        //  if priority higher, override
-        val existingPriority = policyIDToNegOrder[policyID] ?: priority
-        val existingEntry = ismTemplateMap[policyID]
-        if (existingEntry != null) {
-            if (existingPriority == priority) {
-                val existingIndexPatterns = existingEntry.indexPatterns
-                val mergedIndexPatterns = mutableSetOf<String>()
-                mergedIndexPatterns.addAll(existingIndexPatterns)
-                mergedIndexPatterns.addAll(indexPatterns)
-                ismTemplateMap[policyID] =
-                    ISMTemplate(mergedIndexPatterns.toList(),
-                        normTemplatePriority(priority), lastUpdatedTime)
-                return
-            } else if (existingPriority < priority) {
-                return
             }
         }
 
-        ismTemplateMap[policyID] = ISMTemplate(indexPatterns,
-            normTemplatePriority(priority), lastUpdatedTime)
+        // for all previous saved template with higher priority
+        // if we increased previous order, pattern with higher priority also need to increase
+        val previousTemplateNamesWithHigherPriority = v1CachedPriority
+            .filter { it.value > priority }.keys
+        previousTemplateNamesWithHigherPriority.forEach { tName ->
+            val template = allV1Templates[tName]
+            rawIndexPatterns.forEach { current ->
+                template.patterns().forEach { previous ->
+                    if (overlapping(current, previous)) {
+                        if (previousIncreaseFlag) {
+                            previousOrderIncreaseHelper(tName)
+                        }
+                        if (v1TemplateToPolicyIDs[tName] == policyID) {
+                            v1overlappingTemplatePairs.add(Pair(setOf(templateName, tName), current))
+                            recordOverlappingTemplatesForSamePolicyID(tName, templateName, policyID)
+                        }
+                    }
+                }
+            }
+        }
+
+        // for all previous saved template with lower priority
+        // if previous increase, current need to increase same amount
+        var priorityToIncrease = 0
+        val previousTemplateNamesWithLowerPriority = v1CachedPriority.filter { it.value < priority }.keys
+        previousTemplateNamesWithLowerPriority.forEach { tName ->
+            val template = allV1Templates[tName]
+            rawIndexPatterns.forEach { current ->
+                template.patterns().forEach { previous ->
+                    if (overlapping(current, previous)) {
+                        val previousIncrease = v1ProcessedPriority[tName]!! - v1CachedPriority[tName]!!
+                        if (previousIncrease > priorityToIncrease)
+                            priorityToIncrease = previousIncrease
+
+                        if (v1TemplateToPolicyIDs[tName] == policyID) {
+                            v1overlappingTemplatePairs.add(Pair(setOf(templateName, tName), current))
+                            recordOverlappingTemplatesForSamePolicyID(tName, templateName, policyID)
+                        }
+                    }
+                }
+            }
+        }
+
+        v1ProcessedPriority[templateName] = v1ProcessedPriority[templateName] ?: priority
+        if (indexPatterns.isNotEmpty())
+            v1ProcessedIndexPatterns[templateName] = indexPatterns
+
+        v1CachedPriority[templateName] = priority + priorityToIncrease
+        v1TemplateToPolicyIDs[templateName] = policyID
+    }
+
+    private fun recordOverlappingTemplatesForSamePolicyID(t1: templateName, t2: templateName, policyID: String) {
+        val existingTemplateNames = overlappingTemplateForSamePolicyID[policyID]
+        if (existingTemplateNames != null) {
+            overlappingTemplateForSamePolicyID[policyID]!!.add(t1)
+            overlappingTemplateForSamePolicyID[policyID]!!.add(t2)
+        } else {
+            overlappingTemplateForSamePolicyID[policyID] = mutableSetOf(t1, t2)
+        }
+    }
+
+    private fun overlapping(currentPattern: String, previousPattern: String): Boolean {
+        val a1 = Regex.simpleMatchToAutomaton(currentPattern)
+        val a2 = Regex.simpleMatchToAutomaton(previousPattern)
+        return !Operations.isEmpty(Operations.intersection(a1, a2))
+    }
+
+    private fun previousOrderIncreaseHelper(templateName: String) {
+        val previousProcessedOrder = v1ProcessedPriority[templateName]
+        if (previousProcessedOrder != null) {
+            v1ProcessedPriority[templateName] = previousProcessedOrder + 1
+        } else {
+            // not possible to reach here
+            logger.info("missing previous processed order")
+        }
+    }
+
+    private fun populateV2ISMTemplateMap(policyID: String, indexPatterns: List<String>, rawPriority: Int, templateName: String) {
+        var priority = normalizePriority(rawPriority)
+
+        // check if indexPatterns matches any of v1 index pattern
+        // v2 contains v1, discard v1
+        // v2 subset of v1, v2 priority should be higher then corresponding v1
+        // overlapping, record, v2 priority++
+        indexPatterns.forEach { current ->
+            val a1 = Regex.simpleMatchToAutomaton(current)
+            v1ProcessedIndexPatterns.forEach { (v1TemplateName, v1IndexPatterns) ->
+                v1IndexPatterns.forEach { previous ->
+                    val a2 = Regex.simpleMatchToAutomaton(previous)
+                    if (!Operations.isEmpty(Operations.intersection(a1, a2))) {
+                        val currentStarPos = current.indexOf("*")
+                        val previousStarPos = previous.indexOf("*")
+                        if (currentStarPos < current.length - 1 || previousStarPos < previous.length - 1) {
+                            // star not in the end; a-b-*, a-*-c
+                            // record and discard v1 index pattern
+                            v1v2overlappingTemplatePairs.add(Pair(setOf(templateName, v1TemplateName), previous))
+                            val v1Priority = v1ProcessedPriority[v1TemplateName]
+                            if (v1Priority != null && priority < v1Priority)
+                                priority += v1Priority + 1
+                            v1ProcessedIndexPatterns[v1TemplateName] =
+                                v1IndexPatterns - previous
+                        } else if (currentStarPos > previousStarPos) {
+                            // current v2 index pattern is subset of v1 index pattern
+                            val v1Priority = v1ProcessedPriority[v1TemplateName]
+                            if (v1Priority != null && priority < v1Priority)
+                                priority += v1Priority + 1
+                        } else {
+                            // current index pattern contains v1 index pattern
+                            // discard v1 index pattern
+                            v1ProcessedIndexPatterns[v1TemplateName] =
+                                v1IndexPatterns - previous
+                        }
+                    }
+                }
+            }
+        }
+
+        v2ISMTemplateMap[policyID] = ISMTemplate(indexPatterns, priority, lastUpdatedTime)
     }
 
     private suspend fun getISMPolicies() {
@@ -434,7 +612,7 @@ class ISMTemplateService(
 
     // old v1 template can have negative priority
     // map the negative priority to non-negative value
-    private fun mapNegOrderToPriority() {
+    private fun cacheAndNormNegOrder() {
         val negOrderToPolicyIDs = mutableMapOf<Int, MutableList<policyID>>()
         clusterService.state().metadata.templates.forEach {
             val priority = it.value.order
@@ -451,11 +629,14 @@ class ISMTemplateService(
         }
     }
 
-    private fun normTemplatePriority(order: Int): Int {
+    // old v1 template can have negative priority
+    // map the negative priority to non-negative value
+    private fun normalizePriority(order: Int): Int {
         if (order < 0) return negOrderToPriority[order] ?: 0
         return order + (negOrderToPriority.size)
     }
 }
 
 typealias policyID = String
+typealias templateName = String
 typealias seqNoPrimaryTerm = Pair<Long, Long>

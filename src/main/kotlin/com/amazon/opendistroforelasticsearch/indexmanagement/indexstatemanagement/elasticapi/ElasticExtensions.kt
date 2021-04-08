@@ -91,7 +91,7 @@ fun getUuidsForClosedIndices(state: ClusterState): MutableList<String> {
  */
 @Throws(Exception::class)
 fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXContentRegistry = NamedXContentRegistry.EMPTY):
-    Map<String, ISMTemplate?> {
+    Map<String, List<ISMTemplate>?> {
     return response.hits.hits.map {
         val id = it.id
         val seqNo = it.seqNo
@@ -100,7 +100,7 @@ fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXCon
             .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, it.sourceAsString)
         xcp.parseWithType(id, seqNo, primaryTerm, Policy.Companion::parse)
             .copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
-    }.map { it.id to it.ismTemplate }.toMap()
+    }.map { it.id to it.ismTemplates }.toMap()
 }
 
 @Suppress("UNCHECKED_CAST")

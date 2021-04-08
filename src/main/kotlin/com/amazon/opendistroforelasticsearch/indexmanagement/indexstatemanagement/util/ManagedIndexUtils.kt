@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
-import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalISMTemplateField
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalISMTemplatesField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
@@ -135,11 +135,11 @@ private fun updateEnabledField(uuid: String, enabled: Boolean, enabledTime: Long
     return UpdateRequest(INDEX_MANAGEMENT_INDEX, uuid).doc(builder)
 }
 
-fun updateISMTemplateRequest(policyID: String, ismTemplate: ISMTemplate, seqNo: Long, primaryTerm: Long): UpdateRequest {
+fun updateISMTemplateRequest(policyID: String, ismTemplates: List<ISMTemplate>, seqNo: Long, primaryTerm: Long): UpdateRequest {
     val builder = XContentFactory.jsonBuilder()
         .startObject()
         .startObject(Policy.POLICY_TYPE)
-        .optionalISMTemplateField(Policy.ISM_TEMPLATE, ismTemplate)
+        .optionalISMTemplatesField(Policy.ISM_TEMPLATES, ismTemplates)
         .endObject()
         .endObject()
     return UpdateRequest(INDEX_MANAGEMENT_INDEX, policyID).doc(builder)

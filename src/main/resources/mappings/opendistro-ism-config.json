@@ -443,7 +443,8 @@
             }
           }
         },
-        "ism_template": {
+        "ism_templates": {
+          "type": "nested",
           "properties": {
             "index_patterns": {
               "type": "keyword"

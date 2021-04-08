@@ -38,7 +38,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.METADATA_SERVICE_ENABLED
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.TEMPLATE_MIGRATION_ENABLED
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATES_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexMetadataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.getDeleteManagedIndexRequests
@@ -331,11 +331,11 @@ class ManagedIndexCoordinator(
         return updateManagedIndexReqs
     }
 
-    suspend fun getISMTemplates(): Map<String, ISMTemplate> {
+    suspend fun getISMTemplates(): Map<String, List<ISMTemplate>> {
         val searchRequest = SearchRequest()
             .source(
                 SearchSourceBuilder().query(
-                    QueryBuilders.existsQuery(ISM_TEMPLATE_FIELD)
+                    QueryBuilders.existsQuery(ISM_TEMPLATES_FIELD)
                 ).size(MAX_HITS)
             )
             .indices(INDEX_MANAGEMENT_INDEX)

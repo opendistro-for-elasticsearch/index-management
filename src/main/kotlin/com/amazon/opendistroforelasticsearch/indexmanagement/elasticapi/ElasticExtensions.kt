@@ -80,11 +80,11 @@ fun XContentBuilder.optionalTimeField(name: String, instant: Instant?): XContent
     return this.timeField(name, "${name}_in_millis", instant.toEpochMilli())
 }
 
-fun XContentBuilder.optionalISMTemplateField(name: String, ismTemplate: ISMTemplate?): XContentBuilder {
-    if (ismTemplate == null) {
+fun XContentBuilder.optionalISMTemplatesField(name: String, ismTemplates: List<ISMTemplate>?): XContentBuilder {
+    if (ismTemplates == null) {
         return nullField(name)
     }
-    return this.field(Policy.ISM_TEMPLATE, ismTemplate)
+    return this.field(Policy.ISM_TEMPLATES, ismTemplates.toTypedArray())
 }
 
 /**

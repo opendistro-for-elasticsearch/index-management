@@ -77,7 +77,7 @@ private val log = LogManager.getLogger("ISMTemplateService")
  * @return policyID
  */
 @Suppress("ReturnCount")
-fun Map<String, ISMTemplate>.findMatchingPolicy(indexMetadata: IndexMetadata): String? {
+fun Map<String, List<ISMTemplate>>.findMatchingPolicy(indexMetadata: IndexMetadata): String? {
     if (this.isEmpty()) return null
 
     val indexName = indexMetadata.index.name
@@ -91,28 +91,21 @@ fun Map<String, ISMTemplate>.findMatchingPolicy(indexMetadata: IndexMetadata): S
     val patternMatchPredicate = { pattern: String -> Regex.simpleMatch(pattern, indexName) }
     var matchedPolicy: String? = null
     var highestPriority: Int = -1
-    val matchedPolicies = mutableListOf<String>()
-    this.filter { (_, template) ->
-        template.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate
-    }.forEach { (policyID, template) ->
-        val matched = template.indexPatterns.stream().anyMatch(patternMatchPredicate)
-        val negateIndexPatterns = template.indexPatterns.filter { it.startsWith("-") }.map { it.substring(1) }
-        val negateMatch = negateIndexPatterns.stream().anyMatch(patternMatchPredicate)
-        if (negateMatch) log.info("index [$indexName] negate matches [$negateIndexPatterns].")
-        if (matched && !negateMatch) {
-            if (highestPriority < template.priority) {
-                highestPriority = template.priority
-                matchedPolicy = policyID
-                matchedPolicies.add(policyID)
-            } else if (highestPriority == template.priority) {
-                matchedPolicies.add(policyID)
+
+    this.forEach { (policyID, templateList) ->
+        templateList.filter { it.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate }
+            .forEach {
+                if (it.indexPatterns.stream().anyMatch(patternMatchPredicate)) {
+                    if (highestPriority < it.priority) {
+                        highestPriority = it.priority
+                        matchedPolicy = policyID
+                    } else if (highestPriority == it.priority) {
+                        log.warn("Warning: index $indexName matches [$matchedPolicy, $policyID]")
+                    }
+                }
             }
-        }
     }
 
-    if (matchedPolicies.size > 1) {
-        log.warn("index [$indexName] matches multiple ISM templates [$matchedPolicies]")
-    }
 
     return matchedPolicy
 }
@@ -150,31 +143,56 @@ fun validateFormat(indexPatterns: List<String>): ElasticsearchException? {
     return null
 }
 
+//
+fun List<ISMTemplate>.findSelfConflictingTemplates(): Pair<List<String>, List<String>>? {
+    val priorityList = this.map { it.priority }
+    priorityList.forEach { priority ->
+        // same priority
+        val indexPatternsList = this.filter { it.priority == priority }.map { it.indexPatterns }
+        if (indexPatternsList.size > 1) {
+            indexPatternsList.forEachIndexed { ind, indexPatterns ->
+                val comparePatterns = indexPatternsList.subList(ind + 1, indexPatternsList.size).flatten()
+                if (overlapping(indexPatterns, comparePatterns)) {
+                    return indexPatterns to comparePatterns
+                }
+            }
+        }
+    }
+
+    return null
+}
+
+fun overlapping(p1: List<String>, p2: List<String>): Boolean {
+    if (p1.isEmpty() || p2.isEmpty()) return false
+    val a1 = Regex.simpleMatchToAutomaton(*p1.toTypedArray())
+    val a2 = Regex.simpleMatchToAutomaton(*p2.toTypedArray())
+    return !Operations.isEmpty(Operations.intersection(a1, a2))
+}
+
 /**
  * find policy templates whose index patterns overlap with given template
  *
  * @return map of overlapping template name to its index patterns
  */
 @Suppress("SpreadOperator")
-fun Map<String, ISMTemplate>.findConflictingPolicyTemplates(
+fun Map<String, List<ISMTemplate>>.findConflictingPolicyTemplates(
     candidate: String,
     indexPatterns: List<String>,
     priority: Int
 ): Map<String, List<String>> {
-    val automaton1 = Regex.simpleMatchToAutomaton(*indexPatterns.toTypedArray())
     val overlappingTemplates = mutableMapOf<String, List<String>>()
 
-    // focus on template with same priority
-    this.filter { it.value.priority == priority }
-        .forEach { (policyID, template) ->
-        val automaton2 = Regex.simpleMatchToAutomaton(*template.indexPatterns.toTypedArray())
-        if (!Operations.isEmpty(Operations.intersection(automaton1, automaton2))) {
-            log.info("Existing ism_template for $policyID overlaps candidate $candidate")
-            overlappingTemplates[policyID] = template.indexPatterns
-        }
+    this.forEach { (policyID, templateList) ->
+        templateList.filter { it.priority == priority }
+            .map { it.indexPatterns }
+            .forEach {
+                if (overlapping(indexPatterns, it)) {
+                    overlappingTemplates[policyID] = it
+                }
+            }
+
     }
     overlappingTemplates.remove(candidate)
-
     return overlappingTemplates
 }
 
@@ -192,14 +210,10 @@ class ISMTemplateService(
         private set
     fun reenableTemplateMigration() { finishFlag = false }
 
-    private val v2ISMTemplateMap = mutableMapOf<policyID, ISMTemplate>()
     private var ismTemplateMap = mutableMapOf<policyID, MutableList<ISMTemplate>>()
 
-    private val v1CachedPriority = mutableMapOf<templateName, Int>()
-    private val v1ProcessedPriority = mutableMapOf<templateName, Int>()
-    private val v1ProcessedIndexPatterns = mutableMapOf<templateName, List<String>>()
-    private val v1TemplateToPolicyIDs = mutableMapOf<templateName, policyID>()
-
+    private val v1TemplateToPriority = mutableMapOf<templateName, Int>()
+    private val v1TemplateToPolicyID = mutableMapOf<templateName, policyID>()
 
     private val v1orderToTemplatesName = mutableMapOf<Int, MutableList<templateName>>()
     private val v1orderToPatterns = mutableMapOf<Int, MutableSet<String>>()
@@ -222,8 +236,7 @@ class ISMTemplateService(
 
         getIndexTemplates()
         logger.info("ism templates: $ismTemplateMap")
-        logger.info("v1 processed index pattern: $v1ProcessedIndexPatterns")
-        logger.info("v1 processed priority: $v1ProcessedPriority")
+        logger.info("v1 processed priority: $v1TemplateToPriority")
 
         getISMPolicies()
         logger.info("policies to update: ${policiesToUpdate.keys}")
@@ -236,17 +249,6 @@ class ISMTemplateService(
         }
 
         cleanCache()
-    }
-
-    private fun cleanCache() {
-        ismTemplateMap.clear()
-        v1CachedPriority.clear()
-        v1ProcessedPriority.clear()
-        v1ProcessedIndexPatterns.clear()
-        v1TemplateToPolicyIDs.clear()
-        negOrderToPriority.clear()
-        policiesToUpdate.clear()
-        policiesFailedToUpdate.clear()
     }
 
     private suspend fun getIndexTemplates() {
@@ -272,9 +274,9 @@ class ISMTemplateService(
         allV1Templates.forEach {
             val policyIDSetting = ManagedIndexSettings.POLICY_ID.get(it.value.settings())
             if (policyIDSetting != null) {
-                v1TemplateToPolicyIDs[it.key] = policyIDSetting
+                v1TemplateToPolicyID[it.key] = policyIDSetting
                 val priority = normalizePriority(it.value.order)
-                v1ProcessedPriority[it.key] = priority
+                v1TemplateToPriority[it.key] = priority
                 val bucket = v1orderToTemplatesName[priority]
                 if (bucket == null) {
                     v1orderToTemplatesName[priority] = mutableListOf(it.key)
@@ -303,7 +305,7 @@ class ISMTemplateService(
                 logger.info("increase templates $templatesToIncreaseOrder")
                 templatesToIncreaseOrder.forEach {
                     // initialize in bucketizeV1Templates
-                    v1ProcessedPriority[it] = v1ProcessedPriority[it]!! + 1
+                    v1TemplateToPriority[it] = v1TemplateToPriority[it]!! + 1
                 }
                 bucketIncrement++
             }
@@ -321,8 +323,8 @@ class ISMTemplateService(
             val templates = v1orderToTemplatesName[order]!!
             templates.forEach {
                 // initialize in bucketizeV1Templates
-                val priority = v1ProcessedPriority[it]!! + increments
-                val policyID = v1TemplateToPolicyIDs[it]!!
+                val priority = v1TemplateToPriority[it]!! + increments
+                val policyID = v1TemplateToPolicyID[it]!!
                 val indexPatterns = allV1Templates[it].patterns()
                 logger.info("template $it, priority $priority, policy $policyID")
                 saveISMTemplateToMap(policyID, ISMTemplate(indexPatterns, priority, lastUpdatedTime))
@@ -365,13 +367,6 @@ class ISMTemplateService(
         saveISMTemplateToMap(policyID, ISMTemplate(indexPatterns, priority+v1Increment, lastUpdatedTime))
     }
 
-    private fun overlapping(patterns1: List<String>, patterns2: List<String>): Boolean {
-        if (patterns1.isEmpty() || patterns2.isEmpty()) return false
-        val a1 = Regex.simpleMatchToAutomaton(*patterns1.toTypedArray())
-        val a2 = Regex.simpleMatchToAutomaton(*patterns2.toTypedArray())
-        return !Operations.isEmpty(Operations.intersection(a1, a2))
-    }
-
     private suspend fun getISMPolicies() {
         if (ismTemplateMap.isEmpty()) return
 
@@ -394,7 +389,7 @@ class ISMTemplateService(
                         xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, Policy.Companion::parse)
                     }
 
-                    if (policy.ismTemplate == null) {
+                    if (policy.ismTemplates == null) {
                         policiesToUpdate[it.id] = Pair(response.seqNo, response.primaryTerm)
                     }
                 }
@@ -414,9 +409,9 @@ class ISMTemplateService(
 
         val requests = mutableListOf<UpdateRequest>()
         policiesToUpdate.forEach { policyID, (seqNo, priTerm) ->
-            val ismTemplate = ismTemplateMap[policyID]
-            if (ismTemplate != null)
-                requests.add(updateISMTemplateRequest(policyID, ismTemplate, seqNo, priTerm))
+            val ismTemplates = ismTemplateMap[policyID]
+            if (ismTemplates != null)
+                requests.add(updateISMTemplateRequest(policyID, ismTemplates, seqNo, priTerm))
         }
         var requestsToRetry: List<DocWriteRequest<*>> = requests
 
@@ -469,6 +464,17 @@ class ISMTemplateService(
     private fun normalizePriority(order: Int): Int {
         if (order < 0) return negOrderToPriority[order] ?: 0
         return order + (negOrderToPriority.size)
+    }
+
+    private fun cleanCache() {
+        ismTemplateMap.clear()
+        v1TemplateToPriority.clear()
+        v1TemplateToPolicyID.clear()
+        v1orderToTemplatesName.clear()
+        v1orderToPatterns.clear()
+        v1orderToBucketIncrement.clear()
+        negOrderToPriority.clear()
+        policiesToUpdate.clear()
     }
 }
 

@@ -41,18 +41,18 @@ class ISMTemplateMigrationIT : IndexStateManagementRestTestCase() {
         // t1, t2
         if (order == listOf("t1", "t2")) {
             waitFor(Instant.ofEpochSecond(80)) {
-                assertEquals(getPolicy(policyID1).ismTemplate?.indexPatterns.toString(), "[a*]")
-                assertEquals(getPolicy(policyID1).ismTemplate?.priority, 0)
+                assertEquals(getPolicy(policyID1).ismTemplates?.indexPatterns.toString(), "[a*]")
+                assertEquals(getPolicy(policyID1).ismTemplates?.priority, 0)
             }
         }
 
         // t2, t1
         if (order == listOf("t2", "t1")) {
             waitFor(Instant.ofEpochSecond(80)) {
-                assertEquals(getPolicy(policyID1).ismTemplate?.indexPatterns.toString(), "[a*]")
-                assertEquals(getPolicy(policyID1).ismTemplate?.priority, 0)
-                assertEquals(getPolicy(policyID1).ismTemplate?.indexPatterns.toString(), "[ab*]")
-                assertEquals(getPolicy(policyID1).ismTemplate?.priority, 1)
+                assertEquals(getPolicy(policyID1).ismTemplates?.indexPatterns.toString(), "[a*]")
+                assertEquals(getPolicy(policyID1).ismTemplates?.priority, 0)
+                assertEquals(getPolicy(policyID1).ismTemplates?.indexPatterns.toString(), "[ab*]")
+                assertEquals(getPolicy(policyID1).ismTemplates?.priority, 1)
             }
         }
 

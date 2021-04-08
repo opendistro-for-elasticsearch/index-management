@@ -4,6 +4,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlug
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRestTestCase
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
@@ -29,7 +30,6 @@ import org.elasticsearch.search.SearchModule
 import org.elasticsearch.test.ESTestCase
 import java.time.Duration
 import java.time.Instant
-import org.elasticsearch.client.ResponseException
 
 abstract class TransformRestTestCase : IndexManagementRestTestCase() {
 
@@ -53,7 +53,7 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         )
     }
 
-    protected fun createTransformJson(
+    private fun createTransformJson(
         transformString: String,
         transformId: String,
         refresh: Boolean = true
@@ -73,6 +73,23 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         val transform = randomTransform()
         val transformId = createTransform(transform, refresh = refresh).id
         return getTransform(transformId = transformId)
+    }
+
+    protected fun createTransformSourceIndex(transform: Transform, settings: Settings = Settings.EMPTY) {
+        var mappingString = ""
+        var addCommaPrefix = false
+        transform.groups.forEach {
+            val fieldType = when (it.type) {
+                Dimension.Type.DATE_HISTOGRAM -> "date"
+                Dimension.Type.HISTOGRAM -> "long"
+                Dimension.Type.TERMS -> "keyword"
+            }
+            val string = "${if (addCommaPrefix) "," else ""}\"${it.sourceField}\":{\"type\": \"$fieldType\"}"
+            addCommaPrefix = true
+            mappingString += string
+        }
+        mappingString = "\"properties\":{$mappingString}"
+        createIndex(transform.sourceIndex, settings, mappingString)
     }
 
     protected fun getTransformMetadata(metadataId: String): TransformMetadata {

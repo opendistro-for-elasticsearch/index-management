@@ -15,6 +15,8 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
@@ -276,7 +278,9 @@ class TransformRunnerIT : TransformRestTestCase() {
             roles = emptyList(),
             pageSize = 1,
             groups = listOf(
-                Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
+                Terms(sourceField = "store_and_fwd_flag", targetField = "flag"),
+                Histogram(sourceField = "passenger_count", targetField = "count", interval = 2.0),
+                DateHistogram(sourceField = "tpep_pickup_datetime", targetField = "date", fixedInterval = "1d")
             ),
             aggregations = aggregatorFactories
         ).let { createTransform(it, it.id) }

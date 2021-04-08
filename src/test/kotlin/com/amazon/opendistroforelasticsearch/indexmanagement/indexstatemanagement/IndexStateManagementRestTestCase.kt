@@ -774,15 +774,16 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         return true
     }
 
-    protected fun createV1Template(templateName: String, indexPatterns: String, policyID: String) {
+    protected fun createV1Template(templateName: String, indexPatterns: String, policyID: String, order: Int = 0) {
         val response = client().makeRequest("PUT", "_template/$templateName",
             StringEntity(
         "{\n" +
-                "  \"index_patterns\": [\"$indexPatterns\"],\n" +
-                "  \"settings\": {\n" +
-                "    \"opendistro.index_state_management.policy_id\": \"$policyID\"\n" +
-                "  }\n" +
-                "}", APPLICATION_JSON))
+            "  \"index_patterns\": [\"$indexPatterns\"],\n" +
+            "  \"settings\": {\n" +
+            "    \"opendistro.index_state_management.policy_id\": \"$policyID\"\n" +
+            "  }, \n" +
+            "  \"order\": $order\n" +
+            "}", APPLICATION_JSON))
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
@@ -791,8 +792,23 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         assertEquals("Request failed", RestStatus.OK, response.restStatus())
     }
 
+    protected fun createV2Template(templateName: String, indexPatterns: String, policyID: String) {
+        val response = client().makeRequest("PUT", "_index_template/$templateName",
+            StringEntity(
+                "{\n" +
+                    "  \"index_patterns\": [\"$indexPatterns\"],\n" +
+                    "  \"template\": {\n" +
+                    "    \"settings\": {\n" +
+                    "      \"opendistro.index_state_management.policy_id\": \"$policyID\"\n" +
+                    "    }\n" +
+                    "  }\n" +
+                    "}", APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
+
     fun catIndexTemplates(): List<Any> {
         val response = client().makeRequest("GET", "_cat/templates?format=json")
+        logger.info("response: $response")
 
         assertEquals("cat template request failed", RestStatus.OK, response.restStatus())
 

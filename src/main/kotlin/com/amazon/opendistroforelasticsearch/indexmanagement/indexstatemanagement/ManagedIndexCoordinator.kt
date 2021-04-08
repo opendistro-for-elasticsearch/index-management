@@ -56,6 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
+import org.apache.lucene.search.join.ScoreMode
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.DocWriteRequest
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -335,7 +336,11 @@ class ManagedIndexCoordinator(
         val searchRequest = SearchRequest()
             .source(
                 SearchSourceBuilder().query(
-                    QueryBuilders.existsQuery(ISM_TEMPLATES_FIELD)
+                    QueryBuilders.nestedQuery(
+                        ISM_TEMPLATES_FIELD,
+                        QueryBuilders.existsQuery(ISM_TEMPLATES_FIELD),
+                        ScoreMode.None
+                    )
                 ).size(MAX_HITS)
             )
             .indices(INDEX_MANAGEMENT_INDEX)

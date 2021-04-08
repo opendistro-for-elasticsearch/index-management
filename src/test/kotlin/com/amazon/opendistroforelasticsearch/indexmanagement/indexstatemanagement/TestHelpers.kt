@@ -68,10 +68,11 @@ fun randomPolicy(
     lastUpdatedTime: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS),
     errorNotification: ErrorNotification? = randomErrorNotification(),
     states: List<State> = List(ESRestTestCase.randomIntBetween(1, 10)) { randomState() },
-    ismTemplate: ISMTemplate? = null
+    ismTemplates: List<ISMTemplate>? = null
 ): Policy {
     return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description, ismTemplates = ismTemplate)
+            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description, ismTemplates = ismTemplates
+    )
 }
 
 fun randomState(

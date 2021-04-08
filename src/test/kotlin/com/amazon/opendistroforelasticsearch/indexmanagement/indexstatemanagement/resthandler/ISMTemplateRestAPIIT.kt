@@ -44,7 +44,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
     fun `test add template with invalid index pattern`() {
         try {
             val ismTemp = ISMTemplate(listOf(" "), 100, randomInstant())
-            createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
+            createPolicy(randomPolicy(ismTemplates = listOf(ismTemp)), policyID1)
             fail("Expect a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -59,9 +59,9 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
             val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())
             val ismTemp2 = ISMTemplate(listOf("abc*"), 100, randomInstant())
             val ismTemp3 = ISMTemplate(listOf("*"), 100, randomInstant())
-            createPolicy(randomPolicy(ismTemplate = ismTemp), policyID1)
-            createPolicy(randomPolicy(ismTemplate = ismTemp2), policyID2)
-            createPolicy(randomPolicy(ismTemplate = ismTemp3), policyID3)
+            createPolicy(randomPolicy(ismTemplates = listOf(ismTemp)), policyID1)
+            createPolicy(randomPolicy(ismTemplates = listOf(ismTemp2)), policyID2)
+            createPolicy(randomPolicy(ismTemplates = listOf(ismTemp3)), policyID3)
             fail("Expect a failure")
         } catch (e: ResponseException) {
             assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
@@ -94,7 +94,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states,
-            ismTemplates = ismTemp
+            ismTemplates = listOf(ismTemp)
         )
         createPolicy(policy, policyID)
 

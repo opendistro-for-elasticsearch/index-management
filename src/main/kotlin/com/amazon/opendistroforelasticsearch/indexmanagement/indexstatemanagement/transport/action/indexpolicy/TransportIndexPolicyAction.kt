@@ -27,6 +27,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.validateFormat
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import org.apache.logging.log4j.LogManager
+import org.apache.lucene.search.join.ScoreMode
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
@@ -118,7 +119,12 @@ class TransportIndexPolicyAction @Inject constructor(
             val searchRequest = SearchRequest()
                 .source(
                     SearchSourceBuilder().query(
-                    QueryBuilders.existsQuery(ISM_TEMPLATES_FIELD)))
+                        QueryBuilders.nestedQuery(
+                            ISM_TEMPLATES_FIELD,
+                            QueryBuilders.existsQuery(ISM_TEMPLATES_FIELD),
+                            ScoreMode.None
+                        ))
+                )
                 .indices(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {

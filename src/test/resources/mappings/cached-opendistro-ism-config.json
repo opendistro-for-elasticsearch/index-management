@@ -1,6 +1,6 @@
 {
   "_meta" : {
-    "schema_version": 9
+    "schema_version": 10
   },
   "dynamic": "strict",
   "properties": {
@@ -443,7 +443,8 @@
             }
           }
         },
-        "ism_template": {
+        "ism_templates": {
+          "type": "nested",
           "properties": {
             "index_patterns": {
               "type": "keyword"

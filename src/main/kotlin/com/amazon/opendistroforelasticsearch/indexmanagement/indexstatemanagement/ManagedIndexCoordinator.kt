@@ -315,12 +315,11 @@ class ManagedIndexCoordinator(
     suspend fun getISMTemplates(): Map<String, ISMTemplate> {
         val searchRequest = SearchRequest()
             .source(
-                SearchSourceBuilder().query(
-                    QueryBuilders.existsQuery(ISM_TEMPLATE_FIELD)
-                )
+                SearchSourceBuilder()
+                .query(QueryBuilders.existsQuery(ISM_TEMPLATE_FIELD))
+                .size(MAX_HITS) // Assuming there are not more than 10k policies for now
             )
             .indices(INDEX_MANAGEMENT_INDEX)
-            .size(MAX_HITS) // Assuming there are not more than 10k policies for now
 
         return try {
             val response: SearchResponse = client.suspendUntil { search(searchRequest, it) }

@@ -320,6 +320,7 @@ class ManagedIndexCoordinator(
                 )
             )
             .indices(INDEX_MANAGEMENT_INDEX)
+            .size(MAX_HITS) // Assuming there are not more than 10k policies for now
 
         return try {
             val response: SearchResponse = client.suspendUntil { search(searchRequest, it) }

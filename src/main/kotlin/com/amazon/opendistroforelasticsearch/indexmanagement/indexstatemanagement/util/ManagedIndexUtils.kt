@@ -18,15 +18,17 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.alerting.destination.message.BaseMessage
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalISMTemplatesField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.action.Action
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.optionalTimeField
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ChangePolicy
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexConfig
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ManagedIndexMetaData
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Policy
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.State
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.Transition
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionConfig
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.ActionRetry
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.action.RolloverActionConfig
@@ -131,6 +133,17 @@ private fun updateEnabledField(uuid: String, enabled: Boolean, enabledTime: Long
             .endObject()
         .endObject()
     return UpdateRequest(INDEX_MANAGEMENT_INDEX, uuid).doc(builder)
+}
+
+fun updateISMTemplateRequest(policyID: String, ismTemplates: List<ISMTemplate>, seqNo: Long, primaryTerm: Long): UpdateRequest {
+    val builder = XContentFactory.jsonBuilder()
+        .startObject()
+        .startObject(Policy.POLICY_TYPE)
+        .optionalISMTemplatesField(Policy.ISM_TEMPLATE, ismTemplates)
+        .endObject()
+        .endObject()
+    return UpdateRequest(INDEX_MANAGEMENT_INDEX, policyID).doc(builder)
+        .setIfSeqNo(seqNo).setIfPrimaryTerm(primaryTerm)
 }
 
 fun updateDisableManagedIndexRequest(uuid: String): UpdateRequest {

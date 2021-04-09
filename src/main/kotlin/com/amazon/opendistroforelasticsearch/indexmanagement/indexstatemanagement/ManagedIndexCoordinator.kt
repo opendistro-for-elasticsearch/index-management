@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-@file:Suppress("ReturnCount")
+@file:Suppress("ReturnCount", "ComplexMethod")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
@@ -37,6 +37,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.METADATA_SERVICE_ENABLED
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.TEMPLATE_MIGRATION_CONTROL
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexMetadataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
@@ -62,6 +63,7 @@ import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.get.MultiGetRequest
 import org.elasticsearch.action.get.MultiGetResponse
+import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchPhaseExecutionException
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -71,6 +73,7 @@ import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.block.ClusterBlockException
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.component.LifecycleListener
 import org.elasticsearch.common.settings.Settings
@@ -82,6 +85,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.threadpool.Scheduler
 import org.elasticsearch.threadpool.ThreadPool
+import java.time.Instant
 
 /**
  * Listens for cluster changes to pick up new indices to manage.
@@ -106,7 +110,8 @@ class ManagedIndexCoordinator(
     private val clusterService: ClusterService,
     private val threadPool: ThreadPool,
     indexManagementIndices: IndexManagementIndices,
-    private val metadataService: MetadataService
+    private val metadataService: MetadataService,
+    private val templateService: ISMTemplateService
 ) : ClusterStateListener,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("ManagedIndexCoordinator")),
     LifecycleListener() {
@@ -116,6 +121,7 @@ class ManagedIndexCoordinator(
 
     private var scheduledFullSweep: Scheduler.Cancellable? = null
     private var scheduledMoveMetadata: Scheduler.Cancellable? = null
+    private var scheduledTemplateMigration: Scheduler.Cancellable? = null
 
     @Volatile private var lastFullSweepTimeNano = System.nanoTime()
     @Volatile private var indexStateManagementEnabled = INDEX_STATE_MANAGEMENT_ENABLED.get(settings)
@@ -126,6 +132,10 @@ class ManagedIndexCoordinator(
     @Volatile private var jobInterval = JOB_INTERVAL.get(settings)
 
     @Volatile private var isMaster = false
+
+    @Volatile private var templateMigrationEnabled: Boolean = true
+    @Volatile private var templateMigrationEnabledSetting = TEMPLATE_MIGRATION_CONTROL.get(settings)
+    @Volatile private var onMasterTimeStamp: Long = 0L
 
     init {
         clusterService.addListener(this)
@@ -146,6 +156,11 @@ class ManagedIndexCoordinator(
             if (!metadataServiceEnabled) scheduledMoveMetadata?.cancel()
             else initMoveMetadata()
         }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(TEMPLATE_MIGRATION_CONTROL) {
+            templateMigrationEnabled = it >= 0L
+            if (!templateMigrationEnabled) scheduledTemplateMigration?.cancel()
+            else initTemplateMigration(it)
+        }
         clusterService.clusterSettings.addSettingsUpdateConsumer(COORDINATOR_BACKOFF_MILLIS, COORDINATOR_BACKOFF_COUNT) {
             millis, count -> retryPolicy = BackoffPolicy.constantBackoff(millis, count)
         }
@@ -156,10 +171,15 @@ class ManagedIndexCoordinator(
     }
 
     fun onMaster() {
+        onMasterTimeStamp = System.currentTimeMillis()
+        logger.info("Cache master node onMaster time: $onMasterTimeStamp")
+
         // Init background sweep when promoted to being master
         initBackgroundSweep()
 
         initMoveMetadata()
+
+        initTemplateMigration(templateMigrationEnabledSetting)
     }
 
     fun offMaster() {
@@ -167,6 +187,8 @@ class ManagedIndexCoordinator(
         scheduledFullSweep?.cancel()
 
         scheduledMoveMetadata?.cancel()
+
+        scheduledTemplateMigration?.cancel()
     }
 
     override fun clusterChanged(event: ClusterChangedEvent) {
@@ -284,40 +306,32 @@ class ManagedIndexCoordinator(
         clusterState: ClusterState,
         indexNames: List<String>
     ): List<DocWriteRequest<*>> {
-        val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
-        if (indexNames.isEmpty()) return updateManagedIndexReqs
+        val managedIndexConfigIndexRequests = mutableListOf<DocWriteRequest<IndexRequest>>()
+        if (indexNames.isEmpty()) return managedIndexConfigIndexRequests
 
-        val indexMetadatas = clusterState.metadata.indices
         val templates = getISMTemplates()
 
-        val indexToMatchedPolicy = indexNames.map { indexName ->
-            indexName to templates.findMatchingPolicy(indexMetadatas[indexName])
-        }.toMap()
-
-        indexToMatchedPolicy.filterNotNullValues()
-            .forEach { (index, policyID) ->
-                val indexUuid = indexMetadatas[index].indexUUID
-                val ismTemplate = templates[policyID]
-                if (indexUuid != null && ismTemplate != null) {
-                    logger.info("Index [$index] will be managed by policy [$policyID]")
-                    updateManagedIndexReqs.add(
-                        managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval)
-                    )
-                } else {
-                    logger.warn("Index [$index] has index uuid [$indexUuid] and/or " +
-                        "a matching template [$ismTemplate] that is null.")
-                }
+        indexNames.forEach { indexName ->
+            val indexMetadata = clusterState.metadata.index(indexName)
+            val indexUuid = indexMetadata.indexUUID
+            val isHiddenIndex = IndexMetadata.INDEX_HIDDEN_SETTING.get(indexMetadata.settings)
+            templates.findMatchingPolicy(indexName, indexMetadata.creationDate, isHiddenIndex)?.let { policyID ->
+                logger.info("Index [$indexName] matched ISM policy template and will be managed by $policyID")
+                managedIndexConfigIndexRequests.add(
+                    managedIndexConfigIndexRequest(indexName, indexUuid, policyID, jobInterval)
+                )
             }
+        }
 
-        return updateManagedIndexReqs
+        return managedIndexConfigIndexRequests
     }
 
-    suspend fun getISMTemplates(): Map<String, ISMTemplate> {
+    suspend fun getISMTemplates(): Map<String, List<ISMTemplate>> {
         val searchRequest = SearchRequest()
             .source(
                 SearchSourceBuilder().query(
                     QueryBuilders.existsQuery(ISM_TEMPLATE_FIELD)
-                )
+                ).size(MAX_HITS)
             )
             .indices(INDEX_MANAGEMENT_INDEX)
 
@@ -405,6 +419,46 @@ class ManagedIndexCoordinator(
         }
 
         scheduledMoveMetadata = threadPool.scheduleWithFixedDelay(scheduledJob, TimeValue.timeValueMinutes(1), executorName())
+    }
+
+    fun initTemplateMigration(enableSetting: Long) {
+        if (!templateMigrationEnabled) return
+        if (!isIndexStateManagementEnabled()) return
+        if (!clusterService.state().nodes().isLocalNodeElectedMaster) return
+        scheduledTemplateMigration?.cancel()
+
+        // if service has finished, re-enable it
+        if (templateService.finishFlag) {
+            logger.info("Re-enable template migration service.")
+            templateService.reenableTemplateMigration()
+        }
+
+        val scheduledJob = Runnable {
+            launch {
+                try {
+                    if (templateService.finishFlag) {
+                        logger.info("ISM template migration process finished, cancel scheduled job.")
+                        scheduledTemplateMigration?.cancel()
+                        return@launch
+                    }
+
+                    logger.info("Performing ISM template migration.")
+                    if (enableSetting == 0L) {
+                        if (onMasterTimeStamp != 0L)
+                            templateService.doMigration(Instant.ofEpochMilli(onMasterTimeStamp))
+                        else {
+                            logger.error("No valid onMaster time cached, cancel ISM template migration job.")
+                            scheduledTemplateMigration?.cancel()
+                        }
+                    } else
+                        templateService.doMigration(Instant.ofEpochMilli(enableSetting))
+                } catch (e: Exception) {
+                    logger.error("Failed to migrate ISM template", e)
+                }
+            }
+        }
+
+        scheduledTemplateMigration = threadPool.scheduleWithFixedDelay(scheduledJob, TimeValue.timeValueMinutes(1), executorName())
     }
 
     private fun getFullSweepElapsedTime(): TimeValue =
@@ -530,21 +584,6 @@ class ManagedIndexCoordinator(
                 throw ExceptionsHelper.convertToElastic(retryCause)
             }
         }
-    }
-
-    /**
-     * Returns [Index]es not being managed by ISM
-     * but still has ISM metadata
-     */
-    suspend fun getIndicesToRemoveMetadataFrom(unManagedIndices: List<Index>): List<Index> {
-        val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
-        val metadataList = client.mgetManagedIndexMetadata(unManagedIndices)
-        metadataList.forEach {
-            val metadata = it?.first
-            if (metadata != null)
-                indicesToRemoveManagedIndexMetaDataFrom.add(Index(metadata.index, metadata.indexUuid))
-        }
-        return indicesToRemoveManagedIndexMetaDataFrom
     }
 
     /**

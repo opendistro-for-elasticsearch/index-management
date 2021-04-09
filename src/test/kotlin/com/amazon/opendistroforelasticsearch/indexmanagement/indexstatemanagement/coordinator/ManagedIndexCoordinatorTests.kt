@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.coordinator
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.MetadataService
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
@@ -47,6 +48,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
 
     private lateinit var indexManagementIndices: IndexManagementIndices
     private lateinit var metadataService: MetadataService
+    private lateinit var templateService: ISMTemplateService
     private lateinit var coordinator: ManagedIndexCoordinator
 
     private lateinit var discoveryNode: DiscoveryNode
@@ -58,6 +60,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         threadPool = Mockito.mock(ThreadPool::class.java)
         indexManagementIndices = Mockito.mock(IndexManagementIndices::class.java)
         metadataService = Mockito.mock(MetadataService::class.java)
+        templateService = Mockito.mock(ISMTemplateService::class.java)
 
         val namedXContentRegistryEntries = arrayListOf<NamedXContentRegistry.Entry>()
         xContentRegistry = NamedXContentRegistry(namedXContentRegistryEntries)
@@ -72,6 +75,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         settingSet.add(ManagedIndexSettings.JOB_INTERVAL)
         settingSet.add(ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED)
         settingSet.add(ManagedIndexSettings.METADATA_SERVICE_ENABLED)
+        settingSet.add(ManagedIndexSettings.TEMPLATE_MIGRATION_CONTROL)
         settingSet.add(ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT)
         settingSet.add(ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS)
 
@@ -79,7 +83,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         val originClusterService: ClusterService = ClusterServiceUtils.createClusterService(threadPool, discoveryNode, clusterSettings)
         clusterService = Mockito.spy(originClusterService)
 
-        coordinator = ManagedIndexCoordinator(settings, client, clusterService, threadPool, indexManagementIndices, metadataService)
+        coordinator = ManagedIndexCoordinator(settings, client, clusterService, threadPool, indexManagementIndices, metadataService, templateService)
     }
 
     fun `test after start`() {
@@ -101,7 +105,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
 
     fun `test on master`() {
         coordinator.onMaster()
-        Mockito.verify(threadPool, Mockito.times(2)).scheduleWithFixedDelay(Mockito.any(), Mockito.any(), Mockito.anyString())
+        Mockito.verify(threadPool, Mockito.times(3)).scheduleWithFixedDelay(Mockito.any(), Mockito.any(), Mockito.anyString())
     }
 
     fun `test off master`() {

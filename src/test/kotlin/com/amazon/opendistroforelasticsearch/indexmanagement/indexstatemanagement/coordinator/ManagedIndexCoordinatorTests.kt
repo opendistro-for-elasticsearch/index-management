@@ -75,7 +75,7 @@ class ManagedIndexCoordinatorTests : ESAllocationTestCase() {
         settingSet.add(ManagedIndexSettings.JOB_INTERVAL)
         settingSet.add(ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED)
         settingSet.add(ManagedIndexSettings.METADATA_SERVICE_ENABLED)
-        settingSet.add(ManagedIndexSettings.TEMPLATE_MIGRATION_ENABLED)
+        settingSet.add(ManagedIndexSettings.TEMPLATE_MIGRATION_CONTROL)
         settingSet.add(ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT)
         settingSet.add(ManagedIndexSettings.COORDINATOR_BACKOFF_MILLIS)
 

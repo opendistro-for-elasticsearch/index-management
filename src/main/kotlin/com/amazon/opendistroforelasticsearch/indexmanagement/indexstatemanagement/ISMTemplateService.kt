@@ -229,6 +229,7 @@ class ISMTemplateService(
         logger.info("Doing ISM template ${runTimeCounter++} time.")
         if (runTimeCounter > 10) {
             stopMigration(-2)
+            return
         }
 
         lastUpdatedTime = timeStamp.minusSeconds(3600)
@@ -251,10 +252,12 @@ class ISMTemplateService(
 
     private fun stopMigration(successFlag: Long) {
         finishFlag = true
-        val newSetting = Settings.builder().put(ManagedIndexSettings.TEMPLATE_MIGRATION_ENABLED.key, successFlag)
+        val newSetting = Settings.builder().put(ManagedIndexSettings.TEMPLATE_MIGRATION_CONTROL.key, successFlag)
         val request = ClusterUpdateSettingsRequest().persistentSettings(newSetting)
         client.admin().cluster().updateSettings(request, updateSettingListener())
-        logger.info("Failure experienced when migration ISM Template: $policiesFailedToUpdate")
+        logger.info("Failure experienced when migrating ISM Template and update ISM policies: $policiesFailedToUpdate")
+        // TODO what if update setting failed, cannot reset to -1/-2
+        runTimeCounter = 0
     }
 
     private fun updateSettingListener(): ActionListener<ClusterUpdateSettingsResponse> {
@@ -320,17 +323,18 @@ class ISMTemplateService(
 
     private fun bucketizeV1TemplatesByOrder() {
         clusterService.state().metadata.templates.forEach {
-            if (v1TemplatesWithPolicyID[it.key] != null) {
+            val v1TemplateCache = v1TemplatesWithPolicyID[it.key]
+            if (v1TemplateCache != null) {
                 val priority = normalizePriority(it.value.order)
                 // cache the non-negative priority
-                v1TemplatesWithPolicyID[it.key] = v1TemplatesWithPolicyID[it.key]!!.copy(order = priority)
+                v1TemplatesWithPolicyID[it.key] = v1TemplateCache.copy(order = priority)
 
                 val bucket = v1orderToTemplatesName[priority]
                 if (bucket == null) {
                     v1orderToTemplatesName[priority] = mutableListOf(it.key)
                 } else {
                     // add later one to start of the list
-                    v1orderToTemplatesName[priority]!!.add(0, it.key)
+                    bucket.add(0, it.key)
                 }
             }
         }
@@ -338,13 +342,15 @@ class ISMTemplateService(
 
     private fun populateBucketPriority() {
         v1orderToTemplatesName.forEach { (order, templateNames) ->
-            templateNames.forEachIndexed { ind, _ ->
-                val templatesToIncreaseOrder = templateNames.subList(ind + 1, templateNames.size)
-                templatesToIncreaseOrder.forEach {
-                    // initialize in bucketizeV1Templates
-                    val currentPriority = v1TemplatesWithPolicyID[it]!!.order
-                    v1TemplatesWithPolicyID[it] = v1TemplatesWithPolicyID[it]!!.copy(order = currentPriority + 1)
+            var increase = 0
+            templateNames.forEach {
+                val v1TemplateCache = v1TemplatesWithPolicyID[it]
+                if (v1TemplateCache != null) {
+                    val cachePriority = v1TemplateCache.order
+                    v1TemplatesWithPolicyID[it] = v1TemplateCache
+                        .copy(order = cachePriority + increase)
                 }
+                increase++
             }
             v1orderToBucketIncrement[order] = templateNames.size - 1
         }
@@ -354,16 +360,17 @@ class ISMTemplateService(
         val allOrders = v1orderToTemplatesName.keys.toList().sorted()
         allOrders.forEachIndexed { ind, order ->
             val smallerOrders = allOrders.subList(0, ind)
-            val increments = smallerOrders.map { v1orderToBucketIncrement[it]!! }.sum()
+            val increments = smallerOrders.mapNotNull { v1orderToBucketIncrement[it] }.sum()
 
-            val templates = v1orderToTemplatesName[order]!!
-            templates.forEach {
-                // initialize in bucketizeV1Templates
-                val priority = v1TemplatesWithPolicyID[it]!!.order + increments
-                // initialize in cacheAndNormNegOrder
-                val policyID = v1TemplatesWithPolicyID[it]!!.policyID
-                val indexPatterns = v1TemplatesWithPolicyID[it]!!.patterns
-                saveISMTemplateToMap(policyID, ISMTemplate(indexPatterns, priority, lastUpdatedTime))
+            val templates = v1orderToTemplatesName[order]
+            templates?.forEach {
+                val v1TemplateCache = v1TemplatesWithPolicyID[it]
+                if (v1TemplateCache != null) {
+                    val policyID = v1TemplateCache.policyID
+                    val indexPatterns = v1TemplateCache.patterns
+                    val priority = v1TemplateCache.order + increments
+                    saveISMTemplateToMap(policyID, ISMTemplate(indexPatterns, priority, lastUpdatedTime))
+                }
             }
         }
     }
@@ -371,7 +378,7 @@ class ISMTemplateService(
     private fun saveISMTemplateToMap(policyID: String, ismTemplate: ISMTemplate) {
         val policyToISMTemplate = ismTemplateMap[policyID]
         if (policyToISMTemplate != null) {
-            ismTemplateMap[policyID]!!.add(ismTemplate)
+            policyToISMTemplate.add(ismTemplate)
         } else {
             ismTemplateMap[policyID] = mutableListOf(ismTemplate)
         }
@@ -396,8 +403,9 @@ class ISMTemplateService(
 
     private fun populateV2ISMTemplateMap(policyID: String, indexPatterns: List<String>, priority: Int) {
         var v1Increment = 0
-        if (v1orderToBucketIncrement.isNotEmpty()) {
-            v1Increment = v1orderToBucketIncrement.keys.min()!! + v1orderToBucketIncrement.values.sum()
+        val v1MinOrder = v1orderToBucketIncrement.keys.min()
+        if (v1MinOrder != null) {
+            v1Increment = v1MinOrder + v1orderToBucketIncrement.values.sum()
         }
 
         saveISMTemplateToMap(policyID, ISMTemplate(indexPatterns, priority + v1Increment, lastUpdatedTime))

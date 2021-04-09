@@ -164,7 +164,7 @@ class ISMTemplateMigrationIT : IndexStateManagementRestTestCase() {
     }
 
     private fun enableISMTemplateMigration() {
-        updateClusterSetting(ManagedIndexSettings.TEMPLATE_MIGRATION_ENABLED.key, "-1")
-        updateClusterSetting(ManagedIndexSettings.TEMPLATE_MIGRATION_ENABLED.key, "0")
+        updateClusterSetting(ManagedIndexSettings.TEMPLATE_MIGRATION_CONTROL.key, "-1")
+        updateClusterSetting(ManagedIndexSettings.TEMPLATE_MIGRATION_CONTROL.key, "0")
     }
 }

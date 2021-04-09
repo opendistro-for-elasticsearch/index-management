@@ -37,7 +37,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.JOB_INTERVAL
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.METADATA_SERVICE_ENABLED
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.SWEEP_PERIOD
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.TEMPLATE_MIGRATION_ENABLED
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings.Companion.TEMPLATE_MIGRATION_CONTROL
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexMetadataRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.deleteManagedIndexRequest
@@ -132,7 +132,7 @@ class ManagedIndexCoordinator(
     @Volatile private var isMaster = false
 
     @Volatile private var templateMigrationEnabled: Boolean = true
-    @Volatile private var templateMigrationEnabledSetting = TEMPLATE_MIGRATION_ENABLED.get(settings)
+    @Volatile private var templateMigrationEnabledSetting = TEMPLATE_MIGRATION_CONTROL.get(settings)
     @Volatile private var onMasterTimeStamp: Long = 0L
 
     init {
@@ -154,7 +154,7 @@ class ManagedIndexCoordinator(
             if (!metadataServiceEnabled) scheduledMoveMetadata?.cancel()
             else initMoveMetadata()
         }
-        clusterService.clusterSettings.addSettingsUpdateConsumer(TEMPLATE_MIGRATION_ENABLED) {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(TEMPLATE_MIGRATION_CONTROL) {
             templateMigrationEnabled = it >= 0L
             if (!templateMigrationEnabled) scheduledTemplateMigration?.cancel()
             else initTemplateMigration(it)
@@ -185,6 +185,8 @@ class ManagedIndexCoordinator(
         scheduledFullSweep?.cancel()
 
         scheduledMoveMetadata?.cancel()
+
+        scheduledTemplateMigration?.cancel()
     }
 
     override fun clusterChanged(event: ClusterChangedEvent) {

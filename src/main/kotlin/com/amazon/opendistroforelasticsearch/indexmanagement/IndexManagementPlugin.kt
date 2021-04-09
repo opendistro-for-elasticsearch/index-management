@@ -297,7 +297,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ManagedIndexSettings.ROLLOVER_ALIAS,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
             ManagedIndexSettings.METADATA_SERVICE_ENABLED,
-            ManagedIndexSettings.TEMPLATE_MIGRATION_ENABLED,
+            ManagedIndexSettings.TEMPLATE_MIGRATION_CONTROL,
             ManagedIndexSettings.JOB_INTERVAL,
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,

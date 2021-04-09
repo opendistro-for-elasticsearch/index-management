@@ -221,11 +221,12 @@ class ISMTemplateService(
         BackoffPolicy.constantBackoff(TimeValue.timeValueMillis(50), 3)
 
     suspend fun doMigration(timeStamp: Instant) {
-        logger.info("Doing ISM template ${runTimeCounter++} time.")
-        if (runTimeCounter > 10) {
+        if (runTimeCounter >= 10) {
             stopMigration(-2)
             return
         }
+        logger.info("Doing ISM template ${++runTimeCounter} time.")
+        cleanCache()
 
         lastUpdatedTime = timeStamp.minusSeconds(3600)
         logger.info("Use $lastUpdatedTime as migrating ISM template last_updated_time")
@@ -241,8 +242,6 @@ class ISMTemplateService(
         if (policiesToUpdate.isEmpty()) {
             stopMigration(-1)
         }
-
-        cleanCache()
     }
 
     private fun stopMigration(successFlag: Long) {

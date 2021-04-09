@@ -126,7 +126,7 @@ data class Policy(
         const val STATES_FIELD = "states"
         const val ISM_TEMPLATES = "ism_templates"
 
-        @Suppress("ComplexMethod")
+        @Suppress("ComplexMethod", "NestedBlockDepth")
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)

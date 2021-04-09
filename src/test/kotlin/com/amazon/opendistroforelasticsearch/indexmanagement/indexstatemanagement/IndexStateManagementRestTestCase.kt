@@ -222,7 +222,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         return managedIndex?.policyID
     }
 
-    protected fun updateClusterSetting(key: String, value: String, escapeValue: Boolean = true) {
+    protected fun updateClusterSetting(key: String, value: String?, escapeValue: Boolean = true) {
         val formattedValue = if (escapeValue) "\"$value\"" else value
         val request = """
             {

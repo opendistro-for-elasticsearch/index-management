@@ -134,7 +134,8 @@ class TransportIndexPolicyAction @Inject constructor(
                 override fun onResponse(response: SearchResponse) {
                     val policyToTemplateMap = getPolicyToTemplateMap(response, xContentRegistry).filterNotNullValues()
                     ismTemplateList.forEach {
-                        val conflictingPolicyTemplates = policyToTemplateMap.findConflictingPolicyTemplates(request.policyID, it.indexPatterns, it.priority)
+                        val conflictingPolicyTemplates = policyToTemplateMap
+                            .findConflictingPolicyTemplates(request.policyID, it.indexPatterns, it.priority)
                         if (conflictingPolicyTemplates.isNotEmpty()) {
                             val errorMessage = "New policy ${request.policyID} has an ISM template with index pattern ${it.indexPatterns} " +
                                 "matching existing policy templates," +

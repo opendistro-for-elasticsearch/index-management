@@ -52,6 +52,7 @@ class MetadataRegressionIT : IndexStateManagementIntegTestCase() {
     fun cleanClusterSetting() {
         // need to clean up otherwise will throw error
         updateClusterSetting(ManagedIndexSettings.METADATA_SERVICE_ENABLED.key, null, false)
+        updateClusterSetting(ManagedIndexSettings.TEMPLATE_MIGRATION_ENABLED.key, null, false)
     }
 
     fun `test move metadata service`() {

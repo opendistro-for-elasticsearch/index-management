@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-@file:Suppress("ReturnCount")
+@file:Suppress("ReturnCount", "ComplexMethod")
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices

@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-@file:Suppress("MagicNumber", "ComplexMethod", "NestedBlockDepth")
+@file:Suppress("MagicNumber", "ComplexMethod", "NestedBlockDepth", "TooManyFunctions")
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement
 
@@ -144,7 +144,6 @@ fun validateFormat(indexPatterns: List<String>): ElasticsearchException? {
     return null
 }
 
-//
 fun List<ISMTemplate>.findSelfConflictingTemplates(): Pair<List<String>, List<String>>? {
     val priorityList = this.map { it.priority }
     priorityList.forEach { priority ->
@@ -163,6 +162,7 @@ fun List<ISMTemplate>.findSelfConflictingTemplates(): Pair<List<String>, List<St
     return null
 }
 
+@Suppress("SpreadOperator")
 fun overlapping(p1: List<String>, p2: List<String>): Boolean {
     if (p1.isEmpty() || p2.isEmpty()) return false
     val a1 = Regex.simpleMatchToAutomaton(*p1.toTypedArray())
@@ -175,7 +175,6 @@ fun overlapping(p1: List<String>, p2: List<String>): Boolean {
  *
  * @return map of overlapping template name to its index patterns
  */
-@Suppress("SpreadOperator")
 fun Map<String, List<ISMTemplate>>.findConflictingPolicyTemplates(
     candidate: String,
     indexPatterns: List<String>,

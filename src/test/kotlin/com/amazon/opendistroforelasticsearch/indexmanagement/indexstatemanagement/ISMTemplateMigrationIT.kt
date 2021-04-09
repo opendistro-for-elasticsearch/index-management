@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
+import org.junit.After
 import org.junit.Assume
 import java.time.Instant
 

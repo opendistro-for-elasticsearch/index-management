@@ -34,8 +34,11 @@ import org.apache.logging.log4j.LogManager
 import org.apache.lucene.util.automaton.Operations
 import org.elasticsearch.ElasticsearchException
 import org.elasticsearch.ExceptionsHelper
+import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.ActionRequestValidationException
 import org.elasticsearch.action.DocWriteRequest
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse
 import org.elasticsearch.action.admin.indices.template.post.SimulateIndexTemplateResponse
 import org.elasticsearch.action.admin.indices.template.post.SimulateTemplateAction
 import org.elasticsearch.action.bulk.BackoffPolicy
@@ -54,6 +57,7 @@ import org.elasticsearch.common.ValidationException
 import org.elasticsearch.common.io.stream.BytesStreamOutput
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.regex.Regex
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
@@ -206,6 +210,8 @@ class ISMTemplateService(
         private set
     fun reenableTemplateMigration() { finishFlag = false }
 
+    @Volatile var runTimeCounter = 0
+
     private var ismTemplateMap = mutableMapOf<policyID, MutableList<ISMTemplate>>()
     private val v1TemplatesWithPolicyID = mutableMapOf<templateName, V1TemplateCache>()
 
@@ -221,26 +227,55 @@ class ISMTemplateService(
         BackoffPolicy.constantBackoff(TimeValue.timeValueMillis(50), 3)
 
     suspend fun doMigration(timeStamp: Instant) {
+        logger.info("Doing ISM template ${runTimeCounter++} time.")
+        if (runTimeCounter > 10) {
+            stopMigration(-2)
+        }
+
         lastUpdatedTime = timeStamp.minusSeconds(3600)
+        logger.info("Use $lastUpdatedTime as migrating ISM template last_updated_time")
 
         getIndexTemplates()
-        logger.info("ism templates: $ismTemplateMap")
+        logger.info("ISM templates: $ismTemplateMap")
 
         getISMPolicies()
-        logger.info("policies to update: ${policiesToUpdate.keys}")
+        logger.info("Policies to update: ${policiesToUpdate.keys}")
 
         updateISMPolicies()
 
         if (policiesToUpdate.isEmpty()) {
-            finishFlag = true
-            // TODO set template service enable cluster setting to -1 persistently
+            stopMigration(-1)
         }
 
         cleanCache()
     }
 
+    private fun stopMigration(successFlag: Long) {
+        finishFlag = true
+        val newSetting = Settings.builder().put(ManagedIndexSettings.TEMPLATE_MIGRATION_ENABLED.key, successFlag)
+        val request = ClusterUpdateSettingsRequest().persistentSettings(newSetting)
+        client.admin().cluster().updateSettings(request, updateSettingListener())
+        logger.info("Failure experienced when migration ISM Template: $policiesFailedToUpdate")
+    }
+
+    private fun updateSettingListener(): ActionListener<ClusterUpdateSettingsResponse> {
+        return object : ActionListener<ClusterUpdateSettingsResponse> {
+            override fun onFailure(e: Exception) {
+                logger.error("Failed to update template migration setting", e)
+            }
+
+            override fun onResponse(response: ClusterUpdateSettingsResponse) {
+                if (!response.isAcknowledged) {
+                    logger.error("Update template migration setting is not acknowledged")
+                } else {
+                    logger.info("Successfully update template migration setting")
+                }
+            }
+        }
+    }
+
     private suspend fun getIndexTemplates() {
-        cacheAndNormNegOrder()
+        processNegativeOrder()
 
         bucketizeV1TemplatesByOrder()
         populateBucketPriority()
@@ -259,7 +294,7 @@ class ISMTemplateService(
 
     // old v1 template can have negative priority
     // map the negative priority to non-negative value
-    private fun cacheAndNormNegOrder() {
+    private fun processNegativeOrder() {
         val negOrderSet = mutableSetOf<Int>()
         clusterService.state().metadata.templates.forEach {
             val policyIDSetting = ManagedIndexSettings.POLICY_ID.get(it.value.settings())
@@ -295,7 +330,7 @@ class ISMTemplateService(
                 if (bucket == null) {
                     v1orderToTemplatesName[priority] = mutableListOf(it.key)
                 } else {
-                    // reverse the order
+                    // add later one to start of the list
                     v1orderToTemplatesName[priority]!!.add(0, it.key)
                 }
             }
@@ -304,11 +339,8 @@ class ISMTemplateService(
 
     private fun populateBucketPriority() {
         v1orderToTemplatesName.forEach { (order, templateNames) ->
-            logger.info("order $order, templateNames: $templateNames")
-            templateNames.forEachIndexed { ind, current ->
+            templateNames.forEachIndexed { ind, _ ->
                 val templatesToIncreaseOrder = templateNames.subList(ind + 1, templateNames.size)
-                logger.info("current $current")
-                logger.info("increase order for templates $templatesToIncreaseOrder")
                 templatesToIncreaseOrder.forEach {
                     // initialize in bucketizeV1Templates
                     val currentPriority = v1TemplatesWithPolicyID[it]!!.order
@@ -324,8 +356,6 @@ class ISMTemplateService(
         allOrders.forEachIndexed { ind, order ->
             val smallerOrders = allOrders.subList(0, ind)
             val increments = smallerOrders.map { v1orderToBucketIncrement[it]!! }.sum()
-            logger.info("order to bucket increment: $v1orderToBucketIncrement")
-            logger.info("smaller orders $smallerOrders, increments: $increments")
 
             val templates = v1orderToTemplatesName[order]!!
             templates.forEach {
@@ -334,7 +364,6 @@ class ISMTemplateService(
                 // initialize in cacheAndNormNegOrder
                 val policyID = v1TemplatesWithPolicyID[it]!!.policyID
                 val indexPatterns = v1TemplatesWithPolicyID[it]!!.patterns
-                logger.info("template $it, priority $priority, policy $policyID")
                 saveISMTemplateToMap(policyID, ISMTemplate(indexPatterns, priority, lastUpdatedTime))
             }
         }
@@ -386,24 +415,27 @@ class ISMTemplateService(
             mRes.forEach {
                 if (it.response != null && !it.response.isSourceEmpty && !it.isFailed) {
                     val response = it.response
-
-                    // TODO throw exception?
-                    val policy = XContentHelper.createParser(
-                        xContentRegistry,
-                        LoggingDeprecationHandler.INSTANCE,
-                        response.sourceAsBytesRef,
-                        XContentType.JSON
-                    ).use { xcp ->
-                        xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, Policy.Companion::parse)
+                    var policy: Policy? = null
+                    try {
+                        policy = XContentHelper.createParser(
+                            xContentRegistry,
+                            LoggingDeprecationHandler.INSTANCE,
+                            response.sourceAsBytesRef,
+                            XContentType.JSON
+                        ).use { xcp ->
+                            xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, Policy.Companion::parse)
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Failed to parse policy [${response.id}] when migrating templates", e)
                     }
 
-                    if (policy.ismTemplates == null) {
+                    if (policy?.ismTemplates == null) {
                         policiesToUpdate[it.id] = Pair(response.seqNo, response.primaryTerm)
                     }
                 }
             }
         } catch (e: ActionRequestValidationException) {
-            logger.info("ISM config index not exists.")
+            logger.warn("ISM config index not exists when migrating templates.")
         }
     }
 
@@ -439,6 +471,7 @@ class ISMTemplateService(
                     }
                 } else {
                     policiesToUpdate.remove(it.id)
+                    policiesFailedToUpdate.remove(it.id)
                 }
             }
             requestsToRetry = retryItems.map { bulkReq.requests()[it] as UpdateRequest }

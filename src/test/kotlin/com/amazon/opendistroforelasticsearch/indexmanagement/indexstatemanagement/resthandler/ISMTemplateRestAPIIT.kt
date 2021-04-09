@@ -54,6 +54,20 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
         }
     }
 
+    fun `test add template with self-overlapping index pattern`() {
+        try {
+            val ismTemp = ISMTemplate(listOf("ab*"), 100, randomInstant())
+            val ismTemp2 = ISMTemplate(listOf("abc*"), 100, randomInstant())
+            createPolicy(randomPolicy(ismTemplates = listOf(ismTemp, ismTemp2)), policyID1)
+            fail("Expect a failure")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected RestStatus", RestStatus.BAD_REQUEST, e.response.restStatus())
+            val actualMessage = e.response.asMap()["error"] as Map<String, Any>
+            val expectedReason = "New policy $policyID1 has an ISM template with index pattern [ab*] matching this policy's other ISM templates with index patterns [abc*], please use different priority"
+            assertEquals(expectedReason, actualMessage["reason"])
+        }
+    }
+
     fun `test add template with overlapping index pattern`() {
         try {
             val ismTemp = ISMTemplate(listOf("log*"), 100, randomInstant())

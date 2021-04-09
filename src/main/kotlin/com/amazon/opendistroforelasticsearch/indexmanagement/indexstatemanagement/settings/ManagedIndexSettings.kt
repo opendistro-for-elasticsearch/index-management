@@ -46,10 +46,14 @@ class ManagedIndexSettings {
             Setting.Property.Dynamic
         )
 
+        // 0: enabled, use onMaster time as ISM template last_updated_time
+        // -1: migration ended successfully
+        // -2: migration ended unsuccessfully
+        // >0: use it (epoch millis) as ISM template last_updated_time
         val TEMPLATE_MIGRATION_ENABLED: Setting<Long> = Setting.longSetting(
             "opendistro.index_state_management.template_migration.enabled",
             DEFAULT_TEMPLATE_MIGRATION_TIMESTAMP,
-            -1L,
+            -2L,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )

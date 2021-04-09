@@ -17,6 +17,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator.Companion.MAX_HITS
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.filterNotNullValues
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.elasticapi.getPolicyToTemplateMap
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.findConflictingPolicyTemplates
@@ -89,7 +90,7 @@ class TransportIndexPolicyAction @Inject constructor(
                 // if there is template field, we will check
                 val reqTemplates = request.policy.ismTemplates
                 if (reqTemplates != null) {
-                    checkTemplate(reqTemplates)
+                    validateISMTemplates(reqTemplates)
                 } else putPolicy()
             } else {
                 log.error("Unable to create or update ${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX} with newest mapping.")
@@ -100,18 +101,19 @@ class TransportIndexPolicyAction @Inject constructor(
             }
         }
 
-        private fun checkTemplate(ismTemplateList: List<ISMTemplate>) {
+        private fun validateISMTemplates(ismTemplateList: List<ISMTemplate>) {
             val possibleEx = validateFormat(ismTemplateList.map { it.indexPatterns }.flatten())
             if (possibleEx != null) {
                 actionListener.onFailure(possibleEx)
                 return
             }
+
             // check self overlapping
             val selfOverlap = ismTemplateList.findSelfConflictingTemplates()
             if (selfOverlap != null) {
                 val errorMessage = "New policy ${request.policyID} has an ISM template with index pattern ${selfOverlap.first} " +
-                    "matching itself other index patterns ${selfOverlap.second}," +
-                    " please use a different priority"
+                    "matching this policy's other ISM templates with index patterns ${selfOverlap.second}," +
+                    " please use different priority"
                 actionListener.onFailure(IndexManagementException.wrap(IllegalArgumentException(errorMessage)))
                 return
             }
@@ -123,14 +125,14 @@ class TransportIndexPolicyAction @Inject constructor(
                             ISM_TEMPLATES_FIELD,
                             QueryBuilders.existsQuery(ISM_TEMPLATES_FIELD),
                             ScoreMode.None
-                        ))
+                        )
+                    ).size(MAX_HITS)
                 )
                 .indices(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
 
             client.search(searchRequest, object : ActionListener<SearchResponse> {
                 override fun onResponse(response: SearchResponse) {
                     val policyToTemplateMap = getPolicyToTemplateMap(response, xContentRegistry).filterNotNullValues()
-                    // loop over all reqTemplates
                     ismTemplateList.forEach {
                         val conflictingPolicyTemplates = policyToTemplateMap.findConflictingPolicyTemplates(request.policyID, it.indexPatterns, it.priority)
                         if (conflictingPolicyTemplates.isNotEmpty()) {

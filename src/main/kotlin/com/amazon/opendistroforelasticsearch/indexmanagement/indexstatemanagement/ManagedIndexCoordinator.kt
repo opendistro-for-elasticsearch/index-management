@@ -156,7 +156,7 @@ class ManagedIndexCoordinator(
             else initMoveMetadata()
         }
         clusterService.clusterSettings.addSettingsUpdateConsumer(TEMPLATE_MIGRATION_ENABLED) {
-            templateMigrationEnabled = it != -1L
+            templateMigrationEnabled = it >= 0L
             if (!templateMigrationEnabled) scheduledTemplateMigration?.cancel()
             else initTemplateMigration(it)
         }
@@ -171,6 +171,7 @@ class ManagedIndexCoordinator(
 
     fun onMaster() {
         onMasterTimeStamp = System.currentTimeMillis()
+        logger.info("Cache master node onMaster time: $onMasterTimeStamp")
 
         // Init background sweep when promoted to being master
         initBackgroundSweep()
@@ -302,13 +303,11 @@ class ManagedIndexCoordinator(
         clusterState: ClusterState,
         indexNames: List<String>
     ): List<DocWriteRequest<*>> {
-        logger.info("newly created index names: $indexNames")
         val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
         if (indexNames.isEmpty()) return updateManagedIndexReqs
 
         val indexMetadatas = clusterState.metadata.indices
         val templates = getISMTemplates()
-        logger.info("existing templates: $templates")
 
         val indexToMatchedPolicy = indexNames.map { indexName ->
             indexName to templates.findMatchingPolicy(indexMetadatas[indexName])
@@ -437,6 +436,7 @@ class ManagedIndexCoordinator(
         if (!clusterService.state().nodes().isLocalNodeElectedMaster) return
         scheduledTemplateMigration?.cancel()
 
+        // if service has finished, re-enable it
         if (templateService.finishFlag) {
             logger.info("Re-enable template migration service.")
             templateService.reenableTemplateMigration()
@@ -446,7 +446,7 @@ class ManagedIndexCoordinator(
             launch {
                 try {
                     if (templateService.finishFlag) {
-                        logger.info("ISM template migration process succeeded, cancel scheduled job.")
+                        logger.info("ISM template migration process finished, cancel scheduled job.")
                         scheduledTemplateMigration?.cancel()
                         return@launch
                     }

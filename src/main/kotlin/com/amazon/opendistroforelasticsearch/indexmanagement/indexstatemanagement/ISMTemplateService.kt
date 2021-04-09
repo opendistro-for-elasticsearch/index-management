@@ -49,7 +49,6 @@ import org.elasticsearch.action.get.MultiGetRequest
 import org.elasticsearch.action.get.MultiGetResponse
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.Client
-import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.metadata.Template
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.Strings
@@ -79,14 +78,10 @@ private val log = LogManager.getLogger("ISMTemplateService")
  * @return policyID
  */
 @Suppress("ReturnCount")
-fun Map<String, List<ISMTemplate>>.findMatchingPolicy(indexMetadata: IndexMetadata): String? {
+fun Map<String, List<ISMTemplate>>.findMatchingPolicy(indexName: String, indexCreationDate: Long, isHiddenIndex: Boolean): String? {
     if (this.isEmpty()) return null
-
-    val indexName = indexMetadata.index.name
-
     // don't include hidden index
-    val isHidden = IndexMetadata.INDEX_HIDDEN_SETTING.get(indexMetadata.settings)
-    if (isHidden) return null
+    if (isHiddenIndex) return null
 
     // only process indices created after template
     // traverse all ism templates for matching ones
@@ -95,7 +90,7 @@ fun Map<String, List<ISMTemplate>>.findMatchingPolicy(indexMetadata: IndexMetada
     var highestPriority: Int = -1
 
     this.forEach { (policyID, templateList) ->
-        templateList.filter { it.lastUpdatedTime.toEpochMilli() < indexMetadata.creationDate }
+        templateList.filter { it.lastUpdatedTime.toEpochMilli() < indexCreationDate }
             .forEach {
                 if (it.indexPatterns.stream().anyMatch(patternMatchPredicate)) {
                     if (highestPriority < it.priority) {

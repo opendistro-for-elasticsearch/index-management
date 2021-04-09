@@ -63,6 +63,7 @@ import org.elasticsearch.action.bulk.BulkRequest
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.get.MultiGetRequest
 import org.elasticsearch.action.get.MultiGetResponse
+import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchPhaseExecutionException
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
@@ -72,6 +73,7 @@ import org.elasticsearch.cluster.ClusterChangedEvent
 import org.elasticsearch.cluster.ClusterState
 import org.elasticsearch.cluster.ClusterStateListener
 import org.elasticsearch.cluster.block.ClusterBlockException
+import org.elasticsearch.cluster.metadata.IndexMetadata
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.component.LifecycleListener
 import org.elasticsearch.common.settings.Settings
@@ -304,32 +306,24 @@ class ManagedIndexCoordinator(
         clusterState: ClusterState,
         indexNames: List<String>
     ): List<DocWriteRequest<*>> {
-        val updateManagedIndexReqs = mutableListOf<DocWriteRequest<*>>()
-        if (indexNames.isEmpty()) return updateManagedIndexReqs
+        val managedIndexConfigIndexRequests = mutableListOf<DocWriteRequest<IndexRequest>>()
+        if (indexNames.isEmpty()) return managedIndexConfigIndexRequests
 
-        val indexMetadatas = clusterState.metadata.indices
         val templates = getISMTemplates()
 
-        val indexToMatchedPolicy = indexNames.map { indexName ->
-            indexName to templates.findMatchingPolicy(indexMetadatas[indexName])
-        }.toMap()
-
-        indexToMatchedPolicy.filterNotNullValues()
-            .forEach { (index, policyID) ->
-                val indexUuid = indexMetadatas[index].indexUUID
-                val ismTemplate = templates[policyID]
-                if (indexUuid != null && ismTemplate != null) {
-                    logger.info("Index [$index] will be managed by policy [$policyID]")
-                    updateManagedIndexReqs.add(
-                        managedIndexConfigIndexRequest(index, indexUuid, policyID, jobInterval)
-                    )
-                } else {
-                    logger.warn("Index [$index] has index uuid [$indexUuid] and/or " +
-                        "a matching template [$ismTemplate] that is null.")
-                }
+        indexNames.forEach { indexName ->
+            val indexMetadata = clusterState.metadata.index(indexName)
+            val indexUuid = indexMetadata.indexUUID
+            val isHiddenIndex = IndexMetadata.INDEX_HIDDEN_SETTING.get(indexMetadata.settings)
+            templates.findMatchingPolicy(indexName, indexMetadata.creationDate, isHiddenIndex)?.let { policyID ->
+                logger.info("Index [$indexName] matched ISM policy template and will be managed by $policyID")
+                managedIndexConfigIndexRequests.add(
+                    managedIndexConfigIndexRequest(indexName, indexUuid, policyID, jobInterval)
+                )
             }
+        }
 
-        return updateManagedIndexReqs
+        return managedIndexConfigIndexRequests
     }
 
     suspend fun getISMTemplates(): Map<String, List<ISMTemplate>> {
@@ -590,21 +584,6 @@ class ManagedIndexCoordinator(
                 throw ExceptionsHelper.convertToElastic(retryCause)
             }
         }
-    }
-
-    /**
-     * Returns [Index]es not being managed by ISM
-     * but still has ISM metadata
-     */
-    suspend fun getIndicesToRemoveMetadataFrom(unManagedIndices: List<Index>): List<Index> {
-        val indicesToRemoveManagedIndexMetaDataFrom = mutableListOf<Index>()
-        val metadataList = client.mgetManagedIndexMetadata(unManagedIndices)
-        metadataList.forEach {
-            val metadata = it?.first
-            if (metadata != null)
-                indicesToRemoveManagedIndexMetaDataFrom.add(Index(metadata.index, metadata.indexUuid))
-        }
-        return indicesToRemoveManagedIndexMetaDataFrom
     }
 
     /**

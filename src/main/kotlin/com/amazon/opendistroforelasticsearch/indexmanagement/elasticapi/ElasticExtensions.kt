@@ -84,7 +84,7 @@ fun XContentBuilder.optionalISMTemplatesField(name: String, ismTemplates: List<I
     if (ismTemplates == null) {
         return nullField(name)
     }
-    return this.field(Policy.ISM_TEMPLATES, ismTemplates.toTypedArray())
+    return this.field(Policy.ISM_TEMPLATE, ismTemplates.toTypedArray())
 }
 
 /**

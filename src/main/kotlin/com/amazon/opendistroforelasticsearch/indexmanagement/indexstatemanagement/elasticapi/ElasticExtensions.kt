@@ -100,7 +100,7 @@ fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXCon
             .createParser(xContentRegistry, LoggingDeprecationHandler.INSTANCE, it.sourceAsString)
         xcp.parseWithType(id, seqNo, primaryTerm, Policy.Companion::parse)
             .copy(id = id, seqNo = seqNo, primaryTerm = primaryTerm)
-    }.map { it.id to it.ismTemplates }.toMap()
+    }.map { it.id to it.ismTemplate }.toMap()
 }
 
 @Suppress("UNCHECKED_CAST")

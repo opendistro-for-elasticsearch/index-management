@@ -428,7 +428,7 @@ class ISMTemplateService(
                         logger.error("Failed to parse policy [${response.id}] when migrating templates", e)
                     }
 
-                    if (policy?.ismTemplates == null) {
+                    if (policy?.ismTemplate == null) {
                         policiesToUpdate[it.id] = Pair(response.seqNo, response.primaryTerm)
                     }
                 }

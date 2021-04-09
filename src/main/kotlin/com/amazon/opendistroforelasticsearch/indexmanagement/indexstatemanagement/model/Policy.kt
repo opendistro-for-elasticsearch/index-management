@@ -43,7 +43,7 @@ data class Policy(
     val errorNotification: ErrorNotification?,
     val defaultState: String,
     val states: List<State>,
-    val ismTemplates: List<ISMTemplate>? = null
+    val ismTemplate: List<ISMTemplate>? = null
 ) : ToXContentObject, Writeable {
 
     init {
@@ -74,7 +74,7 @@ data class Policy(
             .field(ERROR_NOTIFICATION_FIELD, errorNotification)
             .field(DEFAULT_STATE_FIELD, defaultState)
             .field(STATES_FIELD, states.toTypedArray())
-            .optionalISMTemplatesField(ISM_TEMPLATES, ismTemplates)
+            .optionalISMTemplatesField(ISM_TEMPLATE, ismTemplate)
         if (params.paramAsBoolean(WITH_TYPE, true)) builder.endObject()
         return builder.endObject()
     }
@@ -90,7 +90,7 @@ data class Policy(
         errorNotification = sin.readOptionalWriteable(::ErrorNotification),
         defaultState = sin.readString(),
         states = sin.readList(::State),
-        ismTemplates = if (sin.readBoolean()) {
+        ismTemplate = if (sin.readBoolean()) {
             sin.readList(::ISMTemplate)
         } else null
     )
@@ -106,9 +106,9 @@ data class Policy(
         out.writeOptionalWriteable(errorNotification)
         out.writeString(defaultState)
         out.writeList(states)
-        if (ismTemplates != null) {
+        if (ismTemplate != null) {
             out.writeBoolean(true)
-            out.writeList(ismTemplates)
+            out.writeList(ismTemplate)
         } else {
             out.writeBoolean(false)
         }
@@ -124,9 +124,9 @@ data class Policy(
         const val ERROR_NOTIFICATION_FIELD = "error_notification"
         const val DEFAULT_STATE_FIELD = "default_state"
         const val STATES_FIELD = "states"
-        const val ISM_TEMPLATES = "ism_templates"
+        const val ISM_TEMPLATE = "ism_template"
 
-        @Suppress("ComplexMethod", "NestedBlockDepth")
+        @Suppress("ComplexMethod", "NestedBlockDepth", "LongMethod")
         @JvmStatic
         @JvmOverloads
         @Throws(IOException::class)
@@ -162,12 +162,19 @@ data class Policy(
                             states.add(State.parse(xcp))
                         }
                     }
-                    ISM_TEMPLATES -> {
+                    ISM_TEMPLATE -> {
                         if (xcp.currentToken() != Token.VALUE_NULL) {
                             ismTemplates = mutableListOf()
-                            ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
-                            while (xcp.nextToken() != Token.END_ARRAY) {
-                                ismTemplates.add(ISMTemplate.parse(xcp))
+                            when (xcp.currentToken()) {
+                                Token.START_ARRAY -> {
+                                    while (xcp.nextToken() != Token.END_ARRAY) {
+                                        ismTemplates.add(ISMTemplate.parse(xcp))
+                                    }
+                                }
+                                Token.START_OBJECT -> {
+                                    ismTemplates.add(ISMTemplate.parse(xcp))
+                                }
+                                else -> ensureExpectedToken(Token.START_ARRAY, xcp.currentToken(), xcp)
                             }
                         }
                     }
@@ -185,7 +192,7 @@ data class Policy(
                 errorNotification = errorNotification,
                 defaultState = requireNotNull(defaultState) { "$DEFAULT_STATE_FIELD is null" },
                 states = states.toList(),
-                ismTemplates = ismTemplates
+                ismTemplate = ismTemplates
             )
         }
     }

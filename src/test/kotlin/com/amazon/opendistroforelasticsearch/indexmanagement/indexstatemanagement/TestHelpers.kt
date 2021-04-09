@@ -71,7 +71,7 @@ fun randomPolicy(
     ismTemplates: List<ISMTemplate>? = null
 ): Policy {
     return Policy(id = id, schemaVersion = schemaVersion, lastUpdatedTime = lastUpdatedTime,
-            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description, ismTemplates = ismTemplates
+            errorNotification = errorNotification, defaultState = states[0].name, states = states, description = description, ismTemplate = ismTemplates
     )
 }
 

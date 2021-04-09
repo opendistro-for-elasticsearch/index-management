@@ -139,7 +139,7 @@ fun updateISMTemplateRequest(policyID: String, ismTemplates: List<ISMTemplate>, 
     val builder = XContentFactory.jsonBuilder()
         .startObject()
         .startObject(Policy.POLICY_TYPE)
-        .optionalISMTemplatesField(Policy.ISM_TEMPLATES, ismTemplates)
+        .optionalISMTemplatesField(Policy.ISM_TEMPLATE, ismTemplates)
         .endObject()
         .endObject()
     return UpdateRequest(INDEX_MANAGEMENT_INDEX, policyID).doc(builder)

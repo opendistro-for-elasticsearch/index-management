@@ -24,11 +24,10 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagemen
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.findSelfConflictingTemplates
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.model.ISMTemplate
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexManagementException
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATES_FIELD
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.ISM_TEMPLATE_FIELD
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.validateFormat
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import org.apache.logging.log4j.LogManager
-import org.apache.lucene.search.join.ScoreMode
 import org.elasticsearch.ElasticsearchStatusException
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.ActionListener
@@ -88,7 +87,7 @@ class TransportIndexPolicyAction @Inject constructor(
                 log.info("Successfully created or updated ${IndexManagementPlugin.INDEX_MANAGEMENT_INDEX} with newest mappings.")
 
                 // if there is template field, we will check
-                val reqTemplates = request.policy.ismTemplates
+                val reqTemplates = request.policy.ismTemplate
                 if (reqTemplates != null) {
                     validateISMTemplates(reqTemplates)
                 } else putPolicy()
@@ -121,11 +120,7 @@ class TransportIndexPolicyAction @Inject constructor(
             val searchRequest = SearchRequest()
                 .source(
                     SearchSourceBuilder().query(
-                        QueryBuilders.nestedQuery(
-                            ISM_TEMPLATES_FIELD,
-                            QueryBuilders.existsQuery(ISM_TEMPLATES_FIELD),
-                            ScoreMode.None
-                        )
+                        QueryBuilders.existsQuery(ISM_TEMPLATE_FIELD)
                     ).size(MAX_HITS)
                 )
                 .indices(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)

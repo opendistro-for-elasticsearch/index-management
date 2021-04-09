@@ -17,7 +17,6 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanageme
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.settings.ManagedIndexSettings
 import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
-import org.junit.After
 import org.junit.Assume
 import java.time.Instant
 
@@ -33,8 +32,8 @@ class ISMTemplateMigrationIT : IndexStateManagementRestTestCase() {
         enableISMTemplateMigration()
 
         waitFor(Instant.ofEpochSecond(80)) {
-            assertEquals(getPolicy(policyID2).ismTemplates?.first()?.indexPatterns.toString(), "[ab*]")
-            assertEquals(getPolicy(policyID2).ismTemplates?.first()?.priority, 2)
+            assertEquals(getPolicy(policyID2).ismTemplate?.first()?.indexPatterns.toString(), "[ab*]")
+            assertEquals(getPolicy(policyID2).ismTemplate?.first()?.priority, 2)
         }
 
         // 1s interval to let the ism_template becomes searchable so that coordinator
@@ -76,10 +75,10 @@ class ISMTemplateMigrationIT : IndexStateManagementRestTestCase() {
         // t1, t2
         if (order == listOf("t1", "t2")) {
             waitFor(Instant.ofEpochSecond(80)) {
-                assertEquals(getPolicy(policyID1).ismTemplates?.first()?.indexPatterns.toString(), "[a*]")
-                assertEquals(getPolicy(policyID1).ismTemplates?.first()?.priority, 1)
-                assertEquals(getPolicy(policyID2).ismTemplates?.first()?.indexPatterns.toString(), "[ab*]")
-                assertEquals(getPolicy(policyID2).ismTemplates?.first()?.priority, 0)
+                assertEquals(getPolicy(policyID1).ismTemplate?.first()?.indexPatterns.toString(), "[a*]")
+                assertEquals(getPolicy(policyID1).ismTemplate?.first()?.priority, 1)
+                assertEquals(getPolicy(policyID2).ismTemplate?.first()?.indexPatterns.toString(), "[ab*]")
+                assertEquals(getPolicy(policyID2).ismTemplate?.first()?.priority, 0)
             }
         }
 
@@ -87,10 +86,10 @@ class ISMTemplateMigrationIT : IndexStateManagementRestTestCase() {
         if (order == listOf("t2", "t1")) {
             waitFor(Instant.ofEpochSecond(80)) {
                 waitFor(Instant.ofEpochSecond(80)) {
-                    assertEquals(getPolicy(policyID1).ismTemplates?.first()?.indexPatterns.toString(), "[a*]")
-                    assertEquals(getPolicy(policyID1).ismTemplates?.first()?.priority, 0)
-                    assertEquals(getPolicy(policyID2).ismTemplates?.first()?.indexPatterns.toString(), "[ab*]")
-                    assertEquals(getPolicy(policyID2).ismTemplates?.first()?.priority, 1)
+                    assertEquals(getPolicy(policyID1).ismTemplate?.first()?.indexPatterns.toString(), "[a*]")
+                    assertEquals(getPolicy(policyID1).ismTemplate?.first()?.priority, 0)
+                    assertEquals(getPolicy(policyID2).ismTemplate?.first()?.indexPatterns.toString(), "[ab*]")
+                    assertEquals(getPolicy(policyID2).ismTemplate?.first()?.priority, 1)
                 }
             }
         }
@@ -144,7 +143,7 @@ class ISMTemplateMigrationIT : IndexStateManagementRestTestCase() {
         enableISMTemplateMigration()
 
         waitFor(Instant.ofEpochSecond(80)) {
-            assertEquals(getPolicy(policyID1).ismTemplates?.first()?.indexPatterns.toString(), "[a*]")
+            assertEquals(getPolicy(policyID1).ismTemplate?.first()?.indexPatterns.toString(), "[a*]")
         }
 
         // 1s interval to let the ism_template becomes searchable so that coordinator

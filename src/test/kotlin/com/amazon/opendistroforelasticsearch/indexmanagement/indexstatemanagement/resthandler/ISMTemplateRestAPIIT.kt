@@ -108,7 +108,7 @@ class ISMTemplateRestAPIIT : IndexStateManagementRestTestCase() {
             errorNotification = randomErrorNotification(),
             defaultState = states[0].name,
             states = states,
-            ismTemplates = listOf(ismTemp)
+            ismTemplate = listOf(ismTemp)
         )
         createPolicy(policy, policyID)
 

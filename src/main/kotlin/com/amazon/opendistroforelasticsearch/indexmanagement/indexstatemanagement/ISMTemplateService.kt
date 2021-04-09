@@ -68,13 +68,11 @@ import java.time.Instant
 private val log = LogManager.getLogger("ISMTemplateService")
 
 /**
- * find the matching policy based on ISM template field for the given index
+ * find the matching policy for the given index
  *
- * filter out hidden index
- * filter out older index than template lastUpdateTime
+ * return early if it's hidden index
+ * filter out templates that were last updated after the index creation time
  *
- * @param ismTemplates current ISM templates saved in metadata
- * @param indexMetadata cluster state index metadata
  * @return policyID
  */
 @Suppress("ReturnCount")
@@ -140,10 +138,18 @@ fun validateFormat(indexPatterns: List<String>): ElasticsearchException? {
 }
 
 fun List<ISMTemplate>.findSelfConflictingTemplates(): Pair<List<String>, List<String>>? {
-    val priorityList = this.map { it.priority }
-    priorityList.forEach { priority ->
+    val priorityToTemplates = mutableMapOf<Int, List<ISMTemplate>>()
+    this.forEach {
+        val templateList = priorityToTemplates[it.priority]
+        if (templateList != null) {
+            priorityToTemplates[it.priority] = templateList.plus(it)
+        } else {
+            priorityToTemplates[it.priority] = mutableListOf(it)
+        }
+    }
+    priorityToTemplates.forEach { (_, templateList) ->
         // same priority
-        val indexPatternsList = this.filter { it.priority == priority }.map { it.indexPatterns }
+        val indexPatternsList = templateList.map { it.indexPatterns }
         if (indexPatternsList.size > 1) {
             indexPatternsList.forEachIndexed { ind, indexPatterns ->
                 val comparePatterns = indexPatternsList.subList(ind + 1, indexPatternsList.size).flatten()
@@ -225,7 +231,7 @@ class ISMTemplateService(
             stopMigration(-2)
             return
         }
-        logger.info("Doing ISM template ${++runTimeCounter} time.")
+        logger.info("Doing ISM template migration ${++runTimeCounter} time.")
         cleanCache()
 
         lastUpdatedTime = timeStamp.minusSeconds(3600)
@@ -397,12 +403,12 @@ class ISMTemplateService(
 
     private fun populateV2ISMTemplateMap(policyID: String, indexPatterns: List<String>, priority: Int) {
         var v1Increment = 0
-        val v1MinOrder = v1orderToBucketIncrement.keys.min()
+        val v1MinOrder = v1orderToBucketIncrement.keys.max()
         if (v1MinOrder != null) {
             v1Increment = v1MinOrder + v1orderToBucketIncrement.values.sum()
         }
 
-        saveISMTemplateToMap(policyID, ISMTemplate(indexPatterns, priority + v1Increment, lastUpdatedTime))
+        saveISMTemplateToMap(policyID, ISMTemplate(indexPatterns, normalizePriority(priority) + v1Increment, lastUpdatedTime))
     }
 
     private suspend fun getISMPolicies() {

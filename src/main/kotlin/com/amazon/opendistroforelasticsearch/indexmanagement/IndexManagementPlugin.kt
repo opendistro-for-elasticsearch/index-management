@@ -13,11 +13,14 @@
  * permissions and limitations under the License.
  */
 
+@file:Suppress("TooManyFunctions")
+
 package com.amazon.opendistroforelasticsearch.indexmanagement
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ISMTemplateService
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.IndexStateManagementHistory
-import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexRunner
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.ManagedIndexCoordinator
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.MetadataService
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.SkipExecution
 import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.transport.action.updateindexmetadata.TransportUpdateManagedIndexMetaDataAction
@@ -273,9 +276,10 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerSkipFlag(skipFlag)
 
         val metadataService = MetadataService(client, clusterService, skipFlag, indexManagementIndices)
+        val templateService = ISMTemplateService(client, clusterService, xContentRegistry, indexManagementIndices)
 
         val managedIndexCoordinator = ManagedIndexCoordinator(environment.settings(),
-            client, clusterService, threadPool, indexManagementIndices, metadataService)
+            client, clusterService, threadPool, indexManagementIndices, metadataService, templateService)
 
         return listOf(managedIndexRunner, rollupRunner, indexManagementIndices, managedIndexCoordinator, indexStateManagementHistory)
     }
@@ -293,6 +297,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ManagedIndexSettings.ROLLOVER_ALIAS,
             ManagedIndexSettings.INDEX_STATE_MANAGEMENT_ENABLED,
             ManagedIndexSettings.METADATA_SERVICE_ENABLED,
+            ManagedIndexSettings.TEMPLATE_MIGRATION_CONTROL,
             ManagedIndexSettings.JOB_INTERVAL,
             ManagedIndexSettings.SWEEP_PERIOD,
             ManagedIndexSettings.COORDINATOR_BACKOFF_COUNT,

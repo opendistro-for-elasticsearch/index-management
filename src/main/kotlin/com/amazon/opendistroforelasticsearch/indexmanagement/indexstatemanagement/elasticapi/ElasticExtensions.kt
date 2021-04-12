@@ -91,7 +91,7 @@ fun getUuidsForClosedIndices(state: ClusterState): MutableList<String> {
  */
 @Throws(Exception::class)
 fun getPolicyToTemplateMap(response: SearchResponse, xContentRegistry: NamedXContentRegistry = NamedXContentRegistry.EMPTY):
-    Map<String, ISMTemplate?> {
+    Map<String, List<ISMTemplate>?> {
     return response.hits.hits.map {
         val id = it.id
         val seqNo = it.seqNo

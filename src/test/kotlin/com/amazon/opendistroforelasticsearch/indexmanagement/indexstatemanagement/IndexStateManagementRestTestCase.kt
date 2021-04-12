@@ -69,6 +69,7 @@ import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser.Token
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.common.xcontent.json.JsonXContent
 import org.elasticsearch.common.xcontent.json.JsonXContent.jsonXContent
 import org.elasticsearch.index.seqno.SequenceNumbers
 import org.elasticsearch.rest.RestRequest
@@ -221,7 +222,7 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
         return managedIndex?.policyID
     }
 
-    protected fun updateClusterSetting(key: String, value: String, escapeValue: Boolean = true) {
+    protected fun updateClusterSetting(key: String, value: String?, escapeValue: Boolean = true) {
         val formattedValue = if (escapeValue) "\"$value\"" else value
         val request = """
             {
@@ -771,5 +772,56 @@ abstract class IndexStateManagementRestTestCase : IndexManagementRestTestCase() 
             assertEquals(expected.priority, actual.priority)
         }
         return true
+    }
+
+    protected fun createV1Template(templateName: String, indexPatterns: String, policyID: String, order: Int = 0) {
+        val response = client().makeRequest("PUT", "_template/$templateName",
+            StringEntity(
+        "{\n" +
+            "  \"index_patterns\": [\"$indexPatterns\"],\n" +
+            "  \"settings\": {\n" +
+            "    \"opendistro.index_state_management.policy_id\": \"$policyID\"\n" +
+            "  }, \n" +
+            "  \"order\": $order\n" +
+            "}", APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
+
+    protected fun deleteV1Template(templateName: String) {
+        val response = client().makeRequest("DELETE", "_template/$templateName")
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
+
+    protected fun createV2Template(templateName: String, indexPatterns: String, policyID: String) {
+        val response = client().makeRequest("PUT", "_index_template/$templateName",
+            StringEntity(
+                "{\n" +
+                    "  \"index_patterns\": [\"$indexPatterns\"],\n" +
+                    "  \"template\": {\n" +
+                    "    \"settings\": {\n" +
+                    "      \"opendistro.index_state_management.policy_id\": \"$policyID\"\n" +
+                    "    }\n" +
+                    "  }\n" +
+                    "}", APPLICATION_JSON))
+        assertEquals("Request failed", RestStatus.OK, response.restStatus())
+    }
+
+    fun catIndexTemplates(): List<Any> {
+        val response = client().makeRequest("GET", "_cat/templates?format=json")
+        logger.info("response: $response")
+
+        assertEquals("cat template request failed", RestStatus.OK, response.restStatus())
+
+        try {
+            return JsonXContent.jsonXContent
+                .createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    response.entity.content
+                )
+                .use { parser -> parser.list() }
+        } catch (e: IOException) {
+            throw ElasticsearchParseException("Failed to parse content to list", e)
+        }
     }
 }

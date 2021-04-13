@@ -34,10 +34,13 @@ import org.elasticsearch.search.aggregations.metrics.ScriptedMetricAggregationBu
 
 class TransformRunnerIT : TransformRestTestCase() {
 
-    fun `test transforms`() {
-        generateNYCTaxiData("transform-source-index")
+    fun `test transform`() {
+        if (!indexExists("transform-source-index")) {
+            generateNYCTaxiData("transform-source-index")
+            assertIndexExists("transform-source-index")
+        }
 
-        var transform = Transform(
+        val transform = Transform(
             id = "id_1",
             schemaVersion = 1L,
             enabled = true,
@@ -55,12 +58,11 @@ class TransformRunnerIT : TransformRestTestCase() {
             )
         ).let { createTransform(it, it.id) }
 
-        assertTrue("Source transform index was not created", indexExists(transform.sourceIndex))
         updateTransformStartTime(transform)
 
         waitFor { assertTrue("Target transform index was not created", indexExists(transform.targetIndex)) }
 
-        var metadata = waitFor {
+        val metadata = waitFor {
             val job = getTransform(transformId = transform.id)
             assertNotNull("Transform job doesn't have metadata set", job.metadataId)
             val transformMetadata = getTransformMetadata(job.metadataId!!)
@@ -75,7 +77,14 @@ class TransformRunnerIT : TransformRestTestCase() {
         assertTrue("Didn't capture search time", metadata.stats.searchTimeInMillis > 0)
 
         // With data filter
-        transform = Transform(
+    }
+    fun `test transform with data filter`() {
+        if (!indexExists("transform-source-index")) {
+            generateNYCTaxiData("transform-source-index")
+            assertIndexExists("transform-source-index")
+        }
+
+        val transform = Transform(
             id = "id_2",
             schemaVersion = 1L,
             enabled = true,
@@ -96,7 +105,7 @@ class TransformRunnerIT : TransformRestTestCase() {
 
         updateTransformStartTime(transform)
 
-        metadata = waitFor {
+        val metadata = waitFor {
             val job = getTransform(transformId = transform.id)
             assertNotNull("Transform job doesn't have metadata set", job.metadataId)
             val transformMetadata = getTransformMetadata(job.metadataId!!)
@@ -109,9 +118,16 @@ class TransformRunnerIT : TransformRestTestCase() {
         assertEquals("More than expected documents processed", 4977L, metadata.stats.documentsProcessed)
         assertTrue("Doesn't capture indexed time", metadata.stats.indexTimeInMillis > 0)
         assertTrue("Didn't capture search time", metadata.stats.searchTimeInMillis > 0)
+    }
+
+    fun `test invalid transform`() {
+        if (!indexExists("transform-source-index")) {
+            generateNYCTaxiData("transform-source-index")
+            assertIndexExists("transform-source-index")
+        }
 
         // With invalid mapping
-        transform = Transform(
+        val transform = Transform(
             id = "id_3",
             schemaVersion = 1L,
             enabled = true,
@@ -131,7 +147,7 @@ class TransformRunnerIT : TransformRestTestCase() {
 
         updateTransformStartTime(transform)
 
-        metadata = waitFor {
+        val metadata = waitFor {
             val job = getTransform(transformId = transform.id)
             assertNotNull("Transform job doesn't have metadata set", job.metadataId)
             val transformMetadata = getTransformMetadata(job.metadataId!!)
@@ -140,9 +156,15 @@ class TransformRunnerIT : TransformRestTestCase() {
         }
 
         assertTrue("Expected failure message to be present", !metadata.failureReason.isNullOrBlank())
+    }
 
-        // With aggregations
-        var aggregatorFactories = AggregatorFactories.builder()
+    fun `test transform with aggregations`() {
+        if (!indexExists("transform-source-index")) {
+            generateNYCTaxiData("transform-source-index")
+            assertIndexExists("transform-source-index")
+        }
+
+        val aggregatorFactories = AggregatorFactories.builder()
         aggregatorFactories.addAggregator(AggregationBuilders.sum("revenue").field("total_amount"))
         aggregatorFactories.addAggregator(AggregationBuilders.max("min_fare").field("fare_amount"))
         aggregatorFactories.addAggregator(AggregationBuilders.min("max_fare").field("fare_amount"))
@@ -152,25 +174,33 @@ class TransformRunnerIT : TransformRestTestCase() {
         aggregatorFactories.addAggregator(
             ScriptedMetricAggregationBuilder("average_revenue_per_passenger_per_trip")
                 .initScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, "state.count = 0; state.sum = 0;", emptyMap()))
-                .mapScript(Script(
-                    ScriptType.INLINE,
-                    Script.DEFAULT_SCRIPT_LANG,
-                    "state.sum += doc[\"total_amount\"].value; state.count += doc[\"passenger_count\"].value",
-                    emptyMap()))
-                .combineScript(Script(
-                    ScriptType.INLINE,
-                    Script.DEFAULT_SCRIPT_LANG,
-                    "def d = new long[2]; d[0] = state.sum; d[1] = state.count; return d",
-                    emptyMap()))
-                .reduceScript(Script(
-                    ScriptType.INLINE,
-                    Script.DEFAULT_SCRIPT_LANG,
-                    "double sum = 0; double count = 0; for (a in states) { sum += a[0]; count += a[1]; } return sum/count",
-                    emptyMap()
-                ))
+                .mapScript(
+                    Script(
+                        ScriptType.INLINE,
+                        Script.DEFAULT_SCRIPT_LANG,
+                        "state.sum += doc[\"total_amount\"].value; state.count += doc[\"passenger_count\"].value",
+                        emptyMap()
+                    )
+                )
+                .combineScript(
+                    Script(
+                        ScriptType.INLINE,
+                        Script.DEFAULT_SCRIPT_LANG,
+                        "def d = new long[2]; d[0] = state.sum; d[1] = state.count; return d",
+                        emptyMap()
+                    )
+                )
+                .reduceScript(
+                    Script(
+                        ScriptType.INLINE,
+                        Script.DEFAULT_SCRIPT_LANG,
+                        "double sum = 0; double count = 0; for (a in states) { sum += a[0]; count += a[1]; } return sum/count",
+                        emptyMap()
+                    )
+                )
         )
 
-        transform = Transform(
+        val transform = Transform(
             id = "id_4",
             schemaVersion = 1L,
             enabled = true,
@@ -191,7 +221,7 @@ class TransformRunnerIT : TransformRestTestCase() {
 
         updateTransformStartTime(transform)
 
-        metadata = waitFor {
+        val metadata = waitFor {
             val job = getTransform(transformId = transform.id)
             assertNotNull("Transform job doesn't have metadata set", job.metadataId)
             val transformMetadata = getTransformMetadata(job.metadataId!!)
@@ -204,13 +234,20 @@ class TransformRunnerIT : TransformRestTestCase() {
         assertEquals("More than expected documents processed", 5000L, metadata.stats.documentsProcessed)
         assertTrue("Doesn't capture indexed time", metadata.stats.indexTimeInMillis > 0)
         assertTrue("Didn't capture search time", metadata.stats.searchTimeInMillis > 0)
+    }
+
+    fun `test transform with failure during indexing`() {
+        if (!indexExists("transform-source-index")) {
+            generateNYCTaxiData("transform-source-index")
+            assertIndexExists("transform-source-index")
+        }
 
         // Indexing failure because target index is strictly mapped
         createIndex("transform-target-strict-index", Settings.EMPTY, getStrictMappings())
         waitFor {
             assertTrue("Strict target index not created", indexExists("transform-target-strict-index"))
         }
-        transform = Transform(
+        val transform = Transform(
             id = "id_5",
             schemaVersion = 1L,
             enabled = true,
@@ -225,13 +262,12 @@ class TransformRunnerIT : TransformRestTestCase() {
             pageSize = 1,
             groups = listOf(
                 Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
-            ),
-            aggregations = aggregatorFactories
+            )
         ).let { createTransform(it, it.id) }
 
         updateTransformStartTime(transform)
 
-        metadata = waitFor {
+        val metadata = waitFor {
             val job = getTransform(transformId = transform.id)
             assertNotNull("Transform job doesn't have metadata set", job.metadataId)
             val transformMetadata = getTransformMetadata(job.metadataId!!)
@@ -240,9 +276,15 @@ class TransformRunnerIT : TransformRestTestCase() {
         }
 
         assertTrue("Expected failure message to be present", !metadata.failureReason.isNullOrBlank())
+    }
 
-        // Search failure because of invalid aggregation
-        aggregatorFactories = AggregatorFactories.builder()
+    fun `test transform with invalid aggregation triggering search failure`() {
+        if (!indexExists("transform-source-index")) {
+            generateNYCTaxiData("transform-source-index")
+            assertIndexExists("transform-source-index")
+        }
+
+        val aggregatorFactories = AggregatorFactories.builder()
         aggregatorFactories.addAggregator(
             ScriptedMetricAggregationBuilder("average_revenue_per_passenger_per_trip")
                 .initScript(Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, "state.count = 0; state.sum = 0;", emptyMap()))
@@ -264,7 +306,7 @@ class TransformRunnerIT : TransformRestTestCase() {
                 ))
         )
 
-        transform = Transform(
+        val transform = Transform(
             id = "id_6",
             schemaVersion = 1L,
             enabled = true,
@@ -287,7 +329,7 @@ class TransformRunnerIT : TransformRestTestCase() {
 
         updateTransformStartTime(transform)
 
-        metadata = waitFor {
+        val metadata = waitFor {
             val job = getTransform(transformId = transform.id)
             assertNotNull("Transform job doesn't have metadata set", job.metadataId)
             val transformMetadata = getTransformMetadata(job.metadataId!!)

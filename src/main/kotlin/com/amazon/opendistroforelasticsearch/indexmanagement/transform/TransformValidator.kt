@@ -36,7 +36,12 @@ class TransformValidator(
     private val esClient: Client
 ) {
 
-    // TODO: When FGAC is supported in transform should check the user has the correct permissions
+    /**
+     * // TODO: When FGAC is supported in transform should check the user has the correct permissions
+     * Validates the provided transform. Validation checks include the following:
+     * 1. Source index/indices defined in transform exist
+     * 2. Groupings defined in transform can be realized using source index/indices
+     */
     suspend fun validate(transform: Transform): TransformValidationResult {
         val errorMessage = "Failed to validate the transform job"
         try {
@@ -56,6 +61,11 @@ class TransformValidator(
         }
     }
 
+    /**
+     * Internal method to validate grouping defined inside transform can be realized with the index provided.
+     * 1. Checks that each field mentioned in transform groupings exist in source index
+     * 2. Checks that type of field in index can be grouped as requested
+     */
     private suspend fun validateIndex(index: String, transform: Transform): List<String> {
         val request = GetMappingsRequest().indices(index)
         val result: GetMappingsResponse =

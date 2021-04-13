@@ -40,6 +40,11 @@ abstract class Dimension(
 
     abstract fun toSourceBuilder(): CompositeValuesSourceBuilder<*>
 
+    /**
+     * Helper method that evaluates if the dimension can be realized using mappings provided.
+     *
+     * e.g. A date_histogram dimension on source_field "a" can only be possible in mappings that contain "date" type field "a".
+     */
     abstract fun canBeRealizedInMappings(mappings: Map<String, Any>): Boolean
 
     companion object {

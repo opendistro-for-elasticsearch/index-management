@@ -165,6 +165,7 @@ class TransportStopRollupAction @Inject constructor(
         request.index(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX).setIfSeqNo(rollup.seqNo).setIfPrimaryTerm(rollup.primaryTerm)
             .doc(mapOf(Rollup.ROLLUP_TYPE to mapOf(Rollup.ENABLED_FIELD to false,
                 Rollup.ENABLED_TIME_FIELD to null, Rollup.LAST_UPDATED_TIME_FIELD to now)))
+            .routing(rollup.id)
         client.update(request, object : ActionListener<UpdateResponse> {
             override fun onResponse(response: UpdateResponse) {
                 actionListener.onResponse(AcknowledgedResponse(response.result == DocWriteResponse.Result.UPDATED))

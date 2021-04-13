@@ -210,7 +210,7 @@ class RestStartRollupActionIT : RollupRestTestCase() {
 
     fun `test start rollup when multiple shards configured for IM config index`() {
         // setup ism-config index with multiple primary shards
-        wipeAllODFEIndices()
+        deleteIndex(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
         val mapping = IndexManagementIndices.indexManagementMappings.trim().trimStart('{').trimEnd('}')
         val settings = Settings.builder()
             .put(INDEX_HIDDEN, true)
@@ -255,5 +255,8 @@ class RestStartRollupActionIT : RollupRestTestCase() {
         assertTrue("Rollup was not enabled", updatedRollup.enabled)
         val rollupMetadata = getRollupMetadataWithRoutingId(rollup.id, updatedRollup.metadataID!!)
         assertEquals("Rollup is not RETRY", RollupMetadata.Status.RETRY, rollupMetadata.status)
+
+        // clearing the config index to prevent other tests using this multi shard index
+        deleteIndex(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
     }
 }

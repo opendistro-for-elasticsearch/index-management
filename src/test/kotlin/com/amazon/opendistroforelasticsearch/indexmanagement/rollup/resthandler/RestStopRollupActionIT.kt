@@ -268,8 +268,8 @@ class RestStopRollupActionIT : RollupRestTestCase() {
             .put(INDEX_NUMBER_OF_SHARDS, 5)
             .build()
         createIndex(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, settings, mapping)
-
         assertIndexExists(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
+
         generateNYCTaxiData("source_multi_shard_stop")
         val rollup = Rollup(
             id = "multi_shard_stop",

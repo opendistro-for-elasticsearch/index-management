@@ -196,7 +196,7 @@ data class Transform(
             CRON, INTERVAL;
         }
 
-        val supportedAggregations = listOf("sum", "max", "min", "value_count", "avg", "scripted_metric")
+        val supportedAggregations = listOf("sum", "max", "min", "value_count", "avg", "scripted_metric", "percentiles")
         const val LOCK_DURATION_SECONDS = 1800L
         const val NO_ID = ""
         const val TRANSFORM_TYPE = "transform"

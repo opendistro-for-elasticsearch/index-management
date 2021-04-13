@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.ex
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.buildStreamInputForTransforms
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
@@ -60,7 +61,7 @@ class RequestTests : ESTestCase() {
         assertEquals(ids, streamedReq.transformIDs)
     }
 
-    fun `test index transform post request`() {
+    fun `test index transform create request`() {
         val transform = randomTransform().copy(seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO, primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val req = IndexTransformRequest(
                 transform = transform,
@@ -76,7 +77,7 @@ class RequestTests : ESTestCase() {
         assertEquals(DocWriteRequest.OpType.CREATE, streamedReq.opType())
     }
 
-    fun `test index transform put request`() {
+    fun `test index transform update request`() {
         val transform = randomTransform().copy(seqNo = 1L, primaryTerm = 2L)
         val req = IndexTransformRequest(
                 transform = transform,
@@ -90,6 +91,14 @@ class RequestTests : ESTestCase() {
         assertEquals(transform.primaryTerm, streamedReq.ifPrimaryTerm())
         assertEquals(WriteRequest.RefreshPolicy.IMMEDIATE, streamedReq.refreshPolicy)
         assertEquals(DocWriteRequest.OpType.INDEX, streamedReq.opType())
+    }
+
+    fun `test preview transform request`() {
+        val transform = randomTransform()
+        val req = PreviewTransformRequest(transform = transform)
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = PreviewTransformRequest(buildStreamInputForTransforms(out))
+        assertEquals(transform, streamedReq.transform)
     }
 
     fun `test get transform request`() {

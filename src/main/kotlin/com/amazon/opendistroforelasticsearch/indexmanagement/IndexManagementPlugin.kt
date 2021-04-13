@@ -95,12 +95,15 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.ge
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.TransportGetTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.TransportIndexTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.TransportPreviewTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestDeleteTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestExplainTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestGetTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestIndexTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler.RestPreviewTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.settings.TransformSettings
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.JobSchedulerExtension
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.ScheduledJobParser
@@ -227,6 +230,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             RestExplainRollupAction(),
             RestIndexTransformAction(),
             RestGetTransformAction(),
+            RestPreviewTransformAction(),
             RestDeleteTransformAction(),
             RestExplainTransformAction()
         )
@@ -341,6 +345,7 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             ActionPlugin.ActionHandler(IndexTransformAction.INSTANCE, TransportIndexTransformAction::class.java),
             ActionPlugin.ActionHandler(GetTransformAction.INSTANCE, TransportGetTransformAction::class.java),
             ActionPlugin.ActionHandler(GetTransformsAction.INSTANCE, TransportGetTransformsAction::class.java),
+            ActionPlugin.ActionHandler(PreviewTransformAction.INSTANCE, TransportPreviewTransformAction::class.java),
             ActionPlugin.ActionHandler(DeleteTransformsAction.INSTANCE, TransportDeleteTransformsAction::class.java),
             ActionPlugin.ActionHandler(ExplainTransformAction.INSTANCE, TransportExplainTransformAction::class.java)
         )

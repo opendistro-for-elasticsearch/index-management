@@ -145,6 +145,7 @@ class TransportStopRollupAction @Inject constructor(
         val updateRequest = UpdateRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, rollup.metadataID)
             .doc(mapOf(RollupMetadata.ROLLUP_METADATA_TYPE to mapOf(RollupMetadata.STATUS_FIELD to updatedStatus.type,
                 RollupMetadata.FAILURE_REASON to failureReason, RollupMetadata.LAST_UPDATED_FIELD to now)))
+            .routing(rollup.id)
         client.update(updateRequest, object : ActionListener<UpdateResponse> {
             override fun onResponse(response: UpdateResponse) {
                 if (response.result == DocWriteResponse.Result.UPDATED) {

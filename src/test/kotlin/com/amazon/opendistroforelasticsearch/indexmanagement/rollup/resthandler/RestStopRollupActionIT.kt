@@ -15,7 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.resthandler
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementIndices
+import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.ROLLUP_JOBS_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_HIDDEN
+import com.amazon.opendistroforelasticsearch.indexmanagement.indexstatemanagement.util.INDEX_NUMBER_OF_SHARDS
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTestCase
@@ -31,6 +35,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import org.elasticsearch.common.settings.Settings
 
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
@@ -252,5 +257,57 @@ class RestStopRollupActionIT : RollupRestTestCase() {
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
         }
+    }
+
+    fun `test stop rollup when multiple shards configured for IM config index`() {
+        // setup ism-config index with multiple primary shards
+        wipeAllODFEIndices()
+        val mapping = IndexManagementIndices.indexManagementMappings.trim().trimStart('{').trimEnd('}')
+        val settings = Settings.builder()
+            .put(INDEX_HIDDEN, true)
+            .put(INDEX_NUMBER_OF_SHARDS, 5)
+            .build()
+        createIndex(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, settings, mapping)
+
+        assertIndexExists(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX)
+        generateNYCTaxiData("source_multi_shard_stop")
+        val rollup = Rollup(
+            id = "multi_shard_stop",
+            schemaVersion = 1L,
+            enabled = true,
+            jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
+            jobLastUpdatedTime = Instant.now(),
+            jobEnabledTime = Instant.now(),
+            description = "basic search test",
+            sourceIndex = "source_multi_shard_stop",
+            targetIndex = "target_multi_shard_stop",
+            metadataID = null,
+            roles = emptyList(),
+            pageSize = 1,
+            delay = 0,
+            continuous = true,
+            dimensions = listOf(
+                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
+                Terms("RatecodeID", "RatecodeID"),
+                Terms("PULocationID", "PULocationID")
+            ),
+            metrics = emptyList()
+        ).let { createRollup(it, it.id) }
+
+        updateRollupStartTime(rollup)
+
+        waitFor {
+            val rollupJob = getRollup(rollupId = rollup.id)
+            assertNotNull("Rollup job doesn't have metadata set", rollupJob.metadataID)
+        }
+        val response = client().makeRequest("POST", "$ROLLUP_JOBS_BASE_URI/${rollup.id}/_stop")
+        assertEquals("Stop rollup failed", RestStatus.OK, response.restStatus())
+        val expectedResponse = mapOf("acknowledged" to true)
+        assertEquals(expectedResponse, response.asMap())
+
+        val updatedRollup = getRollup(rollup.id)
+        assertFalse("Rollup was not disabled", updatedRollup.enabled)
+        val rollupMetadata = getRollupMetadataWithRoutingId(rollup.id, updatedRollup.metadataID!!)
+        assertEquals("Rollup is not STOPPED", RollupMetadata.Status.STOPPED, rollupMetadata.status)
     }
 }

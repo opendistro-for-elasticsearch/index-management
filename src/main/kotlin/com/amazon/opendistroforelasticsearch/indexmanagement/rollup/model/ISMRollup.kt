@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model
 
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Histogram
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Terms
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Dimension
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Histogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils
 import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import com.amazon.opendistroforelasticsearch.notification.repackage.org.apache.commons.codec.digest.DigestUtils

@@ -23,7 +23,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata.Companion.NO_ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupStats
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.util.DATE_FIELD_EPOCH_MILLIS_FORMAT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

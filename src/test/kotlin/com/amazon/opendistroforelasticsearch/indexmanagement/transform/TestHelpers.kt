@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.string
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomSchedule
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomAfterKey
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomDimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform

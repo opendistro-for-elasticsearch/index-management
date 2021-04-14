@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension
+package com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.getFieldFromMappings
 import org.elasticsearch.common.io.stream.StreamInput
@@ -74,11 +74,13 @@ data class DateHistogram(
         out.writeZoneId(timezone)
     }
 
-    override fun toSourceBuilder(): CompositeValuesSourceBuilder<*> {
+    override fun toSourceBuilder(appendType: Boolean): CompositeValuesSourceBuilder<*> {
         val calendarInterval = this.calendarInterval
         val fixedInterval = this.fixedInterval
+        val name = if (appendType) "${this.targetField}.${Type.DATE_HISTOGRAM.type}" else this.targetField
 
-        return DateHistogramValuesSourceBuilder(this.targetField)
+        return DateHistogramValuesSourceBuilder(name)
+            .missingBucket(true)
             .field(this.sourceField)
             .timeZone(this.timezone)
             .apply {

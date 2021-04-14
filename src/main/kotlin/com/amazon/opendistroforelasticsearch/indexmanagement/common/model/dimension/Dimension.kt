@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension
+package com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension
 
 import org.elasticsearch.common.io.stream.Writeable
 import org.elasticsearch.common.xcontent.ToXContentObject
@@ -38,7 +38,7 @@ abstract class Dimension(
         }
     }
 
-    abstract fun toSourceBuilder(): CompositeValuesSourceBuilder<*>
+    abstract fun toSourceBuilder(appendType: Boolean = false): CompositeValuesSourceBuilder<*>
 
     /**
      * Helper method that evaluates if the dimension can be realized using mappings provided.

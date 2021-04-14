@@ -22,7 +22,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.RollupRestTe
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.Rollup
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.RollupMetrics
-import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.DateHistogram
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Average
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Max
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.metric.Min

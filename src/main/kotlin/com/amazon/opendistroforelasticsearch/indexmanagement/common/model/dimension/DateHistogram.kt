@@ -80,6 +80,7 @@ data class DateHistogram(
         val name = if (appendType) "${this.targetField}.${Type.DATE_HISTOGRAM.type}" else this.targetField
 
         return DateHistogramValuesSourceBuilder(name)
+            .missingBucket(true)
             .field(this.sourceField)
             .timeZone(this.timezone)
             .apply {

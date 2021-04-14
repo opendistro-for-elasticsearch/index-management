@@ -22,6 +22,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.ge
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.start.StartTransformRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.stop.StopTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.buildStreamInputForTransforms
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
@@ -154,5 +156,25 @@ class RequestTests : ESTestCase() {
         val validated = req.validate()
         assertNotNull("Expected validate to produce Exception", validated)
         assertEquals("org.elasticsearch.action.ActionRequestValidationException: Validation Failed: 1: List of ids to delete is empty;", validated.toString())
+    }
+
+    fun `test start transform request`() {
+        val id = "some_id"
+        val req = StartTransformRequest(id).index(INDEX_MANAGEMENT_INDEX)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = StartTransformRequest(buildStreamInputForTransforms(out))
+
+        assertEquals(id, streamedReq.id())
+    }
+
+    fun `test stop transform request`() {
+        val id = "some_id"
+        val req = StopTransformRequest(id).index(INDEX_MANAGEMENT_INDEX)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = StopTransformRequest(buildStreamInputForTransforms(out))
+
+        assertEquals(id, streamedReq.id())
     }
 }

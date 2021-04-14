@@ -13,8 +13,14 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.transform.model
+package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete
 
-import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.action.ActionType
+import org.elasticsearch.action.bulk.BulkResponse
 
-data class TransformSearchResult(val stats: TransformStats, val docsToIndex: List<IndexRequest>, val afterKey: Map<String, Any>? = null)
+class DeleteTransformsAction private constructor() : ActionType<BulkResponse>(NAME, ::BulkResponse) {
+    companion object {
+        val INSTANCE = DeleteTransformsAction()
+        val NAME = "cluster:admin/opendistro/transform/delete"
+    }
+}

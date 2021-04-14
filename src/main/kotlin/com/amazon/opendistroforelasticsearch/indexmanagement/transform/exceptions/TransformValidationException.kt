@@ -13,8 +13,6 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.transform.model
+package com.amazon.opendistroforelasticsearch.indexmanagement.transform.exceptions
 
-import org.elasticsearch.action.index.IndexRequest
-
-data class TransformSearchResult(val stats: TransformStats, val docsToIndex: List<IndexRequest>, val afterKey: Map<String, Any>? = null)
+class TransformValidationException(message: String, cause: Throwable? = null) : Exception(message, cause)

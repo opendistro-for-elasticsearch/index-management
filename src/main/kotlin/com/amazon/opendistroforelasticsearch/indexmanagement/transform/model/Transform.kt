@@ -65,7 +65,7 @@ data class Transform(
     val roles: List<String>,
     val pageSize: Int,
     val groups: List<Dimension>,
-    val aggregations: AggregatorFactories.Builder
+    val aggregations: AggregatorFactories.Builder = AggregatorFactories.builder()
 ) : ScheduledJobParameter, Writeable {
 
     init {
@@ -86,6 +86,8 @@ data class Transform(
     override fun getEnabledTime() = enabledAt
 
     override fun isEnabled() = enabled
+
+    override fun getLockDurationSeconds(): Long = LOCK_DURATION_SECONDS
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
@@ -194,7 +196,8 @@ data class Transform(
             CRON, INTERVAL;
         }
 
-        val supportedAggregations = listOf("sum", "max", "min", "value_count", "avg", "scripted_metric")
+        val supportedAggregations = listOf("sum", "max", "min", "value_count", "avg", "scripted_metric", "percentiles")
+        const val LOCK_DURATION_SECONDS = 1800L
         const val NO_ID = ""
         const val TRANSFORM_TYPE = "transform"
         const val TRANSFORM_ID_FIELD = "transform_id"
@@ -238,7 +241,7 @@ data class Transform(
             val roles = mutableListOf<String>()
             var pageSize: Int? = null
             val groups = mutableListOf<Dimension>()
-            var aggregations: AggregatorFactories.Builder? = null
+            var aggregations: AggregatorFactories.Builder = AggregatorFactories.builder()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
 
@@ -315,7 +318,7 @@ data class Transform(
                 roles = roles,
                 pageSize = requireNotNull(pageSize) { "Transform page size is null" },
                 groups = groups,
-                aggregations = requireNotNull(aggregations) { "Transform aggregation is null" }
+                aggregations = aggregations
             )
         }
     }

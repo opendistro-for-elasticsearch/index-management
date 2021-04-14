@@ -15,17 +15,30 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.randomExplainTransform
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.explain.ExplainTransformResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformResponse
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformResponse
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.buildStreamInputForTransforms
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
 import org.elasticsearch.common.io.stream.BytesStreamOutput
+import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.ESTestCase
 import org.elasticsearch.test.ESTestCase.randomList
 
 class ResponseTests : ESTestCase() {
+
+    fun `test explain transform response`() {
+        val idsToExplain = randomList(10) { randomAlphaOfLength(10) to randomExplainTransform() }.toMap()
+        val res = ExplainTransformResponse(idsToExplain)
+        val out = BytesStreamOutput().apply { res.writeTo(this) }
+        val streamedRes = ExplainTransformResponse(buildStreamInputForTransforms(out))
+
+        assertEquals(idsToExplain, streamedRes.idsToExplain)
+    }
 
     fun `test index transform response`() {
         val transform = randomTransform()
@@ -38,6 +51,19 @@ class ResponseTests : ESTestCase() {
         assertEquals(3L, streamedRes.primaryTerm)
         assertEquals(RestStatus.OK, streamedRes.status)
         assertEquals(transform, streamedRes.transform)
+    }
+
+    fun `test preview transform response`() {
+        val documents = listOf(
+            mapOf("a" to mapOf<String, Any>("90.0" to 100), "b" to "id1", "c" to 100),
+            mapOf("a" to mapOf<String, Any>("90.0" to 50), "b" to "id2", "c" to 20)
+        )
+        val res = PreviewTransformResponse(documents, RestStatus.OK)
+        val out = BytesStreamOutput().apply { res.writeTo(this) }
+        val sin = StreamInput.wrap(out.bytes().toBytesRef().bytes)
+        val streamedRes = PreviewTransformResponse(sin)
+        assertEquals(RestStatus.OK, streamedRes.status)
+        assertEquals(documents, streamedRes.documents)
     }
 
     fun `test get transform response null`() {

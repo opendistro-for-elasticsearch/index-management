@@ -15,25 +15,43 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.explain.ExplainTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformAction
 import org.elasticsearch.test.ESTestCase
 
 class ActionTests : ESTestCase() {
 
-    fun `test index transform`() {
+    fun `test delete transform name`() {
+        assertNotNull(DeleteTransformsAction.INSTANCE.name())
+        assertEquals(DeleteTransformsAction.INSTANCE.name(), DeleteTransformsAction.NAME)
+    }
+
+    fun `test index transform name`() {
         assertNotNull(IndexTransformAction.INSTANCE.name())
         assertEquals(IndexTransformAction.INSTANCE.name(), IndexTransformAction.NAME)
     }
 
-    fun `test get transform`() {
+    fun `test preview transform name`() {
+        assertNotNull(PreviewTransformAction.INSTANCE.name())
+        assertEquals(PreviewTransformAction.INSTANCE.name(), PreviewTransformAction.NAME)
+    }
+
+    fun `test get transform name`() {
         assertNotNull(GetTransformAction.INSTANCE.name())
         assertEquals(GetTransformAction.INSTANCE.name(), GetTransformAction.NAME)
     }
 
-    fun `test get transforms`() {
+    fun `test get transforms name`() {
         assertNotNull(GetTransformsAction.INSTANCE.name())
         assertEquals(GetTransformsAction.INSTANCE.name(), GetTransformsAction.NAME)
+    }
+
+    fun `test explain transforms name`() {
+        assertNotNull(ExplainTransformAction.INSTANCE.name())
+        assertEquals(ExplainTransformAction.INSTANCE.name(), ExplainTransformAction.NAME)
     }
 }

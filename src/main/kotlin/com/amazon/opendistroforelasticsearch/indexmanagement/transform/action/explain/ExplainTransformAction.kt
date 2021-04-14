@@ -13,8 +13,13 @@
  * permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.indexmanagement.transform.model
+package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.explain
 
-import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.action.ActionType
 
-data class TransformSearchResult(val stats: TransformStats, val docsToIndex: List<IndexRequest>, val afterKey: Map<String, Any>? = null)
+class ExplainTransformAction private constructor() : ActionType<ExplainTransformResponse>(NAME, ::ExplainTransformResponse) {
+    companion object {
+        val INSTANCE = ExplainTransformAction()
+        val NAME = "cluster:admin/opendistro/transform/explain"
+    }
+}

@@ -16,9 +16,12 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.explain.ExplainTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.buildStreamInputForTransforms
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
@@ -31,7 +34,34 @@ import org.elasticsearch.test.ESTestCase
 
 class RequestTests : ESTestCase() {
 
-    fun `test index transform post request`() {
+    fun `test delete single transform request`() {
+        val id = "some_id"
+        val req = DeleteTransformsRequest(listOf(id))
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = DeleteTransformsRequest(buildStreamInputForTransforms(out))
+        assertEquals(listOf(id), streamedReq.ids)
+    }
+
+    fun `test delete multiple transform request`() {
+        val ids = mutableListOf("some_id", "some_other_id")
+        val req = DeleteTransformsRequest(ids)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = DeleteTransformsRequest(buildStreamInputForTransforms(out))
+        assertEquals(ids, streamedReq.ids)
+    }
+
+    fun `test explain transform request`() {
+        val ids = listOf("oneid", "twoid", "threeid")
+        val req = ExplainTransformRequest(ids)
+
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = ExplainTransformRequest(buildStreamInputForTransforms(out))
+        assertEquals(ids, streamedReq.transformIDs)
+    }
+
+    fun `test index transform create request`() {
         val transform = randomTransform().copy(seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO, primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM)
         val req = IndexTransformRequest(
                 transform = transform,
@@ -47,7 +77,7 @@ class RequestTests : ESTestCase() {
         assertEquals(DocWriteRequest.OpType.CREATE, streamedReq.opType())
     }
 
-    fun `test index transform put request`() {
+    fun `test index transform update request`() {
         val transform = randomTransform().copy(seqNo = 1L, primaryTerm = 2L)
         val req = IndexTransformRequest(
                 transform = transform,
@@ -61,6 +91,14 @@ class RequestTests : ESTestCase() {
         assertEquals(transform.primaryTerm, streamedReq.ifPrimaryTerm())
         assertEquals(WriteRequest.RefreshPolicy.IMMEDIATE, streamedReq.refreshPolicy)
         assertEquals(DocWriteRequest.OpType.INDEX, streamedReq.opType())
+    }
+
+    fun `test preview transform request`() {
+        val transform = randomTransform()
+        val req = PreviewTransformRequest(transform = transform)
+        val out = BytesStreamOutput().apply { req.writeTo(this) }
+        val streamedReq = PreviewTransformRequest(buildStreamInputForTransforms(out))
+        assertEquals(transform, streamedReq.transform)
     }
 
     fun `test get transform request`() {
@@ -109,5 +147,12 @@ class RequestTests : ESTestCase() {
         assertEquals(50, streamedReq.size)
         assertEquals("sorted", streamedReq.sortField)
         assertEquals("desc", streamedReq.sortDirection)
+    }
+
+    fun `test empty ids delete transforms request`() {
+        val req = DeleteTransformsRequest(listOf())
+        val validated = req.validate()
+        assertNotNull("Expected validate to produce Exception", validated)
+        assertEquals("org.elasticsearch.action.ActionRequestValidationException: Validation Failed: 1: List of ids to delete is empty;", validated.toString())
     }
 }

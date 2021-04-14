@@ -65,7 +65,7 @@ data class Transform(
     val roles: List<String>,
     val pageSize: Int,
     val groups: List<Dimension>,
-    val aggregations: AggregatorFactories.Builder
+    val aggregations: AggregatorFactories.Builder = AggregatorFactories.builder()
 ) : ScheduledJobParameter, Writeable {
 
     init {
@@ -241,7 +241,7 @@ data class Transform(
             val roles = mutableListOf<String>()
             var pageSize: Int? = null
             val groups = mutableListOf<Dimension>()
-            var aggregations: AggregatorFactories.Builder? = null
+            var aggregations: AggregatorFactories.Builder = AggregatorFactories.builder()
 
             ensureExpectedToken(Token.START_OBJECT, xcp.currentToken(), xcp)
 
@@ -318,7 +318,7 @@ data class Transform(
                 roles = roles,
                 pageSize = requireNotNull(pageSize) { "Transform page size is null" },
                 groups = groups,
-                aggregations = requireNotNull(aggregations) { "Transform aggregation is null" }
+                aggregations = aggregations
             )
         }
     }

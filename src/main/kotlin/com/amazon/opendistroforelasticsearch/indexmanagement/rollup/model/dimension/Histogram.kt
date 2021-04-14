@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.getFieldFromMappings
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
@@ -25,6 +26,7 @@ import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
 import org.elasticsearch.search.aggregations.AggregatorFactories
 import org.elasticsearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder
 import java.io.IOException
+import org.elasticsearch.index.mapper.NumberFieldMapper
 import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder
 import org.elasticsearch.search.aggregations.bucket.composite.HistogramValuesSourceBuilder
 
@@ -68,6 +70,17 @@ data class Histogram(
             .missingBucket(true)
             .field(this.sourceField)
             .interval(this.interval)
+    }
+
+    override fun canBeRealizedInMappings(mappings: Map<String, Any>): Boolean {
+        val fieldType = getFieldFromMappings(sourceField, mappings)?.get("type") ?: return false
+
+        val numberTypes = mutableSetOf<String>()
+        NumberFieldMapper.NumberType.values().forEach {
+            numberTypes.add(it.typeName())
+        }
+
+        return fieldType in numberTypes
     }
 
     fun getRewrittenAggregation(

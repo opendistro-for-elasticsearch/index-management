@@ -38,6 +38,7 @@ import org.apache.logging.log4j.LogManager
 import org.elasticsearch.action.bulk.BackoffPolicy
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.Client
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
@@ -55,8 +56,15 @@ object TransformRunner : ScheduledJobRunner,
     private lateinit var transformMetadataService: TransformMetadataService
     private lateinit var transformSearchService: TransformSearchService
     private lateinit var transformIndexer: TransformIndexer
+    private lateinit var transformValidator: TransformValidator
 
-    fun initialize(client: Client, clusterService: ClusterService, xContentRegistry: NamedXContentRegistry, settings: Settings): TransformRunner {
+    fun initialize(
+        client: Client,
+        clusterService: ClusterService,
+        xContentRegistry: NamedXContentRegistry,
+        settings: Settings,
+        indexNameExpressionResolver: IndexNameExpressionResolver
+    ): TransformRunner {
         this.clusterService = clusterService
         this.esClient = client
         this.xContentRegistry = xContentRegistry
@@ -64,6 +72,7 @@ object TransformRunner : ScheduledJobRunner,
         this.transformSearchService = TransformSearchService(settings, clusterService, client)
         this.transformMetadataService = TransformMetadataService(client, xContentRegistry)
         this.transformIndexer = TransformIndexer(settings, clusterService, client)
+        this.transformValidator = TransformValidator(indexNameExpressionResolver, clusterService, client)
         return this
     }
 
@@ -89,6 +98,7 @@ object TransformRunner : ScheduledJobRunner,
         }
     }
 
+    // TODO: Add circuit breaker checks - [cluster healthy, utilization within limit]
     @Suppress("NestedBlockDepth", "ComplexMethod")
     private suspend fun executeJob(transform: Transform, metadata: TransformMetadata, context: JobExecutionContext) {
         var currentMetadata = metadata
@@ -128,28 +138,36 @@ object TransformRunner : ScheduledJobRunner,
                 failureReason = e.localizedMessage
             )
         } finally {
-            transformMetadataService.writeMetadata(currentMetadata, true)
-            logger.info("Disabling the transform job ${transform.id}")
-            updateTransform(transform.copy(enabled = false, enabledAt = null))
-            lock?.let { releaseLockForScheduledJob(context, it) }
+            lock?.let {
+                transformMetadataService.writeMetadata(currentMetadata, true)
+                logger.info("Disabling the transform job ${transform.id}")
+                updateTransform(transform.copy(enabled = false, enabledAt = null))
+                releaseLockForScheduledJob(context, it)
+            }
         }
     }
 
     private suspend fun executeJobIteration(transform: Transform, metadata: TransformMetadata): TransformMetadata {
-        // TODO: check if the transform job is valid
-        val transformSearchResult = transformSearchService.executeCompositeSearch(transform, metadata.afterKey)
-        val indexTimeInMillis = transformIndexer.index(transformSearchResult.docsToIndex)
-        val afterKey = transformSearchResult.afterKey
-        val stats = transformSearchResult.stats
-        val updatedStats = stats.copy(
-            indexTimeInMillis = stats.indexTimeInMillis + indexTimeInMillis, documentsIndexed = transformSearchResult.docsToIndex.size.toLong()
-        )
-        val updatedMetadata = metadata.mergeStats(updatedStats).copy(
-            afterKey = afterKey,
-            lastUpdatedAt = Instant.now(),
-            status = if (afterKey == null) TransformMetadata.Status.FINISHED else TransformMetadata.Status.STARTED
-        )
-        return transformMetadataService.writeMetadata(updatedMetadata, true)
+        val validationResult = transformValidator.validate(transform)
+        if (validationResult.isValid) {
+            val transformSearchResult = transformSearchService.executeCompositeSearch(transform, metadata.afterKey)
+            val indexTimeInMillis = transformIndexer.index(transformSearchResult.docsToIndex)
+            val afterKey = transformSearchResult.afterKey
+            val stats = transformSearchResult.stats
+            val updatedStats = stats.copy(
+                indexTimeInMillis = stats.indexTimeInMillis + indexTimeInMillis, documentsIndexed = transformSearchResult.docsToIndex.size.toLong()
+            )
+            val updatedMetadata = metadata.mergeStats(updatedStats).copy(
+                afterKey = afterKey,
+                lastUpdatedAt = Instant.now(),
+                status = if (afterKey == null) TransformMetadata.Status.FINISHED else TransformMetadata.Status.STARTED
+            )
+            return transformMetadataService.writeMetadata(updatedMetadata, true)
+        } else {
+            val failureMessage = "Failed validation - ${validationResult.issues}"
+            val updatedMetadata = metadata.copy(status = TransformMetadata.Status.FAILED, failureReason = failureMessage)
+            return transformMetadataService.writeMetadata(updatedMetadata, true)
+        }
     }
 
     private suspend fun updateTransform(transform: Transform): Transform {

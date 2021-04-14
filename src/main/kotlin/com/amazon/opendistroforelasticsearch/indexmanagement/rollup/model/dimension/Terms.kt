@@ -15,6 +15,7 @@
 
 package com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension
 
+import com.amazon.opendistroforelasticsearch.indexmanagement.util.IndexUtils.Companion.getFieldFromMappings
 import org.elasticsearch.common.io.stream.StreamInput
 import org.elasticsearch.common.io.stream.StreamOutput
 import org.elasticsearch.common.xcontent.ToXContent
@@ -61,6 +62,12 @@ data class Terms(
         return TermsValuesSourceBuilder(this.targetField)
             .missingBucket(true)
             .field(this.sourceField)
+    }
+
+    override fun canBeRealizedInMappings(mappings: Map<String, Any>): Boolean {
+        val fieldType = getFieldFromMappings(sourceField, mappings)?.get("type") ?: return false
+
+        return "keyword" == fieldType
     }
 
     // TODO missing terms field

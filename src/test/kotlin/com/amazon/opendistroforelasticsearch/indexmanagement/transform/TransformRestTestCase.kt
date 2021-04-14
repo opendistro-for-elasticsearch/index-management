@@ -6,6 +6,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementRest
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.rollup.model.dimension.Dimension
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._ID
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._PRIMARY_TERM
 import com.amazon.opendistroforelasticsearch.indexmanagement.util._SEQ_NO
@@ -19,7 +20,6 @@ import org.apache.http.message.BasicHeader
 import org.elasticsearch.client.Response
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.LoggingDeprecationHandler
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
 import org.elasticsearch.common.xcontent.XContentParser
 import org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken
@@ -53,7 +53,7 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         )
     }
 
-    protected fun createTransformJson(
+    private fun createTransformJson(
         transformString: String,
         transformId: String,
         refresh: Boolean = true
@@ -92,20 +92,32 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         createIndex(transform.sourceIndex, settings, mappingString)
     }
 
-    protected fun putDateDocumentInSourceIndex(transform: Transform) {
-        val dateHistogram = transform.groups.first()
-        val request = """
-            {
-              "${dateHistogram.sourceField}" : "${Instant.now()}"
-            }
-        """.trimIndent()
+    protected fun getTransformMetadata(metadataId: String): TransformMetadata {
         val response = client().makeRequest(
-            "POST",
-            "${transform.sourceIndex}/_doc?refresh=true",
-            emptyMap(),
-            StringEntity(request, APPLICATION_JSON)
+            "GET", "$INDEX_MANAGEMENT_INDEX/_doc/$metadataId", null, BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
         )
-        assertEquals("Request failed", RestStatus.CREATED, response.restStatus())
+        assertEquals("Unable to get transform metadata $metadataId", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser)
+
+        lateinit var id: String
+        var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
+        lateinit var metadata: TransformMetadata
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                _ID -> id = parser.text()
+                _SEQ_NO -> seqNo = parser.longValue()
+                _PRIMARY_TERM -> primaryTerm = parser.longValue()
+                TransformMetadata.TRANSFORM_METADATA_TYPE -> metadata = TransformMetadata.parse(parser, id, seqNo, primaryTerm)
+            }
+        }
+
+        return metadata
     }
 
     protected fun getTransform(
@@ -165,10 +177,6 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
 
     protected fun Transform.toHttpEntity(): HttpEntity = StringEntity(toJsonString(), APPLICATION_JSON)
 
-    protected fun newParser(response: Response): XContentParser {
-        return XContentType.JSON.xContent().createParser(NamedXContentRegistry(SearchModule(Settings.EMPTY, false, emptyList()).namedXContents),
-            LoggingDeprecationHandler.INSTANCE, response.entity.content)
-    }
     override fun xContentRegistry(): NamedXContentRegistry {
         return NamedXContentRegistry(SearchModule(Settings.EMPTY, false, emptyList()).namedXContents)
     }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.stop
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin
@@ -66,7 +81,7 @@ class TransportStopTransformAction @Inject constructor(
                 }
 
                 if (transform.metadataId != null) {
-                    getTransformMetadata(transform, request, actionListener)
+                    retrieveAndUpdateTransformMetadata(transform, request, actionListener)
                 } else {
                     updateTransformJob(transform, request, actionListener)
                 }
@@ -78,7 +93,7 @@ class TransportStopTransformAction @Inject constructor(
         })
     }
 
-    private fun getTransformMetadata(transform: Transform, request: StopTransformRequest, actionListener: ActionListener<AcknowledgedResponse>) {
+    private fun retrieveAndUpdateTransformMetadata(transform: Transform, request: StopTransformRequest, actionListener: ActionListener<AcknowledgedResponse>) {
         val req = GetRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, transform.metadataId).routing(transform.id)
         client.get(req, object : ActionListener<GetResponse> {
             override fun onResponse(response: GetResponse) {
@@ -146,7 +161,7 @@ class TransportStopTransformAction @Inject constructor(
         val now = Instant.now().toEpochMilli()
         request.index(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX).setIfSeqNo(transform.seqNo).setIfPrimaryTerm(transform.primaryTerm)
             .doc(mapOf(Transform.TRANSFORM_TYPE to mapOf(Transform.ENABLED_FIELD to false,
-                Transform.ENABLED_AT_FIELD to null, Transform.ENABLED_AT_FIELD to now)))
+                Transform.ENABLED_AT_FIELD to null, Transform.UPDATED_AT_FIELD to now)))
         client.update(request, object : ActionListener<UpdateResponse> {
             override fun onResponse(response: UpdateResponse) {
                 actionListener.onResponse(AcknowledgedResponse(response.result == DocWriteResponse.Result.UPDATED))

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.start
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.INDEX_MANAGEMENT_INDEX
@@ -40,7 +55,7 @@ class TransportStartTransformAction @Inject constructor(
     private val log = LogManager.getLogger(javaClass)
 
     override fun doExecute(task: Task, request: StartTransformRequest, actionListener: ActionListener<AcknowledgedResponse>) {
-        val getReq = GetTransformRequest(request.id(), null)
+        val getReq = GetTransformRequest(request.id())
         client.execute(GetTransformAction.INSTANCE, getReq, object : ActionListener<GetTransformResponse> {
             override fun onResponse(response: GetTransformResponse) {
                 val transform = response.transform
@@ -56,7 +71,7 @@ class TransportStartTransformAction @Inject constructor(
                     return if (transform.metadataId == null) {
                         actionListener.onResponse(AcknowledgedResponse(true))
                     } else {
-                        getTransformMetadata(transform, actionListener)
+                        retrieveAndUpdateTransformMetadata(transform, actionListener)
                     }
                 }
 
@@ -82,7 +97,7 @@ class TransportStartTransformAction @Inject constructor(
                 if (response.result == DocWriteResponse.Result.UPDATED) {
                     // If there is a metadata ID on transform then we need to set it back to STARTED or RETRY
                     if (transform.metadataId != null) {
-                        getTransformMetadata(transform, actionListener)
+                        retrieveAndUpdateTransformMetadata(transform, actionListener)
                     } else {
                         actionListener.onResponse(AcknowledgedResponse(true))
                     }
@@ -97,14 +112,15 @@ class TransportStartTransformAction @Inject constructor(
         })
     }
 
-    private fun getTransformMetadata(transform: Transform, actionListener: ActionListener<AcknowledgedResponse>) {
+    private fun retrieveAndUpdateTransformMetadata(transform: Transform, actionListener: ActionListener<AcknowledgedResponse>) {
         val req = GetRequest(INDEX_MANAGEMENT_INDEX, transform.metadataId).routing(transform.id)
         client.get(req, object : ActionListener<GetResponse> {
             override fun onResponse(response: GetResponse) {
                 if (!response.isExists || response.isSourceEmpty) {
                     // If there is no metadata doc then the runner will instantiate a new one
                     // in FAILED status which the user will need to retry from
-                    actionListener.onResponse(AcknowledgedResponse(true))
+                    actionListener.onFailure(ElasticsearchStatusException("Metadata doc missing for transform [${req.id()}]",
+                        RestStatus.NOT_FOUND))
                 } else {
                     val metadata = response.sourceAsBytesRef?.let {
                         val xcp = XContentHelper.createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, it, XContentType.JSON)
@@ -113,7 +129,8 @@ class TransportStartTransformAction @Inject constructor(
                     if (metadata == null) {
                         // If there is no metadata doc then the runner will instantiate a new one
                         // in FAILED status which the user will need to retry from
-                        actionListener.onResponse(AcknowledgedResponse(true))
+                        actionListener.onFailure(ElasticsearchStatusException("Metadata doc missing for transform [${req.id()}]",
+                            RestStatus.NOT_FOUND))
                     } else {
                         updateTransformMetadata(transform, metadata, actionListener)
                     }
@@ -132,7 +149,7 @@ class TransportStartTransformAction @Inject constructor(
             TransformMetadata.Status.FINISHED, TransformMetadata.Status.STOPPED -> TransformMetadata.Status.STARTED
             TransformMetadata.Status.STARTED, TransformMetadata.Status.INIT ->
                 return actionListener.onResponse(AcknowledgedResponse(true))
-            TransformMetadata.Status.FAILED -> TransformMetadata.Status.FAILED // What should happen here?
+            TransformMetadata.Status.FAILED -> TransformMetadata.Status.STARTED
         }
         val updateRequest = UpdateRequest(INDEX_MANAGEMENT_INDEX, transform.metadataId)
             .doc(mapOf(TransformMetadata.TRANSFORM_METADATA_TYPE to mapOf(TransformMetadata.STATUS_FIELD to updatedStatus.type,

@@ -16,12 +16,18 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRestTestCase
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformMetadata
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.randomTransform
+import com.amazon.opendistroforelasticsearch.indexmanagement.waitFor
+import com.amazon.opendistroforelasticsearch.jobscheduler.spi.schedule.IntervalSchedule
 import org.elasticsearch.client.ResponseException
 import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
@@ -77,8 +83,6 @@ class RestStartTransformActionIT : TransformRestTestCase() {
         }
     }
 
-    /*
-    // Need to verify what's expected behavior for these tests
     @Throws(Exception::class)
     fun `test starting a failed transform`() {
         val transform = randomTransform().copy(
@@ -93,7 +97,10 @@ class RestStartTransformActionIT : TransformRestTestCase() {
             targetIndex = "target_restart_failed_transform",
             metadataId = null,
             roles = emptyList(),
-            pageSize = 10
+            pageSize = 10,
+            groups = listOf(
+                Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
+            )
         ).let { createTransform(it, it.id) }
 
         // This should fail because we did not create a source index
@@ -151,7 +158,10 @@ class RestStartTransformActionIT : TransformRestTestCase() {
             targetIndex = "target_restart_finished_transform",
             metadataId = null,
             roles = emptyList(),
-            pageSize = 10
+            pageSize = 10,
+            groups = listOf(
+                Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
+            )
         ).let { createTransform(it, it.id) }
 
         updateTransformStartTime(transform)
@@ -185,5 +195,14 @@ class RestStartTransformActionIT : TransformRestTestCase() {
             assertIndexExists("target_restart_finished_transform")
         }
     }
-    */
+
+    @Throws(Exception::class)
+    fun `test start a transform that does not exist fails`() {
+        try {
+            client().makeRequest("POST", "$TRANSFORM_BASE_URI/does_not_exist/_start")
+            fail("Expected 400 Method NOT FOUND response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.NOT_FOUND, e.response.restStatus())
+        }
+    }
 }

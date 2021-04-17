@@ -117,8 +117,6 @@ class TransportStartTransformAction @Inject constructor(
         client.get(req, object : ActionListener<GetResponse> {
             override fun onResponse(response: GetResponse) {
                 if (!response.isExists || response.isSourceEmpty) {
-                    // If there is no metadata doc then the runner will instantiate a new one
-                    // in FAILED status which the user will need to retry from
                     actionListener.onFailure(ElasticsearchStatusException("Metadata doc missing for transform [${req.id()}]",
                         RestStatus.NOT_FOUND))
                 } else {
@@ -127,8 +125,6 @@ class TransportStartTransformAction @Inject constructor(
                         xcp.parseWithType(response.id, response.seqNo, response.primaryTerm, TransformMetadata.Companion::parse)
                     }
                     if (metadata == null) {
-                        // If there is no metadata doc then the runner will instantiate a new one
-                        // in FAILED status which the user will need to retry from
                         actionListener.onFailure(ElasticsearchStatusException("Metadata doc missing for transform [${req.id()}]",
                             RestStatus.NOT_FOUND))
                     } else {
@@ -154,6 +150,7 @@ class TransportStartTransformAction @Inject constructor(
         val updateRequest = UpdateRequest(INDEX_MANAGEMENT_INDEX, transform.metadataId)
             .doc(mapOf(TransformMetadata.TRANSFORM_METADATA_TYPE to mapOf(TransformMetadata.STATUS_FIELD to updatedStatus.type,
                 TransformMetadata.FAILURE_REASON to null, TransformMetadata.LAST_UPDATED_AT_FIELD to now)))
+            .routing(transform.id)
         client.update(updateRequest, object : ActionListener<UpdateResponse> {
             override fun onResponse(response: UpdateResponse) {
                 actionListener.onResponse(AcknowledgedResponse(response.result == DocWriteResponse.Result.UPDATED))

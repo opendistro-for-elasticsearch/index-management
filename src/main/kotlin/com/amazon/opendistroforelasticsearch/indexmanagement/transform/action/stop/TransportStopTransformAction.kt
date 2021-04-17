@@ -142,6 +142,7 @@ class TransportStopTransformAction @Inject constructor(
         val updateRequest = UpdateRequest(IndexManagementPlugin.INDEX_MANAGEMENT_INDEX, transform.metadataId)
             .doc(mapOf(TransformMetadata.TRANSFORM_METADATA_TYPE to mapOf(TransformMetadata.STATUS_FIELD to updatedStatus.type,
                 TransformMetadata.LAST_UPDATED_AT_FIELD to now)))
+            .routing(transform.id)
         client.update(updateRequest, object : ActionListener<UpdateResponse> {
             override fun onResponse(response: UpdateResponse) {
                 if (response.result == DocWriteResponse.Result.UPDATED) {

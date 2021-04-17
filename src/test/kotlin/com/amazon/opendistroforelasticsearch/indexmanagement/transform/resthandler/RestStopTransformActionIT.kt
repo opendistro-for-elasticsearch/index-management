@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRestTestCase
@@ -119,7 +120,7 @@ class RestStopTransformActionIT : TransformRestTestCase() {
         ).let { createTransform(it, it.id) }
         updateTransformStartTime(transform)
 
-        // Assert its in failed
+        // Assert it's in failed
         waitFor {
             val updatedTransform = getTransform(transform.id)
             val metadata = getTransformMetadata(updatedTransform.metadataId!!)
@@ -140,7 +141,8 @@ class RestStopTransformActionIT : TransformRestTestCase() {
         }
     }
 
-    /* Goes straight to finished before test can pick up STARTED status
+    // ISSUE: Goes straight to failed before test can pick up STARTED status
+
     @Throws(Exception::class)
     fun `test stopping transform with metadata`() {
         generateNYCTaxiData("source")
@@ -156,7 +158,10 @@ class RestStopTransformActionIT : TransformRestTestCase() {
             targetIndex = "target",
             metadataId = null,
             roles = emptyList(),
-            pageSize = 10
+            pageSize = 10,
+            groups = listOf(
+                Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
+            )
         ).let { createTransform(it, it.id) }
 
         updateTransformStartTime(transform)
@@ -178,9 +183,8 @@ class RestStopTransformActionIT : TransformRestTestCase() {
         val updatedTransform = getTransform(transform.id)
         assertFalse("Transform was not disabled", updatedTransform.enabled)
         val transformMetadata = getTransformMetadata(updatedTransform.metadataId!!)
-        assertEquals("Transform is not STOPPED", TransformMetadata.Status.STARTED, transformMetadata.status)
+        assertEquals("Transform is not STOPPED", TransformMetadata.Status.STOPPED, transformMetadata.status)
     }
-     */
 
     @Throws(Exception::class)
     fun `test stop a transform with no id fails`() {
@@ -189,6 +193,16 @@ class RestStopTransformActionIT : TransformRestTestCase() {
             fail("Expected 400 Method BAD_REQUEST response")
         } catch (e: ResponseException) {
             assertEquals("Unexpected status", RestStatus.BAD_REQUEST, e.response.restStatus())
+        }
+    }
+
+    @Throws(Exception::class)
+    fun `test stopping a transform that doesn't exist`() {
+        try {
+            client().makeRequest("POST", "$TRANSFORM_BASE_URI/does_not_exist/_stop")
+            fail("Expected 400 Method NOT_FOUND response")
+        } catch (e: ResponseException) {
+            assertEquals("Unexpected status", RestStatus.NOT_FOUND, e.response.restStatus())
         }
     }
 }

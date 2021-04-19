@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.TransformRestTestCase
@@ -36,7 +37,7 @@ class RestStartTransformActionIT : TransformRestTestCase() {
     @Throws(Exception::class)
     fun `test starting a stopped transform`() {
         val transform = createTransform(randomTransform().copy(enabled = false, enabledAt = null, metadataId = null))
-        assertTrue("Transform was not disabled", !transform.enabled)
+        assertFalse("Transform was not disabled", transform.enabled)
 
         val response = client().makeRequest("POST", "$TRANSFORM_BASE_URI/${transform.id}/_start")
         assertEquals("Start transform failed", RestStatus.OK, response.restStatus())
@@ -99,7 +100,8 @@ class RestStartTransformActionIT : TransformRestTestCase() {
             roles = emptyList(),
             pageSize = 10,
             groups = listOf(
-                Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
+                Terms(sourceField = "store_and_fwd_flag", targetField = "flag"),
+                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h")
             )
         ).let { createTransform(it, it.id) }
 

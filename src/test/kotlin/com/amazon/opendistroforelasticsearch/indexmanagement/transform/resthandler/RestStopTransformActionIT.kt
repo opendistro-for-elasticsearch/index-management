@@ -16,6 +16,7 @@
 package com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthandler
 
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
+import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.DateHistogram
 import com.amazon.opendistroforelasticsearch.indexmanagement.common.model.dimension.Terms
 import com.amazon.opendistroforelasticsearch.indexmanagement.makeRequest
 import com.amazon.opendistroforelasticsearch.indexmanagement.randomInstant
@@ -33,20 +34,6 @@ import java.time.temporal.ChronoUnit
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
 class RestStopTransformActionIT : TransformRestTestCase() {
-
-    @Throws(Exception::class)
-    fun `test stopping a started transform`() {
-        val transform = createTransform(randomTransform().copy(enabled = true, enabledAt = randomInstant(), metadataId = null))
-        assertTrue("Transform was not enabled", transform.enabled)
-
-        val response = client().makeRequest("POST", "$TRANSFORM_BASE_URI/${transform.id}/_stop")
-        assertEquals("Stop transform failed", RestStatus.OK, response.restStatus())
-        val expectedResponse = mapOf("acknowledged" to true)
-        assertEquals(expectedResponse, response.asMap())
-
-        val updatedTransform = getTransform(transform.id)
-        assertFalse("Transform was not disabled", updatedTransform.enabled)
-    }
 
     @Throws(Exception::class)
     fun `test stopping a stopped Transform`() {
@@ -127,11 +114,13 @@ class RestStopTransformActionIT : TransformRestTestCase() {
             assertEquals("Transform never failed", TransformMetadata.Status.FAILED, metadata.status)
         }
 
-        // Stop transform
-        val response = client().makeRequest("POST", "$TRANSFORM_BASE_URI/${transform.id}/_stop")
-        assertEquals("Stop transform failed", RestStatus.OK, response.restStatus())
-        val expectedResponse = mapOf("acknowledged" to true)
-        assertEquals(expectedResponse, response.asMap())
+        waitFor {
+            // Stop transform
+            val response = client().makeRequest("POST", "$TRANSFORM_BASE_URI/${transform.id}/_stop")
+            assertEquals("Stop transform failed", RestStatus.OK, response.restStatus())
+            val expectedResponse = mapOf("acknowledged" to true)
+            assertEquals(expectedResponse, response.asMap())
+        }
 
         // Assert transform still failed status
         waitFor {
@@ -144,22 +133,23 @@ class RestStopTransformActionIT : TransformRestTestCase() {
     // ISSUE: Goes straight to failed before test can pick up STARTED status
 
     @Throws(Exception::class)
-    fun `test stopping transform with metadata`() {
-        generateNYCTaxiData("source")
+    fun `test stopping a running transform`() {
+        generateNYCTaxiData("source_test_stop_running_transform")
         val transform = randomTransform().copy(
-            id = "basic_term_query",
+            id = "test_stop_running_transform",
             schemaVersion = 1L,
             enabled = true,
             jobSchedule = IntervalSchedule(Instant.now(), 1, ChronoUnit.MINUTES),
             updatedAt = Instant.now(),
             enabledAt = Instant.now(),
             description = "basic search test",
-            sourceIndex = "source",
-            targetIndex = "target",
+            sourceIndex = "source_test_stop_running_transform",
+            targetIndex = "target_test_stop_running_transform",
             metadataId = null,
             roles = emptyList(),
-            pageSize = 10,
+            pageSize = 1,
             groups = listOf(
+                DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
                 Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
             )
         ).let { createTransform(it, it.id) }

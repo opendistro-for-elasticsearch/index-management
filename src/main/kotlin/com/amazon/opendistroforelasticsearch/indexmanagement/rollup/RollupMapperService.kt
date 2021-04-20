@@ -146,8 +146,15 @@ class RollupMapperService(
                     return RollupJobValidationResult.Failure(getMappingsResult.message, getMappingsResult.cause)
             }
 
-            val indexMapping: MappingMetadata = res.mappings[index][_DOC]
-            val indexMappingSource = indexMapping.sourceAsMap
+            val indexTypeMappings = res.mappings[index]
+            if (indexTypeMappings.isEmpty) {
+                return RollupJobValidationResult.Invalid("Source index [$index] mappings are empty, cannot validate the job.")
+            }
+
+            // Starting from 6.0.0 an index can only have one mapping, but mapping type is still part of the APIs in 7.x
+            // Since a custom mapping type can be set for index using the first type mappings instead of _DOC mappings to validate
+            // https://www.elastic.co/guide/en/elasticsearch/reference/7.x/removal-of-types.html
+            val indexMappingSource = indexTypeMappings.first().value.sourceAsMap
 
             val issues = mutableSetOf<String>()
             // Validate source fields in dimensions
@@ -183,7 +190,9 @@ class RollupMapperService(
                 RollupJobValidationResult.Invalid("Invalid mappings for index [$index] because $issues")
             }
         } catch (e: Exception) {
-            return RollupJobValidationResult.Failure("Failed to validate the source index mappings", e)
+            val errorMessage = "Failed to validate the source index mappings"
+            logger.error(errorMessage, e)
+            return RollupJobValidationResult.Failure(errorMessage, e)
         }
     }
 

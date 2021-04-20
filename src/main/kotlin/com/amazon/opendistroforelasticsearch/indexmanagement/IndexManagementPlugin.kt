@@ -139,6 +139,7 @@ import org.elasticsearch.threadpool.ThreadPool
 import org.elasticsearch.transport.TransportInterceptor
 import org.elasticsearch.watcher.ResourceWatcherService
 import java.util.function.Supplier
+import org.elasticsearch.monitor.jvm.JvmService
 
 internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, ActionPlugin, Plugin() {
 
@@ -271,7 +272,8 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             .registerMetadataServices(RollupMetadataService(client, xContentRegistry))
             .registerConsumers()
         rollupInterceptor = RollupInterceptor(clusterService, settings, indexNameExpressionResolver)
-        val transformRunner = TransformRunner.initialize(client, clusterService, xContentRegistry, settings, indexNameExpressionResolver)
+        val jvmService = JvmService(environment.settings())
+        val transformRunner = TransformRunner.initialize(client, clusterService, xContentRegistry, settings, indexNameExpressionResolver, jvmService)
         this.indexNameExpressionResolver = indexNameExpressionResolver
         indexManagementIndices = IndexManagementIndices(client.admin().indices(), clusterService)
         val indexStateManagementHistory =
@@ -317,7 +319,9 @@ internal class IndexManagementPlugin : JobSchedulerExtension, NetworkPlugin, Act
             TransformSettings.TRANSFORM_JOB_INDEX_BACKOFF_COUNT,
             TransformSettings.TRANSFORM_JOB_INDEX_BACKOFF_MILLIS,
             TransformSettings.TRANSFORM_JOB_SEARCH_BACKOFF_COUNT,
-            TransformSettings.TRANSFORM_JOB_SEARCH_BACKOFF_MILLIS
+            TransformSettings.TRANSFORM_JOB_SEARCH_BACKOFF_MILLIS,
+            TransformSettings.TRANSFORM_CIRCUIT_BREAKER_ENABLED,
+            TransformSettings.TRANSFORM_CIRCUIT_BREAKER_JVM_THRESHOLD
         )
     }
 

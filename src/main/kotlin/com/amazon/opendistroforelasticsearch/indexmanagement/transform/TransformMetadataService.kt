@@ -71,7 +71,9 @@ class TransformMetadataService(private val esClient: Client, val xContentRegistr
     }
 
     private suspend fun createMetadata(transform: Transform): TransformMetadata {
-        val id = hashToFixedSize("TransformMetadata#${transform.id}")
+        // Including timestamp in the metadata id to prevent clashes if the job was deleted but metadata is not deleted, in that case we want to
+        // create a clean metadata doc
+        val id = hashToFixedSize("TransformMetadata#${transform.id}#${transform.lastUpdateTime}")
         val metadata = TransformMetadata(
             id = id,
             transformId = transform.id,

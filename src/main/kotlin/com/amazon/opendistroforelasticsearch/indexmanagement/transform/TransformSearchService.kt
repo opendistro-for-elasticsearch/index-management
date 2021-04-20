@@ -138,7 +138,7 @@ class TransformSearchService(
                 val id = transform.id + "#" + aggregatedBucket.key.entries.joinToString(":") { bucket -> bucket.value?.toString() ?: ODFE_MAGIC_NULL }
                 val hashedId = hashToFixedSize(id)
 
-                val document = if (waterMarkDocuments) transform.convertToDoc(aggregatedBucket.docCount) else mutableMapOf()
+                val document = transform.convertToDoc(aggregatedBucket.docCount, waterMarkDocuments)
                 aggregatedBucket.key.entries.forEach { bucket -> document[bucket.key] = bucket.value }
                 aggregatedBucket.aggregations.forEach { aggregation -> document[aggregation.name] = getAggregationValue(aggregation) }
 

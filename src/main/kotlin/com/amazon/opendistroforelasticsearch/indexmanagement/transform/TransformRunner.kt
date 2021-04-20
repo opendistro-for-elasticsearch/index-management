@@ -35,7 +35,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.apache.logging.log4j.LogManager
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse
 import org.elasticsearch.action.bulk.BackoffPolicy
+import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.action.support.WriteRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
@@ -43,6 +47,7 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.monitor.jvm.JvmService
 
 object TransformRunner : ScheduledJobRunner,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("TransformRunner")) {
@@ -63,7 +68,8 @@ object TransformRunner : ScheduledJobRunner,
         clusterService: ClusterService,
         xContentRegistry: NamedXContentRegistry,
         settings: Settings,
-        indexNameExpressionResolver: IndexNameExpressionResolver
+        indexNameExpressionResolver: IndexNameExpressionResolver,
+        jvmService: JvmService
     ): TransformRunner {
         this.clusterService = clusterService
         this.esClient = client
@@ -72,7 +78,7 @@ object TransformRunner : ScheduledJobRunner,
         this.transformSearchService = TransformSearchService(settings, clusterService, client)
         this.transformMetadataService = TransformMetadataService(client, xContentRegistry)
         this.transformIndexer = TransformIndexer(settings, clusterService, client)
-        this.transformValidator = TransformValidator(indexNameExpressionResolver, clusterService, client)
+        this.transformValidator = TransformValidator(indexNameExpressionResolver, clusterService, client, settings, jvmService)
         return this
     }
 

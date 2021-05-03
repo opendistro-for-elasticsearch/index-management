@@ -71,7 +71,7 @@ class RestPreviewTransformActionIT : TransformRestTestCase() {
             emptyMap(),
             transform.toHttpEntity()
         )
-        val expectedKeys = setOf("revenue", "passengerCount", "location")
+        val expectedKeys = setOf("revenue", "passengerCount", "location", "transform._doc_count")
         assertEquals("Preview transform failed", RestStatus.OK, response.restStatus())
         val transformedDocs = response.asMap()["documents"] as List<Map<String, Any>>
         assertEquals("Transformed docs have unexpected schema", expectedKeys, transformedDocs.first().keys)

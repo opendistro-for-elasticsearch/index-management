@@ -183,7 +183,6 @@ class RollupMapperService(
                 RollupJobValidationResult.Invalid("Invalid mappings for index [$index] because $issues")
             }
         } catch (e: Exception) {
-            logger.error(e)
             return RollupJobValidationResult.Failure("Failed to validate the source index mappings", e)
         }
     }

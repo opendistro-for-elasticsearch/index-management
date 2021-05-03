@@ -21,6 +21,7 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Tra
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformValidationResult
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.settings.TransformSettings
 import java.lang.IllegalStateException
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest
@@ -42,6 +43,8 @@ class TransformValidator(
     val settings: Settings,
     private val jvmService: JvmService
 ) {
+
+    private val logger = LogManager.getLogger(javaClass)
 
     @Volatile private var circuitBreakerEnabled = TransformSettings.TRANSFORM_CIRCUIT_BREAKER_ENABLED.get(settings)
     @Volatile private var circuitBreakerJvmThreshold = TransformSettings.TRANSFORM_CIRCUIT_BREAKER_JVM_THRESHOLD.get(settings)
@@ -88,6 +91,7 @@ class TransformValidator(
             val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
             throw TransformValidationException(errorMessage, unwrappedException)
         } catch (e: Exception) {
+            logger.error("Failed to validate transform [${transform.id}]", e)
             throw TransformValidationException(errorMessage, e)
         }
     }

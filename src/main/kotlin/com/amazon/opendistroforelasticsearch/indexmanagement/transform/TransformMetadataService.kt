@@ -84,7 +84,7 @@ class TransformMetadataService(private val esClient: Client, val xContentRegistr
         return writeMetadata(metadata)
     }
 
-    @Suppress("BlockingMethodInNonBlockingContext")
+    @Suppress("BlockingMethodInNonBlockingContext", "ThrowsCount")
     suspend fun writeMetadata(metadata: TransformMetadata, updating: Boolean = false): TransformMetadata {
         val errorMessage = "Failed to ${if (updating) "update" else "create"} metadata doc ${metadata.id} for transform job ${metadata.transformId}"
         try {

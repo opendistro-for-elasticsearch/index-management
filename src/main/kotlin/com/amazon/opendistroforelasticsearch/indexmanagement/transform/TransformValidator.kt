@@ -36,6 +36,7 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.monitor.jvm.JvmService
 import org.elasticsearch.transport.RemoteTransportException
 
+@Suppress("SpreadOperator")
 class TransformValidator(
     private val indexNameExpressionResolver: IndexNameExpressionResolver,
     private val clusterService: ClusterService,

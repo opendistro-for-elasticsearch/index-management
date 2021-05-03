@@ -30,6 +30,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import org.elasticsearch.search.aggregations.AggregatorFactories
 
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
@@ -151,7 +152,8 @@ class RestStopTransformActionIT : TransformRestTestCase() {
             groups = listOf(
                 DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h"),
                 Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
-            )
+            ),
+            aggregations = AggregatorFactories.builder()
         ).let { createTransform(it, it.id) }
 
         updateTransformStartTime(transform)

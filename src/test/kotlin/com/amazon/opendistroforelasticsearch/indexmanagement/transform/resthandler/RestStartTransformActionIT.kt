@@ -29,6 +29,7 @@ import org.elasticsearch.rest.RestStatus
 import org.elasticsearch.test.junit.annotations.TestLogging
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import org.elasticsearch.search.aggregations.AggregatorFactories
 
 @TestLogging(value = "level:DEBUG", reason = "Debugging tests")
 @Suppress("UNCHECKED_CAST")
@@ -102,7 +103,8 @@ class RestStartTransformActionIT : TransformRestTestCase() {
             groups = listOf(
                 Terms(sourceField = "store_and_fwd_flag", targetField = "flag"),
                 DateHistogram(sourceField = "tpep_pickup_datetime", fixedInterval = "1h")
-            )
+            ),
+            aggregations = AggregatorFactories.builder()
         ).let { createTransform(it, it.id) }
 
         // This should fail because we did not create a source index
@@ -119,6 +121,7 @@ class RestStartTransformActionIT : TransformRestTestCase() {
 
         // Now create the missing source index
         generateNYCTaxiData("source_restart_failed_transform")
+        assertIndexExists("source_restart_failed_transform")
 
         // And call _start on the failed transform job
         val response = client().makeRequest("POST", "$TRANSFORM_BASE_URI/${transform.id}/_start")
@@ -148,6 +151,7 @@ class RestStartTransformActionIT : TransformRestTestCase() {
     @Throws(Exception::class)
     fun `test starting a finished transform`() {
         generateNYCTaxiData("source_restart_finished_transform")
+        assertIndexExists("source_restart_finished_transform")
         val transform = randomTransform().copy(
             id = "restart_finished_rollup",
             schemaVersion = 1L,
@@ -163,7 +167,8 @@ class RestStartTransformActionIT : TransformRestTestCase() {
             pageSize = 10,
             groups = listOf(
                 Terms(sourceField = "store_and_fwd_flag", targetField = "flag")
-            )
+            ),
+            aggregations = AggregatorFactories.builder()
         ).let { createTransform(it, it.id) }
 
         updateTransformStartTime(transform)

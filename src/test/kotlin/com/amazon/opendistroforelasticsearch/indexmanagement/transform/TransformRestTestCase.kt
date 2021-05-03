@@ -148,6 +148,35 @@ abstract class TransformRestTestCase : IndexManagementRestTestCase() {
         return transform
     }
 
+    protected fun getTransformMetadata(
+        metadataId: String,
+        header: BasicHeader = BasicHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+    ): TransformMetadata {
+        val response = client().makeRequest("GET", "$INDEX_MANAGEMENT_INDEX/_doc/$metadataId", null, header)
+        assertEquals("Unable to get transform metadata $metadataId", RestStatus.OK, response.restStatus())
+
+        val parser = createParser(XContentType.JSON.xContent(), response.entity.content)
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser)
+
+        lateinit var id: String
+        var primaryTerm = SequenceNumbers.UNASSIGNED_PRIMARY_TERM
+        var seqNo = SequenceNumbers.UNASSIGNED_SEQ_NO
+        lateinit var metadata: TransformMetadata
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            parser.nextToken()
+
+            when (parser.currentName()) {
+                _ID -> id = parser.text()
+                _SEQ_NO -> seqNo = parser.longValue()
+                _PRIMARY_TERM -> primaryTerm = parser.longValue()
+                TransformMetadata.TRANSFORM_METADATA_TYPE -> metadata = TransformMetadata.parse(parser, id, seqNo, primaryTerm)
+            }
+        }
+
+        return metadata
+    }
+
     protected fun updateTransformStartTime(update: Transform, desiredStartTimeMillis: Long? = null) {
         // Before updating start time of a job always make sure there are no unassigned shards that could cause the config
         // index to move to a new node and negate this forced start

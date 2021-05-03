@@ -35,6 +35,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilder
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.AggregatorFactories
 import org.elasticsearch.test.rest.ESRestTestCase
+import java.util.*
 
 fun randomGroups(): List<Dimension> {
     val dimensions = mutableListOf<Dimension>()
@@ -76,8 +77,8 @@ fun randomTransform(): Transform {
         enabled = enabled,
         enabledAt = if (enabled) randomInstant() else null,
         description = ESRestTestCase.randomAlphaOfLength(10),
-        sourceIndex = ESRestTestCase.randomAlphaOfLength(10),
-        targetIndex = ESRestTestCase.randomAlphaOfLength(10),
+        sourceIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
+        targetIndex = ESRestTestCase.randomAlphaOfLength(10).toLowerCase(Locale.ROOT),
         roles = ESRestTestCase.randomList(10) { ESRestTestCase.randomAlphaOfLength(10) },
         pageSize = ESRestTestCase.randomIntBetween(1, 10000),
         groups = randomGroups(),

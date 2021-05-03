@@ -21,6 +21,8 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.ge
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.get.GetTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.index.IndexTransformAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.preview.PreviewTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.start.StartTransformAction
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.stop.StopTransformAction
 import org.elasticsearch.test.ESTestCase
 
 class ActionTests : ESTestCase() {
@@ -53,5 +55,15 @@ class ActionTests : ESTestCase() {
     fun `test explain transforms name`() {
         assertNotNull(ExplainTransformAction.INSTANCE.name())
         assertEquals(ExplainTransformAction.INSTANCE.name(), ExplainTransformAction.NAME)
+    }
+
+    fun `test start transform name`() {
+        assertNotNull(StartTransformAction.INSTANCE.name())
+        assertEquals(StartTransformAction.INSTANCE.name(), StartTransformAction.NAME)
+    }
+
+    fun `test stop transform name`() {
+        assertNotNull(StopTransformAction.INSTANCE.name())
+        assertEquals(StopTransformAction.INSTANCE.name(), StopTransformAction.NAME)
     }
 }

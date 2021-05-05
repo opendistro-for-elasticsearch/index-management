@@ -18,6 +18,7 @@ package com.amazon.opendistroforelasticsearch.indexmanagement.transform.resthand
 import com.amazon.opendistroforelasticsearch.indexmanagement.IndexManagementPlugin.Companion.TRANSFORM_BASE_URI
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsAction
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsRequest
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.action.delete.DeleteTransformsRequest.Companion.DEFAULT_FORCE_DELETE
 import com.amazon.opendistroforelasticsearch.indexmanagement.util.REFRESH
 import org.elasticsearch.action.support.WriteRequest.RefreshPolicy
 import org.elasticsearch.client.node.NodeClient
@@ -43,10 +44,10 @@ class RestDeleteTransformAction : BaseRestHandler() {
     @Throws(IOException::class)
     override fun prepareRequest(request: RestRequest, client: NodeClient): RestChannelConsumer {
         val transformID = request.param("transformID")
-        val refreshPolicy = RefreshPolicy.parse(request.param(REFRESH, RefreshPolicy.IMMEDIATE.value))
+        val force = request.paramAsBoolean("force", DEFAULT_FORCE_DELETE)
         return RestChannelConsumer { channel ->
             channel.newBuilder()
-            val deleteTransformsRequest = DeleteTransformsRequest(transformID.split(","))
+            val deleteTransformsRequest = DeleteTransformsRequest(transformID.split(","), force)
             client.execute(DeleteTransformsAction.INSTANCE, deleteTransformsRequest, RestToXContentListener(channel))
         }
     }

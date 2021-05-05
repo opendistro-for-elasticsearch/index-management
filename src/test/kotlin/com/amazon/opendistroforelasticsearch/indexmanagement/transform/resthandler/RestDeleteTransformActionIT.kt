@@ -49,12 +49,24 @@ class RestDeleteTransformActionIT : TransformRestTestCase() {
         createTransform(transform, transform.id, refresh = true)
 
         try {
-            val deleteResponse = client().makeRequest("DELETE",
+            client().makeRequest("DELETE",
                 "$TRANSFORM_BASE_URI/${transform.id}")
             fail("Expected an Exception")
         } catch (e: Exception) {
             assertEquals("Expected ElasticsearchStatusException", ResponseException::class, e::class)
         }
+    }
+
+    @Throws(Exception::class)
+    fun `test deleting an enabled transform with force flag`() {
+        val transform = randomTransform().copy(enabled = true)
+        createTransform(transform, transform.id, refresh = true)
+
+        client().makeRequest("DELETE",
+                                 "$TRANSFORM_BASE_URI/${transform.id}?force=true")
+        val getResponse = client().makeRequest("HEAD", "$TRANSFORM_BASE_URI/${transform.id}")
+        assertEquals("Deleted transform still exists", RestStatus.NOT_FOUND, getResponse.restStatus())
+
     }
 
     @Throws(Exception::class)

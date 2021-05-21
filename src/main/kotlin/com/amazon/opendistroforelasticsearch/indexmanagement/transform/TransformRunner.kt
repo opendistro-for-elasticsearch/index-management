@@ -43,6 +43,7 @@ import org.elasticsearch.cluster.service.ClusterService
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.common.xcontent.NamedXContentRegistry
+import org.elasticsearch.monitor.jvm.JvmService
 
 object TransformRunner : ScheduledJobRunner,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineName("TransformRunner")) {
@@ -63,7 +64,8 @@ object TransformRunner : ScheduledJobRunner,
         clusterService: ClusterService,
         xContentRegistry: NamedXContentRegistry,
         settings: Settings,
-        indexNameExpressionResolver: IndexNameExpressionResolver
+        indexNameExpressionResolver: IndexNameExpressionResolver,
+        jvmService: JvmService
     ): TransformRunner {
         this.clusterService = clusterService
         this.esClient = client
@@ -72,7 +74,7 @@ object TransformRunner : ScheduledJobRunner,
         this.transformSearchService = TransformSearchService(settings, clusterService, client)
         this.transformMetadataService = TransformMetadataService(client, xContentRegistry)
         this.transformIndexer = TransformIndexer(settings, clusterService, client)
-        this.transformValidator = TransformValidator(indexNameExpressionResolver, clusterService, client)
+        this.transformValidator = TransformValidator(indexNameExpressionResolver, clusterService, client, settings, jvmService)
         return this
     }
 

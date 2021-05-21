@@ -19,23 +19,45 @@ import com.amazon.opendistroforelasticsearch.indexmanagement.elasticapi.suspendU
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.exceptions.TransformValidationException
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.Transform
 import com.amazon.opendistroforelasticsearch.indexmanagement.transform.model.TransformValidationResult
-import com.amazon.opendistroforelasticsearch.indexmanagement.util._DOC
+import com.amazon.opendistroforelasticsearch.indexmanagement.transform.settings.TransformSettings
 import java.lang.IllegalStateException
+import org.apache.logging.log4j.LogManager
 import org.elasticsearch.ExceptionsHelper
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse
 import org.elasticsearch.action.support.IndicesOptions
 import org.elasticsearch.client.Client
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver
 import org.elasticsearch.cluster.service.ClusterService
+import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.monitor.jvm.JvmService
 import org.elasticsearch.transport.RemoteTransportException
 
+@Suppress("SpreadOperator")
 class TransformValidator(
     private val indexNameExpressionResolver: IndexNameExpressionResolver,
     private val clusterService: ClusterService,
-    private val esClient: Client
+    private val esClient: Client,
+    val settings: Settings,
+    private val jvmService: JvmService
 ) {
 
+    private val logger = LogManager.getLogger(javaClass)
+
+    @Volatile private var circuitBreakerEnabled = TransformSettings.TRANSFORM_CIRCUIT_BREAKER_ENABLED.get(settings)
+    @Volatile private var circuitBreakerJvmThreshold = TransformSettings.TRANSFORM_CIRCUIT_BREAKER_JVM_THRESHOLD.get(settings)
+
+    init {
+        clusterService.clusterSettings.addSettingsUpdateConsumer(TransformSettings.TRANSFORM_CIRCUIT_BREAKER_ENABLED) {
+            circuitBreakerEnabled = it
+        }
+        clusterService.clusterSettings.addSettingsUpdateConsumer(TransformSettings.TRANSFORM_CIRCUIT_BREAKER_JVM_THRESHOLD) {
+            circuitBreakerJvmThreshold = it
+        }
+    }
     /**
      * // TODO: When FGAC is supported in transform should check the user has the correct permissions
      * Validates the provided transform. Validation checks include the following:
@@ -45,11 +67,24 @@ class TransformValidator(
     suspend fun validate(transform: Transform): TransformValidationResult {
         val errorMessage = "Failed to validate the transform job"
         try {
+            val issues = mutableListOf<String>()
             val concreteIndices =
                 indexNameExpressionResolver.concreteIndexNames(clusterService.state(), IndicesOptions.lenientExpand(), transform.sourceIndex)
             if (concreteIndices.isEmpty()) return TransformValidationResult(false, listOf("No specified source index exist in the cluster"))
 
-            val issues = mutableListOf<String>()
+            val request = ClusterHealthRequest()
+                .indices(*concreteIndices)
+                .waitForYellowStatus()
+            val response: ClusterHealthResponse = esClient.suspendUntil { execute(ClusterHealthAction.INSTANCE, request, it) }
+            if (response.isTimedOut) {
+                issues.add("Cannot determine that the requested source indices are healthy")
+                return TransformValidationResult(issues.isEmpty(), issues)
+            }
+
+            if (circuitBreakerEnabled && jvmService.stats().mem.heapUsedPercent > circuitBreakerJvmThreshold) {
+                issues.add("The cluster is breaching the jvm usage threshold [$circuitBreakerJvmThreshold], cannot execute the transform")
+                return TransformValidationResult(issues.isEmpty(), issues)
+            }
             concreteIndices.forEach { index -> issues.addAll(validateIndex(index, transform)) }
 
             return TransformValidationResult(issues.isEmpty(), issues)
@@ -57,6 +92,7 @@ class TransformValidator(
             val unwrappedException = ExceptionsHelper.unwrapCause(e) as Exception
             throw TransformValidationException(errorMessage, unwrappedException)
         } catch (e: Exception) {
+            logger.error("Failed to validate transform [${transform.id}]", e)
             throw TransformValidationException(errorMessage, e)
         }
     }
@@ -68,14 +104,22 @@ class TransformValidator(
      */
     private suspend fun validateIndex(index: String, transform: Transform): List<String> {
         val request = GetMappingsRequest().indices(index)
+        val issues = mutableListOf<String>()
         val result: GetMappingsResponse =
             esClient.admin().indices().suspendUntil { getMappings(request, it) } ?: throw IllegalStateException("GetMappingResponse for [$index] " +
                                                                                                                     "was null")
-        val mappings = result.mappings[index][_DOC].sourceAsMap
+        val indexTypeMappings = result.mappings[index]
+        if (indexTypeMappings.isEmpty) {
+            issues.add("Source index [$index] mappings are empty, cannot validate the job.")
+            return issues
+        }
 
-        val issues = mutableListOf<String>()
+        // Starting from 6.0.0 an index can only have one mapping type, but mapping type is still part of the APIs in 7.x, allowing users to
+        // set a custom mapping type. As a result using first mapping type found instead of _DOC mapping type to validate
+        val indexMappingSource = indexTypeMappings.first().value.sourceAsMap
+
         transform.groups.forEach { group ->
-            if (!group.canBeRealizedInMappings(mappings)) {
+            if (!group.canBeRealizedInMappings(indexMappingSource)) {
                 issues.add("Cannot find a field [${group.sourceField}] that can be grouped as [${group.type.type}] in [$index]")
             }
         }

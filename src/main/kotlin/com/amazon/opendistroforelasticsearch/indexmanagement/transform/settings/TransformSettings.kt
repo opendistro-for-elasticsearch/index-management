@@ -51,5 +51,21 @@ class TransformSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic
         )
+
+        val TRANSFORM_CIRCUIT_BREAKER_ENABLED: Setting<Boolean> = Setting.boolSetting(
+            "opendistro.transform.circuit_breaker.enabled",
+            true,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
+
+        val TRANSFORM_CIRCUIT_BREAKER_JVM_THRESHOLD: Setting<Int> = Setting.intSetting(
+            "opendistro.transform.circuit_breaker.jvm.threshold",
+            85,
+            0,
+            100,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        )
     }
 }

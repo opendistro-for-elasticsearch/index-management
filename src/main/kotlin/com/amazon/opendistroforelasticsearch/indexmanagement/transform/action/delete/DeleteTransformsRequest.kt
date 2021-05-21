@@ -23,12 +23,14 @@ import org.elasticsearch.common.io.stream.StreamOutput
 import java.io.IOException
 
 class DeleteTransformsRequest(
-    val ids: List<String>
+    val ids: List<String>,
+    val force: Boolean
 ) : ActionRequest() {
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
-        ids = sin.readStringList()
+        ids = sin.readStringList(),
+        force = sin.readBoolean()
     )
 
     override fun validate(): ActionRequestValidationException? {
@@ -43,5 +45,10 @@ class DeleteTransformsRequest(
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeStringCollection(ids)
+        out.writeBoolean(force)
+    }
+
+    companion object {
+        const val DEFAULT_FORCE_DELETE = false
     }
 }

@@ -43,9 +43,7 @@ class TransportDeleteTransformsAction @Inject constructor(
 ) {
 
     override fun doExecute(task: Task, request: DeleteTransformsRequest, actionListener: ActionListener<BulkResponse>) {
-
         // TODO: if metadata id exists delete the metadata doc else just delete transform
-
         // Use Multi-Get Request
         val getRequest = MultiGetRequest()
         val includes = arrayOf(
@@ -69,7 +67,7 @@ class TransportDeleteTransformsAction @Inject constructor(
                         return
                     }
 
-                    bulkDelete(response, request.ids, actionListener)
+                    bulkDelete(response, request.ids, request.force, actionListener)
                 } catch (e: Exception) {
                     actionListener.onFailure(e)
                 }
@@ -79,7 +77,7 @@ class TransportDeleteTransformsAction @Inject constructor(
         })
     }
 
-    private fun bulkDelete(response: MultiGetResponse, ids: List<String>, actionListener: ActionListener<BulkResponse>) {
+    private fun bulkDelete(response: MultiGetResponse, ids: List<String>, forceDelete: Boolean, actionListener: ActionListener<BulkResponse>) {
         val enabledIDs = mutableListOf<String>()
         val notTransform = mutableListOf<String>()
 
@@ -90,7 +88,7 @@ class TransportDeleteTransformsAction @Inject constructor(
                 if (enabled == null) {
                     notTransform.add(it.id)
                 }
-                if (enabled == true) {
+                if (enabled == true && !forceDelete) {
                     enabledIDs.add(it.id)
                 }
             }
@@ -105,7 +103,7 @@ class TransportDeleteTransformsAction @Inject constructor(
 
         if (enabledIDs.isNotEmpty()) {
             actionListener.onFailure(ElasticsearchStatusException(
-                "$enabledIDs transform(s) are enabled, please disable them before deleting them", RestStatus.CONFLICT
+                "$enabledIDs transform(s) are enabled, please disable them before deleting them or set force flag", RestStatus.CONFLICT
             ))
             return
         }

@@ -75,9 +75,8 @@ class TransformRunnerIT : TransformRestTestCase() {
         assertEquals("More than expected documents processed", 5000L, metadata.stats.documentsProcessed)
         assertTrue("Doesn't capture indexed time", metadata.stats.indexTimeInMillis > 0)
         assertTrue("Didn't capture search time", metadata.stats.searchTimeInMillis > 0)
-
-        // With data filter
     }
+
     fun `test transform with data filter`() {
         if (!indexExists("transform-source-index")) {
             generateNYCTaxiData("transform-source-index")

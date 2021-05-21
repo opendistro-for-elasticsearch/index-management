@@ -145,11 +145,18 @@ data class Transform(
         out.writeOptionalWriteable(aggregations)
     }
 
-    fun convertToDoc(docCount: Long): MutableMap<String, Any?> =
-        mutableMapOf(
-            TRANSFORM_DOC_ID_FIELD to this.id,
-            TRANSFORM_DOC_COUNT_FIELD to docCount
-        )
+    fun convertToDoc(docCount: Long, includeId: Boolean = true): MutableMap<String, Any?> {
+        return if (includeId) {
+            mutableMapOf(
+                TRANSFORM_DOC_ID_FIELD to this.id,
+                TRANSFORM_DOC_COUNT_FIELD to docCount
+            )
+        } else {
+            mutableMapOf(
+                TRANSFORM_DOC_COUNT_FIELD to docCount
+            )
+        }
+    }
 
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(

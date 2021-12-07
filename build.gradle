@@ -70,7 +70,9 @@ configurations.all {
         force 'org.apache.httpcomponents:httpclient-osgi:4.5.13'
         force 'org.apache.httpcomponents.client5:httpclient5:5.0.3'
         force 'org.apache.httpcomponents.client5:httpclient5-osgi:5.0.3'
-        force 'com.fasterxml.jackson.core:jackson-databind:2.10.4'
+        force 'com.fasterxml.jackson.core:jackson-databind:2.11.4'
+        force 'com.fasterxml.jackson.core:jackson-core:2.11.4'
+        force 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.11.4'
         force 'org.yaml:snakeyaml:1.26'
         force 'org.codehaus.plexus:plexus-utils:3.0.24'
     }
@@ -133,6 +135,7 @@ dependencies {
     compile "com.amazon.opendistroforelasticsearch:notification:1.13.1.0"
     compile "com.amazon.opendistroforelasticsearch:common-utils:1.13.0.0"
     compile "com.github.seancfoley:ipaddress:5.3.3"
+    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.11.4"
 
     testCompile "org.elasticsearch.test:framework:${es_version}"
     testCompile "org.jetbrains.kotlin:kotlin-test:${kotlin_version}"
